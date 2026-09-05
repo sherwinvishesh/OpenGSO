@@ -164,7 +164,10 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     '',
     'Options',
     '  --bot <name>       user agent to impersonate (default: ClaudeBot)',
+    '  --verbose, -v      show the exact curl and the headers that came back for each probe',
     '  --json             machine-readable output',
+    '  --out <file>       write the output to a file instead of stdout',
+    '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
     '  --timeout <secs>   per-request timeout (default: 15)',
   ],
   setup: [

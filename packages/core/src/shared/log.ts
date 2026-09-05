@@ -3,7 +3,9 @@ const ESC = String.fromCharCode(27) + '[';
 
 const enabled = (): boolean => {
   if (process.env.NO_COLOR) return false;
-  if (process.env.FORCE_COLOR) return true;
+  // FORCE_COLOR=0 is the conventional way to turn colour off, so it cannot be read as merely "set".
+  const force = process.env.FORCE_COLOR;
+  if (force !== undefined && force !== '') return force !== '0' && force.toLowerCase() !== 'false';
   return Boolean(process.stdout && process.stdout.isTTY);
 };
 

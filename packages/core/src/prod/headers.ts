@@ -81,6 +81,21 @@ export const NOT_ACCEPTABLE_BODY = [
   'Your Accept header asked for neither.',
 ].join('\n');
 
+/**
+ * `Vary` is a comma-separated list of field names, so this has to compare whole tokens. Matching
+ * the substring "accept" would count `Vary: Accept-Encoding` - which almost every compressed
+ * response carries - as a pass, and no real site would ever fail the check.
+ *
+ * It lives here, beside the code that writes the header, so the audit and the implementation can
+ * never disagree about what counts.
+ */
+export function varyIncludesAccept(value: string | null | undefined): boolean {
+  return (value ?? '')
+    .split(',')
+    .map((token) => token.trim().toLowerCase())
+    .some((token) => token === 'accept' || token === '*');
+}
+
 /** Parse a `Link` header and pull out the markdown alternate, if one is advertised. */
 export function parseLinkAlternate(header: string | null | undefined): string | undefined {
   if (!header) return undefined;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AEO_SPEC_VERSION,
+  AI_BOTS,
   DEFAULT_MARKDOWN_ROUTING,
   HEADERS,
   MARKDOWN_CONTENT_TYPE,
@@ -206,5 +207,55 @@ describe('bot identification', () => {
     expect(identifyBot('Google-Extended')).toBeUndefined();
     expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Google-Extended');
     expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Applebot-Extended');
+  });
+});
+
+/**
+ * §7's second lever is blocking, and it is expressed exclusively in the robots.txt that `generate`
+ * writes. There is no blocking code in prod at all, which is easy to say and worth proving: a
+ * single "if bot in blocked list, return 403" added later would turn a format router into an
+ * access-control layer, and that is the mistake §16 is aimed at.
+ */
+describe('prod has no blocking code path', () => {
+  const BLOCKING = new Set([401, 403, 405, 429, 451]);
+
+  it('answers every known bot without ever blocking, routed or not', async () => {
+    for (const bot of AI_BOTS) {
+      for (const pattern of bot.uaPatterns) {
+        const ua = `Mozilla/5.0 (compatible; ${pattern}/1.0; +https://example.com/bot)`;
+        for (const routing of [DEFAULT_MARKDOWN_ROUTING, [] as string[]]) {
+          for (const path of ['/resume', '/resume.md', '/unknown-page']) {
+            const decision = handleRequest(request(path, { 'user-agent': ua, accept: BROWSER_ACCEPT }), {
+              store,
+              markdownRouting: routing,
+            });
+            const status = decision.type === 'passthrough' ? 200 : decision.response.status;
+            expect(BLOCKING.has(status), `${bot.name} on ${path} got ${status}`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it('treats a bot missing from the routing list as an ordinary visitor, not a suspect', () => {
+    const decision = handleRequest(request('/resume', { 'user-agent': GPTBOT, accept: BROWSER_ACCEPT }), {
+      store,
+      markdownRouting: ['ClaudeBot'],
+    });
+    expect(decision.type).toBe('passthrough');
+    expect(decision.classification.kind).toBe('unrouted-bot');
+    expect(decision.classification.reason).toContain('never blocked');
+  });
+
+  it('ignores a blocking list even when one is handed to it', async () => {
+    // `bots.blocked` is a generate-side setting. Smuggling it into the runtime context must change
+    // nothing, because nothing here reads it - the type does not have the field and neither does
+    // the code. If prod ever grows a blocking branch, this is where it shows up.
+    const withBlocklist = { store, markdownRouting: DEFAULT_MARKDOWN_ROUTING, blocked: ['GPTBot'] } as never;
+    const decision = handleRequest(request('/resume', { 'user-agent': GPTBOT }), withBlocklist);
+    expect(decision.type).toBe('markdown');
+    if (decision.type !== 'markdown') return;
+    expect(decision.response.status).toBe(200);
+    expect(await decision.response.text()).toContain('Shipped 4 projects');
   });
 });

@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom';
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
 import { parseRobots } from '../prod/startup.js';
+import { varyIncludesAccept } from '../prod/headers.js';
 import { extractPage } from '../generate/extract.js';
 import { parseFrontmatter } from '../generate/frontmatter.js';
 import { verifyFidelity } from '../generate/fidelity.js';
@@ -301,18 +302,6 @@ function checkTwinNoindex(e: Evidence): CheckResult {
   }
   if (!/\bnoindex\b/i.test(value)) return fail('B6', `X-Robots-Tag is "${value}" and does not include noindex.`);
   return pass('B6', `X-Robots-Tag includes noindex ("${value}").`);
-}
-
-/**
- * `Vary` is a comma-separated list of field names, so this has to compare whole tokens. Matching
- * the substring "accept" would count `Vary: Accept-Encoding` - which almost every compressed
- * response carries - as a pass, and the check would never fail on a real site.
- */
-function varyIncludesAccept(value: string): boolean {
-  return value
-    .split(',')
-    .map((token) => token.trim().toLowerCase())
-    .some((token) => token === 'accept' || token === '*');
 }
 
 function checkVaryAccept(e: Evidence): CheckResult {
