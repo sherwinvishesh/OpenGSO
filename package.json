@@ -1,0 +1,35 @@
+{
+  "name": "opengeo-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenGEO monorepo root. Never published.",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/testing -w packages/generate -w packages/prod -w packages/cli -w packages/opengeo",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish",
+    "example:dev": "npm run dev -w examples/nextjs-demo",
+    "example:build": "npm run build -w examples/nextjs-demo",
+    "example:start": "npm run start -w examples/nextjs-demo"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.15.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

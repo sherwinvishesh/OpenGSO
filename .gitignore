@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.next/
+out/
+*.tgz
+.env
+.env.local
+.DS_Store
+
+# .opengeo/manifest.json is deliberately NOT ignored: opengeo-prod reads it at boot,
+# so it has to travel with the deploy the same way public/md/*.md does.

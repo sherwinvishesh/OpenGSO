@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "specVersion": "opengeo/1.0",
+  "site": "http://localhost:3000",
+  "generatedAt": "2026-09-05T01:25:48.251Z",
+  "pages": {
+    "/": {
+      "route": "/",
+      "url": "http://localhost:3000/",
+      "title": "Aurora Fieldwork",
+      "file": "md/index.md",
+      "tokens": 188,
+      "wordCount": 144,
+      "sourceHash": "9641f8eb43e6051b",
+      "lastUpdated": "2026-09-05T01:25:48.515Z",
+      "tier": "free"
+    }
+  }
+}

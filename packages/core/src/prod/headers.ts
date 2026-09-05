@@ -1,0 +1,98 @@
+import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
+import { routeToTwinUrlPath } from '../shared/routes.js';
+
+/**
+ * The response-header contract from idea.md §7, which is the same contract test's category B checks
+ * against (§5B). Both sides import this module, so the implementation and the audit can never
+ * disagree about a header name or value.
+ */
+
+export interface MarkdownHeaderInput {
+  tokens: number;
+  specVersion?: string;
+}
+
+export function markdownHeaders(input: MarkdownHeaderInput): Record<string, string> {
+  return {
+    [HEADERS.contentType]: MARKDOWN_CONTENT_TYPE,
+    [HEADERS.markdownTokens]: String(Math.max(1, Math.trunc(input.tokens))),
+    [HEADERS.contentTypeOptions]: 'nosniff',
+    // Keeps the twin out of search indexes so it is never treated as duplicate content.
+    [HEADERS.robotsTag]: 'noindex',
+    // Required on every response, not just markdown ones: a CDN that caches the HTML variant
+    // without it will happily serve that HTML to the next agent asking for markdown, and vice versa.
+    [HEADERS.vary]: 'Accept',
+    [HEADERS.aeoVersion]: input.specVersion ?? AEO_SPEC_VERSION,
+  };
+}
+
+export interface HtmlHeaderInput {
+  route: string;
+  specVersion?: string;
+  /** When true, advertise the twin. Omitted for routes with no generated markdown. */
+  hasTwin: boolean;
+}
+
+export function htmlHeaders(input: HtmlHeaderInput): Record<string, string> {
+  const headers: Record<string, string> = {
+    [HEADERS.vary]: 'Accept',
+    [HEADERS.aeoVersion]: input.specVersion ?? AEO_SPEC_VERSION,
+  };
+  if (input.hasTwin) {
+    headers[HEADERS.link] = linkAlternate(routeToTwinUrlPath(input.route));
+  }
+  return headers;
+}
+
+export function linkAlternate(twinPath: string): string {
+  return `<${twinPath}>; rel="alternate"; type="text/markdown"`;
+}
+
+export function notAcceptableHeaders(specVersion = AEO_SPEC_VERSION): Record<string, string> {
+  return {
+    [HEADERS.contentType]: 'text/plain; charset=utf-8',
+    [HEADERS.vary]: 'Accept',
+    [HEADERS.aeoVersion]: specVersion,
+  };
+}
+
+export const NOT_ACCEPTABLE_BODY = [
+  '406 Not Acceptable',
+  '',
+  'This URL can be served as text/html or text/markdown.',
+  'Your Accept header asked for neither.',
+].join('\n');
+
+/** Parse a `Link` header and pull out the markdown alternate, if one is advertised. */
+export function parseLinkAlternate(header: string | null | undefined): string | undefined {
+  if (!header) return undefined;
+  for (const part of splitLinkHeader(header)) {
+    const url = /<([^>]+)>/.exec(part)?.[1];
+    if (!url) continue;
+    const lowered = part.toLowerCase();
+    if (!lowered.includes('rel="alternate"') && !lowered.includes('rel=alternate')) continue;
+    if (lowered.includes('text/markdown')) return url;
+  }
+  return undefined;
+}
+
+/** Split on commas that separate link-values, not commas inside angle brackets or quotes. */
+function splitLinkHeader(header: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inAngle = false;
+  let inQuote = false;
+  for (const ch of header) {
+    if (ch === '<') inAngle = true;
+    else if (ch === '>') inAngle = false;
+    else if (ch === '"') inQuote = !inQuote;
+    if (ch === ',' && !inAngle && !inQuote) {
+      parts.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim()) parts.push(current.trim());
+  return parts;
+}

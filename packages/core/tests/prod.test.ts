@@ -1,0 +1,193 @@
+import { describe, expect, it } from 'vitest';
+import {
+  AEO_SPEC_VERSION,
+  DEFAULT_MARKDOWN_ROUTING,
+  HEADERS,
+  MARKDOWN_CONTENT_TYPE,
+  classify,
+  createMemoryStore,
+  handleRequest,
+  htmlHeaders,
+  identifyBot,
+  markdownHeaders,
+  parseLinkAlternate,
+  summarizeAccept,
+} from '@opengeo/core/prod';
+
+const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8';
+const GPTBOT = 'Mozilla/5.0 AppleWebKit/537.36 (compatible; GPTBot/1.2; +https://openai.com/gptbot)';
+
+const store = createMemoryStore([
+  {
+    route: '/resume',
+    title: 'Resume',
+    body: '# Resume\n\nShipped 4 projects in 2024.',
+    tokens: 12,
+    lastUpdated: '2026-01-01T00:00:00.000Z',
+  },
+]);
+
+function request(path: string, headers: Record<string, string> = {}, method = 'GET') {
+  const lower = new Map(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
+  return {
+    url: `http://localhost:3000${path}`,
+    method,
+    headers: { get: (name: string) => lower.get(name.toLowerCase()) ?? null },
+  };
+}
+
+const ctx = { store, markdownRouting: DEFAULT_MARKDOWN_ROUTING };
+
+describe('header contract (§7)', () => {
+  it('markdown responses carry the full set', () => {
+    const headers = markdownHeaders({ tokens: 120 });
+    expect(headers[HEADERS.contentType]).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(headers[HEADERS.markdownTokens]).toBe('120');
+    expect(headers[HEADERS.contentTypeOptions]).toBe('nosniff');
+    expect(headers[HEADERS.robotsTag]).toBe('noindex');
+    expect(headers[HEADERS.vary]).toBe('Accept');
+    expect(headers[HEADERS.aeoVersion]).toBe(AEO_SPEC_VERSION);
+  });
+
+  it('HTML responses always vary on Accept, and advertise the twin only when one exists', () => {
+    const withTwin = htmlHeaders({ route: '/resume', hasTwin: true });
+    expect(withTwin[HEADERS.vary]).toBe('Accept');
+    expect(withTwin[HEADERS.link]).toBe('</resume.md>; rel="alternate"; type="text/markdown"');
+    const withoutTwin = htmlHeaders({ route: '/contact', hasTwin: false });
+    expect(withoutTwin[HEADERS.vary]).toBe('Accept');
+    expect(withoutTwin[HEADERS.link]).toBeUndefined();
+  });
+
+  it('round-trips its own Link header', () => {
+    const header = htmlHeaders({ route: '/', hasTwin: true })[HEADERS.link];
+    expect(parseLinkAlternate(header)).toBe('/index.md');
+    expect(parseLinkAlternate('</feed.xml>; rel="alternate"; type="application/rss+xml"')).toBeUndefined();
+    expect(parseLinkAlternate(null)).toBeUndefined();
+  });
+});
+
+describe('Accept parsing', () => {
+  it('treats an absent header as accepting anything', () => {
+    const summary = summarizeAccept(null);
+    expect(summary).toMatchObject({ absent: true, acceptsHtml: true, acceptsMarkdown: true, prefersMarkdown: false });
+  });
+
+  it('does not read a browser wildcard as a markdown preference', () => {
+    const summary = summarizeAccept(BROWSER_ACCEPT);
+    expect(summary.acceptsMarkdown).toBe(true);
+    expect(summary.prefersMarkdown).toBe(false);
+  });
+
+  it('honours q-values when ranking markdown against HTML', () => {
+    expect(summarizeAccept('text/markdown;q=0.9,text/html;q=1.0').prefersMarkdown).toBe(false);
+    expect(summarizeAccept('text/markdown;q=1.0,text/html;q=0.8').prefersMarkdown).toBe(true);
+    expect(summarizeAccept('text/markdown').prefersMarkdown).toBe(true);
+  });
+});
+
+describe('classification', () => {
+  it('never treats an unknown bot as anything but an ordinary visitor', () => {
+    const result = classify({
+      pathname: '/resume',
+      userAgent: 'BrandNewAiCrawler/0.1 (+https://example.com/bot)',
+      accept: BROWSER_ACCEPT,
+      markdownRouting: DEFAULT_MARKDOWN_ROUTING,
+    });
+    expect(result.kind).toBe('human');
+    expect(result.serve).toBe('html');
+  });
+
+  it('serves the normal site to a known bot that is not on the routing list, never a block', () => {
+    const result = classify({ pathname: '/resume', userAgent: GPTBOT, accept: '*/*', markdownRouting: [] });
+    expect(result.kind).toBe('unrouted-bot');
+    expect(result.serve).toBe('html');
+    expect(result.reason).toContain('never blocked');
+  });
+
+  it('routes a listed bot to markdown with no Accept header involved', () => {
+    const result = classify({ pathname: '/resume', userAgent: GPTBOT, accept: null, markdownRouting: ['GPTBot'] });
+    expect(result.kind).toBe('routed-ai');
+    expect(result.serve).toBe('markdown');
+    expect(result.bot?.name).toBe('GPTBot');
+  });
+
+  it('resolves both twin URL shapes back to the same route', () => {
+    expect(classify({ pathname: '/resume.md', markdownRouting: [] }).route).toBe('/resume');
+    expect(classify({ pathname: '/md/resume.md', markdownRouting: [] }).route).toBe('/resume');
+    expect(classify({ pathname: '/index.md', markdownRouting: [] }).route).toBe('/');
+  });
+});
+
+describe('handleRequest', () => {
+  it('serves markdown at the same URL for Accept: text/markdown', () => {
+    const decision = handleRequest(request('/resume', { accept: 'text/markdown' }), ctx);
+    expect(decision.type).toBe('markdown');
+    if (decision.type !== 'markdown') return;
+    expect(decision.response.status).toBe(200);
+    expect(decision.response.headers.get(HEADERS.contentType)).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(decision.response.headers.get(HEADERS.markdownTokens)).toBe('12');
+  });
+
+  it('serves markdown to a routed bot that sends no Accept header', () => {
+    const decision = handleRequest(request('/resume', { 'user-agent': GPTBOT }), ctx);
+    expect(decision.type).toBe('markdown');
+  });
+
+  it('leaves a browser request alone but decorates it with the twin advertisement', () => {
+    const decision = handleRequest(request('/resume', { accept: BROWSER_ACCEPT }), ctx);
+    expect(decision.type).toBe('passthrough');
+    if (decision.type !== 'passthrough') return;
+    expect(decision.headers[HEADERS.vary]).toBe('Accept');
+    expect(decision.headers[HEADERS.link]).toContain('/resume.md');
+  });
+
+  it('returns 406 when Accept excludes both HTML and markdown', () => {
+    const decision = handleRequest(request('/resume', { accept: 'application/json' }), ctx);
+    expect(decision.type).toBe('not-acceptable');
+    if (decision.type !== 'not-acceptable') return;
+    expect(decision.response.status).toBe(406);
+    expect(decision.response.headers.get(HEADERS.vary)).toBe('Accept');
+  });
+
+  it('falls through to the real site when a route has no twin', () => {
+    const decision = handleRequest(request('/contact', { accept: 'text/markdown' }), ctx);
+    expect(decision.type).toBe('passthrough');
+    if (decision.type !== 'passthrough') return;
+    expect(decision.headers[HEADERS.link]).toBeUndefined();
+  });
+
+  it('answers a HEAD request with headers and no body', async () => {
+    const decision = handleRequest(request('/resume.md', {}, 'HEAD'), ctx);
+    expect(decision.type).toBe('markdown');
+    if (decision.type !== 'markdown') return;
+    expect(await decision.response.text()).toBe('');
+  });
+
+  it('ignores framework internals and static assets', () => {
+    for (const path of ['/_next/static/chunk.js', '/logo.svg', '/fonts/inter.woff2']) {
+      const decision = handleRequest(request(path, { accept: 'text/markdown' }), ctx);
+      expect(decision.type).toBe('passthrough');
+      expect(decision.type === 'passthrough' && Object.keys(decision.headers)).toEqual([]);
+    }
+  });
+
+  it('passes non-GET methods straight through', () => {
+    const decision = handleRequest(request('/resume', { accept: 'text/markdown' }, 'POST'), ctx);
+    expect(decision.type).toBe('passthrough');
+  });
+});
+
+describe('bot identification', () => {
+  it('matches real crawler user agents', () => {
+    expect(identifyBot(GPTBOT)?.name).toBe('GPTBot');
+    expect(identifyBot('Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)')?.name).toBe('ClaudeBot');
+    expect(identifyBot('Mozilla/5.0 ... Chrome/120 Safari/537.36')).toBeUndefined();
+    expect(identifyBot(null)).toBeUndefined();
+  });
+
+  it('never matches a robots.txt-only opt-out token as a live crawler', () => {
+    expect(identifyBot('Google-Extended')).toBeUndefined();
+    expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Google-Extended');
+    expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Applebot-Extended');
+  });
+});

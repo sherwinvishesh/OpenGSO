@@ -1,0 +1,57 @@
+{
+  "name": "opengeo-prod",
+  "version": "0.1.0",
+  "description": "Runtime middleware that serves markdown to AI agents at the same URL. Zero dependencies.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "keywords": [
+    "geo",
+    "aeo",
+    "middleware",
+    "content-negotiation",
+    "nextjs"
+  ],
+  "homepage": "https://github.com/sherwinvishesh/OpenGEO",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sherwinvishesh/OpenGEO.git",
+    "directory": "packages/prod"
+  },
+  "bugs": {
+    "url": "https://github.com/sherwinvishesh/OpenGEO/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "opengeo": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@opengeo/core": "*",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

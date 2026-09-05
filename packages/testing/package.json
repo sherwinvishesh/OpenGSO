@@ -1,0 +1,49 @@
+{
+  "name": "opengeo-testing",
+  "version": "0.1.0",
+  "description": "Score any live URL 0-100 for AI-readiness. The test pillar of OpenGEO.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "keywords": [
+    "geo",
+    "aeo",
+    "llm",
+    "seo",
+    "ai-crawler",
+    "markdown"
+  ],
+  "homepage": "https://github.com/sherwinvishesh/OpenGEO",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sherwinvishesh/OpenGEO.git",
+    "directory": "packages/testing"
+  },
+  "bugs": {
+    "url": "https://github.com/sherwinvishesh/OpenGEO/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "opengeo": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0"
+  },
+  "devDependencies": {
+    "@opengeo/core": "*",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3"
+  }
+}

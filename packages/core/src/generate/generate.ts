@@ -1,0 +1,252 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import type { LoadedConfig } from '../shared/config.js';
+import { internalDirPath, publicDirPath } from '../shared/config.js';
+import { contentHash } from '../shared/hash.js';
+import { probe } from '../shared/http.js';
+import { normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
+import { estimateTokens } from '../shared/tokens.js';
+import { extractPage } from './extract.js';
+import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
+import type { GenerationTier, Manifest, ManifestEntry } from './manifest.js';
+import { emptyManifest, readManifest, writeManifest } from './manifest.js';
+
+export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
+
+export interface GeneratePageResult {
+  route: string;
+  url: string;
+  status: PageStatus;
+  tier?: GenerationTier;
+  file?: string;
+  tokens?: number;
+  wordCount?: number;
+  warnings: string[];
+  reason?: string;
+}
+
+export interface GenerateProgress {
+  route: string;
+  index: number;
+  total: number;
+  phase: 'fetch' | 'extract' | 'ai' | 'write';
+}
+
+export interface GenerateOptions {
+  /** Base site URL. Every route is resolved against this. */
+  site: string;
+  /** Routes to generate. Phase-2 callers pass the crawl result; a single-page run passes one. */
+  routes: string[];
+  loaded: LoadedConfig;
+  tier?: 'free' | 'ai';
+  force?: boolean;
+  onProgress?: (event: GenerateProgress) => void;
+  /**
+   * Optional AI enhancer. Injected rather than imported so the free tier never reaches provider
+   * code, and so tests can drive the fidelity guard with a fake provider.
+   */
+  enhance?: (input: EnhanceInput) => Promise<EnhanceOutput>;
+}
+
+export interface EnhanceInput {
+  url: string;
+  title: string;
+  html: string;
+  algorithmicMarkdown: string;
+}
+
+export interface EnhanceOutput {
+  markdown: string;
+  warnings: string[];
+  /** True when the fidelity guard rejected the AI output and the algorithmic one was kept. */
+  fellBack: boolean;
+}
+
+export interface GenerateResult {
+  site: string;
+  pages: GeneratePageResult[];
+  manifest: Manifest;
+  manifestPath: string;
+  publicDir: string;
+  durationMs: number;
+}
+
+/**
+ * Generate markdown twins for a set of routes (idea.md §6).
+ *
+ * Build-time only, never per visitor request: everything here writes static files to disk, so a
+ * real visitor only ever receives a file that already exists.
+ */
+export async function generatePages(options: GenerateOptions): Promise<GenerateResult> {
+  const started = Date.now();
+  const { loaded, routes, site, tier = 'free', force = false, onProgress, enhance } = options;
+  const publicDir = publicDirPath(loaded);
+  const internalDir = internalDirPath(loaded);
+
+  const previous = readManifest(internalDir, site);
+  const manifest = emptyManifest(site);
+  const pages: GeneratePageResult[] = [];
+
+  const unique = dedupeRoutes(routes);
+  let index = 0;
+
+  for (const route of unique) {
+    index += 1;
+    const url = new URL(route, site).toString();
+    onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
+
+    const response = await probe(url, { timeoutMs: 20_000 });
+    if (!response.ok || !response.body) {
+      pages.push({
+        route,
+        url,
+        status: 'failed',
+        warnings: [],
+        reason: response.error ?? `HTTP ${response.status}`,
+      });
+      const carried = previous.pages[route];
+      if (carried) manifest.pages[route] = carried;
+      continue;
+    }
+
+    const sourceHash = contentHash(response.body);
+    const relPath = routeToMdRelPath(route);
+    const absPath = join(publicDir, relPath);
+    const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
+
+    if (existing) {
+      const parsed = parseFrontmatter(existing);
+      if (parsed.data.generated_by === 'manual' && !force) {
+        pages.push({
+          route,
+          url,
+          status: 'skipped-manual',
+          tier: 'manual',
+          file: relPath,
+          warnings: [],
+          reason: 'Frontmatter says generated_by: manual - left untouched. Use --force to regenerate.',
+        });
+        manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing, sourceHash);
+        continue;
+      }
+      const prior = previous.pages[route];
+      if (!force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
+        pages.push({
+          route,
+          url,
+          status: 'cached',
+          tier: prior.tier,
+          file: relPath,
+          tokens: prior.tokens,
+          wordCount: prior.wordCount,
+          warnings: [],
+          reason: 'Source unchanged since the last run.',
+        });
+        manifest.pages[route] = prior;
+        continue;
+      }
+    }
+
+    onProgress?.({ route, index, total: unique.length, phase: 'extract' });
+    const extracted = extractPage(response.body, { url, minWords: loaded.config.generate.minWords });
+    let markdown = extracted.markdown;
+    const warnings = [...extracted.warnings];
+    let appliedTier: GenerationTier = 'free';
+
+    if (tier === 'ai' && enhance) {
+      onProgress?.({ route, index, total: unique.length, phase: 'ai' });
+      const enhanced = await enhance({
+        url,
+        title: extracted.title,
+        html: response.body,
+        algorithmicMarkdown: extracted.markdown,
+      });
+      markdown = enhanced.markdown;
+      warnings.push(...enhanced.warnings);
+      appliedTier = enhanced.fellBack ? 'free' : 'ai';
+    }
+
+    const tokens = estimateTokens(markdown);
+    const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+    const lastUpdated = new Date().toISOString();
+
+    onProgress?.({ route, index, total: unique.length, phase: 'write' });
+    const contents = withFrontmatter(
+      {
+        title: extracted.title,
+        url,
+        last_updated: lastUpdated,
+        tokens,
+        source_hash: sourceHash,
+        generated_by: appliedTier === 'ai' ? 'opengeo-ai' : 'opengeo-free',
+        ...(extracted.description ? { description: extracted.description } : {}),
+      },
+      markdown,
+    );
+
+    mkdirSync(dirname(absPath), { recursive: true });
+    writeFileSync(absPath, contents, 'utf8');
+
+    manifest.pages[route] = {
+      route,
+      url,
+      title: extracted.title,
+      file: relPath,
+      tokens,
+      wordCount,
+      sourceHash,
+      lastUpdated,
+      tier: appliedTier,
+    };
+    pages.push({ route, url, status: 'written', tier: appliedTier, file: relPath, tokens, wordCount, warnings });
+  }
+
+  const path = writeManifest(internalDir, manifest);
+  return {
+    site,
+    pages,
+    manifest,
+    manifestPath: path,
+    publicDir,
+    durationMs: Date.now() - started,
+  };
+}
+
+function manualEntry(
+  route: string,
+  url: string,
+  relPath: string,
+  data: Record<string, unknown>,
+  contents: string,
+  sourceHash: string,
+): ManifestEntry {
+  const body = parseFrontmatter(contents).body;
+  return {
+    route,
+    url,
+    title: typeof data.title === 'string' ? data.title : route,
+    file: relPath,
+    tokens: typeof data.tokens === 'number' ? data.tokens : estimateTokens(body),
+    wordCount: body.split(/\s+/).filter(Boolean).length,
+    sourceHash: typeof data.source_hash === 'string' ? data.source_hash : sourceHash,
+    lastUpdated: typeof data.last_updated === 'string' ? data.last_updated : new Date().toISOString(),
+    tier: 'manual',
+  };
+}
+
+export function dedupeRoutes(routes: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of routes) {
+    const route = normalizeRoute(raw);
+    if (seen.has(route)) continue;
+    seen.add(route);
+    out.push(route);
+  }
+  return out.sort((a, b) => (a === '/' ? -1 : b === '/' ? 1 : a.localeCompare(b)));
+}
+
+/** Convenience for reporting: the URL an agent would fetch for a given route. */
+export function twinUrlFor(site: string, route: string): string {
+  return new URL(routeToTwinUrlPath(route), site).toString();
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@opengeo/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared OpenGEO logic. Never published: every published package bundles this source directly via tsup (see idea.md \u00a73).",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./shared": "./src/shared/index.ts",
+    "./generate": "./src/generate/index.ts",
+    "./test": "./src/test/index.ts",
+    "./prod": "./src/prod/index.ts",
+    "./prod/next": "./src/prod/adapters/next.ts",
+    "./cli": "./src/cli/index.ts",
+    "./cli/commands/*": "./src/cli/commands/*.ts"
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0"
+  }
+}
