@@ -3,12 +3,17 @@ import { ERRORS } from '../shared/errors.js';
 import type { CheckResult } from './checks.js';
 import type { Evidence } from './evidence.js';
 import { gatherEvidence } from './evidence.js';
+import type { Framework } from './framework.js';
+import { detectFrameworkFrom } from './framework.js';
 import { runChecks } from './runner.js';
 import type { Score } from './score.js';
 import { scoreChecks } from './score.js';
 
 export * from './checks.js';
 export * from './evidence.js';
+export * from './framework.js';
+export * from './prompt.js';
+export * from './quality.js';
 export * from './report.js';
 export * from './runner.js';
 export * from './score.js';
@@ -19,6 +24,8 @@ export interface TestResult {
   checks: CheckResult[];
   score: Score;
   evidence: Evidence;
+  /** Undefined when nothing matched. No check's result depends on this. */
+  framework?: Framework;
 }
 
 export interface TestOptions {
@@ -38,6 +45,7 @@ export function testEvidence(evidence: Evidence): TestResult {
   return {
     url: evidence.target.toString(),
     twinUrl: evidence.twinUrl,
+    framework: detectFrameworkFrom(evidence.html),
     checks,
     score: scoreChecks(checks),
     evidence,

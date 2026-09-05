@@ -1,5 +1,6 @@
 import { c, SYM, heading } from '../shared/log.js';
 import type { CheckResult } from './checks.js';
+import type { QualityReview } from './quality.js';
 import type { Score } from './score.js';
 import type { TestResult } from './index.js';
 
@@ -21,6 +22,7 @@ export function renderReport(result: TestResult, options: ReportOptions = {}): s
 
   lines.push('');
   lines.push(`${c.bold('OpenGEO')} ${c.gray('test')}  ${result.url}`);
+  if (result.framework) lines.push(c.gray(`Detected: ${result.framework.name}`));
   lines.push(renderScore(score));
 
   const failedRequired = checks.filter((r) => r.status === 'fail' && r.importance === 'required');
@@ -88,7 +90,7 @@ function renderBar(value: number): string {
 }
 
 /** Machine-readable output for `--json` and for the product website's local API. */
-export function toJson(result: TestResult): string {
+export function toJson(result: TestResult, quality?: QualityReview): string {
   return JSON.stringify(
     {
       url: result.url,
@@ -96,6 +98,7 @@ export function toJson(result: TestResult): string {
       earned: result.score.earned,
       possible: result.score.possible,
       twinUrl: result.twinUrl,
+      framework: result.framework ? { id: result.framework.id, name: result.framework.name } : null,
       checks: result.checks.map((check) => ({
         id: check.id,
         title: check.title,
@@ -106,8 +109,53 @@ export function toJson(result: TestResult): string {
         reason: check.reason,
         detail: check.detail,
       })),
+      // Its own key, never merged into `score`: a deterministic audit and a model's opinion are
+      // different kinds of claim, and a consumer should have to opt into reading the second.
+      quality: quality ?? null,
     },
     null,
     2,
   );
+}
+
+/**
+ * The quality review, rendered as its own block.
+ *
+ * Kept visually distinct on purpose (§5): it sits after the score and the checks, under its own
+ * heading, with its own 1-5 rating clearly labelled as the model's opinion. Nothing here is added
+ * to, subtracted from, or averaged into the number above it.
+ */
+export function renderQuality(review: QualityReview): string {
+  const lines: string[] = [];
+  lines.push(heading('Content quality (AI review, separate from the score above)'));
+  lines.push(`  ${c.gray(`${review.provider} ${review.model}`)}`);
+  lines.push('');
+
+  if (review.raw) {
+    lines.push(`  ${review.summary}`);
+    lines.push('');
+    for (const line of review.raw.split('\n')) lines.push(`  ${c.gray(line)}`);
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  if (review.rating !== undefined) {
+    lines.push(`  ${c.bold(`${review.rating}/5`)} ${c.gray("the model's own read, not part of the 0-100 score")}`);
+    lines.push('');
+  }
+  lines.push(`  ${review.summary}`);
+  lines.push('');
+
+  for (const finding of review.findings) {
+    lines.push(`  ${c.bold(finding.area)}`);
+    lines.push(`      ${finding.note}`);
+  }
+  if (review.findings.length > 0) lines.push('');
+
+  if (review.suggestions.length > 0) {
+    lines.push(`  ${c.bold('Suggestions')}`);
+    for (const suggestion of review.suggestions) lines.push(`      - ${suggestion}`);
+    lines.push('');
+  }
+  return lines.join('\n');
 }

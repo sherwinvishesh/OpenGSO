@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ProbeResult } from '@opengeo/core/shared';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
+import { liveContentHash } from './helpers/live-hash.js';
 import type { Evidence } from '@opengeo/core/test';
-import { runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
+import { renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
 
 /**
  * The whole checklist is driven from synthetic evidence, so these tests exercise the real check
@@ -35,6 +36,15 @@ thousand lines. Before that, three years on an internal analytics product used b
 company, where the work was mostly about making slow queries fast and making failures legible.</p>
 </main></body></html>`;
 
+const GOOD_TWIN = `# Resume
+
+Shipped four projects in 2024 across three teams, including a platform migration that moved
+forty-two services onto a shared runtime, and a pricing change worth twelve thousand five hundred
+dollars a month to the business. Earlier work covered data pipelines and developer tooling, with a
+long stretch owning the build system and the release process for a codebase of roughly two hundred
+thousand lines. Before that, three years on an internal analytics product used by every team in the
+company, where the work was mostly about making slow queries fast and making failures legible.`;
+
 function goodEvidence(): Evidence {
   const target = new URL('https://example.com/resume');
   return {
@@ -55,7 +65,7 @@ function goodEvidence(): Evidence {
     sitemap: probe({ url: 'https://example.com/sitemap.xml', body: '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/resume</loc></url></urlset>' }),
     twin: probe({
       url: 'https://example.com/resume.md',
-      body: '# Resume\n\nShipped four projects in 2024.',
+      body: GOOD_TWIN,
       headers: new Headers({
         'content-type': MARKDOWN_CONTENT_TYPE,
         'x-markdown-tokens': '42',
@@ -63,6 +73,9 @@ function goodEvidence(): Evidence {
         'x-robots-tag': 'noindex',
         vary: 'Accept',
         'x-aeo-version': AEO_SPEC_VERSION,
+        // What prod actually sends: the body has no frontmatter, so provenance rides in headers.
+        'x-markdown-source-hash': liveContentHash(GOOD_HTML),
+        'last-modified': new Date().toUTCString(),
       }),
     }),
     twinUrl: 'https://example.com/resume.md',
@@ -274,4 +287,117 @@ describe('B7 parses Vary as a token list', () => {
       expect(byId(evidence).get('B7')?.status).toBe(expected);
     });
   }
+});
+
+describe('B14 staleness and drift', () => {
+  it('passes on an exact hash match, which is the only path that proves freshness', () => {
+    const check = byId(goodEvidence()).get('B14');
+    expect(check?.status).toBe('pass');
+    expect(check?.reason).toContain('exactly this version');
+  });
+
+  it('fails when the live page has moved on since the twin was generated', () => {
+    const evidence = goodEvidence();
+    evidence.twin.headers.set('x-markdown-source-hash', 'deadbeefdeadbeef');
+    const check = byId(evidence).get('B14');
+    expect(check?.status).toBe('fail');
+    expect(check?.reason).toContain('changed since the twin was generated');
+    expect(check?.reason).toContain('opengeo generate');
+    expect(check?.detail).toContain('deadbeefdeadbeef');
+  });
+
+  it('reads the hash out of frontmatter when the twin is served as a plain static file', () => {
+    const evidence = goodEvidence();
+    evidence.twin.headers.delete('x-markdown-source-hash');
+    evidence.twin.body = `---\nsource_hash: "${liveContentHash(GOOD_HTML)}"\n---\n\n${GOOD_TWIN}`;
+    const check = byId(evidence).get('B14');
+    expect(check?.status).toBe('pass');
+    expect(check?.reason).toContain('exactly this version');
+  });
+
+  it('falls back to comparing facts for a hand-written twin with no hash anywhere', () => {
+    const evidence = goodEvidence();
+    evidence.twin.headers.delete('x-markdown-source-hash');
+    const check = byId(evidence).get('B14');
+    expect(check?.status).toBe('pass');
+    expect(check?.reason).toContain('no source hash');
+  });
+
+  it('catches a hashless twin that has lost the facts on the live page', () => {
+    const evidence = goodEvidence();
+    evidence.twin.headers.delete('x-markdown-source-hash');
+    evidence.twin.body = '# Resume\n\nA summary of some work.';
+    const check = byId(evidence).get('B14');
+    expect(check?.status).toBe('fail');
+    expect(check?.detail).toContain('fact by fact');
+  });
+
+  it('fails rather than guessing when there is no twin to compare at all', () => {
+    const evidence = goodEvidence();
+    evidence.twin = probe({ ok: false, status: 404, body: '' });
+    expect(byId(evidence).get('B14')?.reason).toContain('no markdown twin');
+  });
+
+  it('is not applicable when the live page itself is unreachable', () => {
+    const evidence = goodEvidence();
+    evidence.html = probe({ ok: false, status: 500, body: '' });
+    expect(byId(evidence).get('B14')?.status).toBe('na');
+  });
+});
+
+describe('the score stays honest when most of the checklist cannot apply', () => {
+  /** Synthetic checks, so the weighting can be reasoned about without the whole catalogue. */
+  function synthetic(spec: Array<[string, 'pass' | 'fail' | 'na', number]>) {
+    return spec.map(([id, status, weight]) => ({
+      id,
+      category: 'A' as const,
+      importance: 'required' as const,
+      weight,
+      title: id,
+      status,
+      reason: id,
+    }));
+  }
+
+  it('scores only what applied, never counting an n/a as a failure', () => {
+    const score = scoreChecks(synthetic([
+      ['X1', 'pass', 10],
+      ['X2', 'na', 10],
+      ['X3', 'na', 10],
+      ['X4', 'na', 10],
+    ]));
+    expect(score.value).toBe(100);
+    expect(score.possible).toBe(10);
+    expect(score.counts.na).toBe(3);
+    expect(score.lost).toEqual([]);
+  });
+
+  it('does not let one heavy n/a check drag the number around', () => {
+    const score = scoreChecks(synthetic([
+      ['X1', 'pass', 10],
+      ['X2', 'fail', 10],
+      ['X3', 'na', 80],
+    ]));
+    expect(score.value).toBe(50);
+  });
+
+  it('gives a localhost run the same number a public run would, minus the checks that cannot run', () => {
+    const local = goodEvidence();
+    local.target = new URL('http://localhost:3000/resume');
+    local.origin = 'http://localhost:3000';
+    const checks = runChecks(local);
+    const naIds = checks.filter((check) => check.status === 'na').map((check) => check.id);
+    // A8 is HSTS. It is meaningless over plain http on a loopback address, and reporting it as a
+    // failure would cap every local score below what the same site scores in production.
+    expect(naIds).toEqual(['A8']);
+    expect(scoreChecks(checks).value).toBe(100);
+  });
+
+  it('never returns a letter grade or a tier label anywhere in the report', () => {
+    const report = renderReport(testEvidence(goodEvidence()), { verbose: true });
+    const plain = report.replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(plain).toMatch(/\d+\/100/);
+    expect(plain).not.toMatch(/\bgrade\b/i);
+    expect(plain).not.toMatch(/\b(bronze|silver|gold|platinum)\b/i);
+  });
 });

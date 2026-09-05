@@ -24,6 +24,7 @@ const store = createMemoryStore([
     body: '# Resume\n\nShipped 4 projects in 2024.',
     tokens: 12,
     lastUpdated: '2026-01-01T00:00:00.000Z',
+    sourceHash: 'abc123abc123abc1',
   },
 ]);
 
@@ -47,6 +48,22 @@ describe('header contract (§7)', () => {
     expect(headers[HEADERS.robotsTag]).toBe('noindex');
     expect(headers[HEADERS.vary]).toBe('Accept');
     expect(headers[HEADERS.aeoVersion]).toBe(AEO_SPEC_VERSION);
+  });
+
+  it('advertises provenance so a drift check does not have to trust the body', () => {
+    const headers = markdownHeaders({
+      tokens: 120,
+      lastUpdated: '2026-01-01T00:00:00.000Z',
+      sourceHash: 'abc123abc123abc1',
+    });
+    expect(headers[HEADERS.markdownSourceHash]).toBe('abc123abc123abc1');
+    expect(headers[HEADERS.lastModified]).toBe('Thu, 01 Jan 2026 00:00:00 GMT');
+  });
+
+  it('omits provenance rather than inventing it when the manifest has none', () => {
+    const headers = markdownHeaders({ tokens: 120, lastUpdated: 'not a date' });
+    expect(headers[HEADERS.markdownSourceHash]).toBeUndefined();
+    expect(headers[HEADERS.lastModified]).toBeUndefined();
   });
 
   it('HTML responses always vary on Accept, and advertise the twin only when one exists', () => {

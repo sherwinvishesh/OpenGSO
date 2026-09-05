@@ -26,8 +26,18 @@ export interface ManifestEntry {
   file: string;
   tokens: number;
   wordCount: number;
-  /** Hash of the source HTML this twin came from. Drives skip-unchanged and test's drift check. */
-  sourceHash: string;
+  /**
+   * Hash of the *extracted content* this twin came from, not of the raw HTML.
+   *
+   * Raw HTML is the obvious thing to hash and the wrong one. Every framework stamps a build id,
+   * a script hash or a nonce into its markup, so a rebuild with no content change would produce a
+   * fresh hash, invalidate the whole cache, and make test's drift check cry wolf on every deploy.
+   * Hashing what a reader actually receives means the hash changes exactly when the page changes.
+   *
+   * Absent for a hand-written twin that declares no `source_hash`: there is no honest value to put
+   * here, and inventing one would make the drift check report a page as verified when it isn't.
+   */
+  sourceHash?: string;
   lastUpdated: string;
   tier: GenerationTier;
   /** Carried so a fully-cached rerun can still write llms.txt without re-extracting every page. */

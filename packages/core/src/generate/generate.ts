@@ -131,14 +131,15 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
       html = response.body;
     }
 
-    const sourceHash = contentHash(html);
     const relPath = routeToMdRelPath(route);
     const absPath = join(publicDir, relPath);
     const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
 
-    if (existing) {
+    // A manual twin is checked before anything else, because the whole point of the marker is that
+    // OpenGEO does no work on that page at all.
+    if (existing && !force) {
       const parsed = parseFrontmatter(existing);
-      if (parsed.data.generated_by === 'manual' && !force) {
+      if (parsed.data.generated_by === 'manual') {
         pages.push({
           route,
           url,
@@ -150,31 +151,38 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
           warnings: [],
           reason: 'Frontmatter says generated_by: manual - left untouched. Use --force to regenerate.',
         });
-        manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing, sourceHash);
-        continue;
-      }
-      const prior = previous.pages[route];
-      if (!force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
-        pages.push({
-          route,
-          url,
-          status: 'cached',
-          title: prior.title,
-          description: prior.description,
-          tier: prior.tier,
-          file: relPath,
-          tokens: prior.tokens,
-          wordCount: prior.wordCount,
-          warnings: [],
-          reason: 'Source unchanged since the last run.',
-        });
-        manifest.pages[route] = prior;
+        manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing);
         continue;
       }
     }
 
+    // Extraction runs before the cache check because the hash is taken from what a reader receives,
+    // not from the raw markup around it. See ManifestEntry.sourceHash for why. It is pure local CPU
+    // on HTML already in memory; the expensive things the cache protects (an AI call, a disk write)
+    // still happen only on a real change.
     onProgress?.({ route, index, total: unique.length, phase: 'extract' });
     const extracted = extractPage(html, { url, minWords: loaded.config.generate.minWords });
+    const sourceHash = contentHash(extracted.markdown);
+
+    const prior = previous.pages[route];
+    if (existing && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
+      pages.push({
+        route,
+        url,
+        status: 'cached',
+        title: prior.title,
+        description: prior.description,
+        tier: prior.tier,
+        file: relPath,
+        tokens: prior.tokens,
+        wordCount: prior.wordCount,
+        warnings: [],
+        reason: 'Source unchanged since the last run.',
+      });
+      manifest.pages[route] = prior;
+      continue;
+    }
+
     let markdown = extracted.markdown;
     const warnings = [...extracted.warnings];
     let appliedTier: GenerationTier = 'free';
@@ -250,13 +258,19 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
   };
 }
 
+/**
+ * A hand-written twin, recorded in the manifest so prod still serves it, but never re-derived.
+ *
+ * `sourceHash` is carried through only when the author put one there. A hand-written twin usually
+ * has none, and a made-up hash would make test's drift check pass a page nobody has verified; with
+ * the field absent the check falls back to comparing facts, which is the honest answer.
+ */
 function manualEntry(
   route: string,
   url: string,
   relPath: string,
   data: Record<string, unknown>,
   contents: string,
-  sourceHash: string,
 ): ManifestEntry {
   const body = parseFrontmatter(contents).body;
   return {
@@ -266,9 +280,9 @@ function manualEntry(
     file: relPath,
     tokens: typeof data.tokens === 'number' ? data.tokens : estimateTokens(body),
     wordCount: body.split(/\s+/).filter(Boolean).length,
-    sourceHash: typeof data.source_hash === 'string' ? data.source_hash : sourceHash,
     lastUpdated: typeof data.last_updated === 'string' ? data.last_updated : new Date().toISOString(),
     tier: 'manual',
+    ...(typeof data.source_hash === 'string' ? { sourceHash: data.source_hash } : {}),
   };
 }
 

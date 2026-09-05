@@ -1,9 +1,9 @@
 ---
 title: "Engagement record"
 url: "http://localhost:3000/resume"
-last_updated: "2026-09-05T01:48:55.888Z"
+last_updated: "2026-09-05T02:01:33.445Z"
 tokens: 314
-source_hash: "8852fd4a17754fc0"
+source_hash: "0cdc3ec67ce75fa0"
 generated_by: "opengeo-free"
 description: "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
 ---

@@ -13,6 +13,13 @@ export const HEADERS = {
   vary: 'Vary',
   link: 'Link',
   aeoVersion: 'X-AEO-Version',
+  /**
+   * The hash of the HTML the twin was generated from. Not in §7's required list, which is a floor
+   * rather than an exclusive set: without it the B14 drift check can only compare facts, because
+   * prod strips frontmatter from the body before serving it.
+   */
+  markdownSourceHash: 'X-Markdown-Source-Hash',
+  lastModified: 'Last-Modified',
 } as const;
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';

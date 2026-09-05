@@ -1,8 +1,8 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultConfig, type LoadedConfig } from '@opengeo/core/shared';
 import { generatePages, parseFrontmatter, readManifest, withFrontmatter } from '@opengeo/core/generate';
@@ -21,10 +21,19 @@ const PAGES: Record<string, string> = {
 let server: Server;
 let site: string;
 
+/**
+ * Stands in for the build-id, nonce and chunk-hash noise every framework injects. Changing it
+ * simulates a redeploy in which not one word of the page changed.
+ */
+let buildId = 'build-1';
+function wrapper(html: string): string {
+  return html.replace('<body>', `<body><script src="/_next/static/${buildId}/main.js"></script>`);
+}
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
-    const body = PAGES[path];
+    const body = PAGES[path] === undefined ? undefined : wrapper(PAGES[path]);
     if (!body) {
       res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
       res.end('<!doctype html><html><body>Not found</body></html>');
@@ -228,5 +237,32 @@ describe('generateSite', () => {
     const result = await generateSite({ target: site, loaded, skipSiteFiles: true });
     expect(result.files).toEqual([]);
     expect(existsSync(join(loaded.root, 'public', 'llms.txt'))).toBe(false);
+  });
+});
+
+describe('hashing what a reader receives, not the markup around it', () => {
+  it('still reports cached after a redeploy that only changed the build id', async () => {
+    const loaded = project();
+    const first = await generatePages({ site, routes: ['/resume'], loaded });
+    expect(first.pages[0]?.status).toBe('written');
+
+    buildId = 'build-2';
+    try {
+      const second = await generatePages({ site, routes: ['/resume'], loaded });
+      expect(second.pages[0]?.status).toBe('cached');
+    } finally {
+      buildId = 'build-1';
+    }
+  });
+
+  it('records no source hash for a hand-written twin, rather than inventing one', async () => {
+    const loaded = project();
+    const file = join(loaded.root, 'public', 'md', 'resume.md');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, withFrontmatter({ title: 'Resume', generated_by: 'manual' }, '# Resume\n\nBy hand.'), 'utf8');
+
+    const result = await generatePages({ site, routes: ['/resume'], loaded });
+    expect(result.pages[0]?.status).toBe('skipped-manual');
+    expect(result.manifest.pages['/resume']?.sourceHash).toBeUndefined();
   });
 });

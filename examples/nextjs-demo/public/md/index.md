@@ -1,9 +1,9 @@
 ---
 title: "Aurora Fieldwork"
 url: "http://localhost:3000/"
-last_updated: "2026-09-05T01:48:55.875Z"
+last_updated: "2026-09-05T02:01:33.416Z"
 tokens: 188
-source_hash: "378b52d454aea081"
+source_hash: "13b1ef2062093e30"
 generated_by: "opengeo-free"
 description: "A small demo site used to exercise the OpenGEO loop end to end."
 ---

@@ -21,6 +21,11 @@ export interface MarkdownDoc {
   body: string;
   tokens: number;
   lastUpdated: string;
+  /**
+   * Hash of the HTML this twin was generated from. Carried so prod can advertise it and `test`'s
+   * B14 check can tell "regenerated from this exact page" from "the page moved on without me".
+   */
+  sourceHash?: string;
 }
 
 export interface MarkdownStore {
@@ -38,6 +43,7 @@ interface StoreManifestEntry {
   file: string;
   tokens: number;
   lastUpdated?: string;
+  sourceHash?: string;
 }
 
 interface StoreManifest {
@@ -85,6 +91,7 @@ export function createFsStore(options: FsStoreOptions): MarkdownStore {
       body: stripFrontmatter(raw),
       tokens: entry.tokens,
       lastUpdated: entry.lastUpdated ?? '',
+      sourceHash: entry.sourceHash,
     });
   }
   return buildStore(docs, problems);
@@ -111,6 +118,7 @@ export function createManifestStore(options: ManifestStoreOptions): MarkdownStor
       body: stripFrontmatter(raw),
       tokens: entry.tokens,
       lastUpdated: entry.lastUpdated ?? '',
+      sourceHash: entry.sourceHash,
     });
   }
   return buildStore(docs, problems);

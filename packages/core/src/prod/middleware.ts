@@ -82,7 +82,12 @@ export function handleRequest(request: RequestLike, ctx: ProdContext): ProdDecis
       doc,
       response: new Response(method === 'HEAD' ? null : doc.body, {
         status: 200,
-        headers: markdownHeaders({ tokens: doc.tokens, specVersion }),
+        headers: markdownHeaders({
+          tokens: doc.tokens,
+          specVersion,
+          lastUpdated: doc.lastUpdated,
+          sourceHash: doc.sourceHash,
+        }),
       }),
     };
   }

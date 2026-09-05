@@ -10,10 +10,14 @@ import { routeToTwinUrlPath } from '../shared/routes.js';
 export interface MarkdownHeaderInput {
   tokens: number;
   specVersion?: string;
+  /** ISO timestamp from the manifest. Emitted as a standard `Last-Modified`. */
+  lastUpdated?: string;
+  /** Hash of the HTML the twin was built from, so `test`'s B14 check can detect drift exactly. */
+  sourceHash?: string;
 }
 
 export function markdownHeaders(input: MarkdownHeaderInput): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     [HEADERS.contentType]: MARKDOWN_CONTENT_TYPE,
     [HEADERS.markdownTokens]: String(Math.max(1, Math.trunc(input.tokens))),
     [HEADERS.contentTypeOptions]: 'nosniff',
@@ -24,6 +28,20 @@ export function markdownHeaders(input: MarkdownHeaderInput): Record<string, stri
     [HEADERS.vary]: 'Accept',
     [HEADERS.aeoVersion]: input.specVersion ?? AEO_SPEC_VERSION,
   };
+  // Provenance, so an auditor does not have to trust the body. Both are omitted rather than faked
+  // when the manifest has nothing to report: a wrong Last-Modified is worse than none.
+  const lastModified = httpDate(input.lastUpdated);
+  if (lastModified) headers[HEADERS.lastModified] = lastModified;
+  if (input.sourceHash) headers[HEADERS.markdownSourceHash] = input.sourceHash;
+  return headers;
+}
+
+/** RFC 7231 IMF-fixdate, or undefined when the input is missing or unparseable. */
+export function httpDate(iso: string | undefined): string | undefined {
+  if (!iso) return undefined;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toUTCString();
 }
 
 export interface HtmlHeaderInput {

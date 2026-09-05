@@ -1,0 +1,167 @@
+import type { CheckResult } from './checks.js';
+import type { Framework, FrameworkId } from './framework.js';
+import type { TestResult } from './index.js';
+
+/**
+ * The fix-prompt generator (idea.md §5).
+ *
+ * The output is aimed at a coding agent with real file access - Claude Code, Cursor, and similar -
+ * not a web chat, because every ask in it involves editing files in the repo.
+ *
+ * One rule shapes the whole module: every reference points at `opengeo-prod` or OpenGEO's own
+ * documentation, never a third party's. It is not a legal nicety. A prompt that names a competitor
+ * hands a coding agent with file access permission to install it, and the user asked OpenGEO to
+ * fix their site, not to swap in something else. `promptMentionsOnlyOpenGeo` in the tests is the
+ * mechanical guard on that.
+ */
+
+const REPO = 'https://github.com/sherwinvishesh/OpenGEO';
+const DOCS = {
+  prod: `${REPO}/blob/main/packages/prod/README.md`,
+  generate: `${REPO}/blob/main/packages/generate/README.md`,
+  checks: `${REPO}/blob/main/docs/checks.md`,
+  spec: `${REPO}/blob/main/docs/spec.md`,
+};
+
+export interface FixPromptOptions {
+  /** The command the user ran, echoed so they can re-run it after the fix. */
+  command?: string;
+}
+
+/**
+ * Where the middleware goes, per framework. Names a file, because "add middleware" is not an
+ * instruction a coding agent can act on and "edit middleware.ts at the project root" is.
+ *
+ * This is guidance inside a prompt, not code that branches on framework: nothing in OpenGEO's
+ * runtime behaves differently per framework (§16 rules that out). Getting it wrong costs the agent
+ * one wrong guess about a filename, which it will notice immediately.
+ */
+const PLACEMENT: Partial<Record<FrameworkId, string>> = {
+  nextjs: 'middleware.ts at the project root, exporting `config = { runtime: "nodejs", matcher: [...] }` so it can read the generated files from disk',
+  nuxt: 'a server middleware under server/middleware/',
+  astro: 'src/middleware.ts, wired through Astro\'s onRequest hook',
+  sveltekit: 'src/hooks.server.ts, in the handle hook',
+  remix: 'the server entry (entry.server.tsx) or the platform adapter in front of it',
+  gatsby: 'the hosting layer in front of the static output, since Gatsby builds to static files',
+  docusaurus: 'the hosting layer in front of the static output, since Docusaurus builds to static files',
+  vite: 'a Connect middleware in vite.config.ts for dev, plus the production host in front of the build',
+  plain: 'the static host or CDN in front of the files, since there is no application server to add middleware to',
+};
+
+/** Per-check remediation. Keyed by check id so a new check cannot silently ship without one. */
+const REMEDY: Record<string, string> = {
+  A1: 'Write a robots.txt that does not disallow AI user agents at /. `opengeo generate` writes one; if the file is hand-maintained, remove the Disallow rules for the agents named above.',
+  A2: 'Add /llms.txt: an H1 with the site name, a one-line blockquote summary, then a list of the important pages as markdown links pointing at their .md twins. `opengeo generate` writes it from the crawl.',
+  A3: 'Add /sitemap.xml as a real <urlset> listing the HTML URLs. `opengeo generate` writes it from the same crawl.',
+  A4: 'Add a Schema.org JSON-LD block in <head> describing what this page is (Organization, Person, Article, Product, as fits).',
+  A5: 'Move the page content into the server-rendered HTML. An agent that does not run JavaScript sees only what is in the raw response, so client-only rendering makes the page invisible to it.',
+  A6: 'Reduce time to first byte for this route: cache the response, or move slow work out of the request path.',
+  A7: 'Remove the noai / noimageai meta tag or X-Robots-Tag directive, unless blocking AI is intentional.',
+  B1: 'Install and mount `opengeo-prod`, then run `opengeo generate <site>` so the twin exists on disk for it to serve.',
+  B2: 'Set Content-Type to exactly `text/markdown; charset=utf-8` on the markdown response. `opengeo-prod` sets this; a static file handler answering before the middleware will not.',
+  B3: 'The twin URL answers but the body is empty. Re-run `opengeo generate` and confirm the file under public/md/ has content.',
+  B4: 'Send X-Markdown-Tokens with the token estimate. `opengeo generate` records it at build time so nothing is computed per request.',
+  B5: 'Send X-Content-Type-Options: nosniff on the markdown response.',
+  B6: 'Send X-Robots-Tag: noindex on the twin, so search engines do not treat it as duplicate content.',
+  B7: 'Send `Vary: Accept` on both the HTML and the markdown response. Without it a CDN can serve a cached HTML body to an agent that asked for markdown.',
+  B8: 'Send a Link header on the HTML response advertising the twin: `<{twin}>; rel="alternate"; type="text/markdown"`.',
+  B9: 'Serve markdown when the request Accept header prefers text/markdown, at the same URL, as a rewrite rather than a redirect.',
+  B10: 'Serve markdown to known AI user agents even when they send no Accept preference. Most crawlers send `Accept: */*`, so Accept negotiation alone does not reach them.',
+  B11: 'Return 406 when the Accept header allows neither HTML nor markdown, instead of answering with a format that was not asked for.',
+  B12: 'Send X-AEO-Version so an agent can tell which serving behaviour this site implements.',
+  B13: 'A normal browser request must still get the real HTML page. Check the classification logic: only agents and explicit Accept preferences should be routed to markdown.',
+  B14: 'Re-run `opengeo generate <site>` so the twins match the current pages, then redeploy. Nothing regenerates automatically, by design, so this drift is expected after a content edit.',
+};
+
+export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {}): string {
+  const failures = result.checks.filter((check) => check.status === 'fail');
+  const lines: string[] = [];
+
+  lines.push('# Fix this site for AI agents');
+  lines.push('');
+  lines.push(
+    'You have file access to this repository. An OpenGEO audit of the deployed site found the',
+    'problems below. Fix them in the code, not by hand-editing the deployed output.',
+  );
+  lines.push('');
+
+  lines.push('## Context');
+  lines.push('');
+  lines.push(`- Site URL audited: ${result.url}`);
+  lines.push(`- Expected markdown twin URL: ${result.twinUrl}`);
+  lines.push(`- Current score: ${result.score.value}/100 (${result.score.earned} of ${result.score.possible} points)`);
+  lines.push(`- Detected framework: ${describeFramework(result.framework)}`);
+  if (options.command) lines.push(`- Command that produced this: \`${options.command}\``);
+  lines.push('');
+
+  if (failures.length === 0) {
+    lines.push('## Nothing failed');
+    lines.push('');
+    lines.push('Every check passed. There is no work to do here.');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  lines.push(`## Failed checks (${failures.length})`);
+  lines.push('');
+  for (const check of failures) lines.push(...renderFailure(check, result));
+
+  lines.push('## What OpenGEO provides');
+  lines.push('');
+  lines.push(
+    '- `opengeo-prod` is the runtime middleware. It classifies each request, serves the markdown',
+    '  twin at the same URL as a rewrite rather than a redirect, and sets every response header the',
+    '  failed B checks above are asking for. It needs no API key and does no work per request beyond',
+    '  a map lookup.',
+    '- `opengeo generate <url>` produces the twins under public/md/, plus robots.txt, llms.txt and',
+    '  sitemap.xml. It runs on a developer machine, never in CI and never per request.',
+    '- `opengeo test <url>` re-runs exactly this audit, so you can verify each change.',
+  );
+  lines.push('');
+  const placement = placementFor(result.framework);
+  if (placement) {
+    lines.push(`For this framework, the middleware belongs in ${placement}.`);
+    lines.push('');
+  }
+
+  lines.push('## What I need from you');
+  lines.push('');
+  lines.push('1. Walk through the exact code changes needed, file by file, with the real paths in this repo.');
+  lines.push('2. Show a diff against the current setup, not a description of one.');
+  lines.push('3. For each change, say which failed check ID above it fixes.');
+  lines.push("4. Verify your suggestions against OpenGEO's own published spec and docs before you finish:");
+  lines.push(`   - ${DOCS.prod}`);
+  lines.push(`   - ${DOCS.generate}`);
+  lines.push(`   - ${DOCS.checks}`);
+  lines.push(`   - ${DOCS.spec}`);
+  lines.push('');
+  lines.push(
+    'Use `opengeo-prod` and the OpenGEO documentation above as the only reference for how this',
+    'should work. Do not substitute a different package for it.',
+  );
+  lines.push('');
+  return lines.join('\n');
+}
+
+function renderFailure(check: CheckResult, result: TestResult): string[] {
+  const lines: string[] = [];
+  lines.push(`### ${check.id} - ${check.title}`);
+  lines.push('');
+  lines.push(`- Points lost: ${check.weight} (${check.importance})`);
+  lines.push(`- What happened: ${check.reason}`);
+  if (check.detail) lines.push(`- Detail: ${check.detail}`);
+  const remedy = REMEDY[check.id];
+  if (remedy) lines.push(`- Fix: ${remedy.replace('{twin}', new URL(result.twinUrl).pathname)}`);
+  lines.push('');
+  return lines;
+}
+
+function describeFramework(framework: Framework | undefined): string {
+  if (!framework) return 'could not tell from the served HTML';
+  return `${framework.name} (${framework.evidence})`;
+}
+
+function placementFor(framework: Framework | undefined): string | undefined {
+  if (!framework) return undefined;
+  return PLACEMENT[framework.id];
+}
