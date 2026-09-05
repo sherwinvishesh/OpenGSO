@@ -10,3 +10,8 @@ out/
 
 # .opengeo/manifest.json is deliberately NOT ignored: opengeo-prod reads it at boot,
 # so it has to travel with the deploy the same way public/md/*.md does.
+
+# Local Claude Code workspace: CLAUDE.md, the manual testing playbook, slash commands,
+# personal settings. All of it is local tooling and none of it belongs in the repo.
+CLAUDE.md
+.claude/
