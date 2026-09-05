@@ -22,6 +22,7 @@ import {
   ERRORS,
   unknownCommand,
 } from '@opengeo/core/shared';
+import type { CommandName } from '@opengeo/core/shared';
 import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@opengeo/core/generate';
 
 const temp = () => mkdtempSync(join(tmpdir(), 'opengeo-test-'));
@@ -157,7 +158,7 @@ describe('error copy (§13)', () => {
   it('names the narrow package and the full one when a command is missing', () => {
     const message = commandUnavailable('generate', 'opengeo-testing');
     expect(message).toContain('npm install -D opengeo-generate');
-    expect(message).toContain('npm install -D opengeo-cli');
+    expect(message).toContain('npm install -D opengeo');
     expect(message).toContain('opengeo-testing');
   });
 
@@ -177,5 +178,35 @@ describe('error copy (§13)', () => {
     for (const packages of Object.values(COMMAND_PACKAGES)) {
       expect(packages).toContain('opengeo');
     }
+  });
+
+  /**
+   * The suggestion used to be two hand-written lines that named `opengeo-cli` as the wider option.
+   * That is wrong for two of the five commands, and wrong in the worst way: it sends the reader to
+   * install a package that still would not have the command. This asserts the property instead of
+   * the wording, so the next command added to the table cannot reintroduce it.
+   */
+  it('never suggests a package that does not ship the command', () => {
+    for (const command of Object.keys(COMMAND_PACKAGES) as CommandName[]) {
+      const message = commandUnavailable(command, 'opengeo-prod');
+      const suggested = [...message.matchAll(/npm install -D (\S+)/g)].map((match) => match[1]);
+      expect(suggested.length).toBeGreaterThan(0);
+      for (const pkg of suggested) expect(COMMAND_PACKAGES[command]).toContain(pkg);
+    }
+  });
+
+  it('offers each package once, so `setup` does not name opengeo-cli twice', () => {
+    const suggested = [...commandUnavailable('setup', 'opengeo-testing').matchAll(/npm install -D (\S+)/g)].map(
+      (match) => match[1],
+    );
+    expect(new Set(suggested).size).toBe(suggested.length);
+  });
+
+  /** setup and start are commands, not pillars. There are exactly three pillars (§2). */
+  it('calls setup and start commands rather than pillars', () => {
+    expect(commandUnavailable('setup', 'opengeo-testing')).toContain('the setup command');
+    expect(commandUnavailable('start', 'opengeo-cli')).toContain('the start command');
+    expect(commandUnavailable('generate', 'opengeo-testing')).toContain('the generate pillar');
+    expect(commandUnavailable('prod test', 'opengeo-testing')).toContain('the prod pillar');
   });
 });

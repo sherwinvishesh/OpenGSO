@@ -1,5 +1,5 @@
 import type { CommandName } from '../shared/errors.js';
-import { COMMAND_BLURB, COMMAND_PACKAGES, commandUnavailable, unknownCommand } from '../shared/errors.js';
+import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 
 export * from './args.js';
@@ -103,8 +103,10 @@ function renderHelp(packageName: string, version: string, available: CommandName
     lines.push(c.bold('Not in this install'));
     const width = Math.max(...missing.map((name) => name.length));
     for (const name of missing) {
-      const suggestion = COMMAND_PACKAGES[name].filter((pkg) => pkg !== packageName)[0];
-      lines.push(`  ${c.gray(name.padEnd(width + 2))}${c.gray(`needs ${suggestion}`)}`);
+      // The narrowest package that ships it, not the widest: someone who wants `generate` and has
+      // `opengeo-testing` is better served by `opengeo-generate` than by being told to install
+      // everything. `commandUnavailable` offers the wider option if they want it.
+      lines.push(`  ${c.gray(name.padEnd(width + 2))}${c.gray(`needs ${NARROWEST_PACKAGE[name]}`)}`);
     }
     lines.push('');
   }
@@ -189,6 +191,8 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     'Options',
     '  --port, -p <n>     port to listen on (default: 4321)',
     '  --project <dir>    project directory to open (default: cwd)',
+    '  --host <addr>      interface to bind (default: 127.0.0.1, loopback only)',
+    '  --web <dir>        directory of built dashboard assets (default: beside this binary)',
     '  --no-open          do not open a browser window',
   ],
 };

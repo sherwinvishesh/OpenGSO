@@ -354,7 +354,7 @@ function judgeBrowser(result: ProbeResult, url: string): ProdProbe {
       ...base,
       verdict: 'warn',
       reason: `HTML was served correctly, but Vary does not include Accept (Vary: ${vary ?? 'absent'}).`,
-      detail: `A shared cache can store this HTML and hand it to the next agent that asks for markdown. ${notes.join('; ')}.`,
+      detail: `A shared cache can store this HTML and hand it to the next agent that asks for markdown. ${asSentence(notes.join('; '))}.`,
     };
   }
   return {
@@ -363,8 +363,16 @@ function judgeBrowser(result: ProbeResult, url: string): ProdProbe {
     reason: alternate
       ? 'HTML unchanged, with `Vary: Accept` and the markdown alternate advertised.'
       : 'HTML unchanged with `Vary: Accept`, but the markdown alternate is not advertised.',
-    detail: notes.join('; '),
+    detail: `${asSentence(notes.join('; '))}.`,
   };
+}
+
+/**
+ * The notes below get joined into a sentence of their own, sometimes after another one. Written
+ * lowercase at the call site so they read as a list, they need their first letter lifted here.
+ */
+function asSentence(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function judgeNotAcceptable(result: ProbeResult, url: string): ProdProbe {

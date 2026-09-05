@@ -25,7 +25,7 @@ export const COMMAND_BLURB: Record<CommandName, string> = {
 };
 
 /** The narrowest package that ships a given command, for the "install just this" suggestion. */
-const NARROWEST_PACKAGE: Record<CommandName, string> = {
+export const NARROWEST_PACKAGE: Record<CommandName, string> = {
   test: 'opengeo-testing',
   generate: 'opengeo-generate',
   setup: 'opengeo-cli',
@@ -34,20 +34,41 @@ const NARROWEST_PACKAGE: Record<CommandName, string> = {
 };
 
 /**
+ * Three of the five commands are pillars (idea.md §2). `setup` and `start` are not, and calling
+ * them one would make the error read as if written by someone who had never run the tool.
+ */
+const PILLAR_OF: Partial<Record<CommandName, string>> = {
+  test: 'test',
+  generate: 'generate',
+  'prod test': 'prod',
+};
+
+/**
  * Shown when a limited install is asked for a command it doesn't include - e.g. someone installed
  * only `opengeo-testing` and ran `opengeo generate`.
+ *
+ * The suggestions are derived rather than written out, because two of the five commands make the
+ * hand-written version wrong: `opengeo-cli` does not ship `start`, and it is itself the narrowest
+ * package that ships `setup`. Both cases used to recommend a package that would not have helped.
  */
 export function commandUnavailable(command: CommandName, installedPackage: string): string {
   const narrowest = NARROWEST_PACKAGE[command];
+  const pillar = PILLAR_OF[command];
+  const ways =
+    narrowest === 'opengeo'
+      ? [`The fix:`, `  npm install -D opengeo`]
+      : [
+          `Two ways forward:`,
+          `  just this one thing   npm install -D ${narrowest}`,
+          `  all of OpenGEO        npm install -D opengeo`,
+        ];
   return [
     `\`opengeo ${command}\` isn't part of ${installedPackage}.`,
     ``,
-    `You have ${installedPackage} installed, which doesn't include the ${command === 'prod test' ? 'prod' : command} pillar.`,
+    `You have ${installedPackage} installed, which doesn't include the ${pillar ? `${pillar} pillar` : `${command} command`}.`,
     `\`opengeo ${command}\` ${COMMAND_BLURB[command]}.`,
     ``,
-    `Two ways forward:`,
-    `  just this one thing   npm install -D ${narrowest}`,
-    `  all three pillars     npm install -D opengeo-cli`,
+    ...ways,
     ``,
     `Packages that ship \`opengeo ${command}\`: ${COMMAND_PACKAGES[command].join(', ')}.`,
   ].join('\n');
