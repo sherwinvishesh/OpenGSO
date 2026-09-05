@@ -9,6 +9,7 @@ import { JSDOM } from 'jsdom';
  * a word count the low-content warning depends on.
  *
  * Scripts are NOT executed here. That is the §18-step-8 boundary: see TODO-csr-jsdom.md.
+ * The shape-aware handling of non-MDX SSR output is §18 step 5: see TODO-ssr-extraction.md.
  */
 
 const ELEMENT_NODE = 1;
