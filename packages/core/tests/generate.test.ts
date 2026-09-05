@@ -160,3 +160,73 @@ describe('generatePages', () => {
     expect(result.pages[0]?.warnings).toContain('fidelity check failed');
   });
 });
+
+describe('generateSite', () => {
+  it('crawls, writes a twin per page, and writes the three site files from the same crawl', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    const result = await generateSite({ target: site, loaded });
+
+    expect(result.crawl?.pages.map((p) => p.route).sort()).toEqual(['/', '/about', '/resume']);
+    expect(result.generate.pages.map((p) => p.status)).toEqual(['written', 'written', 'written']);
+    expect(result.files.map((f) => f.name)).toEqual(['robots.txt', 'llms.txt', 'sitemap.xml']);
+
+    const publicDir = join(loaded.root, 'public');
+    expect(readFileSync(join(publicDir, 'llms.txt'), 'utf8')).toContain(`${site}/resume.md`);
+    expect(readFileSync(join(publicDir, 'sitemap.xml'), 'utf8')).toContain(`<loc>${site}/resume</loc>`);
+    expect(readFileSync(join(publicDir, 'robots.txt'), 'utf8')).toContain(`Sitemap: ${site}/sitemap.xml`);
+  });
+
+  it('does not fetch a page twice: the crawl HTML is reused by the generator', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    const phases: string[] = [];
+    await generateSite({
+      target: site,
+      loaded,
+      onProgress: (event) => {
+        if (event.phase === 'generate') phases.push(event.generate.phase);
+      },
+    });
+    expect(phases).not.toContain('fetch');
+  });
+
+  it('reports every page as cached on an unchanged second run', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    await generateSite({ target: site, loaded });
+    const second = await generateSite({ target: site, loaded });
+    expect(second.generate.pages.every((p) => p.status === 'cached')).toBe(true);
+    expect(second.files.every((f) => f.status === 'unchanged')).toBe(true);
+  });
+
+  it('still describes the whole site when only one page is regenerated', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    await generateSite({ target: site, loaded });
+    const single = await generateSite({ target: `${site}/resume`, loaded, single: true, force: true });
+
+    expect(single.crawl).toBeUndefined();
+    expect(single.generate.pages.map((p) => p.route)).toEqual(['/resume']);
+    // The other two must survive in the manifest, or prod would stop serving them at the next boot.
+    expect(Object.keys(single.generate.manifest.pages).sort()).toEqual(['/', '/about', '/resume']);
+    expect(readFileSync(join(loaded.root, 'public', 'llms.txt'), 'utf8')).toContain(`${site}/about.md`);
+  });
+
+  it('surfaces a crawl failure as a warning rather than failing the run', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    loaded.config.extraRoutes = ['/nope'];
+    const result = await generateSite({ target: site, loaded });
+    expect(result.warnings.join(' ')).toContain('/nope');
+    expect(result.generate.pages.some((p) => p.status === 'written')).toBe(true);
+  });
+
+  it('leaves the site files alone when asked for twins only', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    const result = await generateSite({ target: site, loaded, skipSiteFiles: true });
+    expect(result.files).toEqual([]);
+    expect(existsSync(join(loaded.root, 'public', 'llms.txt'))).toBe(false);
+  });
+});

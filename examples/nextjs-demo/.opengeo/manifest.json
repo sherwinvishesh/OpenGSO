@@ -2,7 +2,7 @@
   "version": 1,
   "specVersion": "opengeo/1.0",
   "site": "http://localhost:3000",
-  "generatedAt": "2026-09-05T01:25:48.251Z",
+  "generatedAt": "2026-09-05T01:49:21.367Z",
   "pages": {
     "/": {
       "route": "/",
@@ -11,9 +11,34 @@
       "file": "md/index.md",
       "tokens": 188,
       "wordCount": 144,
-      "sourceHash": "9641f8eb43e6051b",
-      "lastUpdated": "2026-09-05T01:25:48.515Z",
-      "tier": "free"
+      "sourceHash": "378b52d454aea081",
+      "lastUpdated": "2026-09-05T01:48:55.875Z",
+      "tier": "free",
+      "description": "A small demo site used to exercise the OpenGEO loop end to end."
+    },
+    "/about": {
+      "route": "/about",
+      "url": "http://localhost:3000/about",
+      "title": "About",
+      "file": "md/about.md",
+      "tokens": 205,
+      "wordCount": 157,
+      "sourceHash": "e94f04e6884da1a7",
+      "lastUpdated": "2026-09-05T01:48:55.881Z",
+      "tier": "free",
+      "description": "Who runs Aurora Fieldwork, how we work, and what we will not do."
+    },
+    "/resume": {
+      "route": "/resume",
+      "url": "http://localhost:3000/resume",
+      "title": "Engagement record",
+      "file": "md/resume.md",
+      "tokens": 314,
+      "wordCount": 241,
+      "sourceHash": "8852fd4a17754fc0",
+      "lastUpdated": "2026-09-05T01:48:55.888Z",
+      "tier": "free",
+      "description": "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
     }
   }
 }

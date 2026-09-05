@@ -30,6 +30,8 @@ export interface ManifestEntry {
   sourceHash: string;
   lastUpdated: string;
   tier: GenerationTier;
+  /** Carried so a fully-cached rerun can still write llms.txt without re-extracting every page. */
+  description?: string;
 }
 
 export interface Manifest {

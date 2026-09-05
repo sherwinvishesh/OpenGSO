@@ -50,6 +50,11 @@ export async function runCli(options: CliOptions): Promise<number> {
     return 1;
   }
 
+  if (rest.includes('--help') || rest.includes('-h')) {
+    process.stdout.write(renderCommandHelp(command));
+    return 0;
+  }
+
   const handler = options.commands[command];
   if (!handler) {
     process.stderr.write(`${commandUnavailable(command, options.packageName)}\n`);
@@ -109,6 +114,80 @@ function renderHelp(packageName: string, version: string, available: CommandName
   lines.push(`  --version, -v   ${c.gray('print the version')}`);
   lines.push('');
   return lines.join('\n');
+}
+
+/**
+ * Per-command help. Kept here rather than in each command module so `opengeo <cmd> --help` works
+ * even in an install that doesn't ship that command - the user gets the flags and the "install X"
+ * message, not one or the other.
+ */
+const COMMAND_HELP: Record<CommandName, string[]> = {
+  test: [
+    'Usage: opengeo test <url> [options]',
+    '',
+    'Scores a live URL 0-100 on how readable it is to AI agents, and says exactly what failed.',
+    '',
+    'Options',
+    '  --prompt           print a ready-to-paste fix prompt for your coding agent instead of a report',
+    '  --quality          add a separate AI content-quality review (needs a key, never runs in CI)',
+    '  --json             machine-readable output',
+    '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
+    '  --timeout <secs>   per-request timeout (default: 15)',
+  ],
+  generate: [
+    'Usage: opengeo generate <url> [options]',
+    '',
+    'Crawls the site by following links, writes a Markdown twin for every page, then writes',
+    'robots.txt, llms.txt and sitemap.xml from the same crawl.',
+    '',
+    'Options',
+    '  --tier <free|ai>   free is algorithmic and needs no key; ai is bring-your-own-key',
+    '  --single           only the URL given, leaving every other page in the manifest alone',
+    '  --max-pages <n>    override crawl.maxPages',
+    '  --depth <n>        override crawl.maxDepth',
+    '  --force            overwrite hand-written robots/llms/sitemap and manual .md files',
+    '  --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone',
+    '  --provider <name>  anthropic | openai | gemini (AI tier only)',
+    '  --model <name>     model id for the AI tier',
+    '  --json             machine-readable output',
+    '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
+  ],
+  'prod test': [
+    'Usage: opengeo prod test <url> [options]',
+    '',
+    'Probes a deployed opengeo-prod middleware four ways - allowed bot UA, ordinary browser UA,',
+    'Accept: text/markdown, and an Accept header that excludes both - and reports each separately.',
+    '',
+    'Options',
+    '  --bot <name>       user agent to impersonate (default: ClaudeBot)',
+    '  --json             machine-readable output',
+    '  --timeout <secs>   per-request timeout (default: 15)',
+  ],
+  setup: [
+    'Usage: opengeo setup [options]',
+    '',
+    'Interactive first-run setup: project, site URL, AI provider and key, and the bot lists.',
+    'The key is written to .env in your project, and .env is added to .gitignore.',
+    '',
+    'Options',
+    '  --project <dir>    project directory to set up (default: cwd)',
+    '  --yes              accept every default without prompting',
+  ],
+  start: [
+    'Usage: opengeo start [options]',
+    '',
+    'Serves the local OpenGEO dashboard, a GUI over exactly the same functions the CLI calls.',
+    'Nothing leaves your machine except the AI provider calls you explicitly trigger.',
+    '',
+    'Options',
+    '  --port, -p <n>     port to listen on (default: 4321)',
+    '  --project <dir>    project directory to open (default: cwd)',
+    '  --no-open          do not open a browser window',
+  ],
+};
+
+function renderCommandHelp(command: CommandName): string {
+  return `\n${COMMAND_HELP[command].join('\n')}\n\n`;
 }
 
 /** Entry point wrapper every package's `bin` uses. */
