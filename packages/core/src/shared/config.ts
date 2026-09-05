@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import type { CustomBotInput } from './bots.js';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
 
 export const CONFIG_FILENAME = 'opengeo.config.json';
@@ -39,6 +40,12 @@ export interface OpenGeoConfig {
      * blocking is never the default.
      */
     blocked: string[];
+    /**
+     * Crawlers this project knows about that OpenGEO's shipped list does not: an in-house agent, or
+     * an AI product newer than the installed version. They behave exactly like built-in entries -
+     * both levers apply to them - and naming one in `markdownRouting` is what turns it on.
+     */
+    custom: CustomBotInput[];
   };
   ai: {
     provider: AiProvider;
@@ -60,7 +67,7 @@ export function defaultConfig(site = 'http://localhost:3000'): OpenGeoConfig {
     extraRoutes: [],
     crawl: { maxPages: 200, maxDepth: 4, exclude: [] },
     generate: { tier: 'free', minWords: 40 },
-    bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [] },
+    bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
     ai: { provider: 'anthropic', model: DEFAULT_MODELS.anthropic },
   };
 }

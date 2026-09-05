@@ -1,3 +1,4 @@
+import { resolveBots } from '../../shared/bots.js';
 import { loadConfig } from '../../shared/config.js';
 import type { ProdContext, ProdDecision, RequestLike } from '../middleware.js';
 import { createProdHandler } from '../middleware.js';
@@ -57,11 +58,13 @@ export function createNextMiddleware(options: NextAdapterOptions = {}) {
   const ctx: ProdContext = {
     store,
     markdownRouting: options.markdownRouting ?? loaded.config.bots.markdownRouting,
+    // Resolved once at boot, like everything else here: a request must stay a map lookup (§7).
+    bots: resolveBots(loaded.config.bots.custom),
     specVersion: options.specVersion,
   };
 
   if (options.logStartup !== false) {
-    logStartupStatus({ root, publicDir: options.publicDir ?? loaded.config.publicDir, store });
+    logStartupStatus({ root, publicDir: options.publicDir ?? loaded.config.publicDir, store, bots: ctx.bots });
   }
 
   const handler = createProdHandler(ctx);

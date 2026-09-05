@@ -1,7 +1,7 @@
 import { main } from '@opengeo/core/cli';
 import { generateCommand } from '@opengeo/core/cli/commands/generate';
 import { prodTestCommand } from '@opengeo/core/cli/commands/prod-test';
-import { setupCommand } from '@opengeo/core/cli/commands/setup';
+import { settingsCommand } from '@opengeo/core/cli/commands/settings';
 import { startCommand } from '@opengeo/core/cli/commands/start';
 import { testCommand } from '@opengeo/core/cli/commands/test';
 
@@ -12,7 +12,7 @@ await main({
     test: testCommand,
     generate: generateCommand,
     'prod test': prodTestCommand,
-    setup: setupCommand,
+    settings: settingsCommand,
     start: startCommand,
   },
 });

@@ -136,7 +136,8 @@ This makes "never alters your facts" a property the code enforces, not a promise
 
 ### The key
 
-Read from `.env` in your project, and nowhere else. Run `opengeo setup` to write it, which also adds
+Read from `.env` in your project, and nowhere else. Run `opengeo settings` to write it, which also
+adds
 `.env` to `.gitignore` **before** it asks for the key.
 
 It is sent to the provider you chose and to nobody else. There is no telemetry, no analytics and no

@@ -1,6 +1,6 @@
 # opengeo
 
-The whole toolkit: `test`, `generate`, `prod test`, `setup`, and the local dashboard.
+The whole toolkit: `test`, `generate`, `prod test`, `settings`, and the local dashboard.
 
 This is the package to install if you want everything, including the GUI. If you only want the
 terminal, install
@@ -27,7 +27,12 @@ npx opengeo start
 opengeo start
 ```
 
-Serves a local dashboard on `http://127.0.0.1:4321` and opens it. Options:
+One command for the whole first five minutes. In a directory with no `opengeo.config.json` it asks
+four questions in the terminal first, then opens the dashboard. In a directory that already has one
+it goes straight to the dashboard, because a configured project should not have to re-answer its own
+settings every morning.
+
+Serves the dashboard on `http://127.0.0.1:4321` and opens it. Options:
 
 | Flag | Meaning |
 | --- | --- |
@@ -35,6 +40,9 @@ Serves a local dashboard on `http://127.0.0.1:4321` and opens it. Options:
 | `--host <addr>` | Interface to bind. Default `127.0.0.1`. |
 | `--project <dir>` | Project root. Default the current directory. |
 | `--no-open` | Do not launch a browser. |
+| `--setup` | Ask the four questions even though the project is already configured. On a configured project they arrive as settings, with your current values as the defaults. |
+| `--no-setup` | Never ask. For scripts, and for a fresh checkout where a prompt would hang. |
+| `-y, --yes` | Accept every default without prompting, and write no key. |
 
 Five screens, all driving the same core functions the CLI calls:
 
@@ -42,11 +50,12 @@ Five screens, all driving the same core functions the CLI calls:
 - **Generate** crawls the site, writes the twins and the three root files, and can show you the
   exact bytes an agent would receive, read back off disk.
 - **Prod** probes a running deployment and reports the two bot levers separately.
-- **Bot settings** edits those two levers, and refuses to pretend they are the same thing.
+- **Bot settings** edits those two levers, refuses to pretend they are the same thing, and is where
+  you add a crawler OpenGEO has never heard of.
 - **Settings** edits `opengeo.config.json` and stores an API key.
 
-On a project with no `opengeo.config.json`, the first screen is a three-step setup: site, optional
-key, bot routing.
+On a project with no `opengeo.config.json`, the first screen is a three-step setup: site and web
+root, optional key, bot routing.
 
 ### It binds to 127.0.0.1
 
@@ -68,11 +77,11 @@ which is why the two can never disagree about a score, a header or a file.
 Identical to `opengeo-cli`:
 
 ```bash
-opengeo setup                                  # site, bot routing, optional API key
+opengeo settings                               # site, bot routing, optional API key
 opengeo test http://localhost:3000/resume      # score it as it is today
 opengeo generate http://localhost:3000         # write the twins and the three root files
 opengeo prod test http://localhost:3000/resume # prove the deployment serves them correctly
-opengeo start                                  # the same thing with a UI
+opengeo start                                  # the same questions, then the UI
 ```
 
 See the

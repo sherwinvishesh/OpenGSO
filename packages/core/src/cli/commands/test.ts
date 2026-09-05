@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
 import { AI_PROVIDERS, DEFAULT_MODELS } from '../../shared/config.js';
 import type { AiProvider } from '../../shared/config.js';
@@ -26,7 +27,10 @@ export async function testCommand(ctx: CommandContext): Promise<number> {
 
   const loaded = resolveProject(args);
   const target = resolveTarget(args, loaded, 'test');
-  const result = await testUrl(target.toString(), { timeoutMs: args.num('timeout') });
+  const result = await testUrl(target.toString(), {
+    timeoutMs: args.num('timeout'),
+    bots: resolveBots(loaded.config.bots.custom),
+  });
 
   // --prompt replaces the report rather than appending to it: the whole output is meant to be
   // selected and pasted into a coding agent, so anything else in the buffer is in the way.

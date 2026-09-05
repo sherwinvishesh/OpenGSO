@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
 import { prodVerificationToJson, renderProdVerification, verifyProd } from '../../prod/index.js';
 import { parseArgs } from '../args.js';
@@ -32,6 +33,7 @@ export async function prodTestCommand(ctx: CommandContext): Promise<number> {
 
   const result = await verifyProd(target.toString(), {
     bot: args.str('bot') || undefined,
+    bots: resolveBots(loaded.config.bots.custom),
     timeoutMs: timeout === undefined ? undefined : timeout * 1000,
   });
 

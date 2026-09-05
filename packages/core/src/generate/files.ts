@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { ERRORS } from '../shared/errors.js';
+import type { AiBot } from '../shared/bots.js';
 import { findBot } from '../shared/bots.js';
 import { routeToTwinUrlPath } from '../shared/routes.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
@@ -52,6 +53,11 @@ export interface SiteFilesOptions {
   pages: SitePage[];
   /** Bot names from config.bots.blocked. Empty means block nobody, which is the default (§7). */
   blocked?: readonly string[];
+  /**
+   * The catalogue those names resolve against, so a project's own crawler gets its declared
+   * robots.txt token rather than being written out verbatim. Defaults to the shipped list.
+   */
+  bots?: readonly AiBot[];
   /** Site name for the llms.txt H1. Defaults to the hostname. */
   siteName?: string;
   /** One-line summary for the llms.txt blockquote. */
@@ -132,7 +138,7 @@ export function renderRobotsTxt(options: SiteFilesOptions): string {
     ``,
   ];
 
-  const blocked = (options.blocked ?? []).map((name) => findBot(name)?.robotsToken ?? name).filter(Boolean);
+  const blocked = (options.blocked ?? []).map((name) => findBot(name, options.bots)?.robotsToken ?? name).filter(Boolean);
   if (blocked.length > 0) {
     lines.push(`# Blocked on request. This list is opt-in and empty by default.`);
     for (const token of blocked) {

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AiBot, State } from '../types';
-import { Banner, Button, Card, CardHead, Field, Pill } from '../components/ui';
+import type { AiBot, CustomBot, State } from '../types';
+import type { RoutingMode } from '../components/BotPicker';
+import { AddCrawler, CrawlerChecklist, RoutingModes, routableOnly, routingForMode, routingModeOf } from '../components/BotPicker';
+import { Banner, Button, Card, CardHead, Field } from '../components/ui';
 
 /**
  * First run: project, then key, then bots (§8).
@@ -20,22 +22,43 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
   const [provider, setProvider] = useState(state.config.ai.provider);
   const [model, setModel] = useState(state.config.ai.model);
   const [apiKey, setApiKey] = useState('');
-  const routable = bots.filter((bot) => bot.uaPatterns.length > 0);
+  const [publicDir, setPublicDir] = useState(state.config.publicDir);
+  const [added, setAdded] = useState<CustomBot[]>([]);
   const [routing, setRouting] = useState<string[]>(state.config.bots.markdownRouting);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+
+  // Crawlers added during onboarding join the list immediately, so they can be ticked in the same
+  // pass rather than after a save-and-reload.
+  const routable = useMemo(() => routableOnly([...bots, ...added.map(asBot)]), [bots, added]);
+  // Held rather than derived. Deriving it would make "let me pick" a no-op whenever the current
+  // selection happens to match one of the three canned answers, which is exactly when a first-run
+  // user clicks it: the default is everyone.
+  const [mode, setMode] = useState<RoutingMode>(() => routingModeOf(routing, routableOnly(bots)));
 
   async function finish() {
     setBusy(true);
     setError(undefined);
     try {
       if (apiKey.trim()) await api.saveKey({ provider, apiKey: apiKey.trim(), model });
-      await api.saveConfig({ site: site.trim(), bots: { markdownRouting: routing, blocked: state.config.bots.blocked } });
+      await api.saveConfig({
+        site: site.trim(),
+        publicDir: publicDir.trim() || state.config.publicDir,
+        bots: {
+          markdownRouting: routing,
+          blocked: state.config.bots.blocked,
+          custom: [...state.config.bots.custom, ...added],
+        },
+      });
       onDone();
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : String(thrown));
       setBusy(false);
     }
+  }
+
+  function toggle(name: string) {
+    setRouting((current) => (current.includes(name) ? current.filter((entry) => entry !== name) : [...current, name]));
   }
 
   return (
@@ -67,6 +90,18 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
                     spellCheck={false}
                     autoFocus
                     onChange={(event) => setSite(event.target.value)}
+                  />
+                </Field>
+                <Field
+                  label="Web root"
+                  hint={`Where generated files land. Default: ${state.config.publicDir}`}
+                >
+                  <input
+                    type="text"
+                    value={publicDir}
+                    spellCheck={false}
+                    placeholder={state.config.publicDir}
+                    onChange={(event) => setPublicDir(event.target.value)}
                   />
                 </Field>
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>
@@ -129,22 +164,39 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
                   an access one: anyone unticked, and anyone not on this list at all, sees the ordinary
                   site. Blocking is a separate, opt-in setting under Bot settings.
                 </p>
-                <div className="stack-sm">
-                  {routable.map((bot) => (
-                    <label className="checkbox" key={bot.name}>
-                      <input
-                        type="checkbox"
-                        checked={routing.includes(bot.name)}
-                        onChange={() =>
-                          setRouting((current) =>
-                            current.includes(bot.name) ? current.filter((entry) => entry !== bot.name) : [...current, bot.name],
-                          )
-                        }
-                      />
-                      {bot.name} <Pill tone="mute">{bot.vendor}</Pill>
-                    </label>
-                  ))}
-                </div>
+                <RoutingModes
+                  mode={mode}
+                  routable={routable}
+                  onPick={(next) => {
+                    setMode(next);
+                    setRouting(routingForMode(next, routable, routing));
+                  }}
+                />
+                {mode === 'custom' ? (
+                  <>
+                    <CrawlerChecklist
+                      bots={routable}
+                      selected={routing}
+                      onToggle={toggle}
+                      onRemove={(name) => {
+                        setAdded((current) => current.filter((bot) => bot.name !== name));
+                        setRouting((current) => current.filter((entry) => entry !== name));
+                      }}
+                    />
+                    <AddCrawler
+                      existing={routable}
+                      onAdd={(bot) => {
+                        setAdded((current) => [...current, bot]);
+                        setRouting((current) => [...current, bot.name]);
+                      }}
+                    />
+                  </>
+                ) : (
+                  <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                    {routing.length} of {routable.length} agents. Pick "Let me pick" to choose them by
+                    name, or to add a crawler OpenGEO has never heard of.
+                  </p>
+                )}
               </>
             ) : null}
 
@@ -170,4 +222,17 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
       </div>
     </div>
   );
+}
+
+/** A just-added crawler, shaped like the resolved list so the checklist can render it. */
+function asBot(bot: CustomBot): AiBot {
+  return {
+    name: bot.name,
+    vendor: bot.vendor ?? 'Custom',
+    uaPatterns: bot.uaPatterns ?? [bot.name.toLowerCase()],
+    robotsToken: bot.robotsToken ?? bot.name,
+    kind: bot.kind ?? 'assistant',
+    notes: bot.notes,
+    custom: true,
+  };
 }

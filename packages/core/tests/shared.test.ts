@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  AI_BOTS,
   COMMAND_PACKAGES,
+  ROUTABLE_BOTS,
   contentHash,
   commandUnavailable,
   defaultConfig,
@@ -12,8 +14,12 @@ import {
   isCI,
   loadConfig,
   mergeConfig,
+  identifyBot,
+  normalizeCustomBot,
   normalizeForHash,
   normalizeRoute,
+  resolveBots,
+  resolveRoutableBots,
   routeToMdRelPath,
   routeToTwinUrlPath,
   saveConfig,
@@ -97,6 +103,71 @@ describe('frontmatter', () => {
 
   it('writes a block that starts and ends with the fence', () => {
     expect(serializeFrontmatter({ a: 1 })).toBe('---\na: 1\n---\n');
+  });
+});
+
+describe('custom crawlers', () => {
+  it('fills in everything but the name, because a name is all most people have', () => {
+    const bot = normalizeCustomBot({ name: '  AcmeBot  ' });
+    expect(bot).toBeDefined();
+    expect(bot?.name).toBe('AcmeBot');
+    expect(bot?.vendor).toBe('Custom');
+    // Guessed from the name, so a crawler added with one answer is still routable.
+    expect(bot?.uaPatterns).toEqual(['acmebot']);
+    expect(bot?.robotsToken).toBe('AcmeBot');
+    expect(bot?.kind).toBe('assistant');
+    expect(bot?.custom).toBe(true);
+  });
+
+  it('refuses an entry with no name at all', () => {
+    expect(normalizeCustomBot({ name: '   ' })).toBeUndefined();
+    expect(normalizeCustomBot(undefined as never)).toBeUndefined();
+  });
+
+  it('falls back to assistant rather than trusting a kind it does not recognise', () => {
+    expect(normalizeCustomBot({ name: 'AcmeBot', kind: 'sentient' as never })?.kind).toBe('assistant');
+  });
+
+  it('appends custom crawlers to the shipped list without disturbing it', () => {
+    const resolved = resolveBots([{ name: 'AcmeBot', uaPatterns: ['acmebot'] }]);
+    expect(resolved).toHaveLength(AI_BOTS.length + 1);
+    expect(resolved.slice(0, AI_BOTS.length)).toEqual(AI_BOTS);
+    expect(resolved.at(-1)?.name).toBe('AcmeBot');
+  });
+
+  it('returns the shipped list itself when there is nothing to add', () => {
+    expect(resolveBots(undefined)).toBe(AI_BOTS);
+    expect(resolveBots([])).toBe(AI_BOTS);
+    // A list of nothing but junk resolves to the same, rather than to a copy.
+    expect(resolveBots([{ name: '' }])).toBe(AI_BOTS);
+  });
+
+  it('drops a custom entry that reuses a shipped name instead of shadowing it', () => {
+    // Shadowing GPTBot's patterns with a typo would be a very quiet way to break routing.
+    const resolved = resolveBots([{ name: 'gptbot', uaPatterns: ['not-gptbot'] }]);
+    expect(resolved).toHaveLength(AI_BOTS.length);
+    expect(identifyBot('Mozilla/5.0 (compatible; GPTBot/1.1)', resolved)?.name).toBe('GPTBot');
+  });
+
+  it('drops a duplicate custom entry too', () => {
+    const resolved = resolveBots([{ name: 'AcmeBot' }, { name: 'acmebot' }]);
+    expect(resolved.filter((bot) => bot.name.toLowerCase() === 'acmebot')).toHaveLength(1);
+  });
+
+  it('routes to a custom crawler by User-Agent once it is resolved', () => {
+    const resolved = resolveBots([{ name: 'AcmeBot', uaPatterns: ['acme-crawler'] }]);
+    expect(identifyBot('AcmeCorp/1.0 (+acme-crawler)', resolved)?.name).toBe('AcmeBot');
+    // And is invisible to anyone who did not configure it.
+    expect(identifyBot('AcmeCorp/1.0 (+acme-crawler)')).toBeUndefined();
+  });
+
+  it('keeps robots.txt-only tokens out of the routable list, custom ones included', () => {
+    const routable = resolveRoutableBots([{ name: 'TokenOnly', uaPatterns: [] }]);
+    expect(routable).toHaveLength(ROUTABLE_BOTS.length + 1);
+    // An empty patterns list is filled in from the name, so it is still routable. The two shipped
+    // token-only entries are the ones that genuinely cannot be matched.
+    expect(routable.map((bot) => bot.name)).not.toContain('Google-Extended');
+    expect(routable.map((bot) => bot.name)).not.toContain('Applebot-Extended');
   });
 });
 
@@ -195,16 +266,16 @@ describe('error copy (§13)', () => {
     }
   });
 
-  it('offers each package once, so `setup` does not name opengeo-cli twice', () => {
-    const suggested = [...commandUnavailable('setup', 'opengeo-testing').matchAll(/npm install -D (\S+)/g)].map(
+  it('offers each package once, so `settings` does not name opengeo-cli twice', () => {
+    const suggested = [...commandUnavailable('settings', 'opengeo-testing').matchAll(/npm install -D (\S+)/g)].map(
       (match) => match[1],
     );
     expect(new Set(suggested).size).toBe(suggested.length);
   });
 
-  /** setup and start are commands, not pillars. There are exactly three pillars (§2). */
-  it('calls setup and start commands rather than pillars', () => {
-    expect(commandUnavailable('setup', 'opengeo-testing')).toContain('the setup command');
+  /** settings and start are commands, not pillars. There are exactly three pillars (§2). */
+  it('calls settings and start commands rather than pillars', () => {
+    expect(commandUnavailable('settings', 'opengeo-testing')).toContain('the settings command');
     expect(commandUnavailable('start', 'opengeo-cli')).toContain('the start command');
     expect(commandUnavailable('generate', 'opengeo-testing')).toContain('the generate pillar');
     expect(commandUnavailable('prod test', 'opengeo-testing')).toContain('the prod pillar');

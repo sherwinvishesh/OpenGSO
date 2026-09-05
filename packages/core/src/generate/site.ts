@@ -1,3 +1,4 @@
+import { resolveBots } from '../shared/bots.js';
 import type { LoadedConfig } from '../shared/config.js';
 import { publicDirPath } from '../shared/config.js';
 import { normalizeRoute } from '../shared/routes.js';
@@ -125,6 +126,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
       publicDir: publicDirPath(options.loaded),
       pages,
       blocked: config.bots.blocked,
+      bots: resolveBots(config.bots.custom),
       siteName: options.siteName ?? pages.find((p) => p.route === '/')?.title,
       siteDescription: options.siteDescription ?? pages.find((p) => p.route === '/')?.description,
       force: options.force,

@@ -108,7 +108,7 @@ export interface GitignoreResult {
   alreadyPresent: boolean;
 }
 
-/** Ensure `.env` is gitignored. Called by `opengeo setup` before any key is ever written. */
+/** Ensure `.env` is gitignored. Called before any key is ever written, on every path that writes one. */
 export function ensureEnvGitignored(root: string): GitignoreResult {
   const path = join(root, '.gitignore');
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
@@ -118,7 +118,7 @@ export function ensureEnvGitignored(root: string): GitignoreResult {
     .some((l) => l === '.env' || l === '/.env' || l === '.env*' || l === '*.env');
   if (present) return { path, added: false, alreadyPresent: true };
   const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
-  appendFileSync(path, `${prefix}\n# Added by opengeo setup - never commit your API key\n.env\n`, 'utf8');
+  appendFileSync(path, `${prefix}\n# Added by OpenGEO - never commit your API key\n.env\n`, 'utf8');
   return { path, added: true, alreadyPresent: false };
 }
 

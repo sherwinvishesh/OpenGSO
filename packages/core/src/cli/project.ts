@@ -6,8 +6,8 @@ import { parseUrl } from '../shared/http.js';
 import type { Args } from './args.js';
 
 /**
- * Resolving "which project am I operating on" in one place, so `generate`, `setup` and `start` all
- * agree on where `opengeo.config.json`, `public/` and `.opengeo/` live.
+ * Resolving "which project am I operating on" in one place, so `generate`, `settings` and `start`
+ * all agree on where `opengeo.config.json`, `public/` and `.opengeo/` live.
  */
 export function resolveProject(args: Args): LoadedConfig {
   const dir = args.str('project');

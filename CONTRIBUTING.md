@@ -103,6 +103,12 @@ Two things about it are deliberate and should not be changed casually:
 - A bot that only exists as a robots.txt opt-out token, such as `Google-Extended`, has an empty
   `uaPatterns` array. It cannot be routed, because it never appears in a User-Agent.
 
+`AI_BOTS` is for crawlers every OpenGEO user should know about. A crawler only one site cares about,
+such as an in-house agent, belongs in that project's `bots.custom` instead: `opengeo settings` and
+the dashboard's Bot settings tab both write it, and `resolveBots(config.bots.custom)` merges the two
+lists wherever a catalogue is needed. Do not send a pull request adding a private agent to
+`AI_BOTS`.
+
 ## Style
 
 - Comments explain why, not what. A comment restating the line above it is noise.

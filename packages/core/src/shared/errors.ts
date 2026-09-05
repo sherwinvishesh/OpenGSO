@@ -5,13 +5,13 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
-export type CommandName = 'test' | 'generate' | 'setup' | 'start' | 'prod test';
+export type CommandName = 'test' | 'generate' | 'settings' | 'start' | 'prod test';
 
 /** Which published packages actually ship each command (§10). */
 export const COMMAND_PACKAGES: Record<CommandName, string[]> = {
   test: ['opengeo', 'opengeo-cli', 'opengeo-testing'],
   generate: ['opengeo', 'opengeo-cli', 'opengeo-generate'],
-  setup: ['opengeo', 'opengeo-cli'],
+  settings: ['opengeo', 'opengeo-cli'],
   start: ['opengeo'],
   'prod test': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
 };
@@ -19,8 +19,8 @@ export const COMMAND_PACKAGES: Record<CommandName, string[]> = {
 export const COMMAND_BLURB: Record<CommandName, string> = {
   test: 'scores a live URL 0-100 for AI-readiness',
   generate: 'writes the .md twins, robots.txt, llms.txt and sitemap.xml',
-  setup: 'walks you through project, API key and bot settings',
-  start: 'launches the local OpenGEO dashboard in your browser',
+  settings: 'change the site, the bot lists and the API key, in your terminal',
+  start: 'sets the project up, then opens the OpenGEO dashboard',
   'prod test': 'verifies a deployed opengeo-prod middleware is serving correctly',
 };
 
@@ -28,13 +28,13 @@ export const COMMAND_BLURB: Record<CommandName, string> = {
 export const NARROWEST_PACKAGE: Record<CommandName, string> = {
   test: 'opengeo-testing',
   generate: 'opengeo-generate',
-  setup: 'opengeo-cli',
+  settings: 'opengeo-cli',
   start: 'opengeo',
   'prod test': 'opengeo-prod',
 };
 
 /**
- * Three of the five commands are pillars (§2). `setup` and `start` are not, and calling
+ * Three of the five commands are pillars (§2). `settings` and `start` are not, and calling
  * them one would make the error read as if written by someone who had never run the tool.
  */
 const PILLAR_OF: Partial<Record<CommandName, string>> = {
@@ -49,7 +49,7 @@ const PILLAR_OF: Partial<Record<CommandName, string>> = {
  *
  * The suggestions are derived rather than written out, because two of the five commands make the
  * hand-written version wrong: `opengeo-cli` does not ship `start`, and it is itself the narrowest
- * package that ships `setup`. Both cases used to recommend a package that would not have helped.
+ * package that ships `settings`. Both cases used to recommend a package that would not have helped.
  */
 export function commandUnavailable(command: CommandName, installedPackage: string): string {
   const narrowest = NARROWEST_PACKAGE[command];
@@ -113,7 +113,7 @@ export const ERRORS = {
       `${feature} needs an AI provider API key, and none is configured.`,
       ``,
       `OpenGEO is bring-your-own-key. Set one up with:`,
-      `  opengeo setup`,
+      `  opengeo settings`,
       ``,
       `Or add it to .env yourself:`,
       `  OPENGEO_PROVIDER=anthropic       # anthropic | openai | gemini`,

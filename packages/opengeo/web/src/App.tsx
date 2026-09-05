@@ -33,7 +33,10 @@ const THEME_KEY = 'opengeo.theme';
 export function App() {
   const [tab, setTab] = useState<Tab>('test');
   const [state, setState] = useState<State>();
-  const [bots, setBots] = useState<AiBot[]>([]);
+  // Undefined until the request lands, not `[]`. Onboarding decides which of the four routing
+  // answers is already true by comparing the saved list against the crawler list, and an empty
+  // crawler list makes "everyone" look like a hand-picked selection.
+  const [bots, setBots] = useState<AiBot[]>();
   const [error, setError] = useState<string>();
   const [lastTest, setLastTest] = useState<TestResponse>();
   const [theme, setTheme] = useState<'light' | 'dark'>(readTheme);
@@ -76,7 +79,7 @@ export function App() {
     );
   }
 
-  if (!state) return <div className="onboarding muted">Loading project...</div>;
+  if (!state || !bots) return <div className="onboarding muted">Loading project...</div>;
 
   if (!state.configExists && !onboarded) {
     return (

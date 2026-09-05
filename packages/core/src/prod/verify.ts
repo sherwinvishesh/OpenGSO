@@ -1,5 +1,5 @@
 import type { AiBot } from '../shared/bots.js';
-import { findBot, identifyBot, ROUTABLE_BOTS } from '../shared/bots.js';
+import { AI_BOTS, findBot, identifyBot } from '../shared/bots.js';
 import type { ProbeOptions, ProbeResult } from '../shared/http.js';
 import { BROWSER_UA, cleanUrl, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
@@ -73,6 +73,11 @@ export interface VerifyProdOptions {
   /** Bot name to impersonate for the lever-1 probe. Default ClaudeBot. */
   bot?: string;
   timeoutMs?: number;
+  /**
+   * The crawler catalogue `--bot` resolves against. Defaults to the shipped list; callers with a
+   * config in hand pass the resolved one so `--bot MyCrawler` can probe a project's own agent.
+   */
+  bots?: readonly AiBot[];
   /** Injected by tests so the probe matrix can be exercised without a live server. */
   probeFn?: (url: string, options?: ProbeOptions) => Promise<ProbeResult>;
 }
@@ -92,7 +97,7 @@ const UNKNOWN_BOT_UA = 'Mozilla/5.0 (compatible; NotYetKnownAiBot/1.0; +https://
 const DEFAULT_BOT = 'ClaudeBot';
 
 export async function verifyProd(url: string, options: VerifyProdOptions = {}): Promise<ProdVerification> {
-  const bot = resolveBot(options.bot ?? DEFAULT_BOT);
+  const bot = resolveBot(options.bot ?? DEFAULT_BOT, options.bots);
   const target = cleanUrl(url);
   const origin = new URL(target).origin;
   const run = options.probeFn ?? probe;
@@ -101,7 +106,7 @@ export async function verifyProd(url: string, options: VerifyProdOptions = {}): 
   const send = (userAgent: string, accept: string) =>
     run(target, { headers: { 'User-Agent': userAgent, Accept: accept }, timeoutMs });
 
-  const botUa = botUserAgent(bot);
+  const botUa = botUserAgent(bot, options.bots);
   const [routed, unknown, negotiated, browser, hostile, robotsTxt] = await Promise.all([
     send(botUa, BROWSER_ACCEPT),
     send(UNKNOWN_BOT_UA, BROWSER_ACCEPT),
@@ -120,7 +125,7 @@ export async function verifyProd(url: string, options: VerifyProdOptions = {}): 
   ];
 
   const installed = probes.some((p) => Boolean(p.headers[HEADERS.aeoVersion]));
-  const robots = readRobots(`${origin}/robots.txt`, robotsTxt);
+  const robots = readRobots(`${origin}/robots.txt`, robotsTxt, options.bots);
   const conflicts = findConflicts(bot, robots, probes);
 
   const counts = {
@@ -147,14 +152,17 @@ export async function verifyProd(url: string, options: VerifyProdOptions = {}): 
  * than a probe that could never pass. Google-Extended and Applebot-Extended are opt-out signals
  * with no crawler behind them, so no request will ever carry them as a User-Agent.
  */
-export function resolveBot(name: string): AiBot {
-  const bot = findBot(name);
+export function resolveBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBot {
+  const bot = findBot(name, bots);
   if (!bot) {
     throw new Error(
       [
         `Unknown bot "${name}".`,
         ``,
-        `Bots that can be routed by User-Agent: ${ROUTABLE_BOTS.map((b) => b.name).join(', ')}.`,
+        `Bots that can be routed by User-Agent: ${bots
+          .filter((b) => b.uaPatterns.length > 0)
+          .map((b) => b.name)
+          .join(', ')}.`,
       ].join('\n'),
     );
   }
@@ -173,9 +181,9 @@ export function resolveBot(name: string): AiBot {
   return bot;
 }
 
-function botUserAgent(bot: AiBot): string {
+function botUserAgent(bot: AiBot, bots: readonly AiBot[] = AI_BOTS): string {
   const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
-  if (identifyBot(ua)?.name === bot.name) return ua;
+  if (identifyBot(ua, bots)?.name === bot.name) return ua;
   // Defensive: a bot whose UA token is not its own name. None today, but bots.ts is the
   // community-contribution surface, and a probe that silently fails to impersonate anyone would
   // report a routing failure that does not exist.
@@ -432,7 +440,7 @@ function judgeBlocked(result: ProbeResult, who: string): Pick<ProdProbe, 'verdic
 
 // --- lever 2 ----------------------------------------------------------------------------------
 
-function readRobots(url: string, result: ProbeResult): RobotsReport {
+function readRobots(url: string, result: ProbeResult, bots?: readonly AiBot[]): RobotsReport {
   if (result.status === 0) {
     return {
       url,
@@ -455,7 +463,7 @@ function readRobots(url: string, result: ProbeResult): RobotsReport {
     };
   }
 
-  const { allowed, blocked } = summarizeRobots(result.body);
+  const { allowed, blocked } = summarizeRobots(result.body, bots);
   const notes: string[] = [];
   notes.push(
     blocked.length > 0

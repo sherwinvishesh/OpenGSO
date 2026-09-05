@@ -1,3 +1,4 @@
+import type { AiBot } from '../shared/bots.js';
 import { parseUrl } from '../shared/http.js';
 import { ERRORS } from '../shared/errors.js';
 import type { CheckResult } from './checks.js';
@@ -30,12 +31,14 @@ export interface TestResult {
 
 export interface TestOptions {
   timeoutMs?: number;
+  /** Built-ins plus the project's own crawlers, so A1 judges robots.txt against both. */
+  bots?: readonly AiBot[];
 }
 
 export async function testUrl(target: string, options: TestOptions = {}): Promise<TestResult> {
   const url = parseUrl(target);
   if (!url) throw new Error(ERRORS.invalidUrl(target));
-  const evidence = await gatherEvidence(url, { timeoutMs: options.timeoutMs });
+  const evidence = await gatherEvidence(url, { timeoutMs: options.timeoutMs, bots: options.bots });
   return testEvidence(evidence);
 }
 

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import type { AiBot } from '../shared/bots.js';
 import { AI_BOTS } from '../shared/bots.js';
 import type { MarkdownStore } from './store.js';
 
@@ -19,6 +20,8 @@ export interface StartupStatusOptions {
   root: string;
   publicDir?: string;
   store?: MarkdownStore;
+  /** Built-ins plus the project's own crawlers, so the robots.txt summary covers both. */
+  bots?: readonly AiBot[];
   /** Injected in tests so the guard and the formatting can be checked without touching stdout. */
   logger?: (line: string) => void;
 }
@@ -39,7 +42,7 @@ export interface StartupStatus {
 export function buildStartupStatus(options: StartupStatusOptions): StartupStatus {
   const publicDir = resolve(options.root, options.publicDir ?? 'public');
   const files: FileStatus[] = [
-    describeRobots(join(publicDir, 'robots.txt')),
+    describeRobots(join(publicDir, 'robots.txt'), options.bots),
     describeSimple('llms.txt', join(publicDir, 'llms.txt')),
     describeSimple('sitemap.xml', join(publicDir, 'sitemap.xml')),
   ];
@@ -84,7 +87,7 @@ function describeSimple(name: string, path: string): FileStatus {
   return { name, found: existsSync(path) };
 }
 
-function describeRobots(path: string): FileStatus {
+function describeRobots(path: string, bots?: readonly AiBot[]): FileStatus {
   if (!existsSync(path)) return { name: 'robots.txt', found: false };
   let contents = '';
   try {
@@ -92,19 +95,25 @@ function describeRobots(path: string): FileStatus {
   } catch {
     return { name: 'robots.txt', found: true, detail: 'could not be read' };
   }
-  const { allowed, blocked } = summarizeRobots(contents);
+  const { allowed, blocked } = summarizeRobots(contents, bots);
   const parts: string[] = [];
   parts.push(blocked.length > 0 ? `blocking ${blocked.join(', ')}` : 'blocking no AI bots');
   if (allowed.length > 0) parts.push(`explicitly allowing ${allowed.length} AI bot${allowed.length === 1 ? '' : 's'}`);
   return { name: 'robots.txt', found: true, detail: parts.join('; ') };
 }
 
-/** Which known AI bots a robots.txt currently allows or disallows at the site root. */
-export function summarizeRobots(contents: string): { allowed: string[]; blocked: string[] } {
+/**
+ * Which known AI bots a robots.txt currently allows or disallows at the site root.
+ *
+ * `bots` widens "known" to include the project's own `bots.custom` entries, so a custom crawler
+ * named in `bots.blocked` shows up in the boot log and in `prod test` rather than being silently
+ * absent from a summary that claims to be complete.
+ */
+export function summarizeRobots(contents: string, bots: readonly AiBot[] = AI_BOTS): { allowed: string[]; blocked: string[] } {
   const groups = parseRobots(contents);
   const allowed: string[] = [];
   const blocked: string[] = [];
-  for (const bot of AI_BOTS) {
+  for (const bot of bots) {
     const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
     if (!rules) continue;
     if (rules.some((rule) => rule.type === 'disallow' && rule.path === '/')) blocked.push(bot.name);

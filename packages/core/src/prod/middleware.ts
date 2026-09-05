@@ -1,3 +1,4 @@
+import type { AiBot } from '../shared/bots.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 import { htmlHeaders, markdownHeaders, notAcceptableHeaders, NOT_ACCEPTABLE_BODY } from './headers.js';
 import type { Classification } from './negotiate.js';
@@ -19,6 +20,12 @@ export interface ProdContext {
   store: MarkdownStore;
   /** Lever 1 (§7): which bots get markdown. Never a blocking list. */
   markdownRouting: readonly string[];
+  /**
+   * The crawler catalogue to match User-Agents against, built-ins plus the project's own
+   * `bots.custom` entries. Omitted means the shipped list, which is what a hand-wired middleware
+   * with no config gets.
+   */
+  bots?: readonly AiBot[];
   specVersion?: string;
 }
 
@@ -56,6 +63,7 @@ export function handleRequest(request: RequestLike, ctx: ProdContext): ProdDecis
     userAgent: request.headers.get('user-agent'),
     accept: request.headers.get('accept'),
     markdownRouting: ctx.markdownRouting,
+    bots: ctx.bots,
   });
 
   if (isAsset || (method !== 'GET' && method !== 'HEAD')) {

@@ -12,6 +12,7 @@ import {
   identifyBot,
   markdownHeaders,
   parseLinkAlternate,
+  resolveBots,
   summarizeAccept,
 } from '@opengeo/core/prod';
 
@@ -207,6 +208,58 @@ describe('bot identification', () => {
     expect(identifyBot('Google-Extended')).toBeUndefined();
     expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Google-Extended');
     expect(DEFAULT_MARKDOWN_ROUTING).not.toContain('Applebot-Extended');
+  });
+});
+
+describe('a project\'s own crawlers (bots.custom)', () => {
+  const ACME = 'AcmeCorp/1.0 (+https://acme.test/crawler; acme-crawler)';
+  const bots = resolveBots([{ name: 'AcmeBot', uaPatterns: ['acme-crawler'], kind: 'assistant' }]);
+
+  it('is invisible until the project configures it', () => {
+    // The default catalogue has never heard of it, so it is an ordinary visitor - not a suspect.
+    const decision = handleRequest(request('/resume', { 'user-agent': ACME, accept: BROWSER_ACCEPT }), {
+      store,
+      markdownRouting: [...DEFAULT_MARKDOWN_ROUTING, 'AcmeBot'],
+    });
+    expect(decision.type).toBe('passthrough');
+  });
+
+  it('gets the twin once it is both resolved and routed', () => {
+    const decision = handleRequest(request('/resume', { 'user-agent': ACME, accept: BROWSER_ACCEPT }), {
+      store,
+      markdownRouting: ['AcmeBot'],
+      bots,
+    });
+    expect(decision.type).toBe('markdown');
+    if (decision.type !== 'markdown') return;
+    expect(decision.classification.bot?.name).toBe('AcmeBot');
+    expect(decision.classification.bot?.custom).toBe(true);
+    expect(decision.response.headers.get(HEADERS.contentType)).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(decision.doc.body).toContain('# Resume');
+  });
+
+  it('gets the ordinary site when it is resolved but not routed, exactly like a shipped crawler', () => {
+    const decision = handleRequest(request('/resume', { 'user-agent': ACME, accept: BROWSER_ACCEPT }), {
+      store,
+      markdownRouting: [],
+      bots,
+    });
+    expect(decision.type).toBe('passthrough');
+    expect(classify({ pathname: '/resume', userAgent: ACME, accept: BROWSER_ACCEPT, markdownRouting: [], bots }).kind).toBe(
+      'unrouted-bot',
+    );
+  });
+
+  it('does not displace the shipped crawlers it sits beside', () => {
+    const decision = classify({
+      pathname: '/resume',
+      userAgent: GPTBOT,
+      accept: BROWSER_ACCEPT,
+      markdownRouting: ['GPTBot'],
+      bots,
+    });
+    expect(decision.bot?.name).toBe('GPTBot');
+    expect(decision.serve).toBe('markdown');
   });
 });
 

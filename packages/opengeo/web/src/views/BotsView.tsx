@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AiBot, State } from '../types';
+import type { RoutingMode } from '../components/BotPicker';
+import { AddCrawler, KIND_NOTE, routableOnly, routingForMode, routingModeOf, sameNames } from '../components/BotPicker';
 import { Banner, Button, Card, CardHead, PageHead, Pill } from '../components/ui';
+import type { AiBot, CustomBot, State } from '../types';
 
 /**
  * Bot settings: the two levers from §7, on one page but never in one list.
@@ -10,36 +12,58 @@ import { Banner, Button, Card, CardHead, PageHead, Pill } from '../components/ui
  * deny anybody anything, so its column has no warning attached. Blocking is a real denial, is
  * opt-in, and only takes effect the next time generate writes robots.txt, so it says so on screen
  * rather than in the docs.
+ *
+ * The table is the by-hand answer, so the presets sit above it rather than replacing it: most
+ * people want one of the three canned lists and should not have to click twenty-six checkboxes to
+ * express it. Underneath, a project can add a crawler OpenGEO has never heard of, which is the one
+ * thing a shipped list can never cover on its own.
  */
-
-const KIND_NOTE: Record<string, string> = {
-  assistant: 'Fetches a page because a person asked about it, right now.',
-  search: 'Indexes pages to answer search queries later.',
-  training: 'Collects pages as training data.',
-};
 
 export function BotsView({ state, bots, onSaved }: { state: State; bots: AiBot[]; onSaved: () => void }) {
   const [routing, setRouting] = useState<string[]>(state.config.bots.markdownRouting);
   const [blocked, setBlocked] = useState<string[]>(state.config.bots.blocked);
+  const [custom, setCustom] = useState<CustomBot[]>(state.config.bots.custom);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
 
-  const dirty = useMemo(
-    () => !same(routing, state.config.bots.markdownRouting) || !same(blocked, state.config.bots.blocked),
-    [routing, blocked, state.config.bots.markdownRouting, state.config.bots.blocked],
-  );
+  // Crawlers added here appear in the table straight away, before any save, so they can be routed
+  // and blocked in the same pass.
+  const shown = useMemo(() => {
+    const known = new Set(bots.map((bot) => bot.name.toLowerCase()));
+    return [...bots, ...custom.filter((bot) => !known.has(bot.name.toLowerCase())).map(asBot)];
+  }, [bots, custom]);
+  const routable = useMemo(() => routableOnly(shown), [shown]);
+  const mode = routingModeOf(routing, routable);
+
+  const dirty =
+    !sameNames(routing, state.config.bots.markdownRouting) ||
+    !sameNames(blocked, state.config.bots.blocked) ||
+    !sameNames(custom.map((bot) => bot.name), state.config.bots.custom.map((bot) => bot.name));
 
   function toggle(list: string[], set: (next: string[]) => void, name: string) {
     setSaved(false);
     set(list.includes(name) ? list.filter((entry) => entry !== name) : [...list, name]);
   }
 
+  function addCrawler(bot: CustomBot) {
+    setSaved(false);
+    setCustom((current) => [...current, bot]);
+    setRouting((current) => [...current, bot.name]);
+  }
+
+  function removeCrawler(name: string) {
+    setSaved(false);
+    setCustom((current) => current.filter((bot) => bot.name !== name));
+    setRouting((current) => current.filter((entry) => entry !== name));
+    setBlocked((current) => current.filter((entry) => entry !== name));
+  }
+
   async function save() {
     setBusy(true);
     setError(undefined);
     try {
-      await api.saveConfig({ bots: { markdownRouting: routing, blocked } });
+      await api.saveConfig({ bots: { markdownRouting: routing, blocked, custom } });
       setSaved(true);
       onSaved();
     } catch (thrown) {
@@ -92,21 +116,40 @@ export function BotsView({ state, bots, onSaved }: { state: State; bots: AiBot[]
             </div>
           }
         />
+        <div className="card-pad" style={{ borderBottom: '1px solid var(--border)' }}>
+          <RoutingPresets
+            mode={mode}
+            routable={routable}
+            onPick={(next) => {
+              setSaved(false);
+              setRouting(routingForMode(next, routable, routing));
+            }}
+          />
+        </div>
         <div className="bot-row" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="group-title">Bot</div>
           <div className="group-title">Markdown</div>
           <div className="group-title">Blocked</div>
         </div>
-        {bots.map((bot) => (
+        {shown.map((bot) => (
           <div className="bot-row" key={bot.name}>
             <div>
               <div className="bot-name">
-                {bot.name}{' '}
-                <Pill tone="mute">{bot.kind}</Pill>{' '}
+                {bot.name} <Pill tone="mute">{bot.kind}</Pill>{' '}
+                {bot.custom ? <Pill tone="ok">yours</Pill> : null}{' '}
                 {bot.uaPatterns.length === 0 ? <Pill tone="mute">robots.txt only</Pill> : null}
               </div>
               <div className="bot-meta">
                 {bot.vendor}. {bot.notes ?? KIND_NOTE[bot.kind]}
+                {bot.custom ? (
+                  <>
+                    {' '}
+                    Matches any User-Agent containing {bot.uaPatterns.join(' or ')}.{' '}
+                    <button type="button" className="link-btn" onClick={() => removeCrawler(bot.name)}>
+                      remove
+                    </button>
+                  </>
+                ) : null}
               </div>
             </div>
             <label className="toggle">
@@ -124,6 +167,9 @@ export function BotsView({ state, bots, onSaved }: { state: State; bots: AiBot[]
             </label>
           </div>
         ))}
+        <div className="card-pad">
+          <AddCrawler existing={shown} onAdd={addCrawler} />
+        </div>
       </Card>
 
       <Card className="card-pad">
@@ -132,11 +178,61 @@ export function BotsView({ state, bots, onSaved }: { state: State; bots: AiBot[]
           at request time. It can still be named in robots.txt, which is how vendors like Google
           expose an AI-training opt-out separate from their search crawler.
         </p>
+        <p className="muted" style={{ margin: '10px 0 0' }}>
+          A crawler you add is stored in <span className="mono">bots.custom</span> in{' '}
+          <span className="mono">opengeo.config.json</span> and behaves exactly like a built-in one:
+          both levers apply to it. Your site loads that list at boot, so restart it after saving.
+        </p>
       </Card>
     </>
   );
 }
 
-function same(a: string[], b: string[]): boolean {
-  return a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
+/**
+ * The three canned answers plus the by-hand one. `custom` is a label here rather than a button,
+ * because the table underneath is already the by-hand answer: there is nothing extra to reveal.
+ */
+function RoutingPresets({
+  mode,
+  routable,
+  onPick,
+}: {
+  mode: RoutingMode;
+  routable: AiBot[];
+  onPick: (mode: RoutingMode) => void;
+}) {
+  const assistants = routable.filter((bot) => bot.kind !== 'training').length;
+  return (
+    <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+      <span className="group-title" style={{ margin: 0 }}>
+        Markdown routing
+      </span>
+      <Button small onClick={() => onPick('all')}>
+        Everyone ({routable.length})
+      </Button>
+      <Button small onClick={() => onPick('assistants')}>
+        Assistants and search ({assistants})
+      </Button>
+      <Button small onClick={() => onPick('none')}>
+        Nobody
+      </Button>
+      <div className="grow" />
+      <span className="muted" style={{ fontSize: 12 }}>
+        {mode === 'custom' ? 'A list you picked by hand.' : 'Or tick them one by one below.'}
+      </span>
+    </div>
+  );
+}
+
+/** A crawler from the config, shaped like the resolved list so the table can render it. */
+function asBot(bot: CustomBot): AiBot {
+  return {
+    name: bot.name,
+    vendor: bot.vendor ?? 'Custom',
+    uaPatterns: bot.uaPatterns ?? [bot.name.toLowerCase()],
+    robotsToken: bot.robotsToken ?? bot.name,
+    kind: bot.kind ?? 'assistant',
+    notes: bot.notes,
+    custom: true,
+  };
 }

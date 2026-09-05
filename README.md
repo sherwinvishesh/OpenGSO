@@ -15,7 +15,7 @@ Unlike existing tools, which each solve one piece and are usually locked to a si
 ```bash
 npm install --save-dev opengeo
 
-npx opengeo setup                                   # site, bot routing, optional API key
+npx opengeo start                                   # set the project up, then open the dashboard
 npx opengeo test https://your-site.com              # score it as it is today
 npx opengeo generate https://your-site.com          # write the twins and the three root files
 # wire opengeo-prod into your middleware, deploy
@@ -23,10 +23,12 @@ npx opengeo prod test https://your-site.com         # prove the deployment serve
 npx opengeo test https://your-site.com              # score it again
 ```
 
-Or drive the whole thing from the local dashboard:
+`opengeo start` asks four questions the first time it runs in a directory: your site URL and web
+root, which AI agents get the markdown twin, blocking, and an optional API key. After that it goes
+straight to the dashboard. To change any of those answers later, in the terminal:
 
 ```bash
-npx opengeo start
+npx opengeo settings
 ```
 
 Nothing here needs an API key. Generate's free tier, every structural test, and all of
@@ -42,7 +44,7 @@ if you ask one for something it does not ship, it tells you which package to ins
 | Package | Ships | Install it when |
 | --- | --- | --- |
 | [`opengeo`](packages/opengeo/README.md) | everything, plus the local dashboard | you want the whole thing, or you want a UI |
-| [`opengeo-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `setup` | you want the whole toolchain, terminal only |
+| [`opengeo-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `settings` | you want the whole toolchain, terminal only |
 | [`opengeo-testing`](packages/testing/README.md) | `test` | you only want to score a site |
 | [`opengeo-generate`](packages/generate/README.md) | `generate` | you only want the markdown twins and root files |
 | [`opengeo-prod`](packages/prod/README.md) | the middleware, plus `prod test` | this is the one that runs on your server |

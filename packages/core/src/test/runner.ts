@@ -64,7 +64,7 @@ function checkRobots(e: Evidence): CheckResult {
   const blockedAssistants: string[] = [];
   const blockedTraining: string[] = [];
 
-  for (const bot of AI_BOTS) {
+  for (const bot of e.bots ?? AI_BOTS) {
     const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
     if (!rules) continue;
     const blockedAtRoot = rules.some((rule) => rule.type === 'disallow' && rule.path === '/');

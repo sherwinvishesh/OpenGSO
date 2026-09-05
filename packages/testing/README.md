@@ -104,7 +104,7 @@ It is printed as a **clearly separate section** and is never folded into the 0 t
 structural score is deterministic and reproducible; a model's opinion is not, and blending the two
 would make the number mean nothing.
 
-It needs an API key (`opengeo setup`), and it refuses to run under CI. Without a key it says so and
+It needs an API key (`opengeo settings`), and it refuses to run under CI. Without a key it says so and
 the structural score is unaffected.
 
 ## Honest failures

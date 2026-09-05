@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runSetup, SetupAbort } from '../src/cli/commands/setup.js';
+import { runSetup, SetupAbort } from '../src/cli/configure.js';
 import { createPrompter, type ChoiceOption, type Prompter } from '../src/cli/prompt.js';
 import { ROUTABLE_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME } from '../src/shared/config.js';
@@ -11,9 +11,12 @@ import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
 
 /**
  * §11 is the reason this file exists. The guarantee is not "we tell people to gitignore .env", it
- * is "setup cannot write a key into an un-ignored directory", and the only way to assert an
+ * is "the flow cannot write a key into an un-ignored directory", and the only way to assert an
  * ordering is to observe the disk at the moment the secret is asked for. `onSecret` below does
  * exactly that: it runs inside the prompt, before any key exists.
+ *
+ * `runSetup` is one function behind two commands, so everything here covers both: `opengeo start`
+ * runs it in `first-run` mode, `opengeo settings` in `settings` mode.
  */
 
 interface Script {
@@ -21,6 +24,8 @@ interface Script {
   ask?: string[];
   /** Answers for `choose`, in order, by value. */
   choose?: string[];
+  /** Answers for `confirm`, in order. Anything past the end falls back to the prompt's default. */
+  confirm?: boolean[];
   secret?: string;
   /** Observed from inside the secret prompt, so it sees the world as it was before the key. */
   onSecret?: () => void;
@@ -29,6 +34,7 @@ interface Script {
 function scripted(script: Script): Prompter & { asked: string[] } {
   const asks = [...(script.ask ?? [])];
   const chooses = [...(script.choose ?? [])];
+  const confirms = [...(script.confirm ?? [])];
   const asked: string[] = [];
   return {
     asked,
@@ -50,14 +56,16 @@ function scripted(script: Script): Prompter & { asked: string[] } {
       script.onSecret?.();
       return script.secret ?? '';
     },
-    async confirm(_question: string, fallback: boolean) {
-      return fallback;
+    async confirm(question: string, fallback: boolean) {
+      asked.push(question.trim());
+      const next = confirms.shift();
+      return next === undefined ? fallback : next;
     },
     close() {},
   };
 }
 
-describe('opengeo setup', () => {
+describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
   let root: string;
   const silent = () => {};
 
@@ -196,6 +204,198 @@ describe('opengeo setup', () => {
     });
   });
 
+  describe('picking crawlers one by one (the fourth option)', () => {
+    it('routes to exactly the crawlers named at the picker', async () => {
+      // `none` clears the sheet, then two names go back on it. Both are typed lowercase on purpose:
+      // "gptbot" is what a person types, and the picker matches case-insensitively.
+      const prompter = scripted({
+        ask: ['http://localhost:3000', '', 'none', 'gptbot claudebot', ''],
+        choose: ['custom', 'skip'],
+      });
+
+      const result = await runSetup({ root, prompter, out: silent });
+
+      expect([...result.config.bots.markdownRouting].sort()).toEqual(['ClaudeBot', 'GPTBot']);
+    });
+
+    it('toggles, so naming a crawler twice leaves it off', async () => {
+      const prompter = scripted({
+        ask: ['http://localhost:3000', '', 'none', 'GPTBot', 'GPTBot', ''],
+        choose: ['custom', 'skip'],
+      });
+
+      const result = await runSetup({ root, prompter, out: silent });
+
+      expect(result.config.bots.markdownRouting).toEqual([]);
+    });
+
+    it('never offers a robots.txt-only token, which could not be routed to anyway', async () => {
+      // Google-Extended has no User-Agent of its own, so ticking it would promise something prod
+      // cannot deliver. It stays available for the block list, which is a robots.txt list.
+      let transcript = '';
+      const prompter = scripted({
+        ask: ['http://localhost:3000', '', 'Google-Extended', ''],
+        choose: ['custom', 'skip'],
+      });
+
+      const result = await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('No crawler called "Google-Extended"');
+      expect(result.config.bots.markdownRouting).not.toContain('Google-Extended');
+      expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
+    });
+
+    it('adds a crawler OpenGEO has never heard of and routes to it in the same pass', async () => {
+      const prompter = scripted({
+        ask: [
+          'http://localhost:3000',
+          '',
+          'none',
+          'add',
+          'AcmeBot',
+          'Acme Inc',
+          'acmebot, acme-crawler',
+          'AcmeBot',
+          '',
+        ],
+        choose: ['custom', 'assistant', 'skip'],
+      });
+
+      const result = await runSetup({ root, prompter, out: silent });
+
+      expect(result.addedBots).toHaveLength(1);
+      expect(result.addedBots[0]).toMatchObject({
+        name: 'AcmeBot',
+        vendor: 'Acme Inc',
+        uaPatterns: ['acmebot', 'acme-crawler'],
+        robotsToken: 'AcmeBot',
+        kind: 'assistant',
+      });
+      // Written into the config, which is the same list prod resolves at boot.
+      expect(result.config.bots.custom.map((bot) => bot.name)).toEqual(['AcmeBot']);
+      expect(result.config.bots.markdownRouting).toEqual(['AcmeBot']);
+
+      const onDisk = JSON.parse(readFileSync(result.configPath, 'utf8'));
+      expect(onDisk.bots.custom[0].uaPatterns).toEqual(['acmebot', 'acme-crawler']);
+    });
+
+    it('offers a crawler from a previous run alongside the shipped ones', async () => {
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({
+          site: 'http://localhost:3000',
+          bots: { markdownRouting: [], blocked: [], custom: [{ name: 'AcmeBot', uaPatterns: ['acmebot'] }] },
+        }),
+        'utf8',
+      );
+      const prompter = scripted({ ask: ['', '', 'AcmeBot', ''], choose: ['custom', 'skip'] });
+
+      const result = await runSetup({ root, prompter, out: silent });
+
+      expect(result.config.bots.markdownRouting).toEqual(['AcmeBot']);
+      // Selecting one is not defining one, so nothing new was added.
+      expect(result.addedBots).toEqual([]);
+      expect(result.config.bots.custom).toHaveLength(1);
+    });
+
+    it('refuses to add a name that already belongs to a shipped crawler', async () => {
+      let transcript = '';
+      const prompter = scripted({
+        ask: ['http://localhost:3000', '', 'none', 'add', 'GPTBot', ''],
+        choose: ['custom', 'skip'],
+      });
+
+      const result = await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('GPTBot is already on the list');
+      expect(result.config.bots.custom).toEqual([]);
+    });
+  });
+
+  describe('settings mode (§12)', () => {
+    /** A configured project, so settings mode has something to edit. */
+    function configured(): void {
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({
+          site: 'http://localhost:3000',
+          publicDir: 'public',
+          bots: { markdownRouting: ROUTABLE_BOTS.map((bot) => bot.name), blocked: [], custom: [] },
+        }),
+        'utf8',
+      );
+    }
+
+    it('says so plainly when every answer was a blank line', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ ask: ['', ''] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('Nothing changed');
+      // No tutorial, and no dashboard pitch: this project already works.
+      expect(transcript).not.toContain('Next');
+      expect(result.config.site).toBe('http://localhost:3000');
+    });
+
+    it('reports what actually changed', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:4000', 'dist'], choose: ['none', 'skip'] });
+
+      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('http://localhost:3000');
+      expect(transcript).toContain('http://localhost:4000');
+      expect(transcript).toContain('web root');
+      expect(transcript).toContain('markdown routing');
+    });
+
+    it('edits the block list, which is the one question a first run never asks', async () => {
+      configured();
+      const prompter = scripted({ ask: ['', '', 'GPTBot', ''], confirm: [true] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.bots.blocked).toEqual(['GPTBot']);
+      // Blocking and routing are separate levers (§7): editing one must not touch the other.
+      expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
+    });
+
+    it('leaves the block list alone when the offer is declined', async () => {
+      configured();
+      const prompter = scripted({ ask: ['', ''], confirm: [false] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.bots.blocked).toEqual([]);
+    });
+
+    it('does not put the blocking question in front of a first-run user', async () => {
+      const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['all', 'skip'] });
+
+      await runSetup({ root, prompter, out: silent });
+
+      expect(prompter.asked.some((question) => question.startsWith('Edit the block list'))).toBe(false);
+    });
+
+    it('offers the current routing as the default rather than re-recommending everyone', async () => {
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({ site: 'http://localhost:3000', bots: { markdownRouting: [], blocked: [], custom: [] } }),
+        'utf8',
+      );
+      // No scripted choice, so every `choose` answers with the default the flow offered. Pressing
+      // Enter through settings must not silently widen a list the user deliberately emptied.
+      const prompter = scripted({ ask: ['', ''] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.bots.markdownRouting).toEqual([]);
+    });
+  });
+
   describe('answers', () => {
     it('re-asks until the site URL is actually fetchable', async () => {
       const prompter = scripted({ ask: ['not a url', 'localhost:3000', 'http://localhost:3000'], choose: ['all', 'skip'] });
@@ -271,7 +471,7 @@ describe('opengeo setup', () => {
   });
 });
 
-describe('when the input stream ends mid-setup', () => {
+describe('when the input stream ends mid-flow', () => {
   let root: string;
 
   beforeEach(() => {

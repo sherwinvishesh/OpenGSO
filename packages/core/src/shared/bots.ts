@@ -24,7 +24,11 @@ export interface AiBot {
   robotsToken: string;
   kind: BotKind;
   notes?: string;
+  /** True for a crawler the user defined in their own config rather than one shipped in this file. */
+  custom?: boolean;
 }
+
+export const BOT_KINDS: readonly BotKind[] = ['assistant', 'search', 'training'];
 
 export const AI_BOTS: readonly AiBot[] = [
   { name: 'GPTBot', vendor: 'OpenAI', uaPatterns: ['gptbot'], robotsToken: 'GPTBot', kind: 'training' },
@@ -77,9 +81,76 @@ export const ROUTABLE_BOTS: readonly AiBot[] = AI_BOTS.filter((b) => b.uaPattern
 /** Default markdown-routing list: every routable bot. Narrowing is the user's choice, not ours. */
 export const DEFAULT_MARKDOWN_ROUTING: readonly string[] = ROUTABLE_BOTS.map((b) => b.name);
 
-export function findBot(name: string): AiBot | undefined {
+/**
+ * A crawler the user added themselves, as it appears in `bots.custom` in opengeo.config.json.
+ *
+ * The list above ships with OpenGEO and is updated by pull request, which is the right cadence for
+ * a shared list and the wrong one for the person whose in-house agent started crawling yesterday.
+ * Everything except the name has a sensible answer derived from it, so the minimum viable entry is
+ * `{ "name": "AcmeBot" }`.
+ */
+export interface CustomBotInput {
+  name: string;
+  vendor?: string;
+  uaPatterns?: string[];
+  robotsToken?: string;
+  kind?: BotKind;
+  notes?: string;
+}
+
+/**
+ * Fill a user-supplied entry out into a real bot, or return undefined if it is unusable.
+ *
+ * Nothing here trusts the input: it arrives from a hand-edited JSON file or from a browser form,
+ * and a malformed entry must not be able to take the middleware down on the next request.
+ */
+export function normalizeCustomBot(input: CustomBotInput | null | undefined): AiBot | undefined {
+  const name = typeof input?.name === 'string' ? input.name.trim() : '';
+  if (!name) return undefined;
+  const patterns = (Array.isArray(input?.uaPatterns) ? input.uaPatterns : [])
+    .filter((pattern): pattern is string => typeof pattern === 'string')
+    .map((pattern) => pattern.trim().toLowerCase())
+    .filter(Boolean);
+  const kind = input?.kind && BOT_KINDS.includes(input.kind) ? input.kind : 'assistant';
+  return {
+    name,
+    vendor: input?.vendor?.trim() || 'Custom',
+    // No pattern given means match the name, which is what a crawler almost always puts in its UA.
+    uaPatterns: patterns.length > 0 ? patterns : [name.toLowerCase()],
+    robotsToken: input?.robotsToken?.trim() || name,
+    kind,
+    notes: input?.notes?.trim() || undefined,
+    custom: true,
+  };
+}
+
+/**
+ * The built-in list plus the user's own crawlers, which is what every caller actually wants.
+ *
+ * A custom entry that reuses a built-in name is dropped rather than merged: silently shadowing
+ * GPTBot's User-Agent patterns with a typo would be a very quiet way to break routing.
+ */
+export function resolveBots(custom: readonly CustomBotInput[] | undefined): readonly AiBot[] {
+  if (!custom || custom.length === 0) return AI_BOTS;
+  const seen = new Set(AI_BOTS.map((bot) => bot.name.toLowerCase()));
+  const extra: AiBot[] = [];
+  for (const entry of custom) {
+    const bot = normalizeCustomBot(entry);
+    if (!bot || seen.has(bot.name.toLowerCase())) continue;
+    seen.add(bot.name.toLowerCase());
+    extra.push(bot);
+  }
+  return extra.length > 0 ? [...AI_BOTS, ...extra] : AI_BOTS;
+}
+
+/** The routable subset of `resolveBots`. */
+export function resolveRoutableBots(custom: readonly CustomBotInput[] | undefined): readonly AiBot[] {
+  return resolveBots(custom).filter((bot) => bot.uaPatterns.length > 0);
+}
+
+export function findBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBot | undefined {
   const lowered = name.toLowerCase();
-  return AI_BOTS.find((b) => b.name.toLowerCase() === lowered || b.robotsToken.toLowerCase() === lowered);
+  return bots.find((b) => b.name.toLowerCase() === lowered || b.robotsToken.toLowerCase() === lowered);
 }
 
 /**
@@ -88,9 +159,12 @@ export function findBot(name: string): AiBot | undefined {
  * Returns `undefined` for anything unrecognised - and every caller must treat that as "ordinary
  * visitor", never as "suspicious". Blocking unknowns by default would wall the site off from every
  * AI product that launches after this list was last updated (§7, §16).
+ *
+ * `bots` defaults to the built-in list. Pass `resolveBots(config.bots.custom)` to include the
+ * crawlers the user defined themselves.
  */
-export function identifyBot(userAgent: string | null | undefined): AiBot | undefined {
+export function identifyBot(userAgent: string | null | undefined, bots: readonly AiBot[] = AI_BOTS): AiBot | undefined {
   if (!userAgent) return undefined;
   const ua = userAgent.toLowerCase();
-  return ROUTABLE_BOTS.find((bot) => bot.uaPatterns.some((p) => ua.includes(p)));
+  return bots.find((bot) => bot.uaPatterns.length > 0 && bot.uaPatterns.some((p) => ua.includes(p)));
 }

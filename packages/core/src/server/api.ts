@@ -5,7 +5,8 @@ import type { EnhanceInput, EnhanceOutput } from '../generate/generate.js';
 import { readManifest } from '../generate/manifest.js';
 import { generateSite } from '../generate/site.js';
 import { verifyProd } from '../prod/verify.js';
-import { AI_BOTS } from '../shared/bots.js';
+import type { CustomBotInput } from '../shared/bots.js';
+import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
 import type { AiProvider, OpenGeoConfig } from '../shared/config.js';
 import {
   AI_PROVIDERS,
@@ -67,7 +68,9 @@ export async function handleApi(request: ApiRequest, options: ApiOptions): Promi
     case 'GET /api/state':
       return ok(readState(options));
     case 'GET /api/bots':
-      return ok({ bots: AI_BOTS });
+      // The resolved list, so the dashboard's crawler table shows a project's own agents beside
+      // the shipped ones instead of quietly leaving them out of a list that looks complete.
+      return ok({ bots: resolveBots(loadConfig(options.root).config.bots.custom) });
     case 'POST /api/config':
       return saveConfigPatch(request.body, options);
     case 'POST /api/test':
@@ -155,15 +158,49 @@ function readState(options: ApiOptions): StateResponse {
 // -- config --------------------------------------------------------------------------------------
 
 function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
-  const patch = body as Partial<OpenGeoConfig> | null;
+  let patch = body as Partial<OpenGeoConfig> | null;
   if (!patch || typeof patch !== 'object') return bad('Expected a config object.');
 
   if (patch.site !== undefined && !parseUrl(patch.site)) return bad(ERRORS.invalidUrl(String(patch.site)));
+
+  // Custom crawlers arrive as free text from a form, so they are normalized here rather than
+  // trusted. Anything that survives is a well-formed entry the prod middleware can match against.
+  if (patch.bots?.custom !== undefined) {
+    const cleaned = normalizeCustomList(patch.bots.custom);
+    if (typeof cleaned === 'string') return bad(cleaned);
+    patch = { ...patch, bots: { ...patch.bots, custom: cleaned } };
+  }
 
   const loaded = loadConfig(options.root);
   const next = mergeConfig(loaded.config, patch);
   const configPath = saveConfig(options.root, next);
   return ok({ config: next, configPath });
+}
+
+/** Returns the cleaned list, or a message explaining why the whole patch was refused. */
+function normalizeCustomList(input: unknown): CustomBotInput[] | string {
+  if (!Array.isArray(input)) return 'bots.custom must be a list of crawlers.';
+  const builtIn = new Set(resolveBots(undefined).map((bot) => bot.name.toLowerCase()));
+  const seen = new Set<string>();
+  const cleaned: CustomBotInput[] = [];
+
+  for (const entry of input) {
+    const bot = normalizeCustomBot(entry as CustomBotInput);
+    if (!bot) return 'Every custom crawler needs a name.';
+    const key = bot.name.toLowerCase();
+    if (builtIn.has(key)) return `${bot.name} is already one of the crawlers OpenGEO ships with.`;
+    if (seen.has(key)) return `${bot.name} is listed twice.`;
+    seen.add(key);
+    cleaned.push({
+      name: bot.name,
+      vendor: bot.vendor,
+      uaPatterns: [...bot.uaPatterns],
+      robotsToken: bot.robotsToken,
+      kind: bot.kind,
+      notes: bot.notes,
+    });
+  }
+  return cleaned;
 }
 
 // -- test ----------------------------------------------------------------------------------------
@@ -174,7 +211,7 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
   const target = input.url || loaded.config.site;
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
 
-  const result = await testUrl(target, { timeoutMs: input.timeoutMs });
+  const result = await testUrl(target, { timeoutMs: input.timeoutMs, bots: resolveBots(loaded.config.bots.custom) });
 
   // The quality review is a separate object in the response for the same reason it is a separate
   // section in the CLI: it must never be mistaken for part of the 0-100 number.
@@ -264,7 +301,11 @@ async function runProdTest(body: unknown, options: ApiOptions): Promise<ApiRespo
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
 
   try {
-    const result = await verifyProd(target, { bot: input.bot, timeoutMs: input.timeoutMs });
+    const result = await verifyProd(target, {
+      bot: input.bot,
+      bots: resolveBots(loaded.config.bots.custom),
+      timeoutMs: input.timeoutMs,
+    });
     return ok(result);
   } catch (error) {
     return bad(error instanceof Error ? error.message : String(error));

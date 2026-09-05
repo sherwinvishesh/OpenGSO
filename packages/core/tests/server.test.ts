@@ -134,6 +134,54 @@ describe('the API', () => {
   });
 });
 
+/**
+ * The dashboard's crawler table is where a project adds an agent OpenGEO has never heard of, so
+ * everything on this path arrives as free text from a form. It is normalized rather than trusted,
+ * and a patch that cannot be normalized is refused whole rather than half-written.
+ */
+describe('custom crawlers through the API', () => {
+  const acme = { name: 'AcmeBot', vendor: 'Acme Inc', uaPatterns: ['acme-crawler'], kind: 'assistant' };
+
+  it('shows a configured crawler beside the shipped ones, so the table is not quietly incomplete', async () => {
+    await post('/api/config', { bots: { custom: [acme] } });
+    const bots = (await get('/api/bots')).body as { bots: { name: string; custom?: boolean }[] };
+    expect(bots.bots).toHaveLength(AI_BOTS.length + 1);
+    expect(bots.bots.at(-1)).toMatchObject({ name: 'AcmeBot', custom: true });
+  });
+
+  it('fills in the fields the form left blank rather than storing them empty', async () => {
+    await post('/api/config', { bots: { custom: [{ name: '  AcmeBot  ' }] } });
+    const written = JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8'));
+    expect(written.bots.custom[0]).toMatchObject({
+      name: 'AcmeBot',
+      vendor: 'Custom',
+      uaPatterns: ['acmebot'],
+      robotsToken: 'AcmeBot',
+      kind: 'assistant',
+    });
+  });
+
+  it('refuses a nameless crawler, a duplicate, and a name a shipped crawler already owns', async () => {
+    expect((await post('/api/config', { bots: { custom: [{ name: '   ' }] } })).status).toBe(400);
+    expect((await post('/api/config', { bots: { custom: [acme, { name: 'acmebot' }] } })).status).toBe(400);
+
+    const clash = await post('/api/config', { bots: { custom: [{ name: 'GPTBot' }] } });
+    expect(clash.status).toBe(400);
+    expect(String((clash.body as { error: string }).error)).toContain('already one of the crawlers');
+
+    expect((await post('/api/config', { bots: { custom: 'AcmeBot' } })).status).toBe(400);
+    // Refused whole: nothing on the path wrote a partial config on the way to the error.
+    expect(existsSync(join(root, CONFIG_FILENAME))).toBe(false);
+  });
+
+  it('removes a crawler when the list comes back without it', async () => {
+    await post('/api/config', { bots: { custom: [acme] } });
+    await post('/api/config', { bots: { custom: [] } });
+    const written = JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8'));
+    expect(written.bots.custom).toEqual([]);
+  });
+});
+
 describe('the key never leaks through the API (§11)', () => {
   it('gitignores .env before writing the key, and says where it went without echoing it', async () => {
     const response = await post('/api/key', { provider: 'anthropic', apiKey: KEY, model: 'claude-test' });

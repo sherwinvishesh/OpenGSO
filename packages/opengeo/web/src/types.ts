@@ -114,7 +114,21 @@ export interface AiBot {
   /** Empty means there is no crawler User-Agent to match, so the bot is robots.txt-only. */
   uaPatterns: string[];
   robotsToken: string;
-  kind: 'assistant' | 'search' | 'training';
+  kind: BotKind;
+  notes?: string;
+  /** True for a crawler this project defined itself, rather than one OpenGEO ships with. */
+  custom?: boolean;
+}
+
+export type BotKind = 'assistant' | 'search' | 'training';
+
+/** What a custom crawler looks like in the config file. Everything but the name is optional. */
+export interface CustomBot {
+  name: string;
+  vendor?: string;
+  uaPatterns?: string[];
+  robotsToken?: string;
+  kind?: BotKind;
   notes?: string;
 }
 
@@ -125,7 +139,7 @@ export interface OpenGeoConfig {
   extraRoutes: string[];
   crawl: { maxPages: number; maxDepth: number; exclude: string[] };
   generate: { tier: 'free' | 'ai'; minWords: number };
-  bots: { markdownRouting: string[]; blocked: string[] };
+  bots: { markdownRouting: string[]; blocked: string[]; custom: CustomBot[] };
   ai: { provider: 'anthropic' | 'openai' | 'gemini'; model: string };
 }
 

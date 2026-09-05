@@ -29,7 +29,14 @@ export interface CliOptions {
   argv?: string[];
 }
 
-const ALL_COMMANDS: CommandName[] = ['test', 'generate', 'prod test', 'setup', 'start'];
+const ALL_COMMANDS: CommandName[] = ['test', 'generate', 'prod test', 'settings', 'start'];
+
+/**
+ * `setup` was the name until the flow split into `start` (set up, then open the dashboard) and
+ * `settings` (change something later). It stays as an alias forever: it is in every README written
+ * before the rename, and a renamed command that answers "unknown command" is just a broken link.
+ */
+const ALIASES: Record<string, CommandName> = { setup: 'settings' };
 
 export async function runCli(options: CliOptions): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
@@ -76,6 +83,7 @@ function matchCommand(argv: string[]): { command?: CommandName; rest: string[] }
   if (first && (ALL_COMMANDS as string[]).includes(first)) {
     return { command: first as CommandName, rest: argv.slice(1) };
   }
+  if (first && ALIASES[first]) return { command: ALIASES[first], rest: argv.slice(1) };
   return { rest: argv.slice(1) };
 }
 
@@ -172,20 +180,29 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
     '  --timeout <secs>   per-request timeout (default: 15)',
   ],
-  setup: [
-    'Usage: opengeo setup [options]',
+  settings: [
+    'Usage: opengeo settings [options]',
     '',
-    'Interactive first-run setup: project, site URL, AI provider and key, and the bot lists.',
-    'The key is written to .env in your project, and .env is added to .gitignore.',
+    'Change what `opengeo start` asked you: site URL, web root, which AI agents get the Markdown',
+    'twin, who is blocked in robots.txt, and the AI provider key. Every default is the current',
+    'value, so pressing Enter through the whole thing changes nothing.',
+    '',
+    'Picking "let me pick, one by one" for markdown routing opens the full crawler list, where you',
+    'can toggle any of them by name or number and add a crawler OpenGEO has never heard of.',
+    'The key is written to .env in your project, and .env is added to .gitignore first.',
     '',
     'Options',
-    '  --project <dir>    project directory to set up (default: cwd)',
-    '  --yes, -y          accept every default without prompting (writes no key)',
+    '  --project <dir>    project directory to configure (default: cwd)',
+    '  --yes, -y          accept every default without prompting (changes nothing, writes no key)',
+    '',
+    'Also answers to `opengeo setup`.',
   ],
   start: [
     'Usage: opengeo start [options]',
     '',
-    'Serves the local OpenGEO dashboard, a GUI over exactly the same functions the CLI calls.',
+    'Sets the project up, then serves the local OpenGEO dashboard - a GUI over exactly the same',
+    'functions the CLI calls. A directory with no opengeo.config.json is asked the four setup',
+    'questions first; one that already has a config goes straight to the dashboard.',
     'Nothing leaves your machine except the AI provider calls you explicitly trigger.',
     '',
     'Options',
@@ -194,6 +211,9 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     '  --host <addr>      interface to bind (default: 127.0.0.1, loopback only)',
     '  --web <dir>        directory of built dashboard assets (default: beside this binary)',
     '  --no-open          do not open a browser window',
+    '  --setup            run the setup questions even if the project is already configured',
+    '  --no-setup         skip the setup questions and go straight to the dashboard',
+    '  --yes, -y          accept every setup default without prompting (writes no key)',
   ],
 };
 

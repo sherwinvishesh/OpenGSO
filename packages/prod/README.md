@@ -77,6 +77,25 @@ const decision = handle({ url, method, headers });
 A decision is one of: serve this markdown with these headers, return a 406, or pass through with
 these headers added to whatever you were going to send.
 
+### Crawlers OpenGEO does not ship with
+
+A project can define its own agents under `bots.custom` in `opengeo.config.json`, added through
+`opengeo settings` or the dashboard's Bot settings tab. Pass the resolved list so the handler can
+recognise them:
+
+```ts
+import { createProdHandler, createFsStore, resolveBots } from 'opengeo-prod';
+
+const handle = createProdHandler({
+  store: createFsStore({ root: process.cwd(), publicDir: 'public', internalDir: '.opengeo' }),
+  markdownRouting: ['ClaudeBot', 'AcmeBot'],
+  bots: resolveBots(config.bots.custom),
+});
+```
+
+The Next adapter does this for you. Like everything else here it is resolved once at boot, so a
+crawler added later needs a restart before the running server sees it.
+
 ### Stores
 
 | Store | Use it when |
@@ -145,6 +164,9 @@ not a 403. Unknown means unknown, not hostile.
 **`bots.blocked` (lever 2) is not implemented here at all.** Blocking is expressed through the
 `robots.txt` that `opengeo generate` writes. It is advisory, it lives in a file your users can read,
 and there is no code in this package that could enforce it. That is deliberate, not an omission.
+
+`bots.custom` is neither lever. It widens the catalogue of crawlers that can be recognised at all,
+and a crawler in it still has to be named in `markdownRouting` before anything routes to it.
 
 ## What it does not do
 

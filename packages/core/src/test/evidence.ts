@@ -1,3 +1,4 @@
+import type { AiBot } from '../shared/bots.js';
 import type { ProbeResult } from '../shared/http.js';
 import { BROWSER_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
@@ -31,10 +32,16 @@ export interface Evidence {
   botUa: ProbeResult;
   /** Same page URL, with an Accept header that allows neither HTML nor markdown. */
   notAcceptable: ProbeResult;
+  /**
+   * The crawler catalogue A1 reads robots.txt against. Defaults to the shipped list; a caller with
+   * a config in hand passes the resolved one so a project's own crawler is judged too.
+   */
+  bots?: readonly AiBot[];
 }
 
 export interface GatherOptions {
   timeoutMs?: number;
+  bots?: readonly AiBot[];
 }
 
 export async function gatherEvidence(target: URL, options: GatherOptions = {}): Promise<Evidence> {
@@ -72,6 +79,7 @@ export async function gatherEvidence(target: URL, options: GatherOptions = {}): 
     acceptMarkdown,
     botUa,
     notAcceptable,
+    bots: options.bots,
   };
 }
 

@@ -1,5 +1,5 @@
 import type { AiBot } from '../shared/bots.js';
-import { identifyBot } from '../shared/bots.js';
+import { AI_BOTS, identifyBot } from '../shared/bots.js';
 import { isMarkdownPath, normalizeRoute, twinUrlPathToRoute } from '../shared/routes.js';
 
 /**
@@ -110,6 +110,11 @@ export interface ClassifyInput {
   accept?: string | null;
   /** Bot names from `bots.markdownRouting` - lever 1. Never used to block anything. */
   markdownRouting: readonly string[];
+  /**
+   * The crawler catalogue to recognise User-Agents against. Defaults to the shipped list; a project
+   * with `bots.custom` entries passes the resolved list so its own crawlers are routable too.
+   */
+  bots?: readonly AiBot[];
 }
 
 export function classify(input: ClassifyInput): Classification {
@@ -119,7 +124,7 @@ export function classify(input: ClassifyInput): Classification {
     ? twinUrlPathToRoute(input.pathname) ?? normalizeRoute(input.pathname)
     : normalizeRoute(input.pathname);
 
-  const bot = identifyBot(input.userAgent);
+  const bot = identifyBot(input.userAgent, input.bots ?? AI_BOTS);
   const routed = Boolean(bot && input.markdownRouting.some((name) => name.toLowerCase() === bot.name.toLowerCase()));
   const kind: VisitorKind = routed ? 'routed-ai' : bot ? 'unrouted-bot' : 'human';
 

@@ -16,8 +16,9 @@ export function SettingsView({ state, onSaved }: { state: State; onSaved: () => 
   return (
     <>
       <PageHead title="Settings">
-        Everything on this page is stored in your project, in files you can read. Nothing is sent
-        anywhere.
+        The same questions <span className="mono">opengeo start</span> asked, changeable at any time.
+        Everything here is stored in your project, in files you can read, and nothing is sent
+        anywhere. The crawler lists live one tab up, under Bot settings.
       </PageHead>
       <ProjectCard state={state} onSaved={onSaved} />
       <KeyCard state={state} onSaved={onSaved} />
@@ -28,6 +29,7 @@ export function SettingsView({ state, onSaved }: { state: State; onSaved: () => 
 
 function ProjectCard({ state, onSaved }: { state: State; onSaved: () => void }) {
   const [site, setSite] = useState(state.config.site);
+  const [publicDir, setPublicDir] = useState(state.config.publicDir);
   const [maxPages, setMaxPages] = useState(String(state.config.crawl.maxPages));
   const [maxDepth, setMaxDepth] = useState(String(state.config.crawl.maxDepth));
   const [minWords, setMinWords] = useState(String(state.config.generate.minWords));
@@ -41,6 +43,7 @@ function ProjectCard({ state, onSaved }: { state: State; onSaved: () => void }) 
     setError(undefined);
     const patch: Partial<OpenGeoConfig> = {
       site: site.trim(),
+      publicDir: publicDir.trim() || state.config.publicDir,
       crawl: { ...state.config.crawl, maxPages: number(maxPages, state.config.crawl.maxPages), maxDepth: number(maxDepth, state.config.crawl.maxDepth) },
       generate: { tier, minWords: number(minWords, state.config.generate.minWords) },
     };
@@ -72,6 +75,15 @@ function ProjectCard({ state, onSaved }: { state: State; onSaved: () => void }) 
       <div className="card-pad stack">
         <Field label="Site URL" hint="The default target for test, generate and prod.">
           <input type="text" value={site} spellCheck={false} onChange={(event) => { setSaved(false); setSite(event.target.value); }} />
+        </Field>
+        <Field label="Web root" hint="Where generated files land, relative to the project root. Default: public">
+          <input
+            type="text"
+            value={publicDir}
+            spellCheck={false}
+            placeholder="public"
+            onChange={(event) => { setSaved(false); setPublicDir(event.target.value); }}
+          />
         </Field>
         <div className="row">
           <div className="grow">

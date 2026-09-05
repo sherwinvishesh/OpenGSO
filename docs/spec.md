@@ -163,6 +163,21 @@ a different product with different failure modes.
 `opengeo prod test` reports the two levers in separate sections and calls out disagreements between
 them, for example a bot you route markdown to that your own robots.txt also disallows.
 
+### `bots.custom` is not a third lever
+
+A site can name agents OpenGEO does not ship with, under `bots.custom`. Each entry needs a `name`;
+`vendor`, `uaPatterns`, `robotsToken` and `kind` are filled in from it when absent.
+
+```jsonc
+{ "name": "AcmeBot", "vendor": "Acme Inc", "uaPatterns": ["acme-crawler"], "kind": "assistant" }
+```
+
+These widen the catalogue that User-Agents are matched against, and nothing else. An entry here is
+routed to only if its name also appears in `markdownRouting`, and disallowed only if it also appears
+in `blocked`. An entry reusing the name of a built-in crawler is dropped rather than merged, so a
+typo cannot silently shadow `GPTBot`. The resolved catalogue is built once at boot, like everything
+else the runtime reads.
+
 ## Generated files
 
 `opengeo generate` writes four things from one crawl:

@@ -2,7 +2,7 @@ import { createInterface, type Interface } from 'node:readline';
 import { c } from '../shared/log.js';
 
 /**
- * The four prompts `opengeo setup` needs, and nothing else.
+ * The prompts `opengeo start` and `opengeo settings` need, and nothing else.
  *
  * `node:readline` is in the standard library, so an interactive setup costs no dependency.
  * The API key prompt masks its input: it is the one value in OpenGEO that must never end up in a
@@ -12,6 +12,13 @@ import { c } from '../shared/log.js';
  * masking requires overriding `_writeToOutput`, and the promises Interface does not have it. The
  * promises version reads better right up until the moment the secret prompt echoes the key.
  */
+
+/**
+ * Every default is announced the same way, in one place, so no prompt can drift into its own
+ * phrasing. The word matters more than the brackets: `[public]` looks like an instruction to type
+ * something, `[default: public]` looks like what pressing Enter will do.
+ */
+export const DEFAULT_LABEL = 'default: ';
 
 export interface Prompter {
   ask(question: string, fallback?: string): Promise<string>;
@@ -81,7 +88,9 @@ export function createPrompter(options: PrompterOptions = {}): Prompter {
   return {
     async ask(text, fallback = '') {
       if (auto || ended) return fallback;
-      const suffix = fallback ? c.gray(` [${fallback}]`) : '';
+      // A question with no default shows no bracket at all. An empty `[]` reads like a value the
+      // reader is failing to see, and it is the one hint that is worse than no hint.
+      const suffix = fallback ? c.gray(` [${DEFAULT_LABEL}${fallback}]`) : '';
       const answer = (await question(`${text}${suffix} `)).trim();
       return answer || fallback;
     },
@@ -95,7 +104,8 @@ export function createPrompter(options: PrompterOptions = {}): Prompter {
         if (choice.note) output.write(`     ${c.gray(choice.note)}\n`);
       });
       for (;;) {
-        const raw = (await question(c.gray('  choose a number ') + `[${choices.findIndex((o) => o.value === fallback) + 1}] `)).trim();
+        const hint = c.gray(`[${DEFAULT_LABEL}${choices.findIndex((o) => o.value === fallback) + 1}]`);
+        const raw = (await question(`${c.gray('  choose a number ')}${hint} `)).trim();
         if (!raw || ended) return fallback;
         const index = Number(raw) - 1;
         if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index]!.value;
