@@ -37,15 +37,26 @@ npm run check:bundles
 `opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency
 any published package may declare. Run it after `build`, never instead of it.
 
-To exercise the whole thing against a real site:
+To exercise the whole thing against a real site, put the CLI on your PATH first. This builds
+everything, packs `opengeo`, and installs that tarball globally, so you are driving the same
+artifact a user installs from npm rather than a symlink into the workspace:
+
+```bash
+npm run install:global        # rebuild and reinstall; :fast skips the build
+opengeo --version
+```
 
 ```bash
 npm run example:dev                                   # terminal A, serves localhost:3000
-node packages/cli/dist/cli.js generate http://localhost:3000
-node packages/cli/dist/cli.js test http://localhost:3000/resume
-node packages/cli/dist/cli.js prod test http://localhost:3000
-node packages/opengeo/dist/cli.js start -p 4321       # the dashboard
+cd examples/nextjs-demo                               # terminal B
+opengeo generate http://localhost:3000
+opengeo test http://localhost:3000/resume
+opengeo prod test http://localhost:3000
+opengeo start -p 4321                                 # the dashboard
 ```
+
+The global copy is a snapshot, so re-run `install:global` after changing anything the CLI or the
+dashboard ships. `npm uninstall -g opengeo` removes it.
 
 ## Tests
 

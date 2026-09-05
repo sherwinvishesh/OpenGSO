@@ -23,7 +23,9 @@
     "release": "changeset publish",
     "example:dev": "npm run dev -w examples/nextjs-demo",
     "example:build": "npm run build -w examples/nextjs-demo",
-    "example:start": "npm run start -w examples/nextjs-demo"
+    "example:start": "npm run start -w examples/nextjs-demo",
+    "install:global": "node scripts/install-global.mjs",
+    "install:global:fast": "node scripts/install-global.mjs --no-build"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

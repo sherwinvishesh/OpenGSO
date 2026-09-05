@@ -100,6 +100,14 @@ npm run build
 npm run check:bundles
 ```
 
+To drive the CLI against the bundled example, install it globally from its own tarball and use it
+the way a user would:
+
+```bash
+npm run install:global    # then: opengeo --help
+npm run example:dev       # serves the demo on localhost:3000
+```
+
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest, including the one place Changesets cannot
 follow a change and what to do about it.
 
