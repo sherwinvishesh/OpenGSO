@@ -27,6 +27,16 @@
   "bin": {
     "opengeo": "./dist/cli.js"
   },
+  "exports": {
+    "./prod": {
+      "types": "./dist/prod.d.ts",
+      "import": "./dist/prod.js"
+    },
+    "./prod/next": {
+      "types": "./dist/prod-next.d.ts",
+      "import": "./dist/prod-next.js"
+    }
+  },
   "files": [
     "dist",
     "README.md"
@@ -35,7 +45,9 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && npm run build:web",
+    "build:web": "tsc --noEmit -p web/tsconfig.json && vite build --config web/vite.config.ts",
+    "dev:web": "vite --config web/vite.config.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -43,7 +55,13 @@
   },
   "devDependencies": {
     "@opengeo/core": "*",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^5.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "tsup": "^8.5.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^7.3.6"
   }
 }

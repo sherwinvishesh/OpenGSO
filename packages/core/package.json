@@ -12,6 +12,7 @@
     "./test": "./src/test/index.ts",
     "./prod": "./src/prod/index.ts",
     "./prod/next": "./src/prod/adapters/next.ts",
+    "./server": "./src/server/index.ts",
     "./cli": "./src/cli/index.ts",
     "./cli/commands/*": "./src/cli/commands/*.ts"
   },

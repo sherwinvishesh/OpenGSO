@@ -1,0 +1,206 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { extname, join, normalize, resolve, sep } from 'node:path';
+import { handleApi, type ApiOptions } from './api.js';
+
+/**
+ * The `opengeo start` server (idea.md §8).
+ *
+ * `node:http` and nothing else. The dashboard is a pile of static files plus a JSON API that calls
+ * the same core functions the CLI calls, so shipping it costs the published package no runtime
+ * dependency at all.
+ *
+ * It binds to 127.0.0.1 by design. A dashboard that can write an API key to disk should not be
+ * reachable from the network the laptop happens to be on.
+ */
+
+export interface StartOptions extends ApiOptions {
+  port: number;
+  host?: string;
+  /** Directory of built dashboard assets. */
+  webRoot: string;
+}
+
+export interface RunningServer {
+  url: string;
+  port: number;
+  server: Server;
+  close(): Promise<void>;
+}
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.woff2': 'font/woff2',
+  '.map': 'application/json; charset=utf-8',
+};
+
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+export async function startServer(options: StartOptions): Promise<RunningServer> {
+  const host = options.host ?? '127.0.0.1';
+  const server = createServer((request, response) => {
+    handle(request, response, options, host).catch((error) => {
+      send(response, 500, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
+    });
+  });
+
+  const port = await listen(server, options.port, host);
+  const url = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
+  return {
+    url,
+    port,
+    server,
+    close: () =>
+      new Promise<void>((resolveClose, rejectClose) => {
+        server.close((error) => (error ? rejectClose(error) : resolveClose()));
+      }),
+  };
+}
+
+async function handle(request: IncomingMessage, response: ServerResponse, options: StartOptions, host: string): Promise<void> {
+  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
+
+  if (url.pathname.startsWith('/api/')) {
+    // Any page on the internet can POST to a localhost port. This server can write an API key to
+    // disk, so a cross-origin request has to be refused before it is parsed, not after.
+    const denial = crossOriginDenial(request);
+    if (denial) return send(response, 403, 'application/json; charset=utf-8', JSON.stringify({ error: denial }));
+
+    let body: unknown;
+    try {
+      body = await readJsonBody(request);
+    } catch (error) {
+      return send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
+    }
+    const result = await handleApi({ method: request.method ?? 'GET', path: url.pathname, body }, options);
+    return send(response, result.status, 'application/json; charset=utf-8', JSON.stringify(result.body));
+  }
+
+  serveStatic(url.pathname, response, options.webRoot);
+}
+
+/**
+ * Same-origin enforcement for a local server. A browser always sends `Origin` on a cross-origin
+ * fetch, so an absent Origin means a same-origin request or a non-browser client such as curl, and
+ * a present one has to match the host we are serving from.
+ */
+export function crossOriginDenial(request: Pick<IncomingMessage, 'headers'>): string | undefined {
+  const origin = request.headers.origin;
+  if (!origin) return undefined;
+  const host = request.headers.host;
+  if (!host) return 'Refused: the request has an Origin but no Host.';
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return `Refused: "${origin}" is not a valid Origin.`;
+  }
+  if (parsed.host !== host) {
+    return `Refused: this API only answers same-origin requests. Origin was ${origin}, host is ${host}.`;
+  }
+  return undefined;
+}
+
+function serveStatic(pathname: string, response: ServerResponse, webRoot: string): void {
+  if (!existsSync(webRoot)) {
+    return send(
+      response,
+      500,
+      'text/plain; charset=utf-8',
+      [
+        'The dashboard assets are missing.',
+        '',
+        `Expected them at: ${webRoot}`,
+        '',
+        'If you are running from a clone, build them first:',
+        '  npm run build -w packages/opengeo',
+      ].join('\n'),
+    );
+  }
+
+  const file = resolveStaticPath(pathname, webRoot);
+  if (!file) return send(response, 404, 'text/plain; charset=utf-8', 'Not found');
+
+  const type = MIME[extname(file).toLowerCase()] ?? 'application/octet-stream';
+  // The dashboard reads live project state, so a cached index.html would show a stale project.
+  send(response, 200, type, readFileSync(file), file.endsWith('.html') ? 'no-store' : undefined);
+}
+
+/** Resolve a URL path inside the web root, refusing anything that escapes it. */
+export function resolveStaticPath(pathname: string, webRoot: string): string | undefined {
+  const decoded = safeDecode(pathname);
+  if (decoded === undefined) return undefined;
+  const relative = normalize(decoded).replace(/^([/\\.]+)/, '');
+  const root = resolve(webRoot);
+  const candidate = resolve(root, relative);
+  if (candidate !== root && !candidate.startsWith(root + sep)) return undefined;
+
+  if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  // Single-page app: unknown paths fall through to index.html rather than 404ing, but only for
+  // paths that do not look like a missing asset.
+  if (extname(candidate)) return undefined;
+  const index = join(root, 'index.html');
+  return existsSync(index) ? index : undefined;
+}
+
+function safeDecode(value: string): string | undefined {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  if (request.method === 'GET' || request.method === 'HEAD') return Promise.resolve(undefined);
+  return new Promise((resolveBody, rejectBody) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    request.on('data', (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        rejectBody(new Error('Request body too large.'));
+        request.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    request.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
+      if (!raw) return resolveBody(undefined);
+      try {
+        resolveBody(JSON.parse(raw));
+      } catch {
+        rejectBody(new Error('Request body was not valid JSON.'));
+      }
+    });
+    request.on('error', rejectBody);
+  });
+}
+
+function send(response: ServerResponse, status: number, type: string, body: string | Buffer, cacheControl?: string): void {
+  response.writeHead(status, {
+    'Content-Type': type,
+    'Content-Length': Buffer.byteLength(body),
+    ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
+  });
+  response.end(body);
+}
+
+/** Port 0 means "any free port", which is what the tests use. */
+function listen(server: Server, port: number, host: string): Promise<number> {
+  return new Promise((resolveListen, rejectListen) => {
+    server.once('error', rejectListen);
+    server.listen(port, host, () => {
+      const address = server.address();
+      server.removeListener('error', rejectListen);
+      resolveListen(typeof address === 'object' && address ? address.port : port);
+    });
+  });
+}

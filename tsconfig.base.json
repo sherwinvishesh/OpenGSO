@@ -41,6 +41,9 @@
       "@opengeo/core/prod/next": [
         "./packages/core/src/prod/adapters/next.ts"
       ],
+      "@opengeo/core/server": [
+        "./packages/core/src/server/index.ts"
+      ],
       "@opengeo/core/cli": [
         "./packages/core/src/cli/index.ts"
       ],
