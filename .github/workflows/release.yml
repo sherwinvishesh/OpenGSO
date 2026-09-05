@@ -1,9 +1,21 @@
+# Parked until the first real release.
+#
+# This is the §4 release pipeline, complete and ready, but its trigger is manual on purpose.
+# It used to run on every push to main, and `changeset publish` will publish any package whose
+# version is not already on the registry, so a push would have shipped all five packages to npm
+# before anyone had decided to.
+#
+# To go live: add the `push:` trigger back below, and make sure NPM_TOKEN is set in repo secrets.
+#
+# on:
+#   push:
+#     branches:
+#       - main
+
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -31,6 +43,9 @@ jobs:
 
       - name: Build packages
         run: npm run build
+
+      - name: Check bundles
+        run: npm run check:bundles
 
       - name: Create Release PR or Publish to npm
         uses: changesets/action@v1
