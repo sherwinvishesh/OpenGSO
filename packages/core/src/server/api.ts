@@ -24,7 +24,7 @@ import { testUrl } from '../test/index.js';
 import { reviewQuality } from '../test/quality.js';
 
 /**
- * The local JSON API behind `opengeo start` (idea.md §8).
+ * The local JSON API behind `opengeo start` (§8).
  *
  * Every endpoint is a thin wrapper over the exact function the CLI calls. That is the whole design
  * constraint: the dashboard must never become a second implementation of the pipeline, because two

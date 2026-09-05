@@ -19,7 +19,7 @@ const SPEC = {
 } as const;
 
 /**
- * `opengeo setup` (idea.md §11, §12).
+ * `opengeo setup` (§11, §12).
  *
  * Four questions, in an order chosen so nobody is asked for a secret before the thing that keeps
  * the secret safe exists: `.gitignore` is updated *before* the key is written, every time, and the

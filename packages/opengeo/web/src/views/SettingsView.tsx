@@ -8,7 +8,7 @@ import { Banner, Button, Card, CardHead, Field, PageHead, Pill } from '../compon
  *
  * The key section is written to be auditable rather than reassuring. It names the exact file the
  * key is written to, says which file the running process actually read it from, and states the one
- * network call it is ever used for. idea.md §11 is a promise about behaviour, and the only honest
+ * network call it is ever used for. §11 is a promise about behaviour, and the only honest
  * way to present a promise like that is to show the reader where to go and check.
  */
 

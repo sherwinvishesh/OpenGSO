@@ -5,7 +5,7 @@ import type { Score } from './score.js';
 import type { TestResult } from './index.js';
 
 /**
- * Terminal rendering of a test run (idea.md §5).
+ * Terminal rendering of a test run (§5).
  *
  * Failures come first and carry the specific reason, because the reason is the product: "no
  * llms.txt at https://site/llms.txt" is actionable, "llms.txt: FAIL" is not.

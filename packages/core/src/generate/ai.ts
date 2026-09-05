@@ -6,7 +6,7 @@ import type { EnhanceInput, EnhanceOutput } from './generate.js';
 import { verifyFidelity } from './fidelity.js';
 
 /**
- * The bring-your-own-key AI tier (idea.md §6).
+ * The bring-your-own-key AI tier (§6).
  *
  * Three things this module is careful about:
  *

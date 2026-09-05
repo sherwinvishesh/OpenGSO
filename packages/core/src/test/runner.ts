@@ -13,7 +13,7 @@ import type { Evidence } from './evidence.js';
 import type { ProbeResult } from '../shared/http.js';
 
 /**
- * The check implementations (idea.md §5).
+ * The check implementations (§5).
  *
  * Every function here is pure over `Evidence`, so the whole checklist can be unit-tested against
  * synthetic responses with no network involved.
@@ -385,7 +385,7 @@ function checkHtmlUnaffected(e: Evidence): CheckResult {
 /**
  * B14 - staleness and drift.
  *
- * This is the check idea.md §5 singles out as the one only OpenGEO can make, and the reason is
+ * This is the check §5 singles out as the one only OpenGEO can make, and the reason is
  * structural: OpenGEO owns both halves of the pipeline, so it knows the hash of the HTML each twin
  * was built from. Nothing that only inspects a live site from the outside can tell "this markdown
  * is a faithful copy of the current page" apart from "this markdown was accurate six months ago".

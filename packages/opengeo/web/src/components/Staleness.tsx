@@ -2,7 +2,7 @@ import type { CheckResult, State } from '../types';
 import { Banner, Button, ago } from './ui';
 
 /**
- * The staleness surface (idea.md §6).
+ * The staleness surface (§6).
  *
  * OpenGEO deliberately never regenerates on a schedule or in CI, which means a markdown twin is a
  * cache that nothing invalidates automatically. `last_updated` plus the B14 drift check are the

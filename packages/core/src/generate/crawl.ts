@@ -3,7 +3,7 @@ import { probe } from '../shared/http.js';
 import { normalizeRoute } from '../shared/routes.js';
 
 /**
- * Route discovery by following real `<a href>` links (idea.md §6, and the §17 ceiling on how far
+ * Route discovery by following real `<a href>` links (§6, and the §17 ceiling on how far
  * that can go).
  *
  * This is deliberately the dumbest thing that works everywhere: a same-origin breadth-first walk

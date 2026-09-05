@@ -4,7 +4,7 @@ import type { AiBot, State } from '../types';
 import { Banner, Button, Card, CardHead, PageHead, Pill } from '../components/ui';
 
 /**
- * Bot settings: the two levers from idea.md §7, on one page but never in one list.
+ * Bot settings: the two levers from §7, on one page but never in one list.
  *
  * The UI enforces the distinction the design depends on. Routing is a format decision and cannot
  * deny anybody anything, so its column has no warning attached. Blocking is a real denial, is

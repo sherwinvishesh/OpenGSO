@@ -4,7 +4,7 @@ import type { AiBot, State } from '../types';
 import { Banner, Button, Card, CardHead, Field, Pill } from '../components/ui';
 
 /**
- * First run: project, then key, then bots (idea.md §8).
+ * First run: project, then key, then bots (§8).
  *
  * Three steps, two of them skippable, because the target is a first real result in a minute or two.
  * The key step comes second rather than first for the same reason setup asks in that order: it is

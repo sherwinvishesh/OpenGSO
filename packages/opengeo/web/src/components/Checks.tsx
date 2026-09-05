@@ -2,7 +2,7 @@ import type { CheckResult } from '../types';
 import { Card, CardHead, Empty, Pill } from './ui';
 
 /**
- * Failures first, required before recommended, per idea.md §5. The order is the point: someone who
+ * Failures first, required before recommended, per §5. The order is the point: someone who
  * reads only the first group has read the things that actually stop agents working.
  */
 

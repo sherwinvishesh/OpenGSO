@@ -4,7 +4,7 @@ import type { AiBot, ProdProbe, ProdResponse, State } from '../types';
 import { Banner, Button, Card, CardHead, Empty, Field, PageHead, Pill } from '../components/ui';
 
 /**
- * Prod: probe a running site and report the two levers separately (idea.md §7).
+ * Prod: probe a running site and report the two levers separately (§7).
  *
  * The grouping here is the whole point. Lever 1 decides which agents receive markdown and can
  * never deny anyone anything; lever 2 is an opt-in robots.txt block list that prod does not even

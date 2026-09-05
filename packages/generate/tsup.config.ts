@@ -8,7 +8,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 
 /**
  * `@opengeo/core` is private and never published, so it must be inlined into this bundle rather
- * than left as an import (idea.md §3). Everything else - jsdom in particular - stays external and
+ * than left as an import (§3). Everything else - jsdom in particular - stays external and
  * is declared as a real dependency.
  */
 export default defineConfig({

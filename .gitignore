@@ -15,3 +15,8 @@ out/
 # personal settings. All of it is local tooling and none of it belongs in the repo.
 CLAUDE.md
 .claude/
+
+# The original product spec. It stays on the maintainer's machine. Comments across the repo
+# cite its sections as §N; CONTRIBUTING.md explains that you do not need the document to
+# work here. Earlier commits still contain it, which is fine and deliberate.
+idea.md

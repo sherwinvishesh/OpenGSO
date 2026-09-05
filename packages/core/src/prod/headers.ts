@@ -2,7 +2,7 @@ import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/vers
 import { routeToTwinUrlPath } from '../shared/routes.js';
 
 /**
- * The response-header contract from idea.md §7, which is the same contract test's category B checks
+ * The response-header contract from §7, which is the same contract test's category B checks
  * against (§5B). Both sides import this module, so the implementation and the audit can never
  * disagree about a header name or value.
  */

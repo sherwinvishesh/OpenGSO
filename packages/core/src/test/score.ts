@@ -1,7 +1,7 @@
 import type { CheckResult } from './checks.js';
 
 /**
- * The 0-100 score (idea.md §5).
+ * The 0-100 score (§5).
  *
  * No letter grade, no tier label - deliberately. Checks that cannot apply to this target (HSTS on
  * localhost) are dropped from the denominator instead of counting as failures, so a local dev run

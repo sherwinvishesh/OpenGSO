@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 
 /**
- * HTML -> Markdown extraction, the free/algorithmic tier (idea.md §6).
+ * HTML -> Markdown extraction, the free/algorithmic tier (§6).
  *
  * Hand-written rather than pulled from a converter library for two reasons: it keeps core
  * dependency-light (only jsdom), and the conversion needs OpenGEO-specific behaviour a general

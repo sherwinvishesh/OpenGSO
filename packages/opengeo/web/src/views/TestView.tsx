@@ -9,7 +9,7 @@ import { Banner, Button, Card, CardHead, Empty, PageHead } from '../components/u
  * Test: run the 22 checks against a live URL and show the score with every reason attached.
  *
  * The quality review renders in its own card, well below the score and visually separate from it.
- * That separation is idea.md §5's rule and not a layout preference: the 0-100 number is a
+ * That separation is §5's rule and not a layout preference: the 0-100 number is a
  * structural measurement, and folding a model's opinion into it would make the number unreproducible.
  */
 

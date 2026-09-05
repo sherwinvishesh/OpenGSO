@@ -13,7 +13,7 @@ const define = {
 
 /**
  * `@opengeo/core` is private and never published, so it must be inlined into these bundles rather
- * than left as an import (idea.md §3). Everything else - jsdom in particular - stays external and
+ * than left as an import (§3). Everything else - jsdom in particular - stays external and
  * is declared as a real dependency.
  *
  * Two builds: the importable middleware, so a project that installed only this package can wire up

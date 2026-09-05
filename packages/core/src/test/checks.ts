@@ -1,5 +1,5 @@
 /**
- * The check catalogue (idea.md §5).
+ * The check catalogue (§5).
  *
  * Category A asks "can AI find and understand this site at all". Category B asks "is the markdown
  * twin actually being served correctly" - it is the same contract opengeo-prod implements in §7,

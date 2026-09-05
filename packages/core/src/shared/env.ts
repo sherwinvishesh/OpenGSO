@@ -4,7 +4,7 @@ import type { AiProvider } from './config.js';
 import { AI_PROVIDERS } from './config.js';
 
 /**
- * API key handling (idea.md §11).
+ * API key handling (§11).
  *
  * The key is read from a local `.env` and nowhere else. It is never written to
  * opengeo.config.json (which people commit), never sent anywhere but the user's chosen AI provider,

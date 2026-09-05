@@ -1,5 +1,5 @@
 /**
- * Token estimate for the `X-Markdown-Tokens` header (idea.md §5B / §7).
+ * Token estimate for the `X-Markdown-Tokens` header (§5B / §7).
  *
  * Deliberately dependency-free: a real tokenizer would mean shipping vocab files in a package whose
  * whole point is to stay tiny. ~1.3 tokens per whitespace-delimited word tracks common BPE

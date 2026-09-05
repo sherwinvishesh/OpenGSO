@@ -8,7 +8,7 @@ import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
 import { summarizeRobots } from './startup.js';
 
 /**
- * `opengeo prod test <url>` (idea.md §7).
+ * `opengeo prod test <url>` (§7).
  *
  * This is not a second scorer. `opengeo test` grades a site; this answers a narrower and more
  * operational question: is the middleware actually installed, and are the two bot levers doing

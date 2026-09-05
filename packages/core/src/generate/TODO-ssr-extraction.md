@@ -1,6 +1,6 @@
 # TODO: SSR HTML extraction for non-MDX SSR frameworks
 
-Status: **not built.** This is step 5 of idea.md §18, deliberately left for a later pass.
+Status: **not built.** This is step 5 of §18, deliberately left for a later pass.
 
 ## What works today
 
@@ -63,5 +63,5 @@ nothing here fails silently.
   each with a page carrying specific facts the fidelity verifier can check.
 - The density heuristic in `pickContentRoot`, with tests over captured SSR fixtures rather than
   live sites.
-- An explicit decision, recorded in idea.md, on whether reading hydration payloads crosses the
+- An explicit, recorded decision on whether reading hydration payloads crosses the
   §16 no-adapters line. If it does, this item ends at the heuristic and goes no further.

@@ -1,5 +1,5 @@
 /**
- * The AI bot list (idea.md §7, §17).
+ * The AI bot list (§7, §17).
  *
  * This is the single community-contribution surface: new AI products launch constantly, so this file
  * is expected to change often. Keep it as plain data - no logic - so a first-time contributor can

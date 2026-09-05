@@ -1,6 +1,6 @@
 # TODO: CSR/SPA support via jsdom script execution
 
-Status: **not built.** This is step 8 of idea.md §18, which puts it last on purpose.
+Status: **not built.** This is step 8 of §18, which puts it last on purpose.
 
 ## The boundary, stated exactly
 
@@ -36,7 +36,7 @@ settle before reading the DOM. Each of those three words carries a real problem.
    settles), or a mutation-observer quiet period (the least bad, and what this should probably
    try first).
 
-3. **jsdom has no layout engine.** This is idea.md §17's stated honesty and it is not a detail.
+3. **jsdom has no layout engine.** This is §17's stated honesty and it is not a detail.
    Anything measuring itself renders wrong or throws: `getBoundingClientRect` returns zeroes,
    `IntersectionObserver` never fires so infinite-scroll and lazy sections never load,
    `ResizeObserver` is absent, `matchMedia` is a stub so responsive branches pick the wrong tree,
@@ -66,7 +66,7 @@ accurate score, an accurate warning, and no broken twin.
 - The fidelity verifier (`fidelity.ts`) pointed at the executed DOM as well, since a half-hydrated
   page losing facts is exactly the failure this pass must catch.
 - Real-world validation against several third-party SPAs before any README claims SPA support.
-  idea.md §17 asks for this by name: "Needs real-world validation, not assumed to fully solve
+  §17 asks for this by name: "Needs real-world validation, not assumed to fully solve
   every CSR page."
 - Full headless-browser rendering stays a non-goal (§16). If jsdom cannot do it, the answer is to
   say so, not to bundle Chromium.

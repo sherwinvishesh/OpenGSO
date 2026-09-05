@@ -3,7 +3,7 @@ import { identifyBot } from '../shared/bots.js';
 import { isMarkdownPath, normalizeRoute, twinUrlPathToRoute } from '../shared/routes.js';
 
 /**
- * Visitor classification and content negotiation (idea.md §7).
+ * Visitor classification and content negotiation (§7).
  *
  * Two rules this module exists to guarantee:
  *  1. An unrecognised bot is treated exactly like a human. Never blocked, never special-cased.

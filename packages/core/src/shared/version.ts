@@ -1,5 +1,5 @@
 /**
- * OpenGEO's own spec version, advertised via the `X-AEO-Version` response header (idea.md §7).
+ * OpenGEO's own spec version, advertised via the `X-AEO-Version` response header (§7).
  * This names OpenGEO's published behaviour, never a third party's spec.
  */
 export const AEO_SPEC_VERSION = 'opengeo/1.0';

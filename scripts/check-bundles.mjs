@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Asserts the two structural promises the built bundles make (idea.md §3).
+ * Asserts the two structural promises the built bundles make (§3).
  *
  * 1. `opengeo-prod`'s importable library carries no jsdom and no AI provider code. It is the one
  *    package that runs on the user's server on every request, so its weight and its network

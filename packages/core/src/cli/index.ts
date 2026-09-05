@@ -6,7 +6,7 @@ export * from './args.js';
 export * from './project.js';
 
 /**
- * The shared CLI (idea.md §10, §13).
+ * The shared CLI (§10, §13).
  *
  * Every published package runs this same function and passes only the handlers it actually ships.
  * A command the install doesn't include is not "unknown" - it produces the §13 message naming the

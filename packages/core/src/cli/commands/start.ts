@@ -15,7 +15,7 @@ const SPEC = {
 } as const;
 
 /**
- * `opengeo start` - the local dashboard (idea.md §8).
+ * `opengeo start` - the local dashboard (§8).
  *
  * A GUI over exactly the same core functions the CLI calls, served from 127.0.0.1 by a
  * dependency-free `node:http` server. Nothing is uploaded, nothing is synced, and the only network

@@ -9,7 +9,7 @@ import type { EnhanceInput, EnhanceOutput, GenerateProgress, GenerateResult } fr
 import { generatePages } from './generate.js';
 
 /**
- * One crawl, three outputs (idea.md §6).
+ * One crawl, three outputs (§6).
  *
  * This is the whole of `opengeo generate` above the CLI: discover routes by following links, turn
  * each discovered page into a markdown twin, then write robots.txt, llms.txt and sitemap.xml from

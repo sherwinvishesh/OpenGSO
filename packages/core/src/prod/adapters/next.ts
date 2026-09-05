@@ -6,7 +6,7 @@ import type { MarkdownStore } from '../store.js';
 import { createFsStore } from '../store.js';
 
 /**
- * Next.js adapter (idea.md §19: one thin adapter per hosting target).
+ * Next.js adapter (§19: one thin adapter per hosting target).
  *
  * Deliberately does not import anything from `next`. The user's own middleware.ts owns the two
  * Next-specific lines; keeping `next` out of opengeo-prod's dependency graph is what lets the same

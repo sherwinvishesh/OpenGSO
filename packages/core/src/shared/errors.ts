@@ -1,5 +1,5 @@
 /**
- * Every user-facing error string in OpenGEO lives here (idea.md §13).
+ * Every user-facing error string in OpenGEO lives here (§13).
  *
  * One shared module, imported by all five published packages, so wording only ever changes in one
  * place and a limited install can tell the user exactly which package to reach for instead.
@@ -7,7 +7,7 @@
 
 export type CommandName = 'test' | 'generate' | 'setup' | 'start' | 'prod test';
 
-/** Which published packages actually ship each command (idea.md §10). */
+/** Which published packages actually ship each command (§10). */
 export const COMMAND_PACKAGES: Record<CommandName, string[]> = {
   test: ['opengeo', 'opengeo-cli', 'opengeo-testing'],
   generate: ['opengeo', 'opengeo-cli', 'opengeo-generate'],
@@ -34,7 +34,7 @@ export const NARROWEST_PACKAGE: Record<CommandName, string> = {
 };
 
 /**
- * Three of the five commands are pillars (idea.md §2). `setup` and `start` are not, and calling
+ * Three of the five commands are pillars (§2). `setup` and `start` are not, and calling
  * them one would make the error read as if written by someone who had never run the tool.
  */
 const PILLAR_OF: Partial<Record<CommandName, string>> = {

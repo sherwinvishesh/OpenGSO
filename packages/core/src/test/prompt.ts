@@ -3,7 +3,7 @@ import type { Framework, FrameworkId } from './framework.js';
 import type { TestResult } from './index.js';
 
 /**
- * The fix-prompt generator (idea.md §5).
+ * The fix-prompt generator (§5).
  *
  * The output is aimed at a coding agent with real file access - Claude Code, Cursor, and similar -
  * not a web chat, because every ask in it involves editing files in the repo.

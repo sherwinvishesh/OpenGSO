@@ -110,7 +110,7 @@ describe('the fix prompt', () => {
 
   it('references only opengeo-prod and OpenGEO docs, never a competitor', () => {
     const prompt = buildFixPrompt(result).toLowerCase();
-    // Named in idea.md §14 as the landscape OpenGEO sits in. A fix prompt handed to an agent with
+    // Named in §14 as the landscape OpenGEO sits in. A fix prompt handed to an agent with
     // file access must not send it to install any of them.
     for (const competitor of ['firecrawl', 'jina', 'r.jina.ai', 'mintlify', 'gitbook', 'readme.io', 'llmstxt.org', 'markdowner', 'urltomarkdown', 'pure.md']) {
       expect(prompt, `should not mention ${competitor}`).not.toContain(competitor);

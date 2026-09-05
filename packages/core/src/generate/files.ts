@@ -6,7 +6,7 @@ import { routeToTwinUrlPath } from '../shared/routes.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 
 /**
- * robots.txt, llms.txt and sitemap.xml (idea.md §6).
+ * robots.txt, llms.txt and sitemap.xml (§6).
  *
  * `generate` is the sole owner of all three. `prod` reads them and reports on them at boot, and
  * never writes them - which is why an install that only has opengeo-prod can tell you the files are

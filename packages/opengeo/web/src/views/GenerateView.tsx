@@ -5,7 +5,7 @@ import { Banner, Button, Card, CardHead, Empty, Field, PageHead, Pill } from '..
 
 /**
  * Generate: crawl the site once and write the markdown twins plus robots.txt, llms.txt and
- * sitemap.xml (idea.md §6, one crawl, three outputs).
+ * sitemap.xml (§6, one crawl, three outputs).
  *
  * The preview matters more than it looks. Everything else in this app describes the generated
  * files; this is the only place that shows the bytes an agent actually receives, read straight back

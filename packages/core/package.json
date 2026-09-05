@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared OpenGEO logic. Never published: every published package bundles this source directly via tsup (see idea.md \u00a73).",
+  "description": "Shared OpenGEO logic. Never published: every published package bundles this source directly via tsup (see \u00a73).",
   "license": "Apache-2.0",
   "exports": {
     ".": "./src/index.ts",

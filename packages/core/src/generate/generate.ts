@@ -89,7 +89,7 @@ export interface GenerateResult {
 }
 
 /**
- * Generate markdown twins for a set of routes (idea.md §6).
+ * Generate markdown twins for a set of routes (§6).
  *
  * Build-time only, never per visitor request: everything here writes static files to disk, so a
  * real visitor only ever receives a file that already exists.

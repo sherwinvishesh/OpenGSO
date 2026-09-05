@@ -1,7 +1,7 @@
 import type { ProbeResult } from '../shared/http.js';
 
 /**
- * Framework detection (idea.md §5), used to make the report and the fix prompt specific.
+ * Framework detection (§5), used to make the report and the fix prompt specific.
  *
  * Detection is fingerprint matching on the HTML and response headers, nothing more. It is a
  * courtesy, never a dependency: no check's result changes based on what this returns, and every

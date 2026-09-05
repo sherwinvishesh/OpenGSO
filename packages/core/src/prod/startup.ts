@@ -4,7 +4,7 @@ import { AI_BOTS } from '../shared/bots.js';
 import type { MarkdownStore } from './store.js';
 
 /**
- * Startup-only status logging (idea.md §7).
+ * Startup-only status logging (§7).
  *
  * Runs once, at boot, and never again - a per-request version of this would flood a production log
  * with the same three lines forever. The output is meant to be read in the hosting platform's own

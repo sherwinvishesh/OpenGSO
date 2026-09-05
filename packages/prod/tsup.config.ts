@@ -16,7 +16,7 @@ const define = {
  *
  * Only the library gets type declarations, and only the CLI gets a shebang. `@opengeo/core/prod`
  * imports neither jsdom nor any provider code, which is what keeps this package dependency-free
- * (idea.md §3) - `npm run check:bundles` asserts it.
+ * (§3) - `npm run check:bundles` asserts it.
  */
 export default defineConfig([
   {

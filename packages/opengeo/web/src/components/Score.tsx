@@ -3,7 +3,7 @@ import type { Score } from '../types';
 /**
  * The score indicator: a number from 0 to 100 and nothing else.
  *
- * No letter grade and no tier label anywhere, per idea.md §5. A "B+" invites you to feel fine about
+ * No letter grade and no tier label anywhere, per §5. A "B+" invites you to feel fine about
  * a site that is invisible to half the agents on the web, and a tier name turns a measurement into
  * a marketing category. The number and the list of what failed are the whole story.
  */

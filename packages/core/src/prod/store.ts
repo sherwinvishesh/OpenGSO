@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 /**
- * Where prod reads markdown from (idea.md §7).
+ * Where prod reads markdown from (§7).
  *
  * Everything is loaded once, at startup. By the time a request arrives, serving a twin is a map
  * lookup against already-parsed strings - no filesystem walk, no frontmatter parsing, no token

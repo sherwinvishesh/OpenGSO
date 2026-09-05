@@ -4,7 +4,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import { handleApi, type ApiOptions } from './api.js';
 
 /**
- * The `opengeo start` server (idea.md §8).
+ * The `opengeo start` server (§8).
  *
  * `node:http` and nothing else. The dashboard is a pile of static files plus a JSON API that calls
  * the same core functions the CLI calls, so shipping it costs the published package no runtime

@@ -1,5 +1,5 @@
 /**
- * The fidelity guard behind idea.md §6's promise that the AI tier "never alters facts".
+ * The fidelity guard behind §6's promise that the AI tier "never alters facts".
  *
  * A prompt asking a model not to change numbers is a hope, not a guarantee. This turns it into a
  * property that is actually checked: every number, date, price and percentage in the algorithmic

@@ -11,8 +11,12 @@ packages/cli         opengeo-cli        test + generate + prod test + setup
 packages/opengeo     opengeo            all of the above + the dashboard
 examples/nextjs-demo the app the whole pipeline is exercised against
 docs/                checks.md (the 22 checks) and spec.md (the wire format)
-idea.md              the product spec. It outranks this file and the code.
 ```
+
+**A note on `§` references.** Comments and docs across this repo cite section numbers, like
+`§7` or `§16`. They point into the original product spec, which is not distributed with the repo.
+You do not need it: the decisions those sections drove are all described where they are cited, and
+the two documents in `docs/` cover the parts a contributor actually has to match.
 
 `@opengeo/core` is private and its `exports` map points at source `.ts`. Each published package
 bundles core with tsup (`noExternal: [/@opengeo\/core/]`), so core is never an install-time
@@ -29,7 +33,7 @@ npm run build
 npm run check:bundles
 ```
 
-`check:bundles` reads `dist/` and asserts the two structural promises from idea.md §3:
+`check:bundles` reads `dist/` and asserts the two structural promises from §3:
 `opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency
 any published package may declare. Run it after `build`, never instead of it.
 
@@ -62,7 +66,7 @@ Every user-visible change needs a changeset:
 npm run changeset
 ```
 
-**Known limitation, stated rather than worked around.** idea.md §4 assumes Changesets can work out
+**Known limitation, stated rather than worked around.** §4 assumes Changesets can work out
 which published packages a change to core affects. It cannot: core is private and bundled at build
 time, so from Changesets' point of view no published package depends on it. A change to
 `packages/core` therefore looks like a change to nothing.
@@ -75,7 +79,7 @@ is hard to spot.
 
 ## The bot list
 
-`packages/core/src/shared/bots.ts` is the community-contribution surface (idea.md §17). Adding a
+`packages/core/src/shared/bots.ts` is the community-contribution surface (§17). Adding a
 bot means one entry in `AI_BOTS`: its `name`, `vendor`, `uaPatterns`, `robotsToken`, `kind`, and
 `notes` when the bot needs explaining. Nothing else has to change. `ROUTABLE_BOTS` and
 `DEFAULT_MARKDOWN_ROUTING` are derived from that array.
@@ -94,5 +98,5 @@ Two things about it are deliberate and should not be changed casually:
 - Every user-facing error string belongs in `packages/core/src/shared/errors.ts` (§13), so the
   wording changes in one place and a limited install can name the package that would help.
 - No new runtime dependencies. jsdom is the only one, and `opengeo-prod` may not have even that.
-- Non-goals in idea.md §16 are constraints, not suggestions. No headless browser, no per-framework
+- Non-goals in §16 are constraints, not suggestions. No headless browser, no per-framework
   router adapters, no CI-triggered generate, no blocking unknown bots by default.

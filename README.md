@@ -74,7 +74,6 @@ the job can run.
 - [docs/spec.md](docs/spec.md) - the `opengeo/1.0` wire format: twin URLs, negotiation, headers,
   406 behaviour, frontmatter. Written so you could implement it without OpenGEO.
 - [CONTRIBUTING.md](CONTRIBUTING.md) - the dev loop, the test layout, and how to add a bot.
-- [idea.md](idea.md) - the original product spec. It outranks the code.
 
 ## Repo layout
 

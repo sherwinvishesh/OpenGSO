@@ -6,7 +6,7 @@ import type { ProviderFn } from '../generate/ai.js';
 import { callProvider, stripCodeFence } from '../generate/ai.js';
 
 /**
- * The optional AI markdown-quality pass (idea.md §5).
+ * The optional AI markdown-quality pass (§5).
  *
  * Deliberately a separate module with a separate return type, because the one rule §5 is emphatic
  * about is that this never touches the 0-100 number. The structural checks are deterministic: a
