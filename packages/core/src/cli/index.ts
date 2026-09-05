@@ -178,7 +178,7 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     '',
     'Options',
     '  --project <dir>    project directory to set up (default: cwd)',
-    '  --yes              accept every default without prompting',
+    '  --yes, -y          accept every default without prompting (writes no key)',
   ],
   start: [
     'Usage: opengeo start [options]',
