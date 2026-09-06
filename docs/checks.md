@@ -15,9 +15,9 @@ check is merely leaving something on the table.
 
 | | Required | Recommended | Total |
 |---|---|---|---|
-| **A. Discoverability** | 40 | 10 | 50 |
-| **B. Implementation** | 57 | 13 | 70 |
-| **Total** | 97 | 23 | 120 |
+| **A. Discoverability** | 52 | 5 | 57 |
+| **B. Implementation** | 52 | 13 | 65 |
+| **Total** | 104 | 18 | 122 |
 
 ```
 score = round(100 x earned / applicable)
@@ -30,13 +30,40 @@ where HSTS is not a thing". Only the first should cost you points.
 
 Partial credit does not exist. A check passes or it does not.
 
+### One missing twin costs one check
+
+If the markdown twin URL does not answer, the site has no markdown layer, and twelve of the
+category B checks have nothing to look at. You cannot inspect the Content-Type of a document that
+does not exist. Those twelve return **n/a** and leave the denominator, and the whole verdict on the
+markdown layer is carried by B1, the heaviest check in the table.
+
+This matters more than it sounds. Scored the naive way, one missing file reads as thirteen separate
+defects, and every site on the web that has not adopted the convention lands in the thirties. A
+twin that exists but is served wrong is a different situation, and is still scored in full detail.
+
+### What the numbers are calibrated against
+
+The weights are set so that the score means something to someone reading it:
+
+- **B1 is the only double-digit check.** Serving the twin is the thing this toolkit exists for, so
+  it is the largest single line in the scale and the first thing the report tells you to fix.
+  Everything else is single digits, which means no individual header detail can sink a site that
+  got the important things right.
+- **A well-built site scores in the 80s without installing anything.** As of this writing
+  `anthropic.com` and `openai.com` both score **80**: robots.txt open to AI crawlers, a real
+  sitemap, content server-rendered into the HTML, a fast first byte, no opt-out tag, HTTPS with
+  HSTS, and an HTML page that still works for humans. What they are missing is llms.txt, JSON-LD
+  and the markdown layer, which is exactly the 20 points they do not have.
+
+Both properties are pinned by tests, so a weight edit that breaks the calibration fails the suite.
+
 ## Category A: can an AI agent find and understand this site at all
 
 These checks apply to any site, whether or not it uses OpenGEO. You can pass all of category A
 without installing anything.
 
 ### A1 - robots.txt exists and does not disallow known AI bots
-**Required, weight 10.**
+**Required, weight 9.**
 
 Fetches `/robots.txt` and reads it the way a crawler would: longest-match on `User-agent`, with the
 wildcard group as the fallback. Fails when a rule disallows a known AI bot from the URL under test.
@@ -51,7 +78,7 @@ in `bots.blocked`. Or hand-write one. A missing `robots.txt` also fails, because
 "no file" from "no answer".
 
 ### A2 - llms.txt is present and valid
-**Required, weight 8.**
+**Recommended, weight 3.**
 
 Fetches `/llms.txt` and checks that it is a real markdown document with an `# H1` title and at least
 one link, not an HTML 404 page served with a 200.
@@ -59,10 +86,14 @@ one link, not an HTML 404 page served with a 200.
 `llms.txt` is the table of contents an agent reads first to decide what else to fetch. Without it,
 an agent has to guess your site structure from links.
 
+It is recommended rather than required, and weighted lightly, because it is a young convention with
+uneven crawler support: an agent that cannot find your `llms.txt` still has `sitemap.xml` and the
+links on the page. Serving the twins matters more, which is why B1 is worth three times as much.
+
 **Fix:** `opengeo generate` writes one from the same crawl that produces the twins.
 
 ### A3 - sitemap.xml is present and valid
-**Required, weight 6.**
+**Required, weight 9.**
 
 Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<loc>`.
 
@@ -70,7 +101,7 @@ Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<lo
 OpenGEO never overwrites a file it did not write.
 
 ### A4 - Schema.org JSON-LD is present and parses
-**Recommended, weight 4.**
+**Recommended, weight 2.**
 
 Looks for `<script type="application/ld+json">` in the HTML and parses it. A block that is present
 but syntactically invalid fails, because that is worse than absent: it looks like structured data
@@ -80,7 +111,7 @@ and delivers none.
 right schema type depends entirely on what the page is.
 
 ### A5 - Real content is in the raw HTML, not only after JS runs
-**Required, weight 10.**
+**Required, weight 9.**
 
 Parses the raw HTML response with jsdom, with scripts disabled, and measures how many words of real
 content survive. This is the single most important check in category A, because most agents do not
@@ -91,7 +122,7 @@ that makes this one pass. If your site is a client-rendered SPA, OpenGEO's gener
 the same wall and warn you about it.
 
 ### A6 - Time to first byte is fast enough for agent fetches
-**Recommended, weight 3.**
+**Required, weight 8.**
 
 Measures TTFB on the HTML request. Agents fetch under a timeout, often a short one, and a slow first
 byte is the most common reason a page is silently skipped.
@@ -100,7 +131,7 @@ byte is the most common reason a page is silently skipped.
 running the CLI, so a cold serverless start or a slow network shows up here.
 
 ### A7 - No noai / noimageai tag is silently blocking AI
-**Required, weight 6.**
+**Required, weight 8.**
 
 Looks for `noai`, `noimageai` and equivalent directives in `<meta name="robots">` and in the
 `X-Robots-Tag` response header.
@@ -111,7 +142,7 @@ is asking agents to ignore it, which makes everything else you do pointless.
 **Fix:** remove the directive, or accept the failure knowingly.
 
 ### A8 - Served over HTTPS with HSTS
-**Recommended, weight 3.**
+**Required, weight 9.**
 
 Checks the scheme and looks for `Strict-Transport-Security`.
 
@@ -137,7 +168,7 @@ Requests `<path>.md` (so `/resume` becomes `/resume.md`, and `/` becomes `/index
 with the right headers.
 
 ### B2 - Content-Type is exactly text/markdown; charset=utf-8
-**Required, weight 6.**
+**Required, weight 5.**
 
 An exact match, not a prefix match. `text/plain` fails. `text/markdown` without a charset fails.
 Agents dispatch on this header, and the strictness is deliberate.
@@ -155,18 +186,18 @@ Lets an agent budget its context before it downloads the body. OpenGEO computes 
 time, so serving it costs no work at request time.
 
 ### B5 - X-Content-Type-Options: nosniff is present
-**Recommended, weight 2.**
+**Recommended, weight 3.**
 
 Stops a client from re-interpreting the markdown as something else.
 
 ### B6 - X-Robots-Tag on the twin includes noindex
-**Required, weight 4.**
+**Required, weight 3.**
 
 The twin is the same content as the HTML page. Without `noindex` you have published a duplicate of
 every page on your site and asked search engines to index both.
 
 ### B7 - Vary includes Accept, so CDNs cache the two formats separately
-**Required, weight 6.**
+**Required, weight 4.**
 
 Parses `Vary` as a comma-separated token list and looks for `Accept` or `*` as a whole token.
 `Vary: Accept-Encoding` does **not** count, and neither does any other header that merely contains
@@ -182,14 +213,14 @@ HTML routes rather than pretending it passes. The markdown responses themselves 
 `Vary: Accept`.
 
 ### B8 - HTML response advertises the twin via Link rel="alternate"
-**Recommended, weight 4.**
+**Recommended, weight 3.**
 
 `Link: </resume.md>; rel="alternate"; type="text/markdown"` on the HTML response. This is how an
 agent that fetched the HTML discovers there is a better version available, without guessing at a
 URL convention.
 
 ### B9 - Accept: text/markdown receives markdown, not HTML
-**Required, weight 8.**
+**Required, weight 6.**
 
 Requests the original URL with `Accept: text/markdown` and a browser User-Agent, so a markdown
 response can only have been caused by the Accept header.
@@ -198,7 +229,7 @@ This is content negotiation as HTTP defines it, and it is the mechanism that wor
 OpenGEO has never heard of.
 
 ### B10 - A known AI bot User-Agent receives markdown without an Accept header
-**Required, weight 8.**
+**Required, weight 6.**
 
 Requests the original URL with an AI bot User-Agent and a browser-typical Accept header, so a
 markdown response can only have been caused by the User-Agent.
@@ -219,7 +250,7 @@ Expects `X-AEO-Version: opengeo/1.0`. This is OpenGEO's own version string, nami
 published behaviour and never a third party's spec. See [the spec](spec.md).
 
 ### B13 - The original HTML URL is still reachable and unaffected
-**Required, weight 5.**
+**Required, weight 9.**
 
 Requests the page as a browser would and checks that it is still HTML, still 2xx, and still the same
 page.
@@ -228,7 +259,7 @@ This is the check that catches an over-eager middleware. Serving markdown to hum
 them, is a worse outcome than not installing OpenGEO at all.
 
 ### B14 - The served markdown still matches the live page
-**Required, weight 5.**
+**Required, weight 4.**
 
 Re-extracts the live HTML, hashes the result, and compares it against the `X-Markdown-Source-Hash`
 of the served twin and the `last_updated` in its frontmatter. When the hashes differ, it falls back
@@ -261,5 +292,44 @@ verdict, including the header value actually observed. No generic strings.
 `--prompt` turns the failures into a fix prompt you can paste into a coding agent. It names only
 `opengeo-prod` and OpenGEO's own documentation.
 
-`--quality` adds an optional, clearly separated AI review of the content itself. It needs an API key,
-refuses to run under CI, and is never folded into the 0 to 100 number.
+## The other half of a test run
+
+Everything above is the **structural** pass: deterministic, free, and the only thing that produces
+the 0 to 100 number. A test run has a second, optional pass, and the two never mix.
+
+| Command | What runs |
+| --- | --- |
+| `opengeo test <url>` | The checks, then an AI review of every Markdown document they found. The review is skipped with a note when no key is configured. |
+| `opengeo test <url> --structure` | The checks alone. Also spelled `--offline` and `-nq`. |
+| `opengeo test <url> --content` | The AI review alone, for the loop where you are editing the Markdown. |
+| `opengeo test <url> -q` | The full run, with the review required rather than optional. |
+
+The content review reads the documents your site actually serves and gives them **their own score
+out of 100**, weighted across five areas:
+
+| Area | Worth | What it asks |
+| --- | --- | --- |
+| Answerability | 30 | Could an agent answer a real question from this document alone? |
+| Specificity | 25 | Concrete facts, numbers, prices, dates and versions, or adjectives? |
+| Definition | 20 | Is it obvious in the first few lines what this is and who it is for? |
+| Structure | 15 | Headings that describe their content, sensible order, sensible length? |
+| Keywords | 10 | Are the words someone would search for present, and used naturally? |
+
+The weights are an opinion about who the document is for: an agent answering somebody's question
+that cannot follow a link to find out more. Answerability and specificity carry more than half the
+score between them. Keywords carry the least, because they are the easiest thing to add and the
+least useful to a reader already looking at the page.
+
+The score is derived from the five area scores rather than asked for as one number, so it can be
+explained line by line: the report prints what each area is costing you out of 100, then a
+prioritised list of specific edits, each naming where in the document to make it and what a reader
+gains. An area the model did not score leaves the denominator rather than counting as zero, the
+same rule `n/a` checks follow above.
+
+It needs an API key, refuses to run under CI, prints as its own section, and is **never** folded
+into the structural 0 to 100. Two numbers, two questions: is the Markdown served correctly, and is
+it worth reading. The exit code always comes from the structural checks, so a model's opinion
+cannot fail a build.
+
+Any of a dozen providers can run it, including one on your own machine. See
+[providers.md](providers.md).

@@ -1,4 +1,4 @@
-import type { AiBot, GenerateResponse, OpenGeoConfig, ProdResponse, State, TestResponse } from './types';
+import type { AiBot, GenerateResponse, OpenGeoConfig, ProdResponse, State, TestMode, TestResponse } from './types';
 
 /**
  * Every call goes to this page's own origin, which is 127.0.0.1. There is no other host in this
@@ -39,7 +39,7 @@ export const api = {
   bots: () => call<{ bots: AiBot[] }>('/api/bots'),
   saveConfig: (patch: Partial<OpenGeoConfig>) =>
     call<{ config: OpenGeoConfig; configPath: string }>('/api/config', { method: 'POST', body: JSON.stringify(patch) }),
-  test: (input: { url?: string; quality?: boolean }) =>
+  test: (input: { url?: string; mode?: TestMode; maxDocs?: number }) =>
     call<TestResponse>('/api/test', { method: 'POST', body: JSON.stringify(input) }),
   generate: (input: { url?: string; tier?: 'free' | 'ai'; single?: boolean; force?: boolean; skipSiteFiles?: boolean }) =>
     call<GenerateResponse>('/api/generate', { method: 'POST', body: JSON.stringify(input) }),
@@ -47,7 +47,14 @@ export const api = {
     call<ProdResponse>('/api/prod-test', { method: 'POST', body: JSON.stringify(input) }),
   readFile: (path: string) =>
     call<{ path: string; content: string }>('/api/file', { method: 'POST', body: JSON.stringify({ path }) }),
-  saveKey: (input: { provider: string; apiKey: string; model?: string }) =>
+  saveKey: (input: {
+    provider: string;
+    apiKey: string;
+    model?: string;
+    baseUrl?: string;
+    api?: string;
+    auth?: string;
+  }) =>
     call<{ provider: string; model: string; envPath: string; gitignorePath: string; gitignoreAdded: boolean }>('/api/key', {
       method: 'POST',
       body: JSON.stringify(input),

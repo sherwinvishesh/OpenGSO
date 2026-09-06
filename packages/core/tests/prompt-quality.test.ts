@@ -5,9 +5,14 @@ import {
   CHECKS,
   detectFramework,
   parseQuality,
+  QUALITY_AREAS,
+  QUALITY_BANDS,
   QUALITY_SYSTEM_PROMPT,
+  QUALITY_TOTAL_WEIGHT,
+  qualityBand,
   reviewQuality,
   scoreChecks,
+  scoreFindings,
 } from '@opengeo/core/test';
 import type { ProviderCall } from '@opengeo/core/generate';
 
@@ -133,30 +138,92 @@ describe('the fix prompt', () => {
   });
 });
 
-describe('the quality layer', () => {
+describe('the content review, and its own 0-100', () => {
   const input = { url: 'https://example.com/resume.md', markdown: '# Resume\n\nShipped 4 projects in 2024.' };
 
   function mock(reply: string): (call: ProviderCall) => Promise<string> {
     return async () => reply;
   }
 
-  it('parses the shape it asked for', async () => {
-    const review = await reviewQuality(input, {
-      provider: 'anthropic',
-      apiKey: 'test-key',
-      env: {},
-      call: mock('{"rating": 4, "summary": "Solid.", "findings": [{"area": "Length", "note": "About right."}], "suggestions": ["Add dates."]}'),
+  /** A full reply in the shape the prompt asks for, with every area scored. */
+  function fullReply(scores: Partial<Record<string, number>> = {}): string {
+    return JSON.stringify({
+      summary: 'A short resume page.',
+      findings: QUALITY_AREAS.map((area) => ({ area: area.label, score: scores[area.label] ?? 80, note: `${area.label} is fine.` })),
+      recommendations: [
+        {
+          area: 'Specificity',
+          priority: 'high',
+          action: 'Name the four projects and what each one does.',
+          where: '## Projects',
+          impact: 'An agent asked what this person built can answer instead of saying "four projects".',
+        },
+      ],
     });
-    expect(review.rating).toBe(4);
-    expect(review.summary).toBe('Solid.');
-    expect(review.findings).toEqual([{ area: 'Length', note: 'About right.' }]);
-    expect(review.suggestions).toEqual(['Add dates.']);
+  }
+
+  it('parses the shape it asked for', async () => {
+    const review = await reviewQuality(input, { provider: 'anthropic', apiKey: 'test-key', env: {}, call: mock(fullReply()) });
+
+    expect(review.score).toBe(80);
+    expect(review.summary).toBe('A short resume page.');
+    expect(review.findings).toHaveLength(QUALITY_AREAS.length);
+    expect(review.recommendations[0]).toMatchObject({ area: 'Specificity', priority: 'high', where: '## Projects' });
+  });
+
+  it('weights the areas rather than averaging them, so answerability outweighs keywords', () => {
+    // Same two numbers, swapped between the heaviest area and the lightest. A plain mean would
+    // score these identically; the whole point of the weights is that it does not.
+    const strongWhereItCounts = parseQuality(fullReply({ Answerability: 100, Keywords: 0 }), 'anthropic', 'm').score;
+    const strongWhereItDoesNot = parseQuality(fullReply({ Answerability: 0, Keywords: 100 }), 'anthropic', 'm').score;
+
+    expect(strongWhereItCounts!).toBeGreaterThan(strongWhereItDoesNot!);
+    expect(strongWhereItCounts! - strongWhereItDoesNot!).toBe(QUALITY_AREAS[0].weight - QUALITY_AREAS[4].weight);
+  });
+
+  it('adds the area weights up to exactly 100, so a score is a share of a real total', () => {
+    expect(QUALITY_TOTAL_WEIGHT).toBe(100);
+    expect(scoreFindings(QUALITY_AREAS.map((area) => ({ area: area.label, note: '', score: 100 })))).toBe(100);
+    expect(scoreFindings(QUALITY_AREAS.map((area) => ({ area: area.label, note: '', score: 0 })))).toBe(0);
+  });
+
+  it('leaves an area the model did not score out of the denominator instead of scoring it zero', () => {
+    // The same rule the structural score uses for n/a checks. A model that answered four of five
+    // questions has said nothing about the fifth, and reading silence as failure invents a verdict.
+    const partial = scoreFindings([{ area: 'Answerability', note: '', score: 60 }]);
+    expect(partial).toBe(60);
+  });
+
+  it('ignores an area it has never heard of in the arithmetic, and still reports it', () => {
+    const review = parseQuality(
+      '{"summary": "x", "findings": [{"area": "Answerability", "score": 50, "note": "n"}, {"area": "Vibes", "score": 100, "note": "n"}]}',
+      'anthropic',
+      'm',
+    );
+    expect(review.score).toBe(50);
+    expect(review.findings.map((finding) => finding.area)).toContain('Vibes');
   });
 
   it('reviews content, and is told in so many words not to re-audit the headers', () => {
-    expect(QUALITY_SYSTEM_PROMPT).toContain('Keyword coverage');
-    expect(QUALITY_SYSTEM_PROMPT).toContain('Length');
+    for (const area of QUALITY_AREAS) expect(QUALITY_SYSTEM_PROMPT).toContain(area.label);
     expect(QUALITY_SYSTEM_PROMPT).toContain('Do not comment on HTTP headers');
+  });
+
+  it('tells the model what each area is worth and what the numbers mean', () => {
+    // An unanchored 0-100 from a model drifts run to run. The bands are the anchor, so they have to
+    // reach the prompt, and the report prints the same words back.
+    for (const area of QUALITY_AREAS) expect(QUALITY_SYSTEM_PROMPT).toContain(`worth ${area.weight} of 100`);
+    for (const band of QUALITY_BANDS) expect(QUALITY_SYSTEM_PROMPT).toContain(band.label);
+    expect(qualityBand(95)).toBe(QUALITY_BANDS[0].label);
+    expect(qualityBand(10)).toBe(QUALITY_BANDS[QUALITY_BANDS.length - 1].label);
+  });
+
+  it('asks for edits a person could actually make, and says what does not count as one', () => {
+    expect(QUALITY_SYSTEM_PROMPT).toContain('imperative');
+    expect(QUALITY_SYSTEM_PROMPT).toContain('where in the document');
+    expect(QUALITY_SYSTEM_PROMPT).toContain('what a reader gains');
+    expect(QUALITY_SYSTEM_PROMPT).toContain('Useless: "improve clarity"');
+    expect(QUALITY_SYSTEM_PROMPT).toContain('Recommend nothing that is already there');
   });
 
   it('sends the document, and only the document, to the provider', async () => {
@@ -167,7 +234,7 @@ describe('the quality layer', () => {
       env: {},
       call: async (call) => {
         seen = call;
-        return '{"rating": 3, "summary": "Fine.", "findings": [], "suggestions": []}';
+        return fullReply();
       },
     });
     expect(seen?.prompt).toContain('Shipped 4 projects in 2024.');
@@ -182,15 +249,28 @@ describe('the quality layer', () => {
   });
 
   it('digs the JSON out of a reply wrapped in prose or a code fence', () => {
-    const fenced = parseQuality('```json\n{"rating": 5, "summary": "Great."}\n```', 'anthropic', 'model-x');
-    expect(fenced.rating).toBe(5);
-    const chatty = parseQuality('Sure! {"rating": 2, "summary": "Thin."} Hope that helps.', 'anthropic', 'model-x');
+    const fenced = parseQuality('```json\n{"score": 90, "summary": "Great."}\n```', 'anthropic', 'model-x');
+    expect(fenced.score).toBe(90);
+    const chatty = parseQuality('Sure! {"score": 20, "summary": "Thin."} Hope that helps.', 'anthropic', 'model-x');
     expect(chatty.summary).toBe('Thin.');
   });
 
-  it('clamps a rating the model invented outside the range it was given', () => {
-    expect(parseQuality('{"rating": 11, "summary": "x"}', 'anthropic', 'm').rating).toBe(5);
-    expect(parseQuality('{"rating": 0, "summary": "x"}', 'anthropic', 'm').rating).toBe(1);
+  it('clamps a score the model invented outside the range it was given', () => {
+    expect(parseQuality('{"score": 480, "summary": "x"}', 'anthropic', 'm').score).toBe(100);
+    expect(parseQuality('{"score": -20, "summary": "x"}', 'anthropic', 'm').score).toBe(0);
+  });
+
+  it('upgrades the thinner reply a model gives when it half-follows the instructions', () => {
+    // A 1-5 rating and a list of bare strings is what comes back when the model answers the
+    // question it expected rather than the one it was asked. Rendering less beats rendering nothing.
+    const review = parseQuality(
+      '{"rating": 4, "summary": "Solid.", "findings": [{"area": "Definition", "rating": 2, "note": "Vague."}], "suggestions": ["Add dates."]}',
+      'anthropic',
+      'm',
+    );
+    expect(review.findings[0]).toEqual({ area: 'Definition', score: 40, note: 'Vague.' });
+    expect(review.score).toBe(40);
+    expect(review.recommendations).toEqual([{ area: 'General', action: 'Add dates.', priority: 'medium', impact: undefined, where: undefined }]);
   });
 
   it('refuses to run in CI, the same rule as generate\'s AI tier', async () => {
@@ -210,8 +290,8 @@ describe('the quality layer never touches the structural score', () => {
   it('scores the same checks identically whether or not a review ran', () => {
     const checks = [FAILURE, PASS];
     const before = scoreChecks(checks).value;
-    const review = parseQuality('{"rating": 1, "summary": "Terrible."}', 'anthropic', 'm');
-    expect(review.rating).toBe(1);
+    const review = parseQuality('{"score": 12, "summary": "Terrible."}', 'anthropic', 'm');
+    expect(review.score).toBe(12);
     expect(scoreChecks(checks).value).toBe(before);
   });
 

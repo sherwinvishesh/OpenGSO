@@ -94,7 +94,7 @@ export function App() {
     );
   }
 
-  const drift = lastTest?.checks.find((check: CheckResult) => check.id === 'B14');
+  const drift = lastTest?.checks?.find((check: CheckResult) => check.id === 'B14');
 
   return (
     <div className="shell">
@@ -163,8 +163,11 @@ export function App() {
 /** A status dot, only where there is a real status to report. Never a decoration. */
 function NavDot({ id, state, lastTest }: { id: Tab; state: State; lastTest?: TestResponse }) {
   let color: string | undefined;
-  if (id === 'test' && lastTest) {
-    color = lastTest.score.value >= 90 ? 'var(--ok)' : lastTest.score.value >= 60 ? 'var(--warn)' : 'var(--danger)';
+  // A content-only run has no structural score, so it has nothing to report here. Colouring the
+  // dot from the content score would put an opinion where a measurement is expected.
+  const value = lastTest?.score?.value;
+  if (id === 'test' && value !== undefined) {
+    color = value >= 90 ? 'var(--ok)' : value >= 60 ? 'var(--warn)' : 'var(--danger)';
   }
   if (id === 'generate' && !state.manifest) color = 'var(--warn)';
   if (!color) return null;

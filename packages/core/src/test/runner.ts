@@ -11,6 +11,7 @@ import type { CheckResult } from './checks.js';
 import { fail, na, pass } from './checks.js';
 import type { Evidence } from './evidence.js';
 import type { ProbeResult } from '../shared/http.js';
+import { looksLikeHtml } from './discover.js';
 
 /**
  * The check implementations (§5).
@@ -25,7 +26,7 @@ const TTFB_BUDGET_MS = 1200;
 const SSR_MIN_WORDS = 60;
 
 export function runChecks(evidence: Evidence): CheckResult[] {
-  return [
+  return collapseTwinCascade([
     checkRobots(evidence),
     checkLlmsTxt(evidence),
     checkSitemap(evidence),
@@ -48,7 +49,62 @@ export function runChecks(evidence: Evidence): CheckResult[] {
     checkAeoVersion(evidence),
     checkHtmlUnaffected(evidence),
     checkDrift(evidence),
-  ];
+  ], evidence);
+}
+
+/**
+ * One missing twin costs one check, not twelve (§5).
+ *
+ * Without this, a site that has simply never installed OpenGEO fails B1 and then fails eleven more
+ * checks that are all restatements of the same fact: you cannot inspect the Content-Type of a
+ * document that does not exist, and reporting that as eleven separate defects is not a measurement,
+ * it is an echo. It also wrecks the scale. anthropic.com and openai.com are well-built sites that
+ * an agent can read perfectly well, and the uncollapsed scorer put both at 38/100, which tells the
+ * reader nothing except that the number is not to be trusted.
+ *
+ * So when the twin URL does not answer, everything downstream of it becomes n/a and leaves the
+ * denominator, and the whole verdict on the markdown layer is carried by B1, the heaviest check in
+ * the table. Those two sites now score 80: the fundamentals are all there, the markdown layer is
+ * not, and the gap between them is one line in the report instead of twelve.
+ *
+ * A twin that exists but is wrong is a different situation and is still scored in full detail.
+ */
+function collapseTwinCascade(results: CheckResult[], e: Evidence): CheckResult[] {
+  if (e.twin.ok) return results;
+
+  // Read off the twin response itself. With no twin there is nothing to read, pass or fail: B5
+  // "passing" because a 404 page happened to carry nosniff is noise, not a point earned.
+  const fromTwin: Record<string, string> = {
+    B2: 'there is no twin response whose Content-Type could be checked',
+    B3: 'there is no twin body to measure',
+    B4: 'there is no twin response to carry a token count',
+    B5: 'there is no twin response to carry the header',
+    B6: 'there is no twin response to keep out of the search index',
+    B12: 'there is no markdown response to advertise a spec version on',
+    B14: 'there is no twin that could have drifted',
+  };
+  // Probed against the live URL. These can genuinely succeed without a `.md` twin - a site can wire
+  // Accept negotiation at the same URL - so a pass is kept and only the failure is dropped.
+  const fromLiveUrl: Record<string, string> = {
+    B7: 'there are not two formats for a CDN to cache apart',
+    B8: 'there is no twin for the HTML page to advertise',
+    B9: 'there is no markdown representation to negotiate for',
+    B10: 'there is no markdown to route a crawler to',
+    B11: 'a site serving one format has nothing to refuse',
+  };
+
+  return results.map((result) => {
+    const why = fromTwin[result.id] ?? (result.status === 'fail' ? fromLiveUrl[result.id] : undefined);
+    if (!why) return result;
+    return {
+      ...result,
+      status: 'na' as const,
+      reason: `No markdown twin at ${e.twinUrl}, so ${why}. The missing twin is scored once, on B1.`,
+      // What the live site actually said is worth keeping: an AI crawler getting a 403 is a real
+      // finding even though it is not this check's to score.
+      detail: result.id in fromLiveUrl ? result.detail ?? result.reason : result.detail,
+    };
+  });
 }
 
 // ---- Category A ------------------------------------------------------------------------------
@@ -238,10 +294,6 @@ function checkHttps(e: Evidence): CheckResult {
 function isMarkdownResponse(response: ProbeResult): boolean {
   const contentType = response.headers.get(HEADERS.contentType) ?? '';
   return contentType.toLowerCase().includes('text/markdown');
-}
-
-function looksLikeHtml(body: string): boolean {
-  return /^\s*(<!doctype html|<html[\s>])/i.test(body);
 }
 
 function checkTwinReachable(e: Evidence): CheckResult {

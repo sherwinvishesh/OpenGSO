@@ -1,7 +1,8 @@
 import { relative } from 'node:path';
 import { c, heading } from '../../shared/log.js';
-import { AI_PROVIDERS, DEFAULT_MODELS } from '../../shared/config.js';
-import type { AiProvider } from '../../shared/config.js';
+import { providerOverridesOf } from '../../shared/config.js';
+import type { AiProvider } from '../../shared/providers.js';
+import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from '../../shared/providers.js';
 import { isCI, readCredentials } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import { createAiEnhancer } from '../../generate/ai.js';
@@ -38,14 +39,14 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
 
   let enhance: ((input: EnhanceInput) => Promise<EnhanceOutput>) | undefined;
   if (tier === 'ai') {
-    const built = buildEnhancer(args, loaded.root, loaded.config.ai.provider, loaded.config.ai.model);
+    const built = buildEnhancer(args, loaded);
     if ('error' in built) {
       process.stderr.write(`\n${built.error}\n\n`);
       return 1;
     }
     enhance = built.enhance;
     process.stdout.write(
-      `\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}  ${c.gray(`AI tier, ${built.provider}/${built.model}, key from ${built.source}`)}\n`,
+      `\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}  ${c.gray(`AI tier, ${built.provider}/${built.model}, ${built.source}`)}\n`,
     );
   } else {
     process.stdout.write(`\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}\n`);
@@ -188,29 +189,35 @@ interface EnhancerReady {
  */
 function buildEnhancer(
   args: ReturnType<typeof parseArgs>,
-  root: string,
-  configProvider: AiProvider,
-  configModel: string,
+  loaded: ReturnType<typeof resolveProject>,
 ): EnhancerReady | { error: string } {
   if (isCI()) return { error: ERRORS.ciBlocked("generate's AI tier") };
 
-  const credentials = readCredentials(root);
-  if (!credentials) return { error: ERRORS.noApiKey("generate's AI tier") };
-
+  const { root, config } = loaded;
   const providerFlag = args.str('provider');
-  if (providerFlag && !AI_PROVIDERS.includes(providerFlag as AiProvider)) {
+  if (providerFlag && !isAiProvider(providerFlag)) {
     return { error: ERRORS.unknownProvider(providerFlag, AI_PROVIDERS) };
   }
-  const provider = (providerFlag as AiProvider | undefined) ?? credentials.provider ?? configProvider;
-  const model = args.str('model') || credentials.model || configModel || DEFAULT_MODELS[provider];
+
+  const credentials = readCredentials(root);
+  const provider = (providerFlag as AiProvider | undefined) ?? credentials?.provider ?? config.ai.provider;
+  // A model server on this machine has no key to find, so "no credentials" and "cannot run" are
+  // different states. Only the providers that actually authenticate get turned away here.
+  const keyless = Boolean(providerInfo(provider).keyless) || config.ai.auth === 'none';
+  if (!credentials && !keyless) return { error: ERRORS.noApiKey("generate's AI tier") };
+
+  const model = args.str('model') || credentials?.model || config.ai.model || DEFAULT_MODELS[provider];
+  // The endpoint comes from the config, which is shared, and the key from .env, which is not. A
+  // BASE_URL in the environment wins, because that is the machine-specific override.
+  const overrides = { ...providerOverridesOf(config), baseUrl: credentials?.baseUrl ?? config.ai.baseUrl };
 
   try {
-    const enhance = createAiEnhancer({ provider, model, apiKey: credentials.apiKey });
+    const enhance = createAiEnhancer({ provider, model, apiKey: credentials?.apiKey ?? '', overrides });
     return {
       enhance,
       provider,
       model,
-      source: credentials.source === 'env-file' ? '.env' : 'environment',
+      source: credentials ? `key from ${credentials.source === 'env-file' ? '.env' : 'environment'}` : 'no key needed',
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };

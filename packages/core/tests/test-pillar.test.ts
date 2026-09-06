@@ -3,7 +3,7 @@ import type { ProbeResult } from '@opengeo/core/shared';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
 import { liveContentHash } from './helpers/live-hash.js';
 import type { Evidence } from '@opengeo/core/test';
-import { renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
+import { CHECKS, renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
 
 /**
  * The whole checklist is driven from synthetic evidence, so these tests exercise the real check
@@ -84,6 +84,41 @@ function goodEvidence(): Evidence {
     botUa: probe({ headers: new Headers({ 'content-type': MARKDOWN_CONTENT_TYPE }), body: '# Resume' }),
     notAcceptable: probe({ ok: false, status: 406, body: '406 Not Acceptable' }),
   };
+}
+
+/**
+ * A site that never installed OpenGEO: real HTML, no `.md` layer anywhere. This is what the whole
+ * web looks like today, so it is the case the scale has to get right.
+ */
+function noTwinEvidence(): Evidence {
+  const evidence = goodEvidence();
+  // A real site's HTML headers: HTTPS is a solved problem, the two AEO headers are not there.
+  const html = new Headers({
+    'content-type': 'text/html; charset=utf-8',
+    'strict-transport-security': 'max-age=63072000',
+  });
+  evidence.twin = probe({ ok: false, status: 404, body: '<!doctype html><html><body>404</body></html>' });
+  evidence.advertisedTwinUrl = undefined;
+  evidence.html = probe({ body: GOOD_HTML, headers: html });
+  evidence.acceptMarkdown = probe({ headers: html });
+  evidence.botUa = probe({ headers: html });
+  evidence.notAcceptable = probe({ status: 200, headers: html });
+  return evidence;
+}
+
+/**
+ * The profile anthropic.com and openai.com actually have, as of this writing: robots.txt open to
+ * AI crawlers, a real sitemap, the content server-rendered into the HTML, a fast first byte, no
+ * opt-out tag, HTTPS with HSTS - and none of llms.txt, JSON-LD, or a markdown twin.
+ */
+function unadoptedSiteEvidence(): Evidence {
+  const evidence = noTwinEvidence();
+  evidence.llms = probe({ url: 'https://example.com/llms.txt', ok: false, status: 404, body: '' });
+  evidence.html = probe({
+    body: GOOD_HTML.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, ''),
+    headers: evidence.html.headers,
+  });
+  return evidence;
 }
 
 function byId(evidence: Evidence) {
@@ -172,23 +207,34 @@ describe('category A', () => {
 });
 
 describe('category B', () => {
-  it('B1 through B12 all fail with specific reasons when no middleware is running', () => {
-    const evidence = goodEvidence();
-    const html404 = probe({ ok: false, status: 404, body: '<!doctype html><html><body>404</body></html>' });
-    evidence.twin = html404;
-    evidence.advertisedTwinUrl = undefined;
-    evidence.html = probe({ body: GOOD_HTML, headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }) });
-    evidence.acceptMarkdown = probe({ headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }) });
-    evidence.botUa = probe({ headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }) });
-    evidence.notAcceptable = probe({ status: 200, headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }) });
+  it('charges a site with no markdown layer once, on B1, and marks the rest n/a', () => {
+    const results = byId(noTwinEvidence());
 
-    const results = byId(evidence);
-    for (const id of ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12']) {
-      expect(results.get(id)?.status, `${id} should fail`).toBe('fail');
-      expect(results.get(id)?.reason.length).toBeGreaterThan(20);
+    expect(results.get('B1')?.status).toBe('fail');
+    for (const id of ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'B14']) {
+      expect(results.get(id)?.status, `${id} should be n/a, not a second charge for one missing twin`).toBe('na');
+      expect(results.get(id)?.reason).toContain('scored once, on B1');
     }
     // The human-facing site is untouched, which is exactly what "broken state" should still show.
     expect(results.get('B13')?.status).toBe('pass');
+  });
+
+  it('keeps what the live site actually said, even on a check it no longer scores', () => {
+    const evidence = noTwinEvidence();
+    // What openai.com does: no twin, and the crawler is turned away at the edge. The check cannot
+    // be scored, but a 403 to GPTBot is the most interesting thing on the page.
+    evidence.botUa = probe({ ok: false, status: 403, body: '' });
+    const check = byId(evidence).get('B10');
+    expect(check?.status).toBe('na');
+    expect(check?.detail).toContain('403');
+  });
+
+  it('still scores a twin that exists but is wrong, in full detail', () => {
+    const evidence = goodEvidence();
+    evidence.twin = probe({ body: '# Resume', headers: new Headers({ 'content-type': 'text/plain' }) });
+    const results = byId(evidence);
+    expect(results.get('B1')?.status).toBe('pass');
+    expect(results.get('B2')?.status).toBe('fail');
   });
 
   it('B2 rejects text/plain even when the body is real markdown', () => {
@@ -251,11 +297,41 @@ describe('scoring', () => {
     const evidence = goodEvidence();
     evidence.llms = probe({ ok: false, status: 404 });
     const score = scoreChecks(runChecks(evidence));
-    expect(score.lost).toEqual([{ id: 'A2', points: 8 }]);
+    expect(score.lost).toEqual([{ id: 'A2', points: 3 }]);
   });
 
   it('reports a score of 0 when nothing can be scored', () => {
     expect(scoreChecks([]).value).toBe(0);
+  });
+});
+
+/**
+ * The calibration, pinned.
+ *
+ * A weight table is only worth anything if the numbers it produces mean something to a person
+ * reading them, and the way to know that is to check it against sites whose quality is not in
+ * doubt. These two assertions are what stop a well-meaning weight edit from quietly putting the
+ * whole web back at 38/100.
+ */
+describe('the scale, measured against a site that does everything but markdown', () => {
+  it('puts a site that does everything but the AI conventions at 80', () => {
+    const score = scoreChecks(runChecks(unadoptedSiteEvidence()));
+    expect(score.value).toBe(80);
+    // The three things it is missing, and nothing else. Twelve echoes of the missing twin would
+    // put this back in the thirties.
+    expect(score.lost.map((entry) => entry.id)).toEqual(['A2', 'A4', 'B1']);
+  });
+
+  it('gives the same site most of the last 20 points back once it serves a twin', () => {
+    expect(scoreChecks(runChecks(goodEvidence())).value).toBe(100);
+  });
+
+  it('leaves the markdown twin as the largest single thing anyone can lose', () => {
+    const heaviest = [...CHECKS].sort((a, b) => b.weight - a.weight);
+    expect(heaviest[0].id).toBe('B1');
+    // B1 is the only double-digit check. Everything else is single digits on purpose: no header
+    // detail should be able to sink a site that got the important things right.
+    expect(heaviest.slice(1).every((check) => check.weight < 10)).toBe(true);
   });
 });
 
@@ -335,7 +411,7 @@ describe('B14 staleness and drift', () => {
   it('fails rather than guessing when there is no twin to compare at all', () => {
     const evidence = goodEvidence();
     evidence.twin = probe({ ok: false, status: 404, body: '' });
-    expect(byId(evidence).get('B14')?.reason).toContain('no markdown twin');
+    expect(byId(evidence).get('B14')?.reason).toContain('No markdown twin');
   });
 
   it('is not applicable when the live page itself is unreachable', () => {

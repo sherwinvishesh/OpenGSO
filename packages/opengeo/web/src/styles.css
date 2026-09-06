@@ -854,3 +854,84 @@ details.probe > summary::marker {
     padding: 20px 16px 50px;
   }
 }
+
+/* Content review: one edit per row, with how urgent it is in the gutter. */
+.rec {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-size: 13px;
+}
+
+.rec-priority {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 0;
+  color: var(--text-3);
+}
+
+.rec-high {
+  color: var(--danger);
+}
+
+.rec-medium {
+  color: var(--warn);
+}
+
+.rec-where {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Content review: one bar per judged area, costliest first. */
+.areas {
+  display: grid;
+  gap: 6px;
+}
+
+.area {
+  display: grid;
+  grid-template-columns: 160px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.area-label {
+  color: var(--text-2);
+}
+
+.area-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.area-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ok);
+}
+
+.area-fill.tone-warn {
+  background: var(--warn);
+}
+
+.area-fill.tone-fail {
+  background: var(--danger);
+}
+
+.area-value {
+  text-align: right;
+  color: var(--text-3);
+}
+
+@media (max-width: 600px) {
+  .area {
+    grid-template-columns: 110px 1fr 34px;
+  }
+}

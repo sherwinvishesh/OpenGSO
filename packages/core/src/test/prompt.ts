@@ -1,6 +1,6 @@
 import type { CheckResult } from './checks.js';
 import type { Framework, FrameworkId } from './framework.js';
-import type { TestResult } from './index.js';
+import type { TestResult } from './run.js';
 
 /**
  * The fix-prompt generator (§5).

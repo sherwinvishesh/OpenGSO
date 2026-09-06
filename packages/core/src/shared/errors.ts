@@ -5,6 +5,8 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
+import { AI_PROVIDERS, PROVIDERS, providerInfo } from './providers.js';
+
 export type CommandName = 'test' | 'generate' | 'settings' | 'start' | 'prod test';
 
 /** Which published packages actually ship each command (§10). */
@@ -85,6 +87,32 @@ export function unknownCommand(command: string, available: CommandName[]): strin
   ].join('\n');
 }
 
+/** Wrap a comma-separated list at `width` so a long catalogue does not run off a terminal. */
+function wrapList(items: readonly string[], width: number): string[] {
+  const lines: string[] = [];
+  let current = '';
+  items.forEach((item, index) => {
+    const piece = index === items.length - 1 ? item : `${item}, `;
+    if (current && current.length + piece.length > width) {
+      lines.push(current.trimEnd());
+      current = '';
+    }
+    current += piece;
+  });
+  if (current) lines.push(current.trimEnd());
+  return lines;
+}
+
+/** One line per provider, for `--help` and the settings screen. */
+export function providerListing(): string[] {
+  const width = Math.max(...PROVIDERS.map((provider) => provider.id.length));
+  return PROVIDERS.map((provider) => {
+    const info = providerInfo(provider.id);
+    const suffix = info.keyless ? ' (no key, on this machine)' : info.userDefined ? ' (your own endpoint)' : '';
+    return `${provider.id.padEnd(width + 2)}${info.label}${suffix}`;
+  });
+}
+
 export const ERRORS = {
   missingUrl: (command: string) =>
     [
@@ -110,17 +138,47 @@ export const ERRORS = {
 
   noApiKey: (feature: string) =>
     [
-      `${feature} needs an AI provider API key, and none is configured.`,
+      `${feature} needs an AI provider, and none is configured.`,
       ``,
-      `OpenGEO is bring-your-own-key. Set one up with:`,
+      `OpenGEO is bring-your-own-key, and it does not care whose. Set one up with:`,
       `  opengeo settings`,
       ``,
       `Or add it to .env yourself:`,
-      `  OPENGEO_PROVIDER=anthropic       # anthropic | openai | gemini`,
+      `  OPENGEO_PROVIDER=anthropic`,
       `  OPENGEO_API_KEY=sk-...`,
       ``,
-      `Only these need a key: generate's AI tier, and \`opengeo test --quality\`.`,
+      `Providers OpenGEO ships with:`,
+      ...wrapList(AI_PROVIDERS, 68).map((line) => `  ${line}`),
+      ``,
+      `\`ollama\` runs on this machine and needs no key at all. \`custom\` points at any endpoint`,
+      `speaking the OpenAI, Anthropic or Gemini shape: set ai.baseUrl and ai.model in`,
+      `opengeo.config.json, or run \`opengeo settings\` and pick "something else".`,
+      ``,
+      `Only these need a key: generate's AI tier, and \`opengeo test --content\`.`,
       `Structural tests, generate's free tier, and opengeo-prod never need one.`,
+    ].join('\n'),
+
+  /**
+   * A provider that is real but not yet usable: `custom` with no endpoint, or any provider whose
+   * model was never named. Says which field is missing rather than failing at the HTTP layer with
+   * whatever a half-built URL produced.
+   */
+  providerIncomplete: (provider: string, missing: string[]) =>
+    [
+      `The "${provider}" provider is missing ${missing.join(' and ')}.`,
+      ``,
+      `An endpoint OpenGEO does not ship with has to be described before it can be called. In`,
+      `opengeo.config.json:`,
+      ``,
+      `  "ai": {`,
+      `    "provider": "${provider}",`,
+      `    "model": "the model id your endpoint expects",`,
+      `    "baseUrl": "https://your-endpoint.example.com/v1",`,
+      `    "api": "openai"`,
+      `  }`,
+      ``,
+      `"api" is the wire format that endpoint speaks: openai, anthropic or gemini.`,
+      `\`opengeo settings\` asks for all of it if you would rather answer questions.`,
     ].join('\n'),
 
   ciBlocked: (feature: string) =>
@@ -152,7 +210,13 @@ export const ERRORS = {
     ].join('\n'),
 
   unknownProvider: (provider: string, supported: string[]) =>
-    `Unknown AI provider "${provider}". OpenGEO supports: ${supported.join(', ')}.`,
+    [
+      `Unknown AI provider "${provider}". OpenGEO supports:`,
+      ...wrapList(supported, 68).map((line) => `  ${line}`),
+      ``,
+      `If yours is not on that list it is still supported: pick "custom", give it a baseUrl and a`,
+      `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
+    ].join('\n'),
 
   providerFailed: (provider: string, status: number, body: string) =>
     [

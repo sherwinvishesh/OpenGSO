@@ -5,6 +5,7 @@ export * from './errors.js';
 export * from './hash.js';
 export * from './http.js';
 export * from './log.js';
+export * from './providers.js';
 export * from './routes.js';
 export * from './tokens.js';
 export * from './version.js';

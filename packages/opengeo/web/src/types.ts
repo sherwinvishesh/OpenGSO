@@ -28,28 +28,90 @@ export interface Score {
   lost: Array<{ id: string; points: number }>;
 }
 
+/** One of the five things the model was asked to judge, scored 0-100. */
 export interface QualityFinding {
-  label: string;
-  detail: string;
+  area: string;
+  note: string;
+  score?: number;
+}
+
+/** One edit to make. `where` locates it in the document; `impact` says what the reader gains. */
+export interface QualityRecommendation {
+  area: string;
+  action: string;
+  impact?: string;
+  priority: 'high' | 'medium' | 'low';
+  where?: string;
+  /** Present on the site-wide list, where the same edit may apply to several documents. */
+  documents?: string[];
 }
 
 export interface QualityReview {
   provider: string;
   model: string;
+  /** 0-100 for this document, weighted across the five areas. Never the structural score. */
+  score?: number;
   summary: string;
   findings: QualityFinding[];
-  suggestions: string[];
+  recommendations: QualityRecommendation[];
   raw?: string;
 }
 
-export interface TestResponse {
+/** One Markdown document the site serves, and what the model made of it. */
+export interface DocumentReview {
   url: string;
-  twinUrl: string;
+  pageUrl?: string;
+  source: string;
+  words: number;
+  review?: QualityReview;
+  error?: string;
+}
+
+export interface ContentReview {
+  provider: string;
+  model: string;
+  documents: DocumentReview[];
+  /** 0-100 across every document reviewed. The second of OpenGEO's two numbers, never merged. */
+  score?: number;
+  /** Costliest area first: `lost` is what the gap in that area takes off the 100. */
+  areaScores: Array<{ area: string; score: number; weight?: number; lost: number; documents: number }>;
+  recommendations: QualityRecommendation[];
+  notReviewed: number;
+}
+
+export interface DiscoveredDocument {
+  url: string;
+  pageUrl?: string | null;
+  source: string;
+  bytes: number;
+  words: number;
+}
+
+export interface DiscoveryResult {
+  documents: DiscoveredDocument[];
+  /** Candidates that were fetched and turned out not to be Markdown, with the reason. */
+  rejected: Array<{ url: string; source: string; reason: string }>;
+  overCap: number;
+  sources: { llms: boolean; sitemap: boolean };
+}
+
+/** structure = the 0-100 checks, content = the AI review of the Markdown, full = both. */
+export type TestMode = 'full' | 'structure' | 'content';
+
+export interface TestResponse {
+  mode: TestMode;
+  url: string;
+  /** Absent in `content` mode, which never runs the structural half. */
+  twinUrl?: string;
   framework?: { name: string; confidence: string; evidence: string };
-  score: Score;
-  checks: CheckResult[];
-  quality?: QualityReview;
-  qualityError?: string;
+  score?: Score;
+  checks?: CheckResult[];
+  /** Null rather than absent: the API sends every key, so the shape never depends on the mode. */
+  content?: ContentReview | null;
+  discovery?: DiscoveryResult | null;
+  /** Set when the content pass could not run but was not required. Not an error. */
+  contentSkipped?: string | null;
+  contentError?: string | null;
 }
 
 export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
@@ -140,7 +202,23 @@ export interface OpenGeoConfig {
   crawl: { maxPages: number; maxDepth: number; exclude: string[] };
   generate: { tier: 'free' | 'ai'; minWords: number };
   bots: { markdownRouting: string[]; blocked: string[]; custom: CustomBot[] };
-  ai: { provider: 'anthropic' | 'openai' | 'gemini'; model: string };
+  ai: { provider: string; model: string; baseUrl?: string; api?: string; auth?: string; headers?: Record<string, string> };
+}
+
+/** A row of the provider catalogue, mirrored from core so the picker is never a hardcoded list. */
+export interface ProviderInfo {
+  id: string;
+  label: string;
+  api: 'anthropic' | 'openai' | 'gemini';
+  baseUrl: string;
+  defaultModel: string;
+  auth: 'bearer' | 'x-api-key' | 'x-goog-api-key' | 'none';
+  tokenParam: string;
+  envVars: string[];
+  keysUrl?: string;
+  keyless?: boolean;
+  userDefined?: boolean;
+  note?: string;
 }
 
 export interface ManifestPage {
@@ -160,7 +238,8 @@ export interface State {
   packageName: string;
   key: { present: boolean; provider?: string; model?: string; source?: string; path: string };
   ci: boolean;
-  providers: Array<'anthropic' | 'openai' | 'gemini'>;
+  providers: string[];
+  providerCatalog: ProviderInfo[];
   defaultModels: Record<string, string>;
   manifest?: { generatedAt: string; site: string; pages: ManifestPage[] };
   publicDir: string;

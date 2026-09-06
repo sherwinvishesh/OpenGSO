@@ -4,7 +4,7 @@ An open-source, framework-agnostic npm toolkit that makes any website readable b
 
 AI agents like ChatGPT, Claude, Gemini, and Perplexity strongly prefer clean markdown over full HTML/CSS/JS. It's cheaper to read, and many agents don't execute JavaScript at all, so client-rendered content is often invisible to them. OpenGEO fixes that across three pillars in one toolchain:
 
-- **Test**: score a live site's AI-readiness from 0 to 100, and generate a ready-to-paste fix prompt for coding agents.
+- **Test**: score a live site's AI-readiness from 0 to 100, generate a ready-to-paste fix prompt for coding agents, and optionally have a model read the markdown you serve and rate how well it answers.
 - **Generate**: produce a clean `.md` twin of every page, plus `robots.txt`, `llms.txt`, and `sitemap.xml`.
 - **Prod**: serve the right format at runtime by detecting whether the visitor is a human or an AI agent.
 
@@ -32,9 +32,43 @@ npx opengeo settings
 ```
 
 Nothing here needs an API key. Generate's free tier, every structural test, and all of
-`opengeo-prod` run offline. A key only buys generate's AI polish tier and `opengeo test --quality`,
+`opengeo-prod` run offline. A key only buys generate's AI polish tier and `opengeo test --content`,
 and when you set one it lives in `.env`, on your machine, and is only ever sent to the AI provider
 you picked. There is no telemetry and no cloud sync.
+
+## Testing in two passes
+
+```bash
+npx opengeo test https://your-site.com              # the checks, then a review of the markdown
+npx opengeo test https://your-site.com --structure  # the checks alone. No key, no cost
+npx opengeo test https://your-site.com --content    # the review alone
+```
+
+The structural pass is the 0 to 100 score: deterministic, free, reproducible. The content pass is a
+model reading the markdown documents your site actually serves and rating five things per document,
+definition, keywords, specificity, answerability, and structure and length. The two are printed as
+separate sections and the second is **never** folded into the number. The exit code always comes
+from the checks, so a model's opinion cannot fail your build. Without a key the default run does the
+structural half and says in one line what it skipped.
+
+## Bring any AI provider
+
+Twelve of them out of the box, and the twelfth is "something else":
+
+```
+anthropic  openai  gemini  xai  groq  mistral  deepseek
+openrouter  together  perplexity  ollama (on your machine, no key)  custom
+```
+
+```bash
+npx opengeo help providers                          # the full catalogue with keys links
+npx opengeo test https://your-site.com --provider groq
+npx opengeo settings                                # pick one interactively
+```
+
+Anything speaking the OpenAI, Anthropic or Gemini request shape works, including a company gateway
+or a self-hosted server. Adding one is three lines of config, not a fork:
+[docs/providers.md](docs/providers.md).
 
 ## Which package do I install
 
@@ -75,6 +109,8 @@ the job can run.
 - [docs/checks.md](docs/checks.md) - all 22 checks, what each verifies, what it is worth, and why.
 - [docs/spec.md](docs/spec.md) - the `opengeo/1.0` wire format: twin URLs, negotiation, headers,
   406 behaviour, frontmatter. Written so you could implement it without OpenGEO.
+- [docs/providers.md](docs/providers.md) - every AI provider OpenGEO ships with, the environment
+  variables it already understands, and how to add your own AI tool.
 - [CONTRIBUTING.md](CONTRIBUTING.md) - the dev loop, the test layout, and how to add a bot.
 
 ## Repo layout
@@ -88,7 +124,7 @@ packages/prod        opengeo-prod
 packages/cli         opengeo-cli
 packages/opengeo     opengeo, including web/ (the React + Vite dashboard)
 examples/nextjs-demo the Next.js app the whole pipeline is exercised against
-docs/                checks.md and spec.md
+docs/                checks.md, spec.md and providers.md
 scripts/             check-bundles.mjs, which asserts those structural guarantees on every build
 ```
 

@@ -39,7 +39,7 @@ Options
   --depth <n>        override crawl.maxDepth
   --force            overwrite hand-written robots/llms/sitemap and manual .md files
   --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone
-  --provider <name>  anthropic | openai | gemini (AI tier only)
+  --provider <name>  which AI provider to use. `opengeo help providers` lists them (AI tier only)
   --model <name>     model id for the AI tier
   --json             machine-readable output
   --project <dir>    project directory holding opengeo.config.json (default: cwd)
@@ -134,6 +134,23 @@ instead, and you get a warning naming the fact that went missing.
 
 This makes "never alters your facts" a property the code enforces, not a promise the prompt makes.
 
+### Which model
+
+Any of twelve providers, including Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral, DeepSeek,
+OpenRouter, Together, Perplexity, Ollama on your own machine, and any endpoint you can name:
+
+```bash
+opengeo help providers                                        # the whole catalogue
+opengeo generate https://example.com --tier ai --provider xai
+opengeo generate https://example.com --tier ai --provider ollama   # local, no key, no network
+```
+
+Adding one OpenGEO does not ship with is three lines of config:
+[docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
+
+The fidelity check runs on all of them. A cheaper model is a safe experiment here precisely because
+a model that mangles a price gets its output thrown away rather than written to disk.
+
 ### The key
 
 Read from `.env` in your project, and nowhere else. Run `opengeo settings` to write it, which also
@@ -157,3 +174,4 @@ re-run generate when it tells you to.
 
 - [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md)
 - [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md)

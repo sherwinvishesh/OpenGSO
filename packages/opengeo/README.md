@@ -46,13 +46,17 @@ Serves the dashboard on `http://127.0.0.1:4321` and opens it. Options:
 
 Five screens, all driving the same core functions the CLI calls:
 
-- **Test** runs the 22 checks against a live URL and shows the score with every reason attached.
+- **Test** runs the 22 checks against a live URL and shows the score with every reason attached,
+  then optionally has a model read the markdown your site serves. Three buttons: everything, the
+  structural checks alone, or the content review alone. The review renders in its own cards, below
+  the score and never mixed into it.
 - **Generate** crawls the site, writes the twins and the three root files, and can show you the
   exact bytes an agent would receive, read back off disk.
 - **Prod** probes a running deployment and reports the two bot levers separately.
 - **Bot settings** edits those two levers, refuses to pretend they are the same thing, and is where
   you add a crawler OpenGEO has never heard of.
-- **Settings** edits `opengeo.config.json` and stores an API key.
+- **Settings** edits `opengeo.config.json` and stores an API key, for any of the twelve providers
+  in the catalogue or an endpoint you name yourself.
 
 On a project with no `opengeo.config.json`, the first screen is a three-step setup: site and web
 root, optional key, bot routing.
@@ -114,6 +118,12 @@ cloud sync in this package, so there is nothing else that could transmit it.
 Most of OpenGEO needs no key at all: the whole 0 to 100 structural test, the entire free generate
 tier, and all of the middleware.
 
+The provider list in Settings comes from the server, not from the bundle, so it is the same
+catalogue `opengeo help providers` prints: Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral,
+DeepSeek, OpenRouter, Together, Perplexity, Ollama on this machine, and **your own endpoint**.
+Picking the last one asks for a base URL and which of the three API shapes it speaks. See
+[docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
+
 ## What it ships
 
 `jsdom` is the only runtime dependency. React and Vite build the dashboard into static files at
@@ -123,3 +133,4 @@ publish time and are never installed into your `node_modules`.
 
 - [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md)
 - [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md)

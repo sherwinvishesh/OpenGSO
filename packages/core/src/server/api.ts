@@ -7,22 +7,33 @@ import { generateSite } from '../generate/site.js';
 import { verifyProd } from '../prod/verify.js';
 import type { CustomBotInput } from '../shared/bots.js';
 import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
-import type { AiProvider, OpenGeoConfig } from '../shared/config.js';
+import type { OpenGeoConfig } from '../shared/config.js';
 import {
-  AI_PROVIDERS,
   CONFIG_FILENAME,
-  DEFAULT_MODELS,
   internalDirPath,
   loadConfig,
   mergeConfig,
+  providerOverridesOf,
   publicDirPath,
   saveConfig,
 } from '../shared/config.js';
-import { ENV_FILENAME, KEY_VAR, MODEL_VAR, PROVIDER_VAR, ensureEnvGitignored, isCI, readCredentials, writeEnvVars } from '../shared/env.js';
+import type { AiProvider, ProviderApi, ProviderAuth, ProviderInfo, ProviderOverrides } from '../shared/providers.js';
+import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDERS, isAiProvider, providerInfo } from '../shared/providers.js';
+import {
+  BASE_URL_VAR,
+  ENV_FILENAME,
+  KEY_VAR,
+  MODEL_VAR,
+  PROVIDER_VAR,
+  ensureEnvGitignored,
+  isCI,
+  readCredentials,
+  writeEnvVars,
+} from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
-import { testUrl } from '../test/index.js';
-import { reviewQuality } from '../test/quality.js';
+import type { SuiteAi, TestMode } from '../test/index.js';
+import { isTestMode, runTestSuite, testJson } from '../test/index.js';
 
 /**
  * The local JSON API behind `opengeo start` (§8).
@@ -102,6 +113,11 @@ export interface StateResponse {
   ci: boolean;
   providers: AiProvider[];
   defaultModels: Record<AiProvider, string>;
+  /**
+   * The full catalogue, so the dashboard renders real names and "get a key" links instead of a
+   * dropdown of lowercase ids, and knows which entries need an endpoint typed in.
+   */
+  providerCatalog: ProviderInfo[];
   manifest?: {
     generatedAt: string;
     site: string;
@@ -137,6 +153,7 @@ function readState(options: ApiOptions): StateResponse {
     ci: isCI(),
     providers: AI_PROVIDERS,
     defaultModels: DEFAULT_MODELS,
+    providerCatalog: [...PROVIDERS],
     manifest: manifest
       ? {
           generatedAt: manifest.generatedAt,
@@ -205,44 +222,80 @@ function normalizeCustomList(input: unknown): CustomBotInput[] | string {
 
 // -- test ----------------------------------------------------------------------------------------
 
+/**
+ * The three test modes, behind one endpoint (§8).
+ *
+ * The dashboard sends a mode rather than a pair of booleans because the modes are not independent:
+ * `content` needs no structural run, `structure` must never make a paid call, and `full` is an
+ * ordering, not a union. Everything below is `runTestSuite`, the same function the CLI calls.
+ */
 async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse> {
-  const input = (body ?? {}) as { url?: string; quality?: boolean; timeoutMs?: number };
+  const input = (body ?? {}) as {
+    url?: string;
+    mode?: string;
+    /** The old boolean, still honoured: `quality: true` means the full run with the review. */
+    quality?: boolean;
+    maxDocs?: number;
+    timeoutMs?: number;
+  };
   const loaded = loadConfig(options.root);
   const target = input.url || loaded.config.site;
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
 
-  const result = await testUrl(target, { timeoutMs: input.timeoutMs, bots: resolveBots(loaded.config.bots.custom) });
-
-  // The quality review is a separate object in the response for the same reason it is a separate
-  // section in the CLI: it must never be mistaken for part of the 0-100 number.
-  let quality: unknown;
-  let qualityError: string | undefined;
-  if (input.quality) {
-    const built = resolveCredentials(options.root, loaded.config.ai.provider, loaded.config.ai.model, 'test --quality');
-    const markdown = result.evidence.twin.body.trim();
-    if ('error' in built) qualityError = built.error;
-    else if (!markdown) {
-      qualityError = `There is no markdown at ${result.twinUrl} to review. Fix the failing B checks first, then try again.`;
-    } else {
-      try {
-        quality = await reviewQuality(
-          { url: result.twinUrl, markdown },
-          { provider: built.provider, model: built.model, apiKey: built.apiKey },
-        );
-      } catch (error) {
-        qualityError = error instanceof Error ? error.message : String(error);
-      }
-    }
+  const mode: TestMode = isTestMode(input.mode) ? input.mode : input.quality ? 'full' : 'structure';
+  if (input.mode !== undefined && !isTestMode(input.mode)) {
+    return bad(`Unknown test mode "${String(input.mode)}". Pick one of: full, structure, content.`);
   }
 
+  let ai: SuiteAi | undefined;
+  if (mode !== 'structure') {
+    const built = resolveCredentials(options.root, loaded.config, 'the content review');
+    // A missing key is not a 400 here. The suite reports it in the response body, in the same shape
+    // the CLI prints it, so the dashboard can show a report with one section explaining itself.
+    if (!('error' in built)) ai = built;
+  }
+
+  const result = await runTestSuite(target, {
+    mode,
+    timeoutMs: input.timeoutMs,
+    bots: resolveBots(loaded.config.bots.custom),
+    ai,
+    requireContent: mode === 'content',
+    maxDocs: input.maxDocs,
+  });
+
   return ok({
+    mode: result.mode,
     url: result.url,
-    twinUrl: result.twinUrl,
-    framework: result.framework,
-    score: result.score,
-    checks: result.checks,
-    quality,
-    qualityError,
+    // Flattened for the dashboard's existing Test view, which reads these at the top level.
+    ...(result.structure
+      ? {
+          twinUrl: result.structure.twinUrl,
+          framework: result.structure.framework,
+          score: result.structure.score,
+          checks: result.structure.checks,
+        }
+      : {}),
+    structure: result.structure ? testJson(result.structure) : null,
+    // Its own key for the same reason it is its own section in the CLI: a model's opinion must
+    // never be mistaken for part of the 0-100 number.
+    content: result.content ?? null,
+    discovery: result.discovery
+      ? {
+          documents: result.discovery.twins.map((twin) => ({
+            url: twin.url,
+            pageUrl: twin.pageUrl ?? null,
+            source: twin.source,
+            bytes: twin.bytes,
+            words: twin.words,
+          })),
+          rejected: result.discovery.rejected,
+          overCap: result.discovery.overCap,
+          sources: result.discovery.sources,
+        }
+      : null,
+    contentSkipped: result.contentSkipped ?? null,
+    contentError: result.contentError ?? null,
   });
 }
 
@@ -265,9 +318,9 @@ async function runGenerate(body: unknown, options: ApiOptions): Promise<ApiRespo
   const tier = input.tier ?? loaded.config.generate.tier;
   let enhance: ((enhanceInput: EnhanceInput) => Promise<EnhanceOutput>) | undefined;
   if (tier === 'ai') {
-    const built = resolveCredentials(options.root, loaded.config.ai.provider, loaded.config.ai.model, "generate's AI tier");
+    const built = resolveCredentials(options.root, loaded.config, "generate's AI tier");
     if ('error' in built) return bad(built.error, { needsKey: true });
-    enhance = createAiEnhancer({ provider: built.provider, model: built.model, apiKey: built.apiKey });
+    enhance = createAiEnhancer(built);
   }
 
   const result = await generateSite({
@@ -318,31 +371,81 @@ async function runProdTest(body: unknown, options: ApiOptions): Promise<ApiRespo
  * Writing a key is the one destructive thing this API does, so it follows setup's ordering exactly:
  * `.gitignore` first, then `.env`. The key is written to `.env` and never to the config file, and
  * the response says where it went without ever echoing it back.
+ *
+ * The endpoint fields go to two different places on purpose. `baseUrl` is an address, not a secret,
+ * so it is saved in `opengeo.config.json` where it can be committed and shared with the team; the
+ * key stays in `.env`. A provider marked keyless (a model server on this machine) is allowed to save
+ * with no key at all, because demanding a placeholder would be theatre.
  */
 function saveKey(body: unknown, options: ApiOptions): ApiResponse {
-  const input = (body ?? {}) as { provider?: string; apiKey?: string; model?: string };
-  if (!input.provider || !AI_PROVIDERS.includes(input.provider as AiProvider)) {
+  const input = (body ?? {}) as {
+    provider?: string;
+    apiKey?: string;
+    model?: string;
+    baseUrl?: string;
+    api?: string;
+    auth?: string;
+  };
+  if (!input.provider || !isAiProvider(input.provider)) {
     return bad(ERRORS.unknownProvider(String(input.provider), AI_PROVIDERS));
   }
-  const apiKey = (input.apiKey ?? '').trim();
-  if (!apiKey) return bad('No key was provided, so nothing was written.');
 
-  const provider = input.provider as AiProvider;
-  const model = input.model?.trim() || DEFAULT_MODELS[provider];
+  const provider = input.provider;
+  const info = providerInfo(provider);
+  const apiKey = (input.apiKey ?? '').trim();
+  const baseUrl = (input.baseUrl ?? '').trim();
+  const rawApi = (input.api ?? '').trim();
+  const rawAuth = (input.auth ?? '').trim();
+
+  if (baseUrl && !parseUrl(baseUrl)) return bad(ERRORS.invalidUrl(baseUrl));
+  if (rawApi && !isProviderApi(rawApi)) {
+    return bad(`Unknown API shape "${rawApi}". OpenGEO speaks three: anthropic, openai, gemini.`);
+  }
+  if (rawAuth && !isProviderAuth(rawAuth)) {
+    return bad(`Unknown auth style "${rawAuth}". Use one of: bearer, x-api-key, x-goog-api-key, none.`);
+  }
+  const api: ProviderApi | undefined = isProviderApi(rawApi) ? rawApi : undefined;
+  const auth: ProviderAuth | undefined = isProviderAuth(rawAuth) ? rawAuth : undefined;
+
+  const endpoint = baseUrl || (info.userDefined ? '' : info.baseUrl);
+  if (!endpoint) return bad(ERRORS.providerIncomplete(provider, ['ai.baseUrl']));
+
+  const model = input.model?.trim() || info.defaultModel;
+  if (!model) return bad(ERRORS.providerIncomplete(provider, ['ai.model']));
+
+  const keyless = info.keyless || auth === 'none';
+  if (!apiKey && !keyless) return bad('No key was provided, so nothing was written.');
 
   const gitignore = ensureEnvGitignored(options.root);
-  const envPath = writeEnvVars(options.root, { [PROVIDER_VAR]: provider, [KEY_VAR]: apiKey, [MODEL_VAR]: model });
+  const vars: Record<string, string> = { [PROVIDER_VAR]: provider, [MODEL_VAR]: model };
+  if (apiKey) vars[KEY_VAR] = apiKey;
+  if (baseUrl) vars[BASE_URL_VAR] = baseUrl;
+  const envPath = writeEnvVars(options.root, vars);
 
   const loaded = loadConfig(options.root);
-  saveConfig(options.root, mergeConfig(loaded.config, { ai: { provider, model } }));
+  const ai: Partial<OpenGeoConfig['ai']> = { provider, model };
+  if (baseUrl) ai.baseUrl = baseUrl;
+  if (api) ai.api = api;
+  if (auth) ai.auth = auth;
+  saveConfig(options.root, mergeConfig(loaded.config, { ai: ai as OpenGeoConfig['ai'] }));
 
   return ok({
     provider,
     model,
+    keyless: keyless && !apiKey,
+    baseUrl: baseUrl || undefined,
     envPath,
     gitignorePath: gitignore.path,
     gitignoreAdded: gitignore.added,
   });
+}
+
+function isProviderApi(value: string): value is ProviderApi {
+  return value === 'anthropic' || value === 'openai' || value === 'gemini';
+}
+
+function isProviderAuth(value: string): value is ProviderAuth {
+  return value === 'bearer' || value === 'x-api-key' || value === 'x-goog-api-key' || value === 'none';
 }
 
 // -- generated files -----------------------------------------------------------------------------
@@ -359,23 +462,29 @@ function readFileRoute(body: unknown, options: ApiOptions): ApiResponse {
 
 // -- shared --------------------------------------------------------------------------------------
 
-interface ResolvedCredentials {
-  provider: AiProvider;
-  model: string;
-  apiKey: string;
-}
-
-function resolveCredentials(
-  root: string,
-  configProvider: AiProvider,
-  configModel: string,
-  feature: string,
-): ResolvedCredentials | { error: string } {
+/**
+ * One place that answers "can we make an AI call, and to what".
+ *
+ * The endpoint overrides travel with the credentials because they are half the address: a key
+ * without the gateway it belongs to points at the wrong host, which is the one failure mode §11
+ * cares about most.
+ */
+function resolveCredentials(root: string, config: OpenGeoConfig, feature: string): SuiteAi | { error: string } {
   if (isCI()) return { error: ERRORS.ciBlocked(feature) };
   const credentials = readCredentials(root);
-  if (!credentials) return { error: ERRORS.noApiKey(feature) };
-  const provider = credentials.provider ?? configProvider;
-  return { provider, model: credentials.model || configModel || DEFAULT_MODELS[provider], apiKey: credentials.apiKey };
+  const provider = credentials?.provider ?? config.ai.provider;
+  // A local model server needs no key, so "nothing in .env" is not the same as "cannot run".
+  if (!credentials && !providerInfo(provider).keyless) return { error: ERRORS.noApiKey(feature) };
+
+  const overrides: ProviderOverrides = { ...providerOverridesOf(config) };
+  if (credentials?.baseUrl) overrides.baseUrl = credentials.baseUrl;
+
+  return {
+    provider,
+    model: credentials?.model || config.ai.model || DEFAULT_MODELS[provider],
+    apiKey: credentials?.apiKey ?? '',
+    overrides,
+  };
 }
 
 /**

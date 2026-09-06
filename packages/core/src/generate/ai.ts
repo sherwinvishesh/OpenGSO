@@ -1,5 +1,5 @@
-import type { AiProvider } from '../shared/config.js';
-import { AI_PROVIDERS, DEFAULT_MODELS } from '../shared/config.js';
+import type { AiProvider, ProviderOverrides, ResolvedProvider } from '../shared/providers.js';
+import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps, resolveProvider } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
 import type { EnhanceInput, EnhanceOutput } from './generate.js';
@@ -28,6 +28,11 @@ export interface ProviderCall {
   prompt: string;
   maxTokens?: number;
   timeoutMs?: number;
+  /**
+   * Endpoint overrides from the project's `ai` block. Absent means "use the catalogue row", which
+   * is what every built-in provider does until somebody points it at a gateway.
+   */
+  overrides?: ProviderOverrides;
 }
 
 /** Injectable so tests, and the mock-provider fixtures, never touch the network. */
@@ -41,6 +46,8 @@ export interface AiEnhancerOptions {
   call?: ProviderFn;
   maxTokens?: number;
   timeoutMs?: number;
+  /** Endpoint overrides for a gateway or a provider OpenGEO does not ship with. */
+  overrides?: ProviderOverrides;
   /** Overridable only so the CI guard itself is testable. */
   env?: Record<string, string | undefined>;
 }
@@ -95,7 +102,7 @@ export function buildFidelityPrompt(input: EnhanceInput): string {
  * markdown with a warning. Generate never dies because an AI call went wrong.
  */
 export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInput) => Promise<EnhanceOutput> {
-  if (!AI_PROVIDERS.includes(options.provider)) {
+  if (!isAiProvider(options.provider)) {
     throw new Error(ERRORS.unknownProvider(options.provider, AI_PROVIDERS));
   }
   if (isCI(options.env ?? process.env)) {
@@ -104,6 +111,11 @@ export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInp
 
   const call = options.call ?? callProvider;
   const model = options.model || DEFAULT_MODELS[options.provider];
+  // A provider with no endpoint or no model would fail at the HTTP layer with a URL nobody can
+  // read. Naming the missing config field here is the difference between a fixable error and a
+  // support thread.
+  const gaps = providerGaps(options.provider, model, options.overrides);
+  if (gaps.length > 0) throw new Error(ERRORS.providerIncomplete(options.provider, gaps));
 
   return async (input: EnhanceInput): Promise<EnhanceOutput> => {
     let text: string;
@@ -116,6 +128,7 @@ export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInp
         prompt: buildFidelityPrompt(input),
         maxTokens: options.maxTokens,
         timeoutMs: options.timeoutMs,
+        overrides: options.overrides,
       });
     } catch (error) {
       return {
@@ -156,33 +169,66 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The only network call in OpenGEO that carries the user's API key. */
+/**
+ * The only network call in OpenGEO that carries the user's API key.
+ *
+ * Dispatch is on the *wire format*, not on the vendor. Most of the industry ships an
+ * OpenAI-compatible endpoint, so one caller plus a base URL covers Grok, Groq, Mistral, DeepSeek,
+ * OpenRouter, Together, Perplexity, a local Ollama, and whatever gateway a company put in front of
+ * them. Adding a vendor that follows the pattern is a row in the catalogue, not a branch here.
+ */
 export async function callProvider(call: ProviderCall): Promise<string> {
-  switch (call.provider) {
+  if (!isAiProvider(call.provider)) {
+    throw new Error(ERRORS.unknownProvider(call.provider, AI_PROVIDERS));
+  }
+  const provider = resolveProvider(call.provider, call.overrides);
+  if (!provider.baseUrl) {
+    throw new Error(ERRORS.providerIncomplete(call.provider, ['ai.baseUrl']));
+  }
+  switch (provider.api) {
     case 'anthropic':
-      return callAnthropic(call);
-    case 'openai':
-      return callOpenAI(call);
+      return callAnthropic(call, provider);
     case 'gemini':
-      return callGemini(call);
+      return callGemini(call, provider);
+    case 'openai':
+      return callOpenAI(call, provider);
     default:
-      throw new Error(ERRORS.unknownProvider(call.provider, AI_PROVIDERS));
+      throw new Error(`Unknown API shape "${provider.api}". OpenGEO speaks: anthropic, openai, gemini.`);
   }
 }
 
-async function post(url: string, init: RequestInit, timeoutMs: number, provider: AiProvider): Promise<unknown> {
+/**
+ * Attach the key the way this endpoint expects it.
+ *
+ * `none` is a real answer, not a missing case: a model server on the user's own machine has no key
+ * to send, and inventing a placeholder would only make the failure harder to read.
+ */
+function authHeaders(provider: ResolvedProvider, apiKey: string): Record<string, string> {
+  const extra = provider.headers;
+  if (provider.auth === 'none' || !apiKey) return { ...extra };
+  switch (provider.auth) {
+    case 'x-api-key':
+      return { 'x-api-key': apiKey, ...extra };
+    case 'x-goog-api-key':
+      return { 'x-goog-api-key': apiKey, ...extra };
+    default:
+      return { authorization: `Bearer ${apiKey}`, ...extra };
+  }
+}
+
+async function post(url: string, init: RequestInit, timeoutMs: number, label: string): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     const body = await response.text();
     if (!response.ok) {
-      throw new Error(ERRORS.providerFailed(provider, response.status, body));
+      throw new Error(ERRORS.providerFailed(label, response.status, body));
     }
     return JSON.parse(body) as unknown;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`The ${provider} API did not respond within ${Math.round(timeoutMs / 1000)}s.`);
+      throw new Error(`The ${label} API did not respond within ${Math.round(timeoutMs / 1000)}s.`);
     }
     throw error;
   } finally {
@@ -190,15 +236,15 @@ async function post(url: string, init: RequestInit, timeoutMs: number, provider:
   }
 }
 
-async function callAnthropic(call: ProviderCall): Promise<string> {
+async function callAnthropic(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
   const json = (await post(
-    'https://api.anthropic.com/v1/messages',
+    `${provider.baseUrl}/messages`,
     {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': call.apiKey,
         'anthropic-version': '2023-06-01',
+        ...authHeaders(provider, call.apiKey),
       },
       body: JSON.stringify({
         model: call.model,
@@ -208,29 +254,29 @@ async function callAnthropic(call: ProviderCall): Promise<string> {
       }),
     },
     call.timeoutMs ?? 120_000,
-    'anthropic',
+    provider.label,
   )) as { content?: Array<{ type?: string; text?: string }> };
 
   const text = (json.content ?? [])
     .filter((block) => block.type === 'text' || typeof block.text === 'string')
     .map((block) => block.text ?? '')
     .join('');
-  if (!text) throw new Error('Anthropic returned no text content.');
+  if (!text) throw new Error(`${provider.label} returned no text content.`);
   return text;
 }
 
-async function callOpenAI(call: ProviderCall): Promise<string> {
+async function callOpenAI(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
+  // OpenAI's own newer models reject `max_tokens`; almost every compatible clone rejects
+  // `max_completion_tokens`. The catalogue row says which one this endpoint accepts.
+  const tokens = { [provider.tokenParam]: call.maxTokens ?? 8192 };
   const json = (await post(
-    'https://api.openai.com/v1/chat/completions',
+    `${provider.baseUrl}/chat/completions`,
     {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${call.apiKey}`,
-      },
+      headers: { 'content-type': 'application/json', ...authHeaders(provider, call.apiKey) },
       body: JSON.stringify({
         model: call.model,
-        max_completion_tokens: call.maxTokens ?? 8192,
+        ...tokens,
         messages: [
           { role: 'system', content: call.system },
           { role: 'user', content: call.prompt },
@@ -238,24 +284,21 @@ async function callOpenAI(call: ProviderCall): Promise<string> {
       }),
     },
     call.timeoutMs ?? 120_000,
-    'openai',
+    provider.label,
   )) as { choices?: Array<{ message?: { content?: string } }> };
 
   const text = json.choices?.[0]?.message?.content ?? '';
-  if (!text) throw new Error('OpenAI returned no message content.');
+  if (!text) throw new Error(`${provider.label} returned no message content.`);
   return text;
 }
 
-async function callGemini(call: ProviderCall): Promise<string> {
+async function callGemini(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
   const model = encodeURIComponent(call.model);
   const json = (await post(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    `${provider.baseUrl}/models/${model}:generateContent`,
     {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-goog-api-key': call.apiKey,
-      },
+      headers: { 'content-type': 'application/json', ...authHeaders(provider, call.apiKey) },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: call.system }] },
         contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
@@ -263,10 +306,10 @@ async function callGemini(call: ProviderCall): Promise<string> {
       }),
     },
     call.timeoutMs ?? 120_000,
-    'gemini',
+    provider.label,
   )) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
   const text = (json.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('');
-  if (!text) throw new Error('Gemini returned no candidate content.');
+  if (!text) throw new Error(`${provider.label} returned no candidate content.`);
   return text;
 }

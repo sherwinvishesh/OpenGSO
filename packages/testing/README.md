@@ -6,6 +6,8 @@ failed and why.
 - Works on **any** site, whether or not it uses OpenGEO, whether or not you built it.
 - No letter grades, no tier labels. A number and a list of specific reasons.
 - `--prompt` turns the failures into a fix prompt you can paste into a coding agent.
+- An optional second pass has a model read the Markdown your site serves and rate how well it
+  actually answers. It never touches the score.
 
 Part of [OpenGEO](https://github.com/sherwinvishesh/OpenGEO).
 
@@ -22,17 +24,38 @@ or `npm install --save-dev opengeo-testing`.
 ```
 Usage: opengeo test <url> [options]
 
+Modes
+  (default)          the structural checks, then an AI review of the Markdown they find
+  --structure        the checks only. Also --offline, -nq. No key, no model, no cost
+  --content          the AI review only, for when you are editing the Markdown
+  --quality, -q      require the review: a missing key becomes an error, not a note
+
 Options
   --prompt           print a ready-to-paste fix prompt for your coding agent instead of a report
-  --quality          add a separate AI content-quality review (needs a key, never runs in CI)
   --verbose, -v      show why each passing check passed, not just the failures
   --json             machine-readable output
   --out <file>       write the output to a file instead of stdout
-  --provider <name>  anthropic | openai | gemini (--quality only)
-  --model <name>     model id (--quality only)
+  --provider <name>  which AI provider to review with. `opengeo help providers` lists them
+  --model <name>     model id (the review only)
+  --max-docs <n>     how many documents the review reads (default: 10)
   --project <dir>    project directory holding opengeo.config.json (default: cwd)
   --timeout <secs>   per-request timeout (default: 15)
 ```
+
+## Two passes, one command
+
+```bash
+opengeo test https://example.com               # checks, then review if a key is configured
+opengeo test https://example.com --structure   # checks alone
+opengeo test https://example.com --content     # review alone
+```
+
+The default run does the structural audit first, then reviews every Markdown document that audit
+found: the twin of the URL you named, everything `llms.txt` lists, and anything in `sitemap.xml`
+that really answers with Markdown. Without a key it prints the structural report and one line
+saying what it skipped, because the 0 to 100 score is the product and it has never needed a key.
+
+The exit code always comes from the structural checks. A model's opinion never fails a build.
 
 ## What it checks
 
@@ -95,17 +118,59 @@ only `opengeo-prod` and OpenGEO's own documentation.
 Framework detection covers Next.js, Nuxt, Astro, SvelteKit, Remix, Gatsby, Docusaurus, Vite and
 plain HTML, so the prompt tells the agent where the middleware actually goes.
 
-## `--quality`
+## The content review
 
-An optional AI review of the content itself: keyword coverage, relevance, length, and concrete
-suggestions.
+The structural checks answer "can an agent get your Markdown". They cannot answer "is the Markdown
+worth having". The content review is the second question, and it has **its own score out of 100**:
 
-It is printed as a **clearly separate section** and is never folded into the 0 to 100 number. The
-structural score is deterministic and reproducible; a model's opinion is not, and blending the two
-would make the number mean nothing.
+| Area | Worth | What it asks |
+| --- | --- | --- |
+| Answerability | 30 | Could an agent answer a real question from this document alone? |
+| Specificity | 25 | Concrete facts, numbers, prices, dates and versions, or adjectives? |
+| Definition | 20 | Is it obvious in the first few lines what this is and who it is for? |
+| Structure | 15 | Headings that describe their content, sensible order, sensible length? |
+| Keywords | 10 | Are the words someone would search for present, and used naturally? |
 
-It needs an API key (`opengeo settings`), and it refuses to run under CI. Without a key it says so and
-the structural score is unaffected.
+The reader being judged for is an agent answering somebody's question that cannot click a link and
+will not come back, which is why answerability and specificity carry more than half the score.
+
+Output leads with the score, then where the points went, then what to change:
+
+```
+  62/100  ###############.........  content, across 4 documents
+      Usable, but vague in places a reader would notice.
+
+  Where the points went (38 lost, costliest first)
+      Specificity     ####......   45/100  -14 of 25
+      Answerability   ######....   62/100  -11 of 30
+      ...
+
+  What to change first
+
+   1  high   Specificity
+      Add the price and billing period next to each plan name.
+      An agent asked what the team plan costs can answer instead of guessing.
+      ## Pricing  https://example.com/pricing.md
+```
+
+Each edit names the area it lifts, where in the document to make it, and what the reader gains. An
+edit two pages both need appears once, with both URLs on it.
+
+It is printed as a **clearly separate section** and is never folded into the structural 0 to 100.
+Two numbers, two questions. The structural score is deterministic and reproducible; a model's
+opinion is not, and blending the two would make both meaningless.
+
+It needs an API key (`opengeo settings`) and refuses to run under CI. Any of a dozen providers can
+run it, including a model on your own machine:
+
+```bash
+opengeo help providers                                          # the whole list
+opengeo test https://example.com --content --provider xai       # Grok
+opengeo test https://example.com --content --provider ollama    # local, no key
+```
+
+Bringing your own endpoint takes three lines of config. See
+[docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
 
 ## Honest failures
 
@@ -121,4 +186,5 @@ Behaviour behind a cross-host CDN is documented as untested rather than claimed.
 ## Reference
 
 - [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md)
 - [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md)

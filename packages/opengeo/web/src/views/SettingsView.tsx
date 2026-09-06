@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api';
 import type { OpenGeoConfig, State } from '../types';
+import type { ProviderDraft } from '../components/ProviderFields';
+import { ProviderFields, draftForProvider, draftReady, providerInfoOf } from '../components/ProviderFields';
 import { Banner, Button, Card, CardHead, Field, PageHead, Pill } from '../components/ui';
 
 /**
@@ -119,20 +121,32 @@ function ProjectCard({ state, onSaved }: { state: State; onSaved: () => void }) 
 }
 
 function KeyCard({ state, onSaved }: { state: State; onSaved: () => void }) {
-  const [provider, setProvider] = useState(state.key.provider ?? state.config.ai.provider);
-  const [model, setModel] = useState(state.key.model ?? state.config.ai.model);
-  const [apiKey, setApiKey] = useState('');
+  const [draft, setDraft] = useState<ProviderDraft>(() => ({
+    ...draftForProvider(state.providerCatalog, state.key.provider ?? state.config.ai.provider),
+    model: state.key.model ?? state.config.ai.model,
+    baseUrl: state.config.ai.baseUrl ?? '',
+    api: state.config.ai.api ?? 'openai',
+  }));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState<{ envPath: string; gitignoreAdded: boolean; gitignorePath: string }>();
+
+  const info = providerInfoOf(state.providerCatalog, draft.provider);
 
   async function save() {
     setBusy(true);
     setError(undefined);
     try {
-      const result = await api.saveKey({ provider, apiKey, model });
+      const result = await api.saveKey({
+        provider: draft.provider,
+        apiKey: draft.apiKey,
+        model: draft.model,
+        baseUrl: draft.baseUrl || undefined,
+        api: info?.userDefined ? draft.api : undefined,
+        auth: info?.keyless ? 'none' : undefined,
+      });
       setDone(result);
-      setApiKey('');
+      setDraft((current) => ({ ...current, apiKey: '' }));
       onSaved();
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : String(thrown));
@@ -144,8 +158,8 @@ function KeyCard({ state, onSaved }: { state: State; onSaved: () => void }) {
   return (
     <Card>
       <CardHead
-        title="AI key"
-        sub="Optional. Everything except the AI generate tier and the quality review works without one."
+        title="AI provider"
+        sub="Optional. Everything except the AI generate tier and the content review works without one."
         right={state.key.present ? <Pill tone="ok">key found</Pill> : <Pill tone="mute">no key</Pill>}
       />
       <div className="card-pad stack">
@@ -160,47 +174,28 @@ function KeyCard({ state, onSaved }: { state: State; onSaved: () => void }) {
             : ''}
         </Banner>
 
-        <div className="row" style={{ alignItems: 'flex-end' }}>
-          <Field label="Provider">
-            <select
-              value={provider}
-              onChange={(event) => {
-                const next = event.target.value as typeof provider;
-                setProvider(next);
-                setModel(state.defaultModels[next] ?? '');
-              }}
-            >
-              {state.providers.map((entry) => (
-                <option key={entry} value={entry}>
-                  {entry}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="grow">
-            <Field label="Model">
-              <input type="text" value={model} spellCheck={false} onChange={(event) => setModel(event.target.value)} />
-            </Field>
-          </div>
-        </div>
+        <ProviderFields
+          catalog={state.providerCatalog}
+          draft={draft}
+          onChange={setDraft}
+          keyLabel={state.key.present ? 'Replace the key' : 'API key'}
+          keyHint=".env is added to .gitignore before the key is written, every time."
+          keyPlaceholder={state.key.present ? 'leave blank to keep the current key' : 'sk-...'}
+        />
 
-        <Field
-          label={state.key.present ? 'Replace the key' : 'API key'}
-          hint=".env is added to .gitignore before the key is written, every time."
-        >
-          <input
-            type="password"
-            value={apiKey}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder={state.key.present ? 'leave blank to keep the current key' : 'sk-...'}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-        </Field>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          Not on the list? Pick <strong>Your own endpoint</strong> and give it a base URL. Anything
+          speaking the OpenAI, Anthropic or Gemini request format works, including a company gateway.
+        </p>
 
         <div className="row">
-          <Button primary busy={busy} disabled={!apiKey.trim()} onClick={() => void save()}>
-            Save key
+          <Button
+            primary
+            busy={busy}
+            disabled={!draftReady(draft, info, false)}
+            onClick={() => void save()}
+          >
+            Save
           </Button>
           {state.ci ? <span className="muted">CI is set here, so AI features will refuse to run anyway.</span> : null}
         </div>

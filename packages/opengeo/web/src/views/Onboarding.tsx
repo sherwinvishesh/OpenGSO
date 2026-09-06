@@ -3,6 +3,8 @@ import { api, ApiError } from '../api';
 import type { AiBot, CustomBot, State } from '../types';
 import type { RoutingMode } from '../components/BotPicker';
 import { AddCrawler, CrawlerChecklist, RoutingModes, routableOnly, routingForMode, routingModeOf } from '../components/BotPicker';
+import type { ProviderDraft } from '../components/ProviderFields';
+import { ProviderFields, draftForProvider, providerInfoOf } from '../components/ProviderFields';
 import { Banner, Button, Card, CardHead, Field } from '../components/ui';
 
 /**
@@ -19,9 +21,10 @@ const STEPS = ['Project', 'AI key', 'Bots'] as const;
 export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[]; onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [site, setSite] = useState(state.config.site);
-  const [provider, setProvider] = useState(state.config.ai.provider);
-  const [model, setModel] = useState(state.config.ai.model);
-  const [apiKey, setApiKey] = useState('');
+  const [ai, setAi] = useState<ProviderDraft>(() => ({
+    ...draftForProvider(state.providerCatalog, state.config.ai.provider),
+    model: state.config.ai.model,
+  }));
   const [publicDir, setPublicDir] = useState(state.config.publicDir);
   const [added, setAdded] = useState<CustomBot[]>([]);
   const [routing, setRouting] = useState<string[]>(state.config.bots.markdownRouting);
@@ -40,7 +43,20 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
     setBusy(true);
     setError(undefined);
     try {
-      if (apiKey.trim()) await api.saveKey({ provider, apiKey: apiKey.trim(), model });
+      const info = providerInfoOf(state.providerCatalog, ai.provider);
+      // A keyless provider is still worth saving: it is the whole configuration for a local model
+      // server, and skipping it because no secret was typed would silently drop the choice.
+      const keyless = Boolean(info?.keyless);
+      if (ai.apiKey.trim() || (keyless && ai.model.trim())) {
+        await api.saveKey({
+          provider: ai.provider,
+          apiKey: ai.apiKey.trim(),
+          model: ai.model,
+          baseUrl: ai.baseUrl || undefined,
+          api: info?.userDefined ? ai.api : undefined,
+          auth: keyless ? 'none' : undefined,
+        });
+      }
       await api.saveConfig({
         site: site.trim(),
         publicDir: publicDir.trim() || state.config.publicDir,
@@ -114,41 +130,20 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
             {step === 1 ? (
               <>
                 <p className="muted" style={{ margin: 0 }}>
-                  Optional. Everything except the AI generate tier and the quality review works without
-                  a key, and you can add one later in Settings.
+                  Optional. Everything except the AI generate tier and the content review works
+                  without a key, and you can add one later in Settings.
                 </p>
-                <div className="row" style={{ alignItems: 'flex-end' }}>
-                  <Field label="Provider">
-                    <select
-                      value={provider}
-                      onChange={(event) => {
-                        const next = event.target.value as typeof provider;
-                        setProvider(next);
-                        setModel(state.defaultModels[next] ?? '');
-                      }}
-                    >
-                      {state.providers.map((entry) => (
-                        <option key={entry} value={entry}>
-                          {entry}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <div className="grow">
-                    <Field label="Model">
-                      <input type="text" value={model} spellCheck={false} onChange={(event) => setModel(event.target.value)} />
-                    </Field>
-                  </div>
-                </div>
-                <Field label="API key" hint="Leave blank to skip.">
-                  <input
-                    type="password"
-                    value={apiKey}
-                    spellCheck={false}
-                    autoComplete="off"
-                    onChange={(event) => setApiKey(event.target.value)}
-                  />
-                </Field>
+                <ProviderFields
+                  catalog={state.providerCatalog}
+                  draft={ai}
+                  onChange={setAi}
+                  keyLabel="API key"
+                  keyHint="Leave blank to skip."
+                />
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                  Not on the list? Pick <strong>Your own endpoint</strong> and give it a base URL.
+                  Anything speaking the OpenAI, Anthropic or Gemini request format works.
+                </p>
                 <Banner tone="info" title="Where it goes">
                   Into <span className="mono">{state.key.path}</span>, after <span className="mono">.env</span>{' '}
                   is added to .gitignore. The only request it is ever attached to is the direct call to
@@ -211,7 +206,7 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
           <div className="grow" />
           {step < STEPS.length - 1 ? (
             <Button primary disabled={step === 0 && !site.trim()} onClick={() => setStep((current) => current + 1)}>
-              {step === 1 && !apiKey.trim() ? 'Skip' : 'Next'}
+              {step === 1 && !ai.apiKey.trim() ? 'Skip' : 'Next'}
             </Button>
           ) : (
             <Button primary busy={busy} onClick={() => void finish()}>

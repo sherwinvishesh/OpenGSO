@@ -35,8 +35,17 @@ opengeo test http://localhost:3000/resume      # score it again
 
 ### `opengeo test <url>`
 
-Scores a live URL 0 to 100 and says exactly what failed. `--prompt` emits a fix prompt for a coding
-agent; `--quality` adds a separate AI content review. See
+Scores a live URL 0 to 100 and says exactly what failed, then has a model read the Markdown those
+checks found and rate how well it answers. Three shapes:
+
+```bash
+opengeo test <url>              # both passes. The review is skipped with a note if you have no key
+opengeo test <url> --structure  # the checks alone. Also --offline, -nq. No key, no cost
+opengeo test <url> --content    # the review alone
+opengeo test <url> --prompt     # a fix prompt for a coding agent instead of a report
+```
+
+The exit code always comes from the structural checks. A model's opinion never fails a build. See
 [opengeo-testing](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/testing/README.md).
 
 ### `opengeo generate <url>`
@@ -108,6 +117,10 @@ hand.
 }
 ```
 
+The `ai` block takes four more optional fields when you point OpenGEO at a gateway or an endpoint it
+does not ship with: `baseUrl`, `api` (`openai`, `anthropic` or `gemini`), `auth` and `headers`. See
+[Add your own AI tool](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md#add-your-own-ai-tool).
+
 `bots.markdownRouting` and `bots.blocked` are **different levers** and neither implies the other.
 Routing chooses a format and never blocks. Blocking is opt-in, empty by default, and is expressed
 only through the `robots.txt` that generate writes. The runtime has no blocking code path at all.
@@ -128,11 +141,25 @@ added to the catalogue everything else works from. Only a name is required.
 Adding one here does not route to it. Put its name in `markdownRouting` too, or tick it in the
 picker, which does both.
 
-## Where your API key lives
+## AI providers
+
+Twelve of them, including Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral, DeepSeek, OpenRouter,
+Together, Perplexity, Ollama on your own machine, and anything else you can name a URL for.
+
+```bash
+opengeo help providers                      # the whole catalogue, with keys links
+opengeo test <url> --provider groq          # override for one run
+opengeo settings                            # pick one interactively
+```
+
+Adding one OpenGEO has never heard of is three lines of config, not a fork:
+[docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
+
+### Where your API key lives
 
 `.env` in your project, under `OPENGEO_API_KEY`, and nowhere else. It is sent to the AI provider you
 chose and to nobody else. OpenGEO has no telemetry, no analytics and no cloud sync, so there is
-nothing else that could transmit it.
+nothing else that could transmit it. `.env` is added to `.gitignore` before the key is written.
 
 Most of OpenGEO needs no key: the whole 0 to 100 structural test, the entire free generate tier, and
 all of `opengeo-prod`.
@@ -141,3 +168,4 @@ all of `opengeo-prod`.
 
 - [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md)
 - [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md)

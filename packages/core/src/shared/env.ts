@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AiProvider } from './config.js';
-import { AI_PROVIDERS } from './config.js';
+import type { AiProvider } from './providers.js';
+import { PROVIDERS, isAiProvider, providerInfo } from './providers.js';
 
 /**
  * API key handling (§11).
@@ -16,6 +16,12 @@ export const ENV_FILENAME = '.env';
 export const KEY_VAR = 'OPENGEO_API_KEY';
 export const PROVIDER_VAR = 'OPENGEO_PROVIDER';
 export const MODEL_VAR = 'OPENGEO_MODEL';
+/**
+ * Only meaningful for an endpoint OpenGEO does not ship: a gateway, a proxy, a self-hosted server.
+ * It lives beside the key rather than in the config file because the two are usually issued
+ * together, and because a private hostname is closer to a secret than to a project setting.
+ */
+export const BASE_URL_VAR = 'OPENGEO_BASE_URL';
 
 export function parseEnv(contents: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -47,9 +53,24 @@ export interface Credentials {
   provider: AiProvider;
   apiKey: string;
   model?: string;
+  /** Set only when `.env` names an endpoint, which is how a self-hosted provider is configured. */
+  baseUrl?: string;
   /** Where the key came from, so the UI and CLI can tell the user exactly where it lives. */
   source: 'env-file' | 'process-env';
+  /** True for a provider that needs no key at all, where an empty `apiKey` is the correct answer. */
+  keyless?: boolean;
 }
+
+/**
+ * Every provider-native variable the catalogue accepts, flattened in picker order.
+ *
+ * Derived rather than written out: a provider added to the catalogue without a matching entry here
+ * would silently ignore the key the user already had exported, and nobody would find out until they
+ * filed a bug about it.
+ */
+const NATIVE_KEY_VARS: Array<[AiProvider, string]> = PROVIDERS.flatMap((provider) =>
+  provider.envVars.map((name) => [provider.id, name] as [AiProvider, string]),
+);
 
 /**
  * Resolve credentials from `.env`, falling back to the process environment. Also accepts the
@@ -66,24 +87,26 @@ export function readCredentials(root: string): Credentials | undefined {
   };
 
   const explicit = pick(KEY_VAR);
-  const providerRaw = pick(PROVIDER_VAR)?.value?.toLowerCase();
-  const provider = AI_PROVIDERS.includes(providerRaw as AiProvider) ? (providerRaw as AiProvider) : undefined;
+  const providerVar = pick(PROVIDER_VAR);
+  const providerRaw = providerVar?.value?.toLowerCase();
+  const provider = isAiProvider(providerRaw) ? providerRaw : undefined;
   const model = pick(MODEL_VAR)?.value;
+  const baseUrl = pick(BASE_URL_VAR)?.value;
 
   if (explicit) {
-    return { provider: provider ?? 'anthropic', apiKey: explicit.value, model, source: explicit.source };
+    return { provider: provider ?? 'anthropic', apiKey: explicit.value, model, baseUrl, source: explicit.source };
   }
 
-  const native: Array<[AiProvider, string]> = [
-    ['anthropic', 'ANTHROPIC_API_KEY'],
-    ['openai', 'OPENAI_API_KEY'],
-    ['gemini', 'GEMINI_API_KEY'],
-    ['gemini', 'GOOGLE_API_KEY'],
-  ];
-  for (const [nativeProvider, varName] of native) {
+  // A provider that needs no key is configured the moment it is named. Ollama is the case that
+  // matters: requiring a placeholder key for a model running on the same machine would be theatre.
+  if (provider && providerInfo(provider).keyless) {
+    return { provider, apiKey: '', model, baseUrl, source: providerVar!.source, keyless: true };
+  }
+
+  for (const [nativeProvider, varName] of NATIVE_KEY_VARS) {
     if (provider && provider !== nativeProvider) continue;
     const found = pick(varName);
-    if (found) return { provider: nativeProvider, apiKey: found.value, model, source: found.source };
+    if (found) return { provider: nativeProvider, apiKey: found.value, model, baseUrl, source: found.source };
   }
   return undefined;
 }
