@@ -1,9 +1,9 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runSetup, SetupAbort } from '../src/cli/configure.js';
+import { runSetup, SetupAbort, setupMode } from '../src/cli/configure.js';
 import { createPrompter, type ChoiceOption, type Prompter } from '../src/cli/prompt.js';
 import { ROUTABLE_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME } from '../src/shared/config.js';
@@ -24,6 +24,8 @@ interface Script {
   ask?: string[];
   /** Answers for `choose`, in order, by value. */
   choose?: string[];
+  /** Runs inside every `choose`, so a test can watch the disk between two menu selections. */
+  onChoose?: (question: string) => void;
   /** Answers for `confirm`, in order. Anything past the end falls back to the prompt's default. */
   confirm?: boolean[];
   secret?: string;
@@ -31,13 +33,16 @@ interface Script {
   onSecret?: () => void;
 }
 
-function scripted(script: Script): Prompter & { asked: string[] } {
+function scripted(script: Script): Prompter & { asked: string[]; offered: string[] } {
   const asks = [...(script.ask ?? [])];
   const chooses = [...(script.choose ?? [])];
   const confirms = [...(script.confirm ?? [])];
   const asked: string[] = [];
+  /** Every label the flow put on screen. The menu is a list of labels, so this is how it is read. */
+  const offered: string[] = [];
   return {
     asked,
+    offered,
     async ask(question: string, fallback = '') {
       asked.push(question.trim());
       const next = asks.shift();
@@ -45,6 +50,8 @@ function scripted(script: Script): Prompter & { asked: string[] } {
     },
     async choose<T extends string>(question: string, options: ChoiceOption<T>[], fallback: T) {
       asked.push(question.trim());
+      offered.push(...options.map((option) => option.label));
+      script.onChoose?.(question.trim());
       const next = chooses.shift();
       if (next === undefined) return fallback;
       const match = options.find((option) => option.value === next);
@@ -75,6 +82,37 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  describe('the first screen most people see', () => {
+    /**
+     * A bare `opengeo` runs `start`, which runs this, so for a lot of users this text is the
+     * product's introduction. It has to say what the problem is before it says what the tool does.
+     */
+    it('says what OpenGEO is before it asks the first question', async () => {
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['all', 'skip'] });
+
+      await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      const intro = transcript.slice(0, transcript.indexOf('1/4'));
+      expect(intro).toContain('What this is');
+      expect(intro).toContain('AI agents');
+      expect(intro).toContain('Markdown');
+      // The three commands, named up front, so the point of answering four questions is visible.
+      for (const command of ['test', 'generate', 'prod']) expect(intro).toContain(command);
+      // And the two things people worry about when a CLI asks them questions.
+      expect(intro).toContain('Nothing is uploaded');
+    });
+
+    it('does not repeat the explainer to somebody editing a project that already works', async () => {
+      writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+      let transcript = '';
+
+      await runSetup({ root, prompter: scripted({}), mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(transcript).not.toContain('What this is');
+    });
   });
 
   describe('the key never leaks (§11)', () => {
@@ -312,7 +350,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
     });
   });
 
-  describe('settings mode (§12)', () => {
+  describe('settings mode: the menu (§12)', () => {
     /** A configured project, so settings mode has something to edit. */
     function configured(): void {
       writeFileSync(
@@ -326,10 +364,85 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       );
     }
 
-    it('says so plainly when every answer was a blank line', async () => {
+    function savedConfig(): { site: string; publicDir: string; bots: { blocked: string[] } } {
+      return JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8'));
+    }
+
+    it('opens on one screen showing every setting and what it is set to', async () => {
+      configured();
+      // No scripted choice at all, so the very first menu is answered with its own default: Done.
+      const prompter = scripted({});
+
+      await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      const menu = prompter.offered.join('\n');
+      expect(menu).toContain('Site URL');
+      expect(menu).toContain('http://localhost:3000');
+      expect(menu).toContain('Web root');
+      expect(menu).toContain('Markdown routing');
+      expect(menu).toContain('Blocked crawlers');
+      expect(menu).toContain('AI provider');
+      // The whole point of the rework: nothing was asked, because nothing was picked.
+      expect(prompter.asked.filter((question) => question.startsWith('Site URL'))).toHaveLength(0);
+    });
+
+    it('changes the one setting you picked and asks about nothing else', async () => {
+      configured();
+      const prompter = scripted({ choose: ['site'], ask: ['http://localhost:4000'] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.site).toBe('http://localhost:4000');
+      expect(result.config.publicDir).toBe('public');
+      expect(prompter.asked.some((question) => question.startsWith('Web root'))).toBe(false);
+    });
+
+    it('returns to the menu after each edit, so several settings can be changed in one visit', async () => {
+      configured();
+      const prompter = scripted({ choose: ['site', 'webroot', 'routing', 'none'], ask: ['http://localhost:4000', 'dist'] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.site).toBe('http://localhost:4000');
+      expect(result.config.publicDir).toBe('dist');
+      expect(result.config.bots.markdownRouting).toEqual([]);
+    });
+
+    it('writes each edit to disk as it is made, not in one lump at the end', async () => {
+      configured();
+      const seen: string[] = [];
+      const prompter = scripted({
+        choose: ['site', 'webroot'],
+        ask: ['http://localhost:4000', 'dist'],
+        // Runs as each menu is drawn, so the second reading is taken after the first edit and
+        // before the second one has been answered.
+        onChoose: (question) => {
+          if (question.includes('Settings')) seen.push(savedConfig().site);
+        },
+      });
+
+      await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(seen[0]).toBe('http://localhost:3000');
+      expect(seen[1]).toBe('http://localhost:4000');
+    });
+
+    it('reports what actually changed', async () => {
       configured();
       let transcript = '';
-      const prompter = scripted({ ask: ['', ''] });
+      const prompter = scripted({ choose: ['site', 'routing', 'none'], ask: ['http://localhost:4000'] });
+
+      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('http://localhost:3000');
+      expect(transcript).toContain('http://localhost:4000');
+      expect(transcript).toContain('markdown routing');
+    });
+
+    it('says so plainly when the menu was opened and nothing was touched', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ choose: ['done'] });
 
       const result = await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
 
@@ -339,22 +452,9 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(result.config.site).toBe('http://localhost:3000');
     });
 
-    it('reports what actually changed', async () => {
+    it('edits the block list, which is the one setting a first run never offers', async () => {
       configured();
-      let transcript = '';
-      const prompter = scripted({ ask: ['http://localhost:4000', 'dist'], choose: ['none', 'skip'] });
-
-      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
-
-      expect(transcript).toContain('http://localhost:3000');
-      expect(transcript).toContain('http://localhost:4000');
-      expect(transcript).toContain('web root');
-      expect(transcript).toContain('markdown routing');
-    });
-
-    it('edits the block list, which is the one question a first run never asks', async () => {
-      configured();
-      const prompter = scripted({ ask: ['', '', 'GPTBot', ''], confirm: [true] });
+      const prompter = scripted({ choose: ['blocked'], ask: ['GPTBot', ''] });
 
       const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
 
@@ -363,13 +463,14 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
     });
 
-    it('leaves the block list alone when the offer is declined', async () => {
+    it('leaves the block list alone unless it is the thing you chose', async () => {
       configured();
-      const prompter = scripted({ ask: ['', ''], confirm: [false] });
+      const prompter = scripted({ choose: ['site'], ask: ['http://localhost:4000'] });
 
       const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
 
       expect(result.config.bots.blocked).toEqual([]);
+      expect(prompter.asked.some((question) => question.startsWith('block'))).toBe(false);
     });
 
     it('does not put the blocking question in front of a first-run user', async () => {
@@ -377,7 +478,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       await runSetup({ root, prompter, out: silent });
 
-      expect(prompter.asked.some((question) => question.startsWith('Edit the block list'))).toBe(false);
+      expect(prompter.asked.some((question) => question.startsWith('block'))).toBe(false);
     });
 
     it('offers the current routing as the default rather than re-recommending everyone', async () => {
@@ -386,13 +487,44 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
         JSON.stringify({ site: 'http://localhost:3000', bots: { markdownRouting: [], blocked: [], custom: [] } }),
         'utf8',
       );
-      // No scripted choice, so every `choose` answers with the default the flow offered. Pressing
-      // Enter through settings must not silently widen a list the user deliberately emptied.
-      const prompter = scripted({ ask: ['', ''] });
+      // Picks routing, then answers the routing question with whatever default it was offered.
+      // Pressing Enter must not silently widen a list the user deliberately emptied.
+      const prompter = scripted({ choose: ['routing'] });
 
       const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
 
       expect(result.config.bots.markdownRouting).toEqual([]);
+    });
+
+    it('creates the config file when settings is run in a directory that has none', async () => {
+      const prompter = scripted({ choose: ['site'], ask: ['http://localhost:5000'] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.createdConfig).toBe(true);
+      expect(savedConfig().site).toBe('http://localhost:5000');
+    });
+  });
+
+  describe('which of the two modes a directory gets', () => {
+    it('gives a configured project the menu', () => {
+      writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+
+      expect(setupMode(root)).toBe('settings');
+    });
+
+    it('gives an empty directory the walkthrough, so `settings` there is a first run', () => {
+      expect(setupMode(root)).toBe('first-run');
+    });
+
+    it('ignores a config that belongs to a parent directory', () => {
+      // loadConfig walks up on purpose, which is right for running a command from a subdirectory
+      // and wrong for setup: editing the project above you is not what `settings` here meant.
+      writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+      const child = join(root, 'apps', 'docs');
+      mkdirSync(child, { recursive: true });
+
+      expect(setupMode(child)).toBe('first-run');
     });
   });
 

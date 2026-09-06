@@ -3,10 +3,10 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../../server/server.js';
-import { CONFIG_FILENAME, loadConfig } from '../../shared/config.js';
+import { CONFIG_FILENAME } from '../../shared/config.js';
 import { c } from '../../shared/log.js';
 import { parseArgs } from '../args.js';
-import { SetupAbort, runSetup } from '../configure.js';
+import { SetupAbort, runSetup, setupMode } from '../configure.js';
 import type { CommandContext } from '../index.js';
 import { createPrompter } from '../prompt.js';
 
@@ -43,21 +43,18 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
   const port = args.num('port') ?? 4321;
   const webRoot = args.str('web') ? resolve(process.cwd(), args.str('web')!) : findWebRoot();
 
-  // Only a config that belongs to this directory counts. Walking up found somebody else's project,
-  // and inheriting their settings silently is worse than asking four questions.
-  const found = loadConfig(root);
-  const configured = found.exists && found.root === root;
+  const mode = setupMode(root);
   // `--setup` re-runs the questions on purpose; `--no-setup` is the escape hatch for a script that
   // wants a server and nothing else, and for a fresh checkout where answering prompts would hang.
-  const wantsSetup = args.bool('setup') || (!configured && !args.bool('no-setup'));
+  const wantsSetup = args.bool('setup') || (mode === 'first-run' && !args.bool('no-setup'));
 
   if (wantsSetup) {
     const prompter = createPrompter({ autoAccept: args.bool('yes') });
     try {
       // A project that already has a config is being edited, not onboarded, even when `--setup`
-      // asked for the questions again: settings mode offers the current values as the defaults,
-      // so pressing Enter through it cannot quietly widen a list the user had narrowed.
-      await runSetup({ root, prompter, mode: configured ? 'settings' : 'first-run' });
+      // asked for the questions again: settings mode puts every current value on one screen, so
+      // pressing Enter through it cannot quietly widen a list the user had narrowed.
+      await runSetup({ root, prompter, mode });
     } catch (error) {
       if (error instanceof SetupAbort) {
         process.stderr.write(`\n${c.red('setup stopped')} ${error.message}\n`);
