@@ -32,8 +32,8 @@ import {
 } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
-import type { SuiteAi, TestMode } from '../test/index.js';
-import { isTestMode, runTestSuite, testJson } from '../test/index.js';
+import type { History, HistoryEntry, SuiteAi, TestMode } from '../test/index.js';
+import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
 
 /**
  * The local JSON API behind `opengeo start` (§8).
@@ -78,6 +78,9 @@ export async function handleApi(request: ApiRequest, options: ApiOptions): Promi
   switch (route) {
     case 'GET /api/state':
       return ok(readState(options));
+    case 'GET /api/history':
+      // Capped at 20 runs by the writer, so there is no pagination to design here.
+      return ok(readHistory(internalDirPath(loadConfig(options.root))));
     case 'GET /api/bots':
       // The resolved list, so the dashboard's crawler table shows a project's own agents beside
       // the shipped ones instead of quietly leaving them out of a list that looks complete.
@@ -255,6 +258,11 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
     if (!('error' in built)) ai = built;
   }
 
+  // Read before the run and returned alongside it, so the dashboard can draw the same delta and
+  // sparkline the CLI headline does without a second round trip.
+  const internalDir = internalDirPath(loaded);
+  const before = readHistory(internalDir);
+
   const result = await runTestSuite(target, {
     mode,
     timeoutMs: input.timeoutMs,
@@ -263,10 +271,12 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,
   });
+  recordRun(internalDir, result);
 
   return ok({
     mode: result.mode,
     url: result.url,
+    history: historyPayload(before, result.url),
     // Flattened for the dashboard's existing Test view, which reads these at the top level.
     ...(result.structure
       ? {
@@ -297,6 +307,17 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
     contentSkipped: result.contentSkipped ?? null,
     contentError: result.contentError ?? null,
   });
+}
+
+/**
+ * The previous runs of this URL, as the dashboard needs them.
+ *
+ * Deliberately the history from *before* this run: the client already has the new score in the same
+ * response, and sending it twice would have the sparkline draw its last point at both ends.
+ */
+function historyPayload(history: History, url: string): { trend: number[]; previous: HistoryEntry | null } {
+  const forUrl = history.entries.filter((entry) => entry.url === url && typeof entry.score === 'number');
+  return { trend: scoreTrend(history, url), previous: forUrl.at(-1) ?? null };
 }
 
 // -- generate ------------------------------------------------------------------------------------

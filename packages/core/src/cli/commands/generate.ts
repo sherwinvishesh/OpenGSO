@@ -10,6 +10,7 @@ import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
 import type { EnhanceInput, EnhanceOutput } from '../../generate/generate.js';
 import { parseArgs } from '../args.js';
+import { canRedraw, createProgress } from '../progress.js';
 import type { CommandContext } from '../index.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
@@ -53,6 +54,8 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
   }
 
   const single = args.bool('single');
+  const progress = args.bool('json') ? undefined : createProgress();
+  const progressIsLive = canRedraw();
   let lastPhase = '';
   const result = await generateSite({
     target: target.toString(),
@@ -66,26 +69,37 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     skipSiteFiles: args.bool('skip-files'),
     enhance,
     onProgress: (event) => {
-      if (args.bool('json')) return;
+      if (!progress) return;
       if (event.phase === 'crawl') {
         if (lastPhase !== 'crawl') {
-          process.stdout.write(`\n  ${c.gray('Discovering routes by following links')}\n`);
+          progress.phase('Discovering routes by following links');
           lastPhase = 'crawl';
         }
-        process.stdout.write(`  ${c.gray(`[${event.crawl.visited + 1}/${event.crawl.found}]`)} ${event.crawl.route}\n`);
+        progress.step(event.crawl.visited + 1, event.crawl.found, event.crawl.route);
         return;
       }
       if (event.phase === 'generate') {
         if (lastPhase !== 'generate') {
-          process.stdout.write(`\n  ${c.gray('Converting pages')}\n`);
+          progress.phase('Converting pages');
           lastPhase = 'generate';
         }
-        if (event.generate.phase === 'ai') {
-          process.stdout.write(`  ${c.gray(`[${event.generate.index}/${event.generate.total}]`)} ${event.generate.route} ${c.gray('(AI)')}\n`);
+        // Every route fires four events (fetch, extract, ai, write) and the live block can show all
+        // of them, but the plain transcript prints a line per event, which is four times the noise
+        // the old code made. So the counter always advances and only the AI pass, the one with a
+        // real per-route cost, gets a line in the transcript.
+        const detail = event.generate.phase === 'ai' ? `${event.generate.route} ${c.gray('(AI)')}` : event.generate.route;
+        if (progressIsLive || event.generate.phase === 'ai') {
+          progress.step(event.generate.index, event.generate.total, detail);
         }
+        return;
+      }
+      if (event.phase === 'files') {
+        progress.phase('Writing robots.txt, llms.txt and sitemap.xml');
+        lastPhase = 'files';
       }
     },
   });
+  progress?.done();
 
   if (args.bool('json')) {
     process.stdout.write(

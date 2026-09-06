@@ -1,4 +1,4 @@
-import type { AiBot, GenerateResponse, OpenGeoConfig, ProdResponse, State, TestMode, TestResponse } from './types';
+import type { AiBot, GenerateResponse, History, OpenGeoConfig, ProdResponse, State, TestMode, TestResponse } from './types';
 
 /**
  * Every call goes to this page's own origin, which is 127.0.0.1. There is no other host in this
@@ -37,6 +37,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   state: () => call<State>('/api/state'),
   bots: () => call<{ bots: AiBot[] }>('/api/bots'),
+  history: () => call<History>('/api/history'),
   saveConfig: (patch: Partial<OpenGeoConfig>) =>
     call<{ config: OpenGeoConfig; configPath: string }>('/api/config', { method: 'POST', body: JSON.stringify(patch) }),
   test: (input: { url?: string; mode?: TestMode; maxDocs?: number }) =>

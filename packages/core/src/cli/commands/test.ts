@@ -1,14 +1,16 @@
 import { writeFileSync } from 'node:fs';
 import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
-import { providerOverridesOf } from '../../shared/config.js';
+import { internalDirPath, providerOverridesOf } from '../../shared/config.js';
 import type { AiProvider } from '../../shared/providers.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from '../../shared/providers.js';
 import { isCI, readCredentials } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
-import type { SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js';
+import type { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js';
 import {
   buildFixPrompt,
+  readHistory,
+  recordRun,
   renderContentReport,
   renderDiscovery,
   renderReport,
@@ -18,6 +20,7 @@ import {
   testUrl,
 } from '../../test/index.js';
 import { parseArgs } from '../args.js';
+import { createProgress } from '../progress.js';
 import type { CommandContext } from '../index.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
@@ -74,6 +77,10 @@ export async function testCommand(ctx: CommandContext): Promise<number> {
   }
 
   const json = args.bool('json');
+  // Read before the run, so the headline can say what moved. `recordRun` appends afterwards.
+  const internalDir = internalDirPath(loaded);
+  const history = readHistory(internalDir);
+  const printer = json ? undefined : progressPrinter(args.bool('verbose'), history);
   const result = await runTestSuite(target.toString(), {
     mode,
     timeoutMs,
@@ -82,8 +89,12 @@ export async function testCommand(ctx: CommandContext): Promise<number> {
     // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.
     requireContent: args.bool('quality'),
     maxDocs: args.num('max-docs'),
-    onProgress: json ? undefined : progressPrinter(args.bool('verbose')),
+    onProgress: printer?.onProgress,
   });
+  printer?.close();
+  // Best-effort and last: a run that scored is worth remembering, and a filesystem that will not
+  // take the file is not worth failing a passing audit over. `recordRun` swallows its own errors.
+  recordRun(internalDir, result);
 
   if (json) return writeOut(`${suiteJson(result)}\n`, args.str('out'), suiteExitCode(result));
 
@@ -124,30 +135,40 @@ function writeOut(text: string, out: string | undefined, code: number): number {
 }
 
 /**
- * Narration for the content pass.
+ * Narration, for the two parts of a run that take real time.
  *
- * Reviewing ten documents is ten sequential provider calls and can take a minute or more. A tool
- * that prints nothing for that long looks hung, and the honest fix is to say what it is doing.
+ * The structural probe is a dozen requests and the content pass is one provider call per document,
+ * so both spend long enough that silence reads as a hang. On a terminal this is one block that
+ * redraws; everywhere else it is the same append-only lines it always was.
  */
-function progressPrinter(verbose: boolean): (event: SuiteProgress) => void {
-  return (event) => {
+function progressPrinter(verbose: boolean, history: History): { onProgress: (event: SuiteProgress) => void; close: () => void } {
+  const progress = createProgress();
+  const onProgress = (event: SuiteProgress) => {
     switch (event.phase) {
+      case 'structure':
+        progress.phase('Auditing the live URL');
+        break;
       case 'structure-done':
-        process.stdout.write(renderReport(event.result, { verbose }));
+        // The report is the thing the user came for, so it is printed the moment it exists rather
+        // than after a content pass that can take another minute.
+        progress.finish();
+        process.stdout.write(renderReport(event.result, { verbose, history }));
         break;
       case 'discover':
-        process.stdout.write(`${c.gray('Looking for Markdown documents...')}\n`);
+        progress.phase('Looking for Markdown documents');
         break;
       case 'discovered':
-        process.stdout.write(`${c.gray(`Found ${event.documents}. Reviewing...`)}\n`);
+        progress.finish(c.gray(`  Found ${event.documents} document${event.documents === 1 ? '' : 's'}.`));
+        progress.phase('Reviewing content');
         break;
       case 'review':
-        process.stdout.write(`${c.gray(`  [${event.done}/${event.total}] ${event.url}`)}\n`);
+        progress.step(event.done, event.total, event.url);
         break;
       default:
         break;
     }
   };
+  return { onProgress, close: () => progress.done() };
 }
 
 function writeContent(result: SuiteResult): void {

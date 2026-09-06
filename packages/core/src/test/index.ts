@@ -2,6 +2,7 @@ export * from './checks.js';
 export * from './discover.js';
 export * from './evidence.js';
 export * from './framework.js';
+export * from './history.js';
 export * from './prompt.js';
 export * from './quality.js';
 export * from './report.js';

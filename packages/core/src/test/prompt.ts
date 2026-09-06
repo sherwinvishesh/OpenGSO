@@ -75,6 +75,14 @@ const REMEDY: Record<string, string> = {
 
 export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {}): string {
   const failures = result.checks.filter((check) => check.status === 'fail');
+  // A partial is work in progress, not a pass, and leaving it out was hiding the cheapest points on
+  // the report from the one reader who could act on them. It is a separate section rather than more
+  // failures because the instruction differs: a failure needs the thing built, a partial needs the
+  // last step of something already standing.
+  const partials = [...result.checks.filter((check) => check.status === 'partial')].sort(
+    (a, b) => b.weight - b.earned - (a.weight - a.earned),
+  );
+  const blocked = result.checks.filter((check) => check.status === 'locked');
   const lines: string[] = [];
 
   lines.push('# Fix this site for AI agents');
@@ -94,7 +102,7 @@ export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {
   if (options.command) lines.push(`- Command that produced this: \`${options.command}\``);
   lines.push('');
 
-  if (failures.length === 0) {
+  if (failures.length === 0 && partials.length === 0) {
     lines.push('## Nothing failed');
     lines.push('');
     lines.push('Every check passed. There is no work to do here.');
@@ -102,9 +110,23 @@ export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {
     return lines.join('\n');
   }
 
-  lines.push(`## Failed checks (${failures.length})`);
-  lines.push('');
-  for (const check of failures) lines.push(...renderFailure(check, result));
+  if (failures.length > 0) {
+    lines.push(`## Failed checks (${failures.length})`);
+    lines.push('');
+    for (const check of failures) lines.push(...renderFailure(check, result));
+  }
+
+  if (partials.length > 0) {
+    lines.push(`## Partly working (${partials.length})`);
+    lines.push('');
+    lines.push('These already do most of what they should. Each one names the remaining step and what it is worth.');
+    lines.push('');
+    for (const check of partials) lines.push(...renderPartial(check, result));
+  }
+
+  if (blocked.length > 0) {
+    lines.push(...renderLockedSection(blocked, result));
+  }
 
   lines.push('## What OpenGEO provides');
   lines.push('');
@@ -152,6 +174,54 @@ function renderFailure(check: CheckResult, result: TestResult): string[] {
   if (check.detail) lines.push(`- Detail: ${check.detail}`);
   const remedy = REMEDY[check.id];
   if (remedy) lines.push(`- Fix: ${remedy.replace('{twin}', new URL(result.twinUrl).pathname)}`);
+  lines.push('');
+  return lines;
+}
+
+/**
+ * A partial, priced from where it actually is.
+ *
+ * `check.fix` is preferred over the static remedy here because the two are not interchangeable for
+ * a partial: the remedy describes building the thing, and the thing is already built. A1 partial
+ * means robots.txt exists and allows every assistant, so "write a robots.txt" would be wrong advice
+ * where "allow CCBot as well, if that was not deliberate" is right.
+ */
+function renderPartial(check: CheckResult, result: TestResult): string[] {
+  const lines: string[] = [];
+  lines.push(`### ${check.id} - ${check.title}`);
+  lines.push('');
+  lines.push(`- Earned so far: ${check.earned} of ${check.weight} (${check.importance})`);
+  lines.push(`- Points still available: ${check.weight - check.earned}`);
+  lines.push(`- Where it stands: ${check.reason}`);
+  if (check.detail) lines.push(`- Detail: ${check.detail}`);
+  const remedy = check.fix ?? REMEDY[check.id];
+  if (remedy) lines.push(`- Fix: ${remedy.replace('{twin}', new URL(result.twinUrl).pathname)}`);
+  lines.push('');
+  return lines;
+}
+
+/**
+ * The twin cascade, as one section rather than a dozen.
+ *
+ * Every one of these checks inspects a response that does not exist yet, so asking a coding agent
+ * to fix them individually would have it write a dozen header patches against a route that returns
+ * 404. What it needs to know is that they are all downstream of one thing, and that mounting the
+ * middleware answers all of them at once.
+ */
+function renderLockedSection(blocked: CheckResult[], result: TestResult): string[] {
+  const points = blocked.reduce((sum, check) => sum + check.weight, 0);
+  const blocker = blocked[0]?.lockedBy ?? 'B1';
+  const lines: string[] = [];
+  lines.push(`## Blocked behind ${blocker} (${blocked.length} checks, ${points} points)`);
+  lines.push('');
+  lines.push(
+    `Nothing was measured for these: they all inspect the markdown response at ${result.twinUrl}, which`,
+    `is not being served yet. Fixing ${blocker} makes every one of them measurable, and mounting`,
+    '`opengeo-prod` over generated twins satisfies most of them in the same change. Re-run the audit',
+    'afterwards rather than guessing which of them still need work.',
+  );
+  lines.push('');
+  for (const check of blocked) lines.push(`- ${check.id} (${check.weight} pts) - ${check.title}`);
   lines.push('');
   return lines;
 }

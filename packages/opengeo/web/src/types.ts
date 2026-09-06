@@ -6,7 +6,7 @@
  * be a bad trade. The API tests in core are what keep these honest.
  */
 
-export type CheckStatus = 'pass' | 'fail' | 'na';
+export type CheckStatus = 'pass' | 'partial' | 'fail' | 'locked' | 'na';
 export type CheckImportance = 'required' | 'recommended';
 
 export interface CheckResult {
@@ -16,16 +16,41 @@ export interface CheckResult {
   title: string;
   weight: number;
   status: CheckStatus;
+  /** 0..weight. A pass earns all of it, a fail none, a partial something in between. */
+  earned: number;
   reason: string;
   detail?: string;
+  /** partial and fail: the specific next step, priced. */
+  fix?: string;
+  /** locked: the check whose failure made this one unmeasurable. */
+  lockedBy?: string;
 }
 
 export interface Score {
   value: number;
   earned: number;
   possible: number;
-  counts: { pass: number; fail: number; na: number };
+  counts: { pass: number; partial: number; fail: number; locked: number; na: number };
   lost: Array<{ id: string; points: number }>;
+  /** What is waiting behind a failed prerequisite. `count` is zero on a healthy run. */
+  locked: { count: number; points: number; unlockedBy: string[] };
+}
+
+/** One past run, as `.opengeo/history.json` records it. Local only, never web-served. */
+export interface HistoryEntry {
+  at: string;
+  url: string;
+  mode: TestMode;
+  score?: number;
+  contentScore?: number;
+  counts?: { pass: number; partial: number; fail: number; locked: number; na: number };
+  lockedPoints?: number;
+  failedIds?: string[];
+}
+
+export interface History {
+  version: number;
+  entries: HistoryEntry[];
 }
 
 /** One of the five things the model was asked to judge, scored 0-100. */
@@ -112,6 +137,11 @@ export interface TestResponse {
   /** Set when the content pass could not run but was not required. Not an error. */
   contentSkipped?: string | null;
   contentError?: string | null;
+  /**
+   * The history as it stood *before* this run, so the sparkline does not draw the new score twice.
+   * `previous` is the last run of this same URL, which is the only one a delta may be drawn against.
+   */
+  history?: { trend: number[]; previous: HistoryEntry | null };
 }
 
 export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';

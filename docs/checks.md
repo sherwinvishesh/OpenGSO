@@ -23,23 +23,53 @@ check is merely leaving something on the table.
 score = round(100 x earned / applicable)
 ```
 
-`applicable` is the sum of the weights of every check that returned pass or fail. A check that
-returns **n/a** is dropped from the denominator entirely, never scored as a failure. That is the
-difference between "your site is missing HSTS" and "you are testing against `http://localhost:3000`,
-where HSTS is not a thing". Only the first should cost you points.
+`applicable` is the sum of the weights of every check that returned pass, partial or fail. A check
+that returns **n/a** or **locked** is dropped from the denominator entirely, never scored as a
+failure. That is the difference between "your site is missing HSTS" and "you are testing against
+`http://localhost:3000`, where HSTS is not a thing". Only the first should cost you points.
 
-Partial credit does not exist. A check passes or it does not.
+### Five verdicts, not two
+
+| Verdict | In the denominator | Earns |
+|---|---|---|
+| **pass** | yes | the full weight |
+| **partial** | yes | part of the weight, named in the row |
+| **fail** | yes | nothing |
+| **locked** | no | nothing, and not because of anything on this page |
+| **n/a** | no | nothing, and there is nothing to fix |
+
+Thirteen checks are graded rather than binary, because the thing they measure has a middle. Serving
+`Vary: Accept` on the markdown response and not on the HTML is not the same as serving it nowhere,
+and a report that scores those two identically is telling you something false. Every graded check
+says below what a partial is worth and why.
+
+A **partial never fails a build.** The exit code of `opengeo test` is nonzero only when a check has
+status `fail`, and that rule did not change when partial credit arrived.
 
 ### One missing twin costs one check
 
 If the markdown twin URL does not answer, the site has no markdown layer, and twelve of the
 category B checks have nothing to look at. You cannot inspect the Content-Type of a document that
-does not exist. Those twelve return **n/a** and leave the denominator, and the whole verdict on the
-markdown layer is carried by B1, the heaviest check in the table.
+does not exist. Those twelve return **locked**, naming B1 as the check that unlocks them, and leave
+the denominator. The whole verdict on the markdown layer is carried by B1, the heaviest check in
+the table.
 
 This matters more than it sounds. Scored the naive way, one missing file reads as thirteen separate
 defects, and every site on the web that has not adopted the convention lands in the thirties. A
 twin that exists but is served wrong is a different situation, and is still scored in full detail.
+
+Locked is deliberately not spelled n/a. "Not applicable" is what A8 is on localhost: nothing to fix,
+now or ever. A locked check is the opposite of that, so the report prints all twelve as one line
+with a price on it rather than as twelve separate shrugs.
+
+```
+Locked (12)
+-----------
+  46 points waiting behind B1
+    Serve a markdown twin at the .md URL and every one of these becomes measurable.
+
+  B2 5  B3 5  B4 3  B5 3  B6 3  B12 2  B14 4  B7 4  B8 3  B9 6  B10 6  B11 2
+```
 
 ### What the numbers are calibrated against
 
@@ -73,6 +103,10 @@ everything below it. If you deliberately block a crawler, that is a legitimate c
 will report it as a failure anyway, because it cannot tell your intent from a mistake. Read the
 reason line: it names the exact rule and the exact bot.
 
+**Partial: 6.** Every assistant and search agent is allowed and only bulk training crawlers are
+disallowed. That reads as a deliberate opt-out rather than a mistake, so it costs 3 points instead
+of 9, and the reason line says so.
+
 **Fix:** `opengeo generate` writes a `robots.txt` that allows every AI bot except the ones you list
 in `bots.blocked`. Or hand-write one. A missing `robots.txt` also fails, because agents cannot tell
 "no file" from "no answer".
@@ -90,12 +124,18 @@ It is recommended rather than required, and weighted lightly, because it is a yo
 uneven crawler support: an agent that cannot find your `llms.txt` still has `sitemap.xml` and the
 links on the page. Serving the twins matters more, which is why B1 is worth three times as much.
 
+**Partial: 1** when the file is served but is empty or lists no links, **2** when it lists links
+but has no `# Title` heading.
+
 **Fix:** `opengeo generate` writes one from the same crawl that produces the twins.
 
 ### A3 - sitemap.xml is present and valid
 **Required, weight 9.**
 
 Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<loc>`.
+
+**Partial: 3** when something answers at that URL but has no `<urlset>` root or no `<loc>` entries,
+**6** when it is a valid sitemap that does not list the page under test.
 
 **Fix:** `opengeo generate` writes one. If your framework already generates a sitemap, keep it:
 OpenGEO never overwrites a file it did not write.
@@ -107,6 +147,8 @@ Looks for `<script type="application/ld+json">` in the HTML and parses it. A blo
 but syntactically invalid fails, because that is worse than absent: it looks like structured data
 and delivers none.
 
+**Partial: 1** when a block is present but does not parse, or parses and declares no `@type`.
+
 **Fix:** add a JSON-LD block describing the page. OpenGEO does not generate one for you, because the
 right schema type depends entirely on what the page is.
 
@@ -117,6 +159,10 @@ Parses the raw HTML response with jsdom, with scripts disabled, and measures how
 content survive. This is the single most important check in category A, because most agents do not
 execute JavaScript. If your content only exists after hydration, those agents see an empty page.
 
+**Partial:** ramped on how many words survive, from 15 up to the 60 a page needs to read as
+substantive. A heading and a paragraph in the HTML with the rest behind hydration is real, and worth
+something, and not the same as an empty mount element.
+
 **Fix:** server-render the content, or pre-render it at build time. There is no header you can set
 that makes this one pass. If your site is a client-rendered SPA, OpenGEO's generate step will hit
 the same wall and warn you about it.
@@ -126,6 +172,9 @@ the same wall and warn you about it.
 
 Measures TTFB on the HTML request. Agents fetch under a timeout, often a short one, and a slow first
 byte is the most common reason a page is silently skipped.
+
+**Partial:** ramped. Full marks at or under **400ms**, nothing at or over **1500ms**, and a straight
+line between the two.
 
 **Fix:** the usual server-side latency work. Note that the number is measured from wherever you are
 running the CLI, so a cold serverless start or a slow network shows up here.
@@ -145,6 +194,9 @@ is asking agents to ignore it, which makes everything else you do pointless.
 **Required, weight 9.**
 
 Checks the scheme and looks for `Strict-Transport-Security`.
+
+**Partial: 6.** Served over HTTPS with no `Strict-Transport-Security` header. The connection is
+encrypted; a first visit can still be downgraded.
 
 **n/a on localhost.** Testing against `http://localhost:3000` returns n/a and drops the weight from
 the denominator, because there is nothing to fix.
@@ -170,14 +222,21 @@ with the right headers.
 ### B2 - Content-Type is exactly text/markdown; charset=utf-8
 **Required, weight 5.**
 
-An exact match, not a prefix match. `text/plain` fails. `text/markdown` without a charset fails.
-Agents dispatch on this header, and the strictness is deliberate.
+An exact match, not a prefix match. Agents dispatch on this header, and the strictness is
+deliberate.
+
+**Partial: 3** for `text/markdown` with no charset, **2** for `text/plain`. Both are served and both
+are readable; neither is what an agent selecting on the media type will find.
 
 ### B3 - Markdown response body is non-empty
 **Required, weight 5.**
 
 A twin that is served correctly and contains nothing is worse than no twin at all, because the agent
 stops looking.
+
+**Partial:** ramped on the twin's word count against the live page's, from 8% up to 50%. Non-empty is
+the letter of the check and complete is the point of it, so a twin holding a title and nothing else
+earns close to nothing.
 
 ### B4 - X-Markdown-Tokens is present and a positive integer
 **Recommended, weight 3.**
@@ -196,6 +255,8 @@ Stops a client from re-interpreting the markdown as something else.
 The twin is the same content as the HTML page. Without `noindex` you have published a duplicate of
 every page on your site and asked search engines to index both.
 
+**Partial: 1** when the header is present but does not include `noindex`.
+
 ### B7 - Vary includes Accept, so CDNs cache the two formats separately
 **Required, weight 4.**
 
@@ -207,10 +268,13 @@ Without this, a shared cache stores whichever format it saw first and serves it 
 gets markdown, or an agent gets HTML. It is the most damaging failure in category B and the easiest
 one to not notice, because it only shows up behind a CDN.
 
+**Partial: 2** when `Accept` is in `Vary` on one of the two responses and not the other. Half the
+cache is keyed correctly; the reason line names which half is not.
+
 **Known limitation:** the Next.js App Router appends its own values to `Vary` on HTML responses and
-there is no supported way to prevent it. `opengeo test` reports this as a real B7 failure on Next
+there is no supported way to prevent it. `opengeo test` reports this as a real B7 partial on Next
 HTML routes rather than pretending it passes. The markdown responses themselves carry a clean
-`Vary: Accept`.
+`Vary: Accept`, which is the 2 points it earns.
 
 ### B8 - HTML response advertises the twin via Link rel="alternate"
 **Recommended, weight 3.**
@@ -218,6 +282,9 @@ HTML routes rather than pretending it passes. The markdown responses themselves 
 `Link: </resume.md>; rel="alternate"; type="text/markdown"` on the HTML response. This is how an
 agent that fetched the HTML discovers there is a better version available, without guessing at a
 URL convention.
+
+**Partial: 1** when a `Link` header is present but carries no `rel="alternate"` entry of type
+`text/markdown`.
 
 ### B9 - Accept: text/markdown receives markdown, not HTML
 **Required, weight 6.**
@@ -274,23 +341,35 @@ The hash is taken over the **extracted markdown**, not the raw HTML. Hashing raw
 on every framework rebuild, every hydration marker, every build id, and the check would cry wolf
 until people stopped reading it.
 
+**Partial: 2** when the hash differs but every number, date and price on the live page still appears
+in the twin. A typo fix and a rewritten page both break the hash, and only one of them is serving
+agents wrong information.
+
 **Fix:** re-run `opengeo generate`.
 
 ## Reading the output
 
-Failures are grouped, required first:
+Rows are grouped, worst first:
 
 ```
 Failed - required        the things that stop agents working
 Failed - recommended     the things that make them work better
+Partly there             credit earned, with the rest of the points priced
+Locked                   waiting on one other fix, collapsed into a single line
 Passed                   everything that is already right
+Not applicable           nothing to fix here, on this URL
 ```
 
 Each row carries the check id, what it verifies, and the **specific** reason it reached that
-verdict, including the header value actually observed. No generic strings.
+verdict, including the header value actually observed. No generic strings. A partial row also shows
+a small meter and the split, `2 of 4`, so the shape of the shortfall is readable without reading the
+sentence.
 
-`--prompt` turns the failures into a fix prompt you can paste into a coding agent. It names only
-`opengeo-prod` and OpenGEO's own documentation.
+The report ends with **Do this next**: every available fix ranked by the points it recovers, so the
+top line is always the most valuable edit you can make to the page.
+
+`--prompt` turns that same list into a fix prompt you can paste into a coding agent, partials and
+the one locked-by fix included. It names only `opengeo-prod` and OpenGEO's own documentation.
 
 ## The other half of a test run
 

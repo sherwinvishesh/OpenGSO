@@ -3,6 +3,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { CHECKS } from '../src/test/checks.js';
+import {
+  SSR_FLOOR_WORDS,
+  SSR_MIN_WORDS,
+  TTFB_FAST_MS,
+  TTFB_SLOW_MS,
+  TWIN_FLOOR_RATIO,
+  TWIN_FULL_RATIO,
+  TWIN_LOCKED_IDS,
+} from '../src/test/runner.js';
 import { QUALITY_AREAS, QUALITY_TOTAL_WEIGHT } from '../src/test/quality.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { PROVIDERS } from '../src/shared/providers.js';
@@ -60,6 +69,40 @@ describe('docs/checks.md', () => {
 
   it('counts the checks correctly in its own opening line', () => {
     expect(doc).toContain(`runs ${CHECKS.length} checks against a live URL`);
+  });
+
+  /** The prose under `### B7 - ...`, up to the next check heading. */
+  const section = (id: string): string => (doc.split(`### ${id} - `)[1] ?? '').split('\n### ')[0];
+
+  it('names a partial band for every check that can award one', () => {
+    // Derived from the source rather than from a list kept here, because a list kept here is a
+    // second place to forget. Any `partial('B6', ...)` in the runner has to have a documented band.
+    const runner = read('packages/core/src/test/runner.ts');
+    const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id!));
+    expect(graded.size).toBeGreaterThan(0);
+    for (const id of graded) {
+      expect(section(id), `${id} can return partial and docs/checks.md does not say what that earns`).toContain('**Partial');
+    }
+  });
+
+  it('does not describe a graded check as all or nothing', () => {
+    expect(doc).not.toContain('Partial credit does not exist');
+  });
+
+  it('quotes the bands the ramped checks actually use', () => {
+    expect(section('A5')).toContain(`from ${SSR_FLOOR_WORDS} up to the ${SSR_MIN_WORDS}`);
+    expect(section('A6')).toContain(`**${TTFB_FAST_MS}ms**`);
+    expect(section('A6')).toContain(`**${TTFB_SLOW_MS}ms**`);
+    expect(section('B3')).toContain(`from ${TWIN_FLOOR_RATIO * 100}% up to ${TWIN_FULL_RATIO * 100}%`);
+  });
+
+  it('prices the locked block with the weights the cascade actually removes', () => {
+    const weightOf = (id: string) => CHECKS.find((check) => check.id === id)?.weight ?? 0;
+    const points = TWIN_LOCKED_IDS.reduce((total, id) => total + weightOf(id), 0);
+    expect(doc).toContain(`Locked (${TWIN_LOCKED_IDS.length})`);
+    expect(doc).toContain(`${points} points waiting behind B1`);
+    // And the id/weight line under it, in the order the report prints them.
+    expect(doc).toContain(TWIN_LOCKED_IDS.map((id) => `${id} ${weightOf(id)}`).join('  '));
   });
 
   it('never invents a check id that does not exist', () => {

@@ -20,3 +20,7 @@ CLAUDE.md
 # cite its sections as §N; CONTRIBUTING.md explains that you do not need the document to
 # work here. Earlier commits still contain it, which is fine and deliberate.
 idea.md
+
+# .opengeo/history.json is the opposite: a local record of test runs on one machine. It feeds the
+# home screen's score delta and the dashboard sparkline, and it means nothing anywhere else.
+**/.opengeo/history.json

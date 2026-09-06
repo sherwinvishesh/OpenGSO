@@ -1,4 +1,7 @@
 import { c, heading, SYM } from '../shared/log.js';
+import { terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
+import { ink } from '../cli/tui/theme.js';
+import { meter } from '../cli/tui/widgets.js';
 import type { ProdProbe, ProdVerification } from './verify.js';
 
 /**
@@ -11,9 +14,12 @@ import type { ProdProbe, ProdVerification } from './verify.js';
 export interface VerifyReportOptions {
   /** Show the exact curl for every probe and the headers that came back. */
   verbose?: boolean;
+  /** Overrides the terminal width. Only the tests pass this. */
+  width?: number;
 }
 
 export function renderProdVerification(result: ProdVerification, options: VerifyReportOptions = {}): string {
+  const width = options.width ?? terminalWidth();
   const lines: string[] = [];
 
   lines.push('');
@@ -23,8 +29,8 @@ export function renderProdVerification(result: ProdVerification, options: Verify
 
   if (!result.installed) {
     lines.push('');
-    lines.push(`  ${c.red('No X-AEO-Version on any response.')}`);
-    lines.push(`  ${c.gray('opengeo-prod is not answering at this URL. Everything below follows from that.')}`);
+    lines.push(`  ${ink.danger('No X-AEO-Version on any response.')}`);
+    lines.push(...indent('opengeo-prod is not answering at this URL. Everything below follows from that.', width, c.gray));
   }
 
   const routing = result.probes.filter((p) => p.lever === 'routing');
@@ -32,11 +38,11 @@ export function renderProdVerification(result: ProdVerification, options: Verify
 
   lines.push(heading('Lever 1 - markdown routing (bots.markdownRouting)'));
   lines.push(`  ${c.gray('Decides which AI agents get the twin. It chooses a format, never access.')}`);
-  for (const probe of routing) lines.push(...renderProbe(probe, options));
+  for (const probe of routing) lines.push(...renderProbe(probe, options, width));
 
   lines.push(heading('Content negotiation'));
   lines.push(`  ${c.gray('The same URL in two formats, decided by the Accept header.')}`);
-  for (const probe of negotiation) lines.push(...renderProbe(probe, options));
+  for (const probe of negotiation) lines.push(...renderProbe(probe, options, width));
 
   lines.push(heading('Lever 2 - blocking (bots.blocked, via robots.txt)'));
   lines.push(`  ${c.gray('Separate, opt-in, and written by generate. prod has no blocking code path.')}`);
@@ -46,11 +52,11 @@ export function renderProdVerification(result: ProdVerification, options: Verify
       ? `  ${SYM.pass()} ${c.bold('robots.txt')} ${c.gray(result.robots.url)}`
       : `  ${SYM.na()} ${c.bold('robots.txt')} ${c.gray(result.robots.url)}`,
   );
-  for (const note of result.robots.notes) lines.push(`      ${note}`);
+  for (const note of result.robots.notes) lines.push(...indent(note, width));
 
   if (result.conflicts.length > 0) {
     lines.push(heading('The two levers disagree'));
-    for (const conflict of result.conflicts) lines.push(`  ${c.yellow(conflict)}`);
+    for (const conflict of result.conflicts) lines.push(...wrapText(conflict, width - 2).map((line) => `  ${ink.warn(line)}`));
   }
 
   lines.push('');
@@ -61,18 +67,28 @@ export function renderProdVerification(result: ProdVerification, options: Verify
   return lines.join('\n');
 }
 
+/**
+ * The one-line verdict, with the same meter the 0-100 report uses.
+ *
+ * This command has no score, so the bar reads share of probes passed rather than points. It is the
+ * same glyphs and the same colour ramp on purpose: two commands in one product should not have two
+ * visual languages for "how did that go".
+ */
 function summaryLine(result: ProdVerification): string {
-  const parts = [c.green(`${result.counts.pass} passed`)];
-  if (result.counts.warn > 0) parts.push(c.yellow(`${result.counts.warn} warned`));
-  parts.push(result.counts.fail > 0 ? c.red(`${result.counts.fail} failed`) : c.gray('0 failed'));
-  return `${parts.join(c.gray(', '))}  ${c.gray(`impersonating ${result.bot}`)}`;
+  const total = result.counts.pass + result.counts.warn + result.counts.fail;
+  const share = total === 0 ? 0 : (result.counts.pass / total) * 100;
+  const parts = [ink.ok(`${result.counts.pass} passed`)];
+  if (result.counts.warn > 0) parts.push(ink.warn(`${result.counts.warn} warned`));
+  parts.push(result.counts.fail > 0 ? ink.danger(`${result.counts.fail} failed`) : c.gray('0 failed'));
+  return `${meter(share, 18)}  ${parts.join(c.gray(', '))}  ${c.gray(`impersonating ${result.bot}`)}`;
 }
 
-function renderProbe(probe: ProdProbe, options: VerifyReportOptions): string[] {
+function renderProbe(probe: ProdProbe, options: VerifyReportOptions, width: number): string[] {
   const symbol = probe.verdict === 'pass' ? SYM.pass() : probe.verdict === 'warn' ? SYM.warn() : SYM.fail();
   const status = probe.status > 0 ? c.gray(`  ${probe.status}`) : '';
-  const lines = ['', `  ${symbol} ${c.bold(probe.id)} ${probe.title}${status}`, `      ${probe.reason}`];
-  if (probe.detail) lines.push(`      ${c.gray(probe.detail)}`);
+  const lines = ['', `  ${symbol} ${c.bold(probe.id)} ${probe.title}${status}`];
+  lines.push(...indent(probe.reason, width));
+  if (probe.detail) lines.push(...indent(probe.detail, width, c.gray));
   if (options.verbose) {
     lines.push(`      ${c.gray(probe.curl)}`);
     for (const [name, value] of Object.entries(probe.headers)) {
@@ -80,6 +96,11 @@ function renderProbe(probe: ProdProbe, options: VerifyReportOptions): string[] {
     }
   }
   return lines;
+}
+
+/** Wrapped to the terminal, under the six-space gutter the probe rows use. */
+function indent(text: string, width: number, paint: (value: string) => string = (value) => value): string[] {
+  return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
 }
 
 /** Machine-readable output for `--json` and for the product website's local API. */

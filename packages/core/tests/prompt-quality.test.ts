@@ -39,6 +39,7 @@ const FAILURE: CheckResult = {
   weight: 8,
   title: 'Accept: text/markdown receives markdown, not HTML',
   status: 'fail',
+  earned: 0,
   reason: 'Asking for text/markdown returned text/html; charset=utf-8 instead.',
   detail: 'Response was 200 with an HTML body.',
 };
@@ -129,6 +130,48 @@ describe('the fix prompt', () => {
     const prompt = buildFixPrompt(resultWith([PASS]));
     expect(prompt).toContain('Nothing failed');
     expect(prompt).not.toContain('What I need from you');
+  });
+
+  it('carries a partial as work in progress, with what is left and what it is worth', () => {
+    const partial: CheckResult = {
+      ...FAILURE,
+      id: 'B7',
+      weight: 4,
+      title: 'Vary includes Accept, so CDNs cache the two formats separately',
+      status: 'partial',
+      earned: 2,
+      reason: 'Vary does not include Accept on the HTML response.',
+      detail: undefined,
+      fix: 'Add `Vary: Accept` to the HTML response (+2).',
+    };
+    const prompt = buildFixPrompt(resultWith([partial, PASS]));
+    expect(prompt).toContain('## Partly working (1)');
+    expect(prompt).toContain('Earned so far: 2 of 4');
+    expect(prompt).toContain('Points still available: 2');
+    // The check's own fix, not the generic remedy: the header is already on one response, so
+    // "send Vary: Accept on both" would be describing work that is half done.
+    expect(prompt).toContain('Add `Vary: Accept` to the HTML response');
+  });
+
+  it('does not say nothing failed when checks are only partly working', () => {
+    const partial: CheckResult = { ...FAILURE, status: 'partial', earned: 4, fix: 'Finish it.' };
+    const prompt = buildFixPrompt(resultWith([partial]));
+    expect(prompt).not.toContain('Nothing failed');
+    expect(prompt).toContain('What I need from you');
+  });
+
+  it('collapses locked checks into one blocked section instead of a dozen fixes', () => {
+    const locked: CheckResult[] = [
+      { ...FAILURE, id: 'B2', weight: 5, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Content-Type', detail: undefined },
+      { ...FAILURE, id: 'B4', weight: 3, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Tokens header', detail: undefined },
+    ];
+    const blocker: CheckResult = { ...FAILURE, id: 'B1', weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
+    const prompt = buildFixPrompt(resultWith([blocker, ...locked]));
+    expect(prompt).toContain('## Blocked behind B1 (2 checks, 8 points)');
+    expect(prompt).toContain('- B2 (5 pts)');
+    // One section, so no locked check gets its own "fix this header" heading against a 404.
+    expect(prompt).not.toContain('### B2');
+    expect(prompt).not.toContain('### B4');
   });
 
   it('still produces a usable prompt when the framework is unknown', () => {

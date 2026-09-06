@@ -1,4 +1,9 @@
 import { c, SYM, heading } from '../shared/log.js';
+import { meter, lockedMeter, sparkline } from '../cli/tui/widgets.js';
+import { scoreInk, bandColour, ink } from '../cli/tui/theme.js';
+import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
+import type { History } from './history.js';
+import { deltaFor, relativeAge, scoreTrend } from './history.js';
 import type { CheckResult } from './checks.js';
 import type {
   AggregatedRecommendation,
@@ -25,34 +30,52 @@ import type { TestResult } from './run.js';
 export interface ReportOptions {
   /** Print passing checks too. Off by default so failures are not buried. */
   verbose?: boolean;
+  /**
+   * Previous runs, for the delta and the sparkline.
+   *
+   * Optional everywhere: the report has to render identically for a caller that has no project
+   * directory to read a history out of, which is every `opengeo test <url>` against someone else's
+   * site.
+   */
+  history?: History;
+  /** Overridden only by tests, which have no terminal to measure. */
+  width?: number;
 }
 
 export function renderReport(result: TestResult, options: ReportOptions = {}): string {
   const lines: string[] = [];
   const { checks, score } = result;
+  const width = options.width ?? terminalWidth();
 
   lines.push('');
   lines.push(`${c.bold('OpenGEO')} ${c.gray('test')}  ${result.url}`);
   if (result.framework) lines.push(c.gray(`Detected: ${result.framework.name}`));
-  lines.push(renderScore(score));
+  lines.push(renderScore(result.url, score, options));
 
   const failedRequired = checks.filter((r) => r.status === 'fail' && r.importance === 'required');
   const failedRecommended = checks.filter((r) => r.status === 'fail' && r.importance === 'recommended');
+  const partly = checks.filter((r) => r.status === 'partial');
+  const blocked = checks.filter((r) => r.status === 'locked');
   const passed = checks.filter((r) => r.status === 'pass');
   const skipped = checks.filter((r) => r.status === 'na');
 
   if (failedRequired.length > 0) {
     lines.push(heading(`Failed - required (${failedRequired.length})`));
-    for (const check of failedRequired) lines.push(...renderCheck(check));
+    for (const check of failedRequired) lines.push(...renderCheck(check, width));
   }
   if (failedRecommended.length > 0) {
     lines.push(heading(`Failed - recommended (${failedRecommended.length})`));
-    for (const check of failedRecommended) lines.push(...renderCheck(check));
+    for (const check of failedRecommended) lines.push(...renderCheck(check, width));
   }
+  if (partly.length > 0) {
+    lines.push(heading(`Partly there (${partly.length})`));
+    for (const check of partly) lines.push(...renderCheck(check, width));
+  }
+  if (blocked.length > 0) lines.push(...renderLocked(blocked, score, width));
   if (passed.length > 0) {
     if (options.verbose) {
       lines.push(heading(`Passed (${passed.length})`));
-      for (const check of passed) lines.push(...renderCheck(check));
+      for (const check of passed) lines.push(...renderCheck(check, width));
     } else {
       lines.push(heading(`Passed (${passed.length})`));
       lines.push(`  ${c.gray(passed.map((check) => check.id).join(' '))}`);
@@ -63,41 +86,219 @@ export function renderReport(result: TestResult, options: ReportOptions = {}): s
     lines.push(heading(`Not applicable (${skipped.length})`));
     for (const check of skipped) {
       lines.push(`  ${SYM.na()} ${c.bold(check.id)} ${check.title}`);
-      lines.push(`      ${c.gray(check.reason)}`);
+      lines.push(...indent(check.reason, width, c.gray));
     }
   }
 
-  lines.push('');
-  if (failedRequired.length + failedRecommended.length > 0) {
-    lines.push(c.gray(`Run the same command with --prompt to get a fix prompt for Claude Code.`));
-    lines.push('');
-  }
+  lines.push(...renderNextSteps(checks, score, width));
   return lines.join('\n');
 }
 
-function renderCheck(check: CheckResult): string[] {
-  const symbol = check.status === 'pass' ? SYM.pass() : check.status === 'fail' ? SYM.fail() : SYM.na();
-  const points = check.status === 'fail' ? c.gray(`  -${check.weight} pts`) : '';
-  const lines = [`  ${symbol} ${c.bold(check.id)} ${check.title}${points}`, `      ${check.reason}`];
-  if (check.detail) lines.push(`      ${c.gray(check.detail)}`);
+/**
+ * One check, at whatever width the terminal actually is.
+ *
+ * The reason is the product, so it is the thing that gets the space: it wraps rather than running
+ * off the right edge, which is what it did before at any width under about 120 columns. A partial
+ * carries its arithmetic (`2 of 4`) because "partly there" with no number is a mood, not a
+ * measurement, and anything short of a pass carries its `fix` line last, since that is the part the
+ * reader is going to act on.
+ */
+function renderCheck(check: CheckResult, width: number): string[] {
+  const symbol =
+    check.status === 'pass' ? SYM.pass()
+    : check.status === 'fail' ? SYM.fail()
+    : check.status === 'partial' ? SYM.partial()
+    : check.status === 'locked' ? SYM.locked()
+    : SYM.na();
+
+  const tail =
+    check.status === 'fail' ? c.gray(`  -${check.weight} pts`)
+    : check.status === 'partial'
+      ? `  ${meter((check.earned / check.weight) * 100, 8)} ${c.yellow(`${check.earned} of ${check.weight}`)}`
+      : '';
+
+  const lines = [`  ${symbol} ${c.bold(check.id)} ${check.title}${tail}`];
+  lines.push(...indent(check.reason, width));
+  if (check.detail) lines.push(...indent(check.detail, width, c.gray));
+  if (check.fix) lines.push(...indentHanging(glyphArrow(), check.fix, width, ink.info));
   return lines;
 }
 
-function renderScore(score: Score): string {
-  const value = String(score.value).padStart(3, ' ');
-  const colour = score.value >= 85 ? c.green : score.value >= 60 ? c.yellow : c.red;
-  const bar = renderBar(score.value);
-  const counts = c.gray(
-    `${score.counts.pass} passed, ${score.counts.fail} failed${score.counts.na > 0 ? `, ${score.counts.na} n/a` : ''}`,
-  );
-  return `\n  ${colour(c.bold(`${value}/100`))}  ${bar}  ${counts}\n`;
+/**
+ * The twin cascade, as one priced block.
+ *
+ * This is the section the whole `locked` status exists for. Thirteen paragraphs each explaining
+ * that a document which does not exist cannot be inspected is not information; the same thirteen
+ * checks, summed and labelled with the single thing that unlocks them, is.
+ */
+function renderLocked(blocked: CheckResult[], score: Score, width: number): string[] {
+  const lines: string[] = [];
+  const points = score.locked.points;
+  lines.push(heading(`Locked (${blocked.length})`));
+  lines.push(`  ${c.bold(fg(bandColour('fair'), `${points} points`))} ${c.gray('waiting behind')} ${c.bold(score.locked.unlockedBy.join(' and ') || 'one fix')}`);
+
+  // One sentence naming the fix, taken from the check that is actually blocking, so this stays
+  // correct if the cascade is ever keyed on something other than B1.
+  const blocker = score.locked.unlockedBy[0];
+  if (blocker === 'B1') {
+    lines.push(...indent('Serve a markdown twin at the .md URL and every one of these becomes measurable. `opengeo generate` writes the files; `opengeo prod` serves them.', width, c.gray));
+  }
+  lines.push('');
+  // The ids and their weights on one line: enough to see the shape of what is waiting without
+  // thirteen paragraphs of it.
+  const priced = blocked.map((check) => `${c.bold(check.id)} ${c.gray(String(check.weight))}`).join('  ');
+  lines.push(`  ${priced}`);
+  return lines;
 }
 
-function renderBar(value: number): string {
-  const width = 24;
-  const filled = Math.round((value / 100) * width);
-  const colour = value >= 85 ? c.green : value >= 60 ? c.yellow : c.red;
-  return `${colour('#'.repeat(filled))}${c.gray('.'.repeat(width - filled))}`;
+/**
+ * What to do next, ranked by points recovered.
+ *
+ * Replaces a single line suggesting `--prompt`. The ranking is the useful part: `lost` carries a
+ * partial's shortfall rather than its weight, so a check two points from full does not outrank one
+ * that earned nothing, and the locked block is priced as a single entry rather than thirteen.
+ */
+function renderNextSteps(checks: readonly CheckResult[], score: Score, width: number): string[] {
+  const lines: string[] = [''];
+  const byId = new Map(checks.map((check) => [check.id, check]));
+  const steps: Array<{ id: string; points: number; text: string }> = [];
+
+  for (const entry of score.lost) {
+    const check = byId.get(entry.id);
+    let points = entry.points;
+    let text = check?.fix ?? check?.title ?? entry.id;
+    // A check that is also holding others hostage is worth its own points plus theirs, and saying
+    // so once beats listing "fix B1 (+10)" above "unlock B2-B14 (+46)" as two separate ideas when
+    // they are the same keystroke.
+    if (score.locked.unlockedBy.includes(entry.id)) {
+      points += score.locked.points;
+      text = `${text} That also unlocks ${score.locked.count} check${score.locked.count === 1 ? '' : 's'} worth ${score.locked.points} more.`;
+    }
+    steps.push({ id: entry.id, points, text });
+  }
+  // A locked block whose blocker is not itself in `lost` (it passed, but something upstream of the
+  // cascade still did not run) would otherwise go unmentioned.
+  if (score.locked.points > 0 && !score.locked.unlockedBy.some((id) => score.lost.some((entry) => entry.id === id))) {
+    steps.push({
+      id: score.locked.unlockedBy[0] ?? 'locked',
+      points: score.locked.points,
+      text: `Serve the markdown twin, which unlocks ${score.locked.count} more checks.`,
+    });
+  }
+  steps.sort((a, b) => b.points - a.points);
+
+  if (steps.length === 0) {
+    lines.push(`  ${ink.ok('Nothing to fix. Every check that applies to this URL passed.')}`);
+    lines.push('');
+    return lines;
+  }
+
+  lines.push(`  ${c.bold('Do this next')} ${c.gray('(most points first)')}`);
+  lines.push('');
+  // Measured rather than counted by hand: two spaces, the four-wide price, two, the three-wide id,
+  // two. A literal here drifts the moment any of those five change, and a hanging indent that is
+  // one column out is more distracting than no hanging indent at all.
+  const gutter = ' '.repeat(2 + NEXT_POINTS_WIDTH + 2 + NEXT_ID_WIDTH + 2);
+  for (const [index, step] of steps.slice(0, MAX_NEXT_STEPS).entries()) {
+    // The price is already the left column, so the "(+3)" a `fix` carries for its own section is
+    // noise here and comes out.
+    const text = step.text.replace(/\s*\(\+\d+\)/g, '');
+    const wrapped = wrapText(text, Math.max(24, width - gutter.length - 2));
+    // Green throughout, because every number in this column is points coming back rather than
+    // points lost. Ranking already says which one matters most; recolouring by size would be
+    // saying "this fix is bad", which is the opposite of what the list is for.
+    const points = ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
+    const paint = index === 0 ? c.bold : (line: string) => line;
+    lines.push(`  ${points}  ${c.bold(step.id.padEnd(NEXT_ID_WIDTH))}  ${paint(wrapped[0] ?? '')}`);
+    for (const line of wrapped.slice(1)) lines.push(`${gutter}${paint(line)}`);
+  }
+  const rest = steps.slice(MAX_NEXT_STEPS);
+  if (rest.length > 0) {
+    const restPoints = rest.reduce((sum, step) => sum + step.points, 0);
+    lines.push(`  ${c.gray(`plus ${rest.length} smaller ${rest.length === 1 ? 'fix' : 'fixes'} worth ${restPoints} between them: ${rest.map((step) => step.id).join(' ')}`)}`);
+  }
+  lines.push('');
+  lines.push(c.gray('Run the same command with --prompt to get a fix prompt for Claude Code.'));
+  lines.push('');
+  return lines;
+}
+
+/** More than this and the ranking stops being a decision and starts being the report again. */
+const NEXT_POINTS_WIDTH = 4;
+const NEXT_ID_WIDTH = 3;
+const MAX_NEXT_STEPS = 5;
+
+/** Wrap body text under a check, at the six-space indent the report has always used. */
+function indent(text: string, width: number, paint: (value: string) => string = (value) => value): string[] {
+  return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
+}
+
+/** The same, with the continuation lines hanging under the first line's text rather than its marker. */
+function indentHanging(marker: string, text: string, width: number, paint: (value: string) => string): string[] {
+  const pad = ' '.repeat(marker.length + 1);
+  const wrapped = wrapText(text, Math.max(20, width - 6 - pad.length));
+  return wrapped.map((line, index) => `      ${paint(index === 0 ? `${marker} ${line}` : `${pad}${line}`)}`);
+}
+
+function glyphArrow(): string {
+  return process.env.OPENGEO_ASCII ? '->' : '\u2192';
+}
+
+/**
+ * The headline: score, meter, counts, and what changed since last time.
+ *
+ * The locked points ride on the same meter as a ghosted second segment, so the shape of the bar
+ * answers "how much of this is even being measured" without a second number to read.
+ */
+function renderScore(url: string, score: Score, options: ReportOptions): string {
+  const value = String(score.value).padStart(3, ' ');
+  const bar = score.locked.points > 0
+    ? lockedMeter(score.value, lockedShare(score), 24)
+    : meter(score.value, 24, { scale: 'structural' });
+
+  const parts = [`${score.counts.pass} passed`];
+  if (score.counts.partial > 0) parts.push(`${score.counts.partial} partial`);
+  parts.push(`${score.counts.fail} failed`);
+  if (score.counts.locked > 0) parts.push(`${score.counts.locked} locked`);
+  if (score.counts.na > 0) parts.push(`${score.counts.na} n/a`);
+
+  const headline = `  ${scoreInk(score.value, c.bold(`${value}/100`))}  ${bar}  ${c.gray(parts.join(', '))}`;
+  const trend = renderTrend(url, score, options);
+  return `\n${headline}${trend ? `\n${trend}` : ''}\n`;
+}
+
+/**
+ * How much of the meter the locked points would occupy if they were being measured.
+ *
+ * Locked weight is outside the denominator, so it has no share of the current 0-100 to take. What
+ * the ghost shows is the fraction of the whole checklist that is not being asked about, which is
+ * the honest reading of "there is more of this test than you are seeing".
+ */
+function lockedShare(score: Score): number {
+  const whole = score.possible + score.locked.points;
+  return whole === 0 ? 0 : Math.round((score.locked.points / whole) * 100);
+}
+
+/**
+ * "+11 since 2h ago", with a sparkline of the runs before it.
+ *
+ * Compared against the last run of *this* URL only. Testing localhost and then production and
+ * calling the difference progress would be a lie the headline then prints in green.
+ */
+function renderTrend(url: string, score: Score, options: ReportOptions): string | undefined {
+  const history = options.history;
+  if (!history || history.entries.length === 0) return undefined;
+
+  const delta = deltaFor(history, { at: new Date().toISOString(), url, mode: 'structure', score: score.value });
+  if (!delta) return undefined;
+
+  const trend = scoreTrend(history, url);
+  const spark = trend.length >= 2 ? `  ${sparkline([...trend, score.value])}` : '';
+  const moved =
+    delta.points > 0 ? ink.ok(`+${delta.points}`)
+    : delta.points < 0 ? ink.danger(String(delta.points))
+    : c.gray('no change');
+  return `  ${moved} ${c.gray(`since ${relativeAge(delta.previous.at)}`)}${spark}`;
 }
 
 /** Machine-readable output for `--json` and for the product website's local API. */
@@ -109,15 +310,20 @@ export function testJson(result: TestResult): Record<string, unknown> {
     possible: result.score.possible,
     twinUrl: result.twinUrl,
     framework: result.framework ? { id: result.framework.id, name: result.framework.name } : null,
+    counts: result.score.counts,
+    locked: result.score.locked,
     checks: result.checks.map((check) => ({
       id: check.id,
       title: check.title,
       category: check.category,
       importance: check.importance,
       weight: check.weight,
+      earned: check.earned,
       status: check.status,
       reason: check.reason,
       detail: check.detail,
+      fix: check.fix,
+      lockedBy: check.lockedBy,
     })),
   };
 }

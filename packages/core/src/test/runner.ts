@@ -8,7 +8,8 @@ import { parseFrontmatter } from '../generate/frontmatter.js';
 import { verifyFidelity } from '../generate/fidelity.js';
 import { contentHash } from '../shared/hash.js';
 import type { CheckResult } from './checks.js';
-import { fail, na, pass } from './checks.js';
+import { checkDefinition } from './checks.js';
+import { fail, na, partial, pass, ramp } from './checks.js';
 import type { Evidence } from './evidence.js';
 import type { ProbeResult } from '../shared/http.js';
 import { looksLikeHtml } from './discover.js';
@@ -20,10 +21,31 @@ import { looksLikeHtml } from './discover.js';
  * synthetic responses with no network involved.
  */
 
-/** Above this, TTFB is slow enough that agents fetching many pages will feel it. */
-const TTFB_BUDGET_MS = 1200;
+/**
+ * The two ends of the TTFB ramp.
+ *
+ * A single budget could only ever answer "fast enough, yes or no", which is the wrong shape for a
+ * number that is continuous in reality: 420ms and 3.2s are both "over budget" and are not remotely
+ * the same problem. Anything at or under `TTFB_FAST_MS` is unimprovable from an agent's point of
+ * view; past `TTFB_SLOW_MS` a crawler with a short timeout is dropping the page, so there is
+ * nothing left to award. In between the score slides, which is also the only way the report can
+ * show progress on a page someone is actively optimising.
+ */
+export const TTFB_FAST_MS = 400;
+export const TTFB_SLOW_MS = 1500;
 /** Below this word count, a page's raw HTML is not meaningfully extractable without running JS. */
-const SSR_MIN_WORDS = 60;
+export const SSR_MIN_WORDS = 60;
+/** Under this, there is so little text that partial credit would be flattery rather than measurement. */
+export const SSR_FLOOR_WORDS = 15;
+/**
+ * How much shorter than the live page a twin may be and still count as complete.
+ *
+ * Markdown is denser than rendered text, and a good twin drops navigation, cookie banners and
+ * footers, so it is legitimately shorter. Half is generous on purpose: this check is looking for a
+ * stub, not auditing prose.
+ */
+export const TWIN_FULL_RATIO = 0.5;
+export const TWIN_FLOOR_RATIO = 0.08;
 
 export function runChecks(evidence: Evidence): CheckResult[] {
   return collapseTwinCascade([
@@ -62,50 +84,66 @@ export function runChecks(evidence: Evidence): CheckResult[] {
  * an agent can read perfectly well, and the uncollapsed scorer put both at 38/100, which tells the
  * reader nothing except that the number is not to be trusted.
  *
- * So when the twin URL does not answer, everything downstream of it becomes n/a and leaves the
- * denominator, and the whole verdict on the markdown layer is carried by B1, the heaviest check in
- * the table. Those two sites now score 80: the fundamentals are all there, the markdown layer is
- * not, and the gap between them is one line in the report instead of twelve.
+ * So when the twin URL does not answer, everything downstream of it leaves the denominator and the
+ * whole verdict on the markdown layer is carried by B1, the heaviest check in the table. Those two
+ * sites now score 80: the fundamentals are all there, the markdown layer is not, and the gap
+ * between them is one line in the report instead of twelve.
+ *
+ * They leave as `locked`, not as `na`. That distinction is the entire difference between a report
+ * that says "thirteen things do not apply to you" and one that says "thirteen things worth 46
+ * points are waiting behind a single missing file". The arithmetic is identical; only one of them
+ * tells the reader what to do next.
  *
  * A twin that exists but is wrong is a different situation and is still scored in full detail.
  */
 function collapseTwinCascade(results: CheckResult[], e: Evidence): CheckResult[] {
   if (e.twin.ok) return results;
 
-  // Read off the twin response itself. With no twin there is nothing to read, pass or fail: B5
-  // "passing" because a 404 page happened to carry nosniff is noise, not a point earned.
-  const fromTwin: Record<string, string> = {
-    B2: 'there is no twin response whose Content-Type could be checked',
-    B3: 'there is no twin body to measure',
-    B4: 'there is no twin response to carry a token count',
-    B5: 'there is no twin response to carry the header',
-    B6: 'there is no twin response to keep out of the search index',
-    B12: 'there is no markdown response to advertise a spec version on',
-    B14: 'there is no twin that could have drifted',
-  };
-  // Probed against the live URL. These can genuinely succeed without a `.md` twin - a site can wire
-  // Accept negotiation at the same URL - so a pass is kept and only the failure is dropped.
-  const fromLiveUrl: Record<string, string> = {
-    B7: 'there are not two formats for a CDN to cache apart',
-    B8: 'there is no twin for the HTML page to advertise',
-    B9: 'there is no markdown representation to negotiate for',
-    B10: 'there is no markdown to route a crawler to',
-    B11: 'a site serving one format has nothing to refuse',
-  };
-
   return results.map((result) => {
-    const why = fromTwin[result.id] ?? (result.status === 'fail' ? fromLiveUrl[result.id] : undefined);
+    const why = LOCKED_ON_TWIN[result.id] ?? (result.status === 'fail' ? LOCKED_ON_LIVE_URL[result.id] : undefined);
     if (!why) return result;
     return {
       ...result,
-      status: 'na' as const,
+      status: 'locked' as const,
+      earned: 0,
+      lockedBy: 'B1',
       reason: `No markdown twin at ${e.twinUrl}, so ${why}. The missing twin is scored once, on B1.`,
       // What the live site actually said is worth keeping: an AI crawler getting a 403 is a real
       // finding even though it is not this check's to score.
-      detail: result.id in fromLiveUrl ? result.detail ?? result.reason : result.detail,
+      detail: result.id in LOCKED_ON_LIVE_URL ? result.detail ?? result.reason : result.detail,
     };
   });
 }
+
+// Read off the twin response itself. With no twin there is nothing to read, pass or fail: B5
+// "passing" because a 404 page happened to carry nosniff is noise, not a point earned.
+const LOCKED_ON_TWIN: Record<string, string> = {
+  B2: 'there is no twin response whose Content-Type could be checked',
+  B3: 'there is no twin body to measure',
+  B4: 'there is no twin response to carry a token count',
+  B5: 'there is no twin response to carry the header',
+  B6: 'there is no twin response to keep out of the search index',
+  B12: 'there is no markdown response to advertise a spec version on',
+  B14: 'there is no twin that could have drifted',
+};
+
+// Probed against the live URL. These can genuinely succeed without a `.md` twin - a site can wire
+// Accept negotiation at the same URL - so a pass is kept and only the failure is dropped.
+const LOCKED_ON_LIVE_URL: Record<string, string> = {
+  B7: 'there are not two formats for a CDN to cache apart',
+  B8: 'there is no twin for the HTML page to advertise',
+  B9: 'there is no markdown representation to negotiate for',
+  B10: 'there is no markdown to route a crawler to',
+  B11: 'a site serving one format has nothing to refuse',
+};
+
+/**
+ * Every check the cascade can take out of the denominator.
+ *
+ * The report prices this list as one block, and docs.test.ts adds up their weights to check the
+ * number written in docs/checks.md is the number the code would actually produce.
+ */
+export const TWIN_LOCKED_IDS: readonly string[] = [...Object.keys(LOCKED_ON_TWIN), ...Object.keys(LOCKED_ON_LIVE_URL)];
 
 // ---- Category A ------------------------------------------------------------------------------
 
@@ -114,6 +152,8 @@ function checkRobots(e: Evidence): CheckResult {
     return fail(
       'A1',
       `No robots.txt at ${e.robots.url} (HTTP ${e.robots.status || 'unreachable'}). AI crawlers get no explicit signal about what they may read.`,
+      undefined,
+      'Serve a robots.txt that allows the AI agents you want reading the site (+9). `opengeo generate` writes one.',
     );
   }
   const groups = parseRobots(e.robots.body);
@@ -134,12 +174,19 @@ function checkRobots(e: Evidence): CheckResult {
       'A1',
       `robots.txt disallows ${blockedAssistants.join(', ')} at /. These are live assistant and search agents - blocking them removes the site from AI answers entirely.`,
       blockedTraining.length > 0 ? `Also blocking training crawlers: ${blockedTraining.join(', ')}.` : undefined,
+      `Remove the \`Disallow: /\` rule for ${blockedAssistants.join(', ')} (+9). These are the agents that answer questions about the site.`,
     );
   }
   if (blockedTraining.length > 0) {
-    return pass(
+    // Deliberate, and read as deliberate: the assistants that answer questions about this site are
+    // all still allowed, which is the part that decides whether the site appears in AI answers at
+    // all. What it costs is the training corpus, so most of the weight stays and the report says
+    // plainly that the remainder is a policy choice rather than a bug to go and fix.
+    return partial(
       'A1',
+      6,
       `robots.txt allows every assistant and search agent. Bulk training crawlers (${blockedTraining.join(', ')}) are disallowed, which reads as a deliberate opt-out rather than a mistake.`,
+      { fix: `Allow ${blockedTraining.join(', ')} as well if the opt-out was not intended (+3). If it was, this is the right configuration and the 3 points are the price of it.` },
     );
   }
   return pass('A1', 'robots.txt is present and does not disallow any known AI bot.');
@@ -147,40 +194,87 @@ function checkRobots(e: Evidence): CheckResult {
 
 function checkLlmsTxt(e: Evidence): CheckResult {
   if (!e.llms.ok) {
-    return fail('A2', `No llms.txt at ${e.llms.url} (HTTP ${e.llms.status || 'unreachable'}).`);
+    return fail(
+      'A2',
+      `No llms.txt at ${e.llms.url} (HTTP ${e.llms.status || 'unreachable'}).`,
+      undefined,
+      'Serve /llms.txt with a title and your key pages as markdown links (+3). `opengeo generate` writes it.',
+    );
   }
   const body = e.llms.body.trim();
-  if (!body) return fail('A2', 'llms.txt exists but is empty.');
-  if (!/^#\s+\S/m.test(body)) {
-    return fail('A2', 'llms.txt has no `# Title` heading, which the llms.txt convention requires as its first line.');
-  }
   const links = (body.match(/\[[^\]]+\]\([^)]+\)/g) ?? []).length;
+  const hasTitle = /^#\s+\S/m.test(body);
+
+  if (!body) {
+    return partial('A2', 1, 'llms.txt exists but is empty. The file is being served, which is most of the plumbing.', {
+      fix: 'Add a `# Title` line and a list of your key pages as markdown links (+2). `opengeo generate` writes it for you.',
+    });
+  }
   if (links === 0) {
-    return fail('A2', 'llms.txt has a title but lists no links, so an agent reading it learns nothing about the site.');
+    return partial('A2', 1, 'llms.txt lists no links, so an agent reading it learns nothing about the site.', {
+      fix: 'List your key pages as markdown links under a `## Pages` heading (+2).',
+    });
+  }
+  if (!hasTitle) {
+    return partial('A2', 2, `llms.txt lists ${links} link${links === 1 ? '' : 's'} but has no \`# Title\` heading, which the convention requires as its first line.`, {
+      fix: 'Add a `# Site name` first line, and a one-line `> description` under it (+1).',
+    });
   }
   return pass('A2', `llms.txt is present and valid, listing ${links} link${links === 1 ? '' : 's'}.`);
 }
 
 function checkSitemap(e: Evidence): CheckResult {
   if (!e.sitemap.ok) {
-    return fail('A3', `No sitemap.xml at ${e.sitemap.url} (HTTP ${e.sitemap.status || 'unreachable'}).`);
+    return fail(
+      'A3',
+      `No sitemap.xml at ${e.sitemap.url} (HTTP ${e.sitemap.status || 'unreachable'}).`,
+      undefined,
+      'Serve a /sitemap.xml listing every page (+9). `opengeo generate` builds one from a crawl.',
+    );
   }
   const body = e.sitemap.body;
   if (!/<(urlset|sitemapindex)[\s>]/i.test(body)) {
-    return fail('A3', 'sitemap.xml exists but has no <urlset> or <sitemapindex> root element.');
+    return partial('A3', 3, 'Something answers at /sitemap.xml, but it has no <urlset> or <sitemapindex> root element, so no crawler will read it as a sitemap.', {
+      detail: `First 80 characters: ${JSON.stringify(body.slice(0, 80))}`,
+      fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `opengeo generate` writes one from the crawl.',
+    });
   }
   const locs = (body.match(/<loc>/gi) ?? []).length;
-  if (locs === 0) return fail('A3', 'sitemap.xml parses but contains no <loc> entries.');
+  if (locs === 0) {
+    return partial('A3', 3, 'sitemap.xml parses but contains no <loc> entries, so it advertises nothing.', {
+      fix: 'Add one `<url><loc>` per page (+6).',
+    });
+  }
+  // The page being tested is the one URL known for certain to exist, so a sitemap that omits it is
+  // demonstrably incomplete. This is a weaker statement than a full crawl comparison and is the
+  // strongest one the evidence supports, which is why the reason says exactly what was checked.
+  const listsTarget = body.includes(e.target.toString()) || body.includes(e.target.pathname);
+  if (!listsTarget) {
+    return partial('A3', 6, `sitemap.xml is valid and lists ${locs} URL${locs === 1 ? '' : 's'}, but ${e.target.pathname} is not one of them, so at least one real page is missing from it.`, {
+      fix: `Add ${e.target.pathname} and any other pages the sitemap is missing (+3). \`opengeo generate\` rebuilds it from a crawl.`,
+    });
+  }
   return pass('A3', `sitemap.xml is present and valid, listing ${locs} URL${locs === 1 ? '' : 's'}.`);
 }
 
 function checkJsonLd(e: Evidence): CheckResult {
-  if (!e.html.ok || !e.html.body) return fail('A4', 'Could not read the HTML response to look for JSON-LD.');
+  if (!e.html.ok || !e.html.body)
+    return fail(
+      'A4',
+      'Could not read the HTML response to look for JSON-LD.',
+      undefined,
+      'Get the page returning HTML first; this check reads the markup for a JSON-LD block (+2).',
+    );
   const dom = new JSDOM(e.html.body, { url: e.target.toString() });
   const blocks = Array.from(dom.window.document.querySelectorAll('script[type="application/ld+json"]'));
   if (blocks.length === 0) {
     dom.window.close();
-    return fail('A4', 'No Schema.org JSON-LD found. Agents have no structured description of what this page is.');
+    return fail(
+      'A4',
+      'No Schema.org JSON-LD found. Agents have no structured description of what this page is.',
+      undefined,
+      'Add a `<script type="application/ld+json">` block with an `@type` describing the page (+2).',
+    );
   }
   const types: string[] = [];
   const broken: string[] = [];
@@ -195,10 +289,14 @@ function checkJsonLd(e: Evidence): CheckResult {
   dom.window.close();
 
   if (broken.length > 0) {
-    return fail('A4', `A JSON-LD block is present but does not parse: ${broken[0]}`);
+    return partial('A4', 1, `A JSON-LD block is present but does not parse: ${broken[0]}`, {
+      fix: 'Fix the JSON syntax so the block parses, and give it an @type (+1).',
+    });
   }
   if (types.length === 0) {
-    return fail('A4', 'JSON-LD is present and parses, but declares no @type, so it describes nothing.');
+    return partial('A4', 1, 'JSON-LD is present and parses, but declares no @type, so it describes nothing.', {
+      fix: 'Add an `@type` naming what the page is: Person, Article, Product, Organization (+1).',
+    });
   }
   return pass('A4', `JSON-LD present and valid: ${unique(types).join(', ')}.`);
 }
@@ -218,7 +316,12 @@ function collectTypes(value: unknown, out: string[]): void {
 
 function checkSsrExtractable(e: Evidence): CheckResult {
   if (!e.html.ok || !e.html.body) {
-    return fail('A5', `The page did not return usable HTML (HTTP ${e.html.status || 'unreachable'}).`);
+    return fail(
+      'A5',
+      `The page did not return usable HTML (HTTP ${e.html.status || 'unreachable'}).`,
+      undefined,
+      'Get the URL returning a 2xx HTML response (+9). Nothing else on this report can be measured properly until it does.',
+    );
   }
   const extracted = extractPage(e.html.body, { url: e.target.toString(), minWords: SSR_MIN_WORDS });
   if (extracted.wordCount >= SSR_MIN_WORDS) {
@@ -229,23 +332,48 @@ function checkSsrExtractable(e: Evidence): CheckResult {
     );
   }
   const emptyRoot = /<div[^>]+id=["'](root|app|__next)["'][^>]*>\s*<\/div>/i.test(e.html.body);
-  return fail(
+  if (emptyRoot || extracted.wordCount <= SSR_FLOOR_WORDS) {
+    return fail(
+      'A5',
+      emptyRoot
+        ? 'The raw HTML contains an empty mount element and almost no text: this page is client-rendered, so agents that do not execute JavaScript see nothing.'
+        : `Only ${extracted.wordCount} words of extractable content in the raw HTML (need ${SSR_MIN_WORDS}). Agents that do not run JavaScript will see close to nothing.`,
+      undefined,
+      'Server-render the page content, or pre-render it at build time (+9). There is no header that fixes this one.',
+    );
+  }
+  // Partly server-rendered: a heading and a paragraph in the HTML, the substance behind hydration.
+  // Real, and worth something, and not the same as an empty shell.
+  const earned = ramp(extracted.wordCount, SSR_FLOOR_WORDS, SSR_MIN_WORDS, checkDefinition('A5').weight);
+  return partial(
     'A5',
-    emptyRoot
-      ? 'The raw HTML contains an empty mount element and almost no text: this page is client-rendered, so agents that do not execute JavaScript see nothing.'
-      : `Only ${extracted.wordCount} words of extractable content in the raw HTML (need ${SSR_MIN_WORDS}). Agents that do not run JavaScript will see close to nothing.`,
+    earned,
+    `Only ${extracted.wordCount} words of extractable content in the raw HTML, against the ${SSR_MIN_WORDS} a page needs to read as substantive. Agents that do not run JavaScript see a fragment of the page.`,
+    {
+      detail: `Extracted from <${extracted.contentRoot}>.`,
+      fix: `Server-render the rest of the body, not just the shell (+${checkDefinition('A5').weight - Math.round(earned)}).`,
+    },
   );
 }
 
 function checkTtfb(e: Evidence): CheckResult {
   if (!e.html.ok) return na('A6', 'The page did not respond, so there is no time-to-first-byte to measure.');
-  if (e.html.ttfbMs <= TTFB_BUDGET_MS) {
-    return pass('A6', `Time to first byte was ${e.html.ttfbMs}ms, within the ${TTFB_BUDGET_MS}ms budget.`);
+  const weight = checkDefinition('A6').weight;
+  if (e.html.ttfbMs <= TTFB_FAST_MS) {
+    return pass('A6', `Time to first byte was ${e.html.ttfbMs}ms, comfortably inside the ${TTFB_FAST_MS}ms an agent fetch wants.`);
   }
-  return fail(
-    'A6',
-    `Time to first byte was ${e.html.ttfbMs}ms, over the ${TTFB_BUDGET_MS}ms budget. Agents fetching several pages will feel this.`,
-  );
+  if (e.html.ttfbMs >= TTFB_SLOW_MS) {
+    return fail(
+      'A6',
+      `Time to first byte was ${e.html.ttfbMs}ms, past the ${TTFB_SLOW_MS}ms ceiling. Agents fetching several pages under a short timeout will drop this one.`,
+      undefined,
+      `Get first byte under ${TTFB_FAST_MS}ms (+${weight}). Cache the HTML at the edge if the work behind it is slow.`,
+    );
+  }
+  const earned = ramp(TTFB_SLOW_MS - e.html.ttfbMs, 0, TTFB_SLOW_MS - TTFB_FAST_MS, weight);
+  return partial('A6', earned, `Time to first byte was ${e.html.ttfbMs}ms. Usable, but past the ${TTFB_FAST_MS}ms an agent fetch wants.`, {
+    fix: `Get first byte under ${TTFB_FAST_MS}ms (+${weight - Math.round(earned)}).`,
+  });
 }
 
 function checkNoAi(e: Evidence): CheckResult {
@@ -271,6 +399,8 @@ function checkNoAi(e: Evidence): CheckResult {
     return fail(
       'A7',
       `An AI opt-out tag is set on this page: ${unique(found)[0]}. This tells AI tools to skip the page entirely - remove it unless the opt-out is intentional.`,
+      undefined,
+      `Remove \`${unique(found)[0]}\` unless the opt-out is deliberate (+8).`,
     );
   }
   return pass('A7', 'No noai or noimageai opt-out tag is set.');
@@ -282,10 +412,21 @@ function checkHttps(e: Evidence): CheckResult {
     return na('A8', 'Local development target - HTTPS and HSTS are not meaningful here.');
   }
   if (e.target.protocol !== 'https:') {
-    return fail('A8', 'The site is served over plain HTTP. Some agents refuse insecure origins outright.');
+    return fail(
+      'A8',
+      'The site is served over plain HTTP. Some agents refuse insecure origins outright.',
+      undefined,
+      'Serve the site over HTTPS, then add `Strict-Transport-Security` (+9).',
+    );
   }
   const hsts = e.html.headers.get('strict-transport-security');
-  if (!hsts) return fail('A8', 'Served over HTTPS, but no Strict-Transport-Security header is set.');
+  if (!hsts) {
+    // The part that matters is done. HTTPS is what decides whether an agent will talk to the origin
+    // at all; HSTS closes the first-visit downgrade window, which is a real gap and a smaller one.
+    return partial('A8', 6, 'Served over HTTPS, but no Strict-Transport-Security header is set, so a first visit can still be downgraded.', {
+      fix: 'Add `Strict-Transport-Security: max-age=63072000; includeSubDomains` to the HTML response (+3).',
+    });
+  }
   return pass('A8', `Served over HTTPS with HSTS (${hsts}).`);
 }
 
@@ -297,11 +438,19 @@ function isMarkdownResponse(response: ProbeResult): boolean {
 }
 
 function checkTwinReachable(e: Evidence): CheckResult {
-  if (e.twin.error) return fail('B1', `Could not reach the markdown twin at ${e.twinUrl}: ${e.twin.error}`);
+  if (e.twin.error)
+    return fail(
+      'B1',
+      `Could not reach the markdown twin at ${e.twinUrl}: ${e.twin.error}`,
+      undefined,
+      `Serve a markdown twin at ${e.twinUrl} (+10). \`opengeo generate\` writes it and the prod middleware serves it.`,
+    );
   if (!e.twin.ok) {
     return fail(
       'B1',
       `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}. Agents that follow the .md convention get nothing.`,
+      undefined,
+      `Serve a markdown twin at ${e.twinUrl} (+10). \`opengeo generate\` writes it and the prod middleware serves it.`,
     );
   }
   return pass('B1', `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}.`);
@@ -309,34 +458,110 @@ function checkTwinReachable(e: Evidence): CheckResult {
 
 function checkTwinContentType(e: Evidence): CheckResult {
   const actual = e.twin.headers.get(HEADERS.contentType);
-  if (!e.twin.ok) return fail('B2', `No markdown twin response to inspect (HTTP ${e.twin.status || 'unreachable'}).`);
-  if (!actual) return fail('B2', 'The markdown twin response has no Content-Type header at all.');
+  if (!e.twin.ok)
+    return fail(
+      'B2',
+      `No markdown twin response to inspect (HTTP ${e.twin.status || 'unreachable'}).`,
+      undefined,
+      'Fix B1 first: there is no twin response to read a Content-Type from (+5).',
+    );
+  if (!actual)
+    return fail(
+      'B2',
+      'The markdown twin response has no Content-Type header at all.',
+      undefined,
+      `Send \`${MARKDOWN_CONTENT_TYPE}\` on the twin response (+5).`,
+    );
   const normalized = actual.toLowerCase().replace(/\s*;\s*/g, '; ').trim();
   if (normalized === MARKDOWN_CONTENT_TYPE) return pass('B2', `Content-Type is exactly ${MARKDOWN_CONTENT_TYPE}.`);
+  // The type is right and only the charset is missing. Every agent that matches on the media type
+  // is already satisfied; what is left is the one that has to guess the encoding.
+  if (normalized.startsWith('text/markdown')) {
+    return partial('B2', 3, `Content-Type is "${actual}": the media type is right, but it does not declare "charset=utf-8", so the encoding is left to be guessed.`, {
+      fix: `Send exactly \`${MARKDOWN_CONTENT_TYPE}\` (+2).`,
+    });
+  }
+  // text/plain at least stops a browser rendering the markdown as HTML, so it is a smaller error
+  // than text/html, but no agent selects on it and none will treat the body as markdown.
+  if (normalized.startsWith('text/plain')) {
+    return partial('B2', 2, `Content-Type is "${actual}", not "${MARKDOWN_CONTENT_TYPE}". The body will be read as plain text, so nothing selecting on the markdown type will find it.`, {
+      fix: `Send \`${MARKDOWN_CONTENT_TYPE}\` (+3).`,
+    });
+  }
   return fail(
     'B2',
     `Content-Type is "${actual}", not "${MARKDOWN_CONTENT_TYPE}". Agents sniffing the type may treat the body as HTML or plain text.`,
+    undefined,
+    `Send \`${MARKDOWN_CONTENT_TYPE}\` on the twin response (+5).`,
   );
 }
 
 function checkTwinNonEmpty(e: Evidence): CheckResult {
-  if (!e.twin.ok) return fail('B3', `No markdown twin response to inspect (HTTP ${e.twin.status || 'unreachable'}).`);
+  if (!e.twin.ok)
+    return fail(
+      'B3',
+      `No markdown twin response to inspect (HTTP ${e.twin.status || 'unreachable'}).`,
+      undefined,
+      'Fix B1 first: there is no twin response to read a body from (+5).',
+    );
   const body = e.twin.body.trim();
-  if (!body) return fail('B3', 'The markdown twin responded 2xx with an empty body.');
+  if (!body)
+    return fail(
+      'B3',
+      'The markdown twin responded 2xx with an empty body.',
+      undefined,
+      'Regenerate the twin: the route answers, but with nothing in it (+5).',
+    );
   if (looksLikeHtml(body)) {
-    return fail('B3', 'The markdown twin URL returned an HTML document, not markdown. The route is being handled by the normal page renderer.');
+    return fail(
+      'B3',
+      'The markdown twin URL returned an HTML document, not markdown. The route is being handled by the normal page renderer.',
+      undefined,
+      'Route the .md URL to the markdown, ahead of the page renderer (+5).',
+    );
   }
-  return pass('B3', `The markdown twin returned ${body.length} characters of markdown.`);
+
+  // Non-empty is the letter of the check; complete is the point of it. A twin holding a title and
+  // nothing else is technically a body and is useless to the agent that fetched it, so the credit
+  // slides with how much of the page actually made it across.
+  const twinWords = countWords(body);
+  const live = e.html.ok && e.html.body ? extractPage(e.html.body, { url: e.target.toString(), minWords: SSR_MIN_WORDS }) : undefined;
+  const liveWords = live?.wordCount ?? 0;
+  const complete = liveWords === 0 || twinWords >= liveWords * TWIN_FULL_RATIO;
+  if (complete) return pass('B3', `The markdown twin returned ${body.length} characters of markdown.`);
+
+  const weight = checkDefinition('B3').weight;
+  const ratio = twinWords / liveWords;
+  const earned = ramp(ratio, TWIN_FLOOR_RATIO, TWIN_FULL_RATIO, weight);
+  return partial(
+    'B3',
+    earned,
+    `The twin is ${twinWords} words against the live page's ${liveWords}, so most of the page did not make it into the markdown.`,
+    {
+      detail: `${Math.round(ratio * 100)}% of the extractable text.`,
+      fix: `Regenerate the twin from the live page so it carries the whole body (+${weight - Math.round(earned)}).`,
+    },
+  );
 }
 
 function checkTokensHeader(e: Evidence): CheckResult {
   const raw = e.twin.headers.get(HEADERS.markdownTokens);
   if (!raw) {
-    return fail('B4', `No ${HEADERS.markdownTokens} header, so an agent cannot gauge the response size before fetching it.`);
+    return fail(
+      'B4',
+      `No ${HEADERS.markdownTokens} header, so an agent cannot gauge the response size before fetching it.`,
+      undefined,
+      `Send \`${HEADERS.markdownTokens}\` with the token count of the body (+3). The prod middleware sets it from the manifest.`,
+    );
   }
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
-    return fail('B4', `${HEADERS.markdownTokens} is "${raw}", which is not a positive integer.`);
+    return fail(
+      'B4',
+      `${HEADERS.markdownTokens} is "${raw}", which is not a positive integer.`,
+      undefined,
+      `Send \`${HEADERS.markdownTokens}\` as a plain positive integer (+3).`,
+    );
   }
   return pass('B4', `${HEADERS.markdownTokens}: ${value}.`);
 }
@@ -344,15 +569,29 @@ function checkTokensHeader(e: Evidence): CheckResult {
 function checkNosniff(e: Evidence): CheckResult {
   const value = e.twin.headers.get(HEADERS.contentTypeOptions);
   if (value?.toLowerCase().trim() === 'nosniff') return pass('B5', 'X-Content-Type-Options: nosniff is set on the markdown response.');
-  return fail('B5', value ? `X-Content-Type-Options is "${value}", not "nosniff".` : 'No X-Content-Type-Options header on the markdown response.');
+  return fail(
+    'B5',
+    value ? `X-Content-Type-Options is "${value}", not "nosniff".` : 'No X-Content-Type-Options header on the markdown response.',
+    undefined,
+    'Add `X-Content-Type-Options: nosniff` to the twin response (+3).',
+  );
 }
 
 function checkTwinNoindex(e: Evidence): CheckResult {
   const value = e.twin.headers.get(HEADERS.robotsTag);
   if (!value) {
-    return fail('B6', 'No X-Robots-Tag on the markdown twin, so search engines may index it as duplicate content alongside the HTML page.');
+    return fail(
+      'B6',
+      'No X-Robots-Tag on the markdown twin, so search engines may index it as duplicate content alongside the HTML page.',
+      undefined,
+      'Add `X-Robots-Tag: noindex` to the twin response (+3).',
+    );
   }
-  if (!/\bnoindex\b/i.test(value)) return fail('B6', `X-Robots-Tag is "${value}" and does not include noindex.`);
+  if (!/\bnoindex\b/i.test(value)) {
+    return partial('B6', 1, `X-Robots-Tag is "${value}" and does not include noindex, so the twin can still be indexed alongside the HTML page as duplicate content.`, {
+      fix: 'Add `noindex` to the twin\'s X-Robots-Tag (+2).',
+    });
+  }
   return pass('B6', `X-Robots-Tag includes noindex ("${value}").`);
 }
 
@@ -364,10 +603,24 @@ function checkVaryAccept(e: Evidence): CheckResult {
 
   if (htmlOk && twinOk) return pass('B7', 'Vary: Accept is set on both the HTML and the markdown response.');
   const missing = [!htmlOk ? 'the HTML response' : null, !twinOk ? 'the markdown response' : null].filter(Boolean);
+  const detail = `HTML Vary: "${htmlVary || 'absent'}"; markdown Vary: "${twinVary || 'absent'}".`;
+
+  // One side set is a materially better position than neither: the format that carries the header
+  // is cached correctly, and the poisoning risk is one-directional rather than both. It is also the
+  // permanent state of a Next.js App Router deployment, where middleware cannot add a header to a
+  // response it did not create, so calling it a total failure would be calling a framework limit a
+  // defect on every single run.
+  if (htmlOk || twinOk) {
+    return partial('B7', 2, `Vary does not include Accept on ${missing.join(' or ')}. A CDN can cache that side's response and serve it to a visitor asking for the other format.`, {
+      detail,
+      fix: `Add \`Vary: Accept\` to ${missing.join(' and ')} (+2). Some frameworks will not let middleware set it on a response they created; a CDN or proxy rule is the way through.`,
+    });
+  }
   return fail(
     'B7',
     `Vary does not include Accept on ${missing.join(' or ')}. A CDN will cache one format and serve it to visitors asking for the other.`,
-    `HTML Vary: "${htmlVary || 'absent'}"; markdown Vary: "${twinVary || 'absent'}".`,
+    detail,
+    'Add `Vary: Accept` to both responses (+4).',
   );
 }
 
@@ -376,17 +629,27 @@ function checkLinkAlternate(e: Evidence): CheckResult {
     return pass('B8', `The HTML response advertises its markdown twin: Link rel="alternate" -> ${e.advertisedTwinUrl}`);
   }
   const link = e.html.headers.get(HEADERS.link);
+  if (link) {
+    return partial('B8', 1, `The HTML response has a Link header ("${link}") but no rel="alternate" entry of type text/markdown, so an agent still has to guess the twin URL.`, {
+      fix: `Add \`<${e.twinUrl}>; rel="alternate"; type="text/markdown"\` to the existing Link header (+2).`,
+    });
+  }
   return fail(
     'B8',
-    link
-      ? `The HTML response has a Link header ("${link}") but no rel="alternate" entry of type text/markdown.`
-      : 'The HTML response has no Link rel="alternate" header, so an agent has to guess the markdown twin URL.',
+    'The HTML response has no Link rel="alternate" header, so an agent has to guess the markdown twin URL.',
+    undefined,
+    `Add \`Link: <${e.twinUrl}>; rel="alternate"; type="text/markdown"\` to the HTML response (+3).`,
   );
 }
 
 function checkAcceptNegotiation(e: Evidence): CheckResult {
   if (!e.acceptMarkdown.ok) {
-    return fail('B9', `A request with Accept: text/markdown returned HTTP ${e.acceptMarkdown.status || 'nothing'}.`);
+    return fail(
+      'B9',
+      `A request with Accept: text/markdown returned HTTP ${e.acceptMarkdown.status || 'nothing'}.`,
+      undefined,
+      'Answer 2xx to a request carrying `Accept: text/markdown` (+6).',
+    );
   }
   if (isMarkdownResponse(e.acceptMarkdown)) {
     return pass('B9', 'A request with Accept: text/markdown received markdown at the same URL.');
@@ -394,17 +657,27 @@ function checkAcceptNegotiation(e: Evidence): CheckResult {
   return fail(
     'B9',
     `A request with Accept: text/markdown received "${e.acceptMarkdown.headers.get(HEADERS.contentType) ?? 'no Content-Type'}" instead of markdown. Content negotiation is not wired up.`,
+    undefined,
+    'Rewrite requests that prefer text/markdown to the twin, at the same URL (+6). This is what the prod middleware does.',
   );
 }
 
 function checkBotUaNegotiation(e: Evidence): CheckResult {
-  if (!e.botUa.ok) return fail('B10', `A GPTBot-identified request returned HTTP ${e.botUa.status || 'nothing'}.`);
+  if (!e.botUa.ok)
+    return fail(
+      'B10',
+      `A GPTBot-identified request returned HTTP ${e.botUa.status || 'nothing'}.`,
+      undefined,
+      'Answer 2xx to a known AI bot User-Agent (+6). Check nothing upstream is rate limiting or blocking it.',
+    );
   if (isMarkdownResponse(e.botUa)) {
     return pass('B10', 'A known AI bot User-Agent received markdown without needing to send an Accept header.');
   }
   return fail(
     'B10',
     `A GPTBot User-Agent received "${e.botUa.headers.get(HEADERS.contentType) ?? 'no Content-Type'}". Most AI crawlers never send Accept: text/markdown, so User-Agent routing is what actually reaches them.`,
+    undefined,
+    'Route known AI bot User-Agents to the twin as well, not only Accept headers (+6). Set `bots.markdownRouting` and let the middleware do it.',
   );
 }
 
@@ -415,22 +688,46 @@ function checkNotAcceptable(e: Evidence): CheckResult {
   return fail(
     'B11',
     `An Accept: application/json request returned HTTP ${e.notAcceptable.status || 'nothing'} instead of 406 Not Acceptable.`,
+    undefined,
+    'Return 406 when the Accept header asks for a format the page cannot produce (+2).',
   );
 }
 
 function checkAeoVersion(e: Evidence): CheckResult {
   const value = e.twin.headers.get(HEADERS.aeoVersion) ?? e.acceptMarkdown.headers.get(HEADERS.aeoVersion);
   if (value) return pass('B12', `X-AEO-Version advertises "${value}".`);
-  return fail('B12', 'No X-AEO-Version header, so an agent cannot tell which serving spec this site implements.');
+  return fail(
+    'B12',
+    'No X-AEO-Version header, so an agent cannot tell which serving spec this site implements.',
+    undefined,
+    'Add `X-AEO-Version` to the twin response (+2). The prod middleware sets it for you.',
+  );
 }
 
 function checkHtmlUnaffected(e: Evidence): CheckResult {
-  if (!e.html.ok) return fail('B13', `The original HTML URL returned HTTP ${e.html.status || 'nothing'}.`);
+  if (!e.html.ok)
+    return fail(
+      'B13',
+      `The original HTML URL returned HTTP ${e.html.status || 'nothing'}.`,
+      undefined,
+      'Get the HTML URL answering 2xx to a normal browser again (+9). Serving agents must never cost human visitors the page.',
+    );
   const contentType = e.html.headers.get(HEADERS.contentType) ?? '';
   if (!contentType.toLowerCase().includes('text/html')) {
-    return fail('B13', `A normal browser request received "${contentType}" instead of HTML. Human visitors are being served the wrong format.`);
+    return fail(
+      'B13',
+      `A normal browser request received "${contentType}" instead of HTML. Human visitors are being served the wrong format.`,
+      undefined,
+      'Serve markdown only to requests that asked for it (+9). A browser Accept header must still get HTML.',
+    );
   }
-  if (!e.html.body.trim()) return fail('B13', 'The original HTML URL returned an empty body to a normal browser request.');
+  if (!e.html.body.trim())
+    return fail(
+      'B13',
+      'The original HTML URL returned an empty body to a normal browser request.',
+      undefined,
+      'Return the real HTML page to a normal browser request (+9).',
+    );
   return pass('B13', 'A normal browser request still receives the real HTML page, unchanged.');
 }
 
@@ -447,7 +744,12 @@ function checkHtmlUnaffected(e: Evidence): CheckResult {
  */
 function checkDrift(e: Evidence): CheckResult {
   if (!e.twin.ok || !e.twin.body.trim()) {
-    return fail('B14', `There is no markdown twin to compare against the live page (HTTP ${e.twin.status || 'unreachable'}).`);
+    return fail(
+      'B14',
+      `There is no markdown twin to compare against the live page (HTTP ${e.twin.status || 'unreachable'}).`,
+      undefined,
+      'Fix B1 first: there is no twin to compare against the live page (+4).',
+    );
   }
   if (!e.html.ok || !e.html.body.trim()) {
     return na('B14', 'The live HTML page did not respond, so there is nothing to compare the twin against.');
@@ -479,10 +781,26 @@ function checkDrift(e: Evidence): CheckResult {
         `source_hash ${sourceHash} matches the content of the live page.`,
       );
     }
+    // The hash says something changed. How much is a different question, and it is the one the
+    // reader actually has: a typo fix and a rewritten page both break the hash, and only one of them
+    // is serving agents wrong information. Fidelity compares the facts, so it can tell them apart.
+    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4 });
+    if (drift.ok) {
+      return partial(
+        'B14',
+        2,
+        `The live page has changed since the twin was generated${age ? ` ${age}` : ''}, but every number, date and price on it still appears in the twin, so the drift is cosmetic so far.`,
+        {
+          detail: `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}.`,
+          fix: 'Re-run `opengeo generate` to bring the twin back in step before the next edit makes it wrong (+2).',
+        },
+      );
+    }
     return fail(
       'B14',
       `The live page has changed since the twin was generated${age ? ` ${age}` : ''}. AI agents are being served stale content. Re-run \`opengeo generate\`.`,
-      `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}.`,
+      `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}. ${drift.errors[0]}`,
+      'Re-run `opengeo generate` (+4).',
     );
   }
 
@@ -496,10 +814,17 @@ function checkDrift(e: Evidence): CheckResult {
       `The twin reports no source hash, but every number, date and price on the live page still appears in it${age ? ` (twin last updated ${age})` : ''}.`,
     );
   }
+  if (report.errors.length === 1) {
+    return partial('B14', 2, `The twin has drifted from the live page in one place${age ? `, and was last updated ${age}` : ''}. ${report.errors[0]}`, {
+      detail: 'The twin reports no source hash, so this was compared fact by fact rather than by hash.',
+      fix: 'Re-run `opengeo generate` (+2).',
+    });
+  }
   return fail(
     'B14',
     `The twin no longer matches the live page${age ? `, and was last updated ${age}` : ''}. ${report.errors[0]}`,
-    'The twin reports no source hash, so this was compared fact by fact rather than by hash.',
+    `The twin reports no source hash, so this was compared fact by fact rather than by hash. ${report.errors.length} facts differ.`,
+    'Re-run `opengeo generate` (+4).',
   );
 }
 
@@ -517,4 +842,9 @@ function describeAge(lastUpdated: string | undefined): string | undefined {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+/** Same notion of a word the extractor uses, so the two counts B3 compares are comparable. */
+function countWords(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
 }

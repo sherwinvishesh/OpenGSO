@@ -144,25 +144,50 @@ describe('category A', () => {
     expect(check?.reason).toContain('removes the site from AI answers');
   });
 
-  it('A1 reads a training-crawler-only block as deliberate, not a mistake', () => {
+  it('A1 reads a training-crawler-only block as deliberate, and prices it rather than failing it', () => {
     const evidence = goodEvidence();
     evidence.robots = probe({ body: 'User-agent: CCBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n' });
     const check = byId(evidence).get('A1');
-    expect(check?.status).toBe('pass');
+    // Partial, not fail: every agent that answers questions about the site is still allowed, which
+    // is what decides whether the site shows up in AI answers at all.
+    expect(check?.status).toBe('partial');
+    expect(check?.earned).toBe(6);
     expect(check?.reason).toContain('CCBot');
+    expect(check?.reason).toContain('deliberate opt-out');
+    expect(check?.fix).toContain('the price of it');
   });
 
-  it('A2 rejects an llms.txt with no title or no links', () => {
+  it('A2 gives a served-but-thin llms.txt part of the weight, and a missing one none', () => {
     const evidence = goodEvidence();
     evidence.llms = probe({ body: 'Just some text.' });
-    expect(byId(evidence).get('A2')?.status).toBe('fail');
+    expect(byId(evidence).get('A2')?.status).toBe('partial');
     evidence.llms = probe({ body: '# Title only' });
     expect(byId(evidence).get('A2')?.reason).toContain('no links');
+    // Links but no title is the closest miss of the three, so it is the one worth the most.
+    evidence.llms = probe({ body: '- [Resume](https://example.com/resume.md)\n' });
+    const untitled = byId(evidence).get('A2');
+    expect(untitled?.status).toBe('partial');
+    expect(untitled?.earned).toBe(2);
+
+    evidence.llms = probe({ url: 'https://example.com/llms.txt', ok: false, status: 404, body: '' });
+    expect(byId(evidence).get('A2')?.status).toBe('fail');
   });
 
-  it('A3 rejects a sitemap with no urlset', () => {
+  it('A3 separates "no sitemap", "not a sitemap" and "an incomplete sitemap"', () => {
     const evidence = goodEvidence();
     evidence.sitemap = probe({ body: '<html>not a sitemap</html>' });
+    const notASitemap = byId(evidence).get('A3');
+    expect(notASitemap?.status).toBe('partial');
+    expect(notASitemap?.earned).toBe(3);
+
+    // Valid, but it does not list the page being tested, which is the one page known to exist.
+    evidence.sitemap = probe({ body: '<urlset><url><loc>https://example.com/other</loc></url></urlset>' });
+    const incomplete = byId(evidence).get('A3');
+    expect(incomplete?.status).toBe('partial');
+    expect(incomplete?.earned).toBe(6);
+    expect(incomplete?.reason).toContain('/resume');
+
+    evidence.sitemap = probe({ ok: false, status: 404, body: '' });
     expect(byId(evidence).get('A3')?.status).toBe('fail');
   });
 
@@ -170,7 +195,9 @@ describe('category A', () => {
     const evidence = goodEvidence();
     evidence.html = probe({ body: GOOD_HTML.replace('{"@context":"https://schema.org","@type":"Person","name":"A"}', '{oops'), headers: evidence.html.headers });
     const check = byId(evidence).get('A4');
-    expect(check?.status).toBe('fail');
+    // A block that is there and broken is closer than no structured data at all, and the fix is
+    // a different one, so the two are not the same result.
+    expect(check?.status).toBe('partial');
     expect(check?.reason).toContain('does not parse');
   });
 
@@ -207,16 +234,28 @@ describe('category A', () => {
 });
 
 describe('category B', () => {
-  it('charges a site with no markdown layer once, on B1, and marks the rest n/a', () => {
+  it('charges a site with no markdown layer once, on B1, and locks the rest behind it', () => {
     const results = byId(noTwinEvidence());
 
     expect(results.get('B1')?.status).toBe('fail');
     for (const id of ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'B14']) {
-      expect(results.get(id)?.status, `${id} should be n/a, not a second charge for one missing twin`).toBe('na');
+      expect(results.get(id)?.status, `${id} should be locked, not a second charge for one missing twin`).toBe('locked');
+      expect(results.get(id)?.lockedBy).toBe('B1');
       expect(results.get(id)?.reason).toContain('scored once, on B1');
     }
     // The human-facing site is untouched, which is exactly what "broken state" should still show.
     expect(results.get('B13')?.status).toBe('pass');
+  });
+
+  it('prices the locked block, so the report can say what one fix is worth', () => {
+    const score = scoreChecks(runChecks(noTwinEvidence()));
+    expect(score.counts.locked).toBe(12);
+    // The sum of B2-B14 minus B13, which is not locked because the HTML page still works.
+    expect(score.locked.points).toBe(46);
+    expect(score.locked.unlockedBy).toEqual(['B1']);
+    // Locked points are outside the denominator, exactly as n/a used to be. This is the property
+    // that keeps a well-built site without a twin at 80 rather than 38.
+    expect(score.possible).toBe(76);
   });
 
   it('keeps what the live site actually said, even on a check it no longer scores', () => {
@@ -225,7 +264,7 @@ describe('category B', () => {
     // be scored, but a 403 to GPTBot is the most interesting thing on the page.
     evidence.botUa = probe({ ok: false, status: 403, body: '' });
     const check = byId(evidence).get('B10');
-    expect(check?.status).toBe('na');
+    expect(check?.status).toBe('locked');
     expect(check?.detail).toContain('403');
   });
 
@@ -234,7 +273,9 @@ describe('category B', () => {
     evidence.twin = probe({ body: '# Resume', headers: new Headers({ 'content-type': 'text/plain' }) });
     const results = byId(evidence);
     expect(results.get('B1')?.status).toBe('pass');
-    expect(results.get('B2')?.status).toBe('fail');
+    // Scored, not locked: there is a real response here to have an opinion about.
+    expect(results.get('B2')?.status).toBe('partial');
+    expect(results.get('B2')?.earned).toBe(2);
   });
 
   it('B2 rejects text/plain even when the body is real markdown', () => {
@@ -345,15 +386,18 @@ describe('testEvidence', () => {
 });
 
 describe('B7 parses Vary as a token list', () => {
-  const cases: Array<[string, 'pass' | 'fail']> = [
+  // The twin keeps its own `Vary: Accept` in this fixture, so a header that does not parse as
+  // Accept on the HTML side leaves exactly one of the two responses correct: a partial, which is
+  // also the permanent state of a Next.js App Router deployment.
+  const cases: Array<[string, 'pass' | 'partial']> = [
     ['Accept', 'pass'],
     ['accept', 'pass'],
     ['Accept, Accept-Encoding', 'pass'],
     ['*', 'pass'],
     // The trap: nearly every compressed response carries this, and a substring match passes it.
-    ['Accept-Encoding', 'fail'],
-    ['rsc, next-router-state-tree, next-router-prefetch, Accept-Encoding', 'fail'],
-    ['', 'fail'],
+    ['Accept-Encoding', 'partial'],
+    ['rsc, next-router-state-tree, next-router-prefetch, Accept-Encoding', 'partial'],
+    ['', 'partial'],
   ];
 
   for (const [header, expected] of cases) {
@@ -363,6 +407,13 @@ describe('B7 parses Vary as a token list', () => {
       expect(byId(evidence).get('B7')?.status).toBe(expected);
     });
   }
+
+  it('is a full failure only when neither response carries it', () => {
+    const evidence = goodEvidence();
+    evidence.html.headers.delete('vary');
+    evidence.twin.headers.delete('vary');
+    expect(byId(evidence).get('B7')?.status).toBe('fail');
+  });
 });
 
 describe('B14 staleness and drift', () => {
@@ -372,14 +423,26 @@ describe('B14 staleness and drift', () => {
     expect(check?.reason).toContain('exactly this version');
   });
 
-  it('fails when the live page has moved on since the twin was generated', () => {
+  it('grades a stale hash by how far the content actually drifted', () => {
     const evidence = goodEvidence();
     evidence.twin.headers.set('x-markdown-source-hash', 'deadbeefdeadbeef');
-    const check = byId(evidence).get('B14');
-    expect(check?.status).toBe('fail');
-    expect(check?.reason).toContain('changed since the twin was generated');
-    expect(check?.reason).toContain('opengeo generate');
-    expect(check?.detail).toContain('deadbeefdeadbeef');
+    // The hash is wrong but every fact in the page is still in the twin, which is what a typo fix
+    // or a nav change looks like. Serving it is not ideal; it is not serving wrong information.
+    const cosmetic = byId(evidence).get('B14');
+    expect(cosmetic?.status).toBe('partial');
+    expect(cosmetic?.reason).toContain('cosmetic');
+    expect(cosmetic?.fix).toContain('opengeo generate');
+    expect(cosmetic?.detail).toContain('deadbeefdeadbeef');
+
+    // A real rewrite: a fact on the live page is nowhere in the twin.
+    evidence.html = probe({
+      body: GOOD_HTML.replace('in 2024', 'in 2025'),
+      headers: evidence.html.headers,
+    });
+    const real = byId(evidence).get('B14');
+    expect(real?.status).toBe('fail');
+    expect(real?.reason).toContain('changed since the twin was generated');
+    expect(real?.reason).toContain('opengeo generate');
   });
 
   it('reads the hash out of frontmatter when the twin is served as a plain static file', () => {
@@ -431,6 +494,7 @@ describe('the score stays honest when most of the checklist cannot apply', () =>
       weight,
       title: id,
       status,
+      earned: status === 'pass' ? weight : 0,
       reason: id,
     }));
   }

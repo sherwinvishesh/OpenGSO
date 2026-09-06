@@ -28,7 +28,24 @@
 
 export type CheckCategory = 'A' | 'B';
 export type CheckImportance = 'required' | 'recommended';
-export type CheckStatus = 'pass' | 'fail' | 'na';
+/**
+ * What a check concluded.
+ *
+ * `partial` and `locked` were added because the two-state version was lying by omission. A site
+ * that serves HTTPS without HSTS is not in the same state as one served over plain HTTP, and a
+ * check that cannot run *yet* because a prerequisite failed is not the same as a check that can
+ * never apply to this target. Both used to collapse into `fail` and `na` respectively, and both
+ * collapses cost the reader the only information they wanted: how close am I, and what do I do
+ * first.
+ *
+ * - `pass`   full weight earned.
+ * - `partial` some of the weight earned, with a `fix` naming the rest.
+ * - `fail`   nothing earned. Counted against the score, and the only status that fails a build.
+ * - `locked` not measurable until `lockedBy` passes. Out of the denominator, like `na`, but
+ *            unlike `na` it is worth points the user can go and unlock, and the report prices it.
+ * - `na`     genuinely cannot apply here. HSTS on localhost. Out of the denominator forever.
+ */
+export type CheckStatus = 'pass' | 'partial' | 'fail' | 'locked' | 'na';
 
 export interface CheckDefinition {
   id: string;
@@ -41,10 +58,29 @@ export interface CheckDefinition {
 
 export interface CheckResult extends CheckDefinition {
   status: CheckStatus;
+  /**
+   * Points actually earned, from 0 to `weight`.
+   *
+   * `pass` is the full weight and `fail` is zero, so the binary checks need no thought. It exists
+   * as its own field rather than being derived from the status because a partial has no other
+   * place to put the number, and because the report has to be able to print "2 of 4" without
+   * knowing which band produced it.
+   */
+  earned: number;
   /** The specific reason this check passed, failed, or did not apply. Never a generic string. */
   reason: string;
   /** Optional extra context: an observed header value, a measured number. */
   detail?: string;
+  /**
+   * The next step, for anything short of a pass.
+   *
+   * Written as an instruction and priced, e.g. "Add `Vary: Accept` to the HTML response too (+2)".
+   * The report's ranked footer is built from these, which is why a `fix` that only restates the
+   * problem is worse than none at all.
+   */
+  fix?: string;
+  /** `locked` only: the id of the check that has to pass before this one can be measured. */
+  lockedBy?: string;
 }
 
 export const CHECKS: readonly CheckDefinition[] = [
@@ -90,13 +126,59 @@ export function checkDefinition(id: string): CheckDefinition {
 }
 
 export function pass(id: string, reason: string, detail?: string): CheckResult {
-  return { ...checkDefinition(id), status: 'pass', reason, detail };
+  const definition = checkDefinition(id);
+  return { ...definition, status: 'pass', earned: definition.weight, reason, detail };
 }
 
-export function fail(id: string, reason: string, detail?: string): CheckResult {
-  return { ...checkDefinition(id), status: 'fail', reason, detail };
+export function fail(id: string, reason: string, detail?: string, fix?: string): CheckResult {
+  return { ...checkDefinition(id), status: 'fail', earned: 0, reason, detail, fix };
+}
+
+/**
+ * Some of the way there.
+ *
+ * `earned` is clamped into `1..weight - 1` on purpose: a partial worth zero is a failure wearing a
+ * friendlier word, and a partial worth full marks is a pass. Both would make the report's own
+ * arithmetic ("2 of 4") read as nonsense, and the clamp means a rounding error in a ramp can never
+ * produce either.
+ */
+export function partial(id: string, earned: number, reason: string, options: PartialOptions = {}): CheckResult {
+  const definition = checkDefinition(id);
+  const bounded = Math.min(definition.weight - 1, Math.max(1, Math.round(earned)));
+  return { ...definition, status: 'partial', earned: bounded, reason, detail: options.detail, fix: options.fix };
+}
+
+export interface PartialOptions {
+  detail?: string;
+  fix?: string;
+}
+
+/**
+ * Cannot be measured until something else is fixed.
+ *
+ * The twin cascade is the case this exists for: with no markdown twin at all, thirteen checks about
+ * that twin's headers have nothing to inspect. Reporting them as thirteen separate failures would
+ * charge the user thirteen times for one missing file; reporting them as `na` (what the code did
+ * before) told the reader that a third of the audit simply did not matter. Locked says the true
+ * thing: these are worth 45 points and one fix unlocks all of them.
+ */
+export function locked(id: string, by: string, reason: string, detail?: string): CheckResult {
+  return { ...checkDefinition(id), status: 'locked', earned: 0, reason, detail, lockedBy: by };
 }
 
 export function na(id: string, reason: string, detail?: string): CheckResult {
-  return { ...checkDefinition(id), status: 'na', reason, detail };
+  return { ...checkDefinition(id), status: 'na', earned: 0, reason, detail };
+}
+
+/**
+ * A linear ramp between a floor and a target, in points.
+ *
+ * Used by the measured checks (word counts, TTFB, drift) where the honest answer is a number on a
+ * continuum rather than a threshold. At or past `target` is the full weight; at or below `floor` is
+ * zero; in between is proportional, and the caller decides whether zero means fail or partial.
+ */
+export function ramp(value: number, floor: number, target: number, weight: number): number {
+  if (target === floor) return value >= target ? weight : 0;
+  const ratio = (value - floor) / (target - floor);
+  return Math.max(0, Math.min(weight, ratio * weight));
 }
