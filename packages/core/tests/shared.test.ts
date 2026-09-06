@@ -1,10 +1,11 @@
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   AI_BOTS,
   COMMAND_PACKAGES,
+  c,
   ROUTABLE_BOTS,
   contentHash,
   commandUnavailable,
@@ -279,5 +280,28 @@ describe('error copy (§13)', () => {
     expect(commandUnavailable('start', 'opengeo-cli')).toContain('the start command');
     expect(commandUnavailable('generate', 'opengeo-testing')).toContain('the generate pillar');
     expect(commandUnavailable('prod test', 'opengeo-testing')).toContain('the prod pillar');
+  });
+});
+
+describe('the colour gate', () => {
+  const saved = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it('stays quiet on a dumb terminal, which reports isTTY and cannot render any of this', () => {
+    process.env.TERM = 'dumb';
+    delete process.env.FORCE_COLOR;
+    delete process.env.NO_COLOR;
+
+    expect(c.bold('hello')).toBe('hello');
+  });
+
+  it('lets an explicit FORCE_COLOR win, because that is what asking for it means', () => {
+    process.env.TERM = 'dumb';
+    process.env.FORCE_COLOR = '3';
+
+    expect(c.bold('hello')).not.toBe('hello');
   });
 });

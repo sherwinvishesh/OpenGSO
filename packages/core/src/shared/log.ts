@@ -6,6 +6,9 @@ const enabled = (): boolean => {
   // FORCE_COLOR=0 is the conventional way to turn colour off, so it cannot be read as merely "set".
   const force = process.env.FORCE_COLOR;
   if (force !== undefined && force !== '') return force !== '0' && force.toLowerCase() !== 'false';
+  // A dumb terminal is a terminal that has told us it cannot do this. It reports isTTY, so the
+  // check below would have said yes and filled the screen with the literal escape sequences.
+  if (process.env.TERM === 'dumb') return false;
   return Boolean(process.stdout && process.stdout.isTTY);
 };
 
@@ -29,6 +32,9 @@ export const SYM = {
   fail: () => c.red('FAIL'),
   warn: () => c.yellow('WARN'),
   na: () => c.gray(' n/a'),
+  // Four characters like the rest, so a column of statuses stays a column.
+  partial: () => c.yellow('PART'),
+  locked: () => c.gray('LOCK'),
 };
 
 export function heading(text: string): string {
