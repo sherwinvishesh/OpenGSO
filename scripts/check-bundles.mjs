@@ -22,11 +22,31 @@ function read(dir, files) {
   return files.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
 }
 
-/** Everything the entry pulls in: the entry file plus the shared chunks it imports. */
+/**
+ * Everything the entry actually pulls in, followed transitively.
+ *
+ * This used to read every `chunk-*.js` in the directory, which was wrong in both directions: it
+ * missed a chunk tsup happened to name differently, and it failed on a chunk that belongs only to
+ * the package's CLI. The CLI is allowed to know about AI providers - `opengeo prod test --help`
+ * lists them - and the promise being checked is about the importable library, so the check has to
+ * walk the import graph rather than the directory listing.
+ */
 function libraryFiles(dir, entries) {
-  const all = readdirSync(dir);
-  const chunks = all.filter((name) => name.startsWith('chunk-') && name.endsWith('.js'));
-  return read(dir, [...entries, ...chunks]);
+  const seen = new Set();
+  const queue = [...entries];
+  const files = [];
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (seen.has(name) || !existsSync(join(dir, name))) continue;
+    seen.add(name);
+    const text = readFileSync(join(dir, name), 'utf8');
+    files.push({ name, text });
+    for (const match of text.matchAll(/(?:^|[\s{}(,;])(?:import|export)[\s\S]{0,400}?from\s*['"]\.\/([^'"]+)['"]/g)) {
+      queue.push(match[1]);
+    }
+    for (const match of text.matchAll(/import\s*\(\s*['"]\.\/([^'"]+)['"]\s*\)/g)) queue.push(match[1]);
+  }
+  return files;
 }
 
 // 1. opengeo-prod's library half.

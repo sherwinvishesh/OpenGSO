@@ -2,6 +2,7 @@ import type { CommandName } from '../shared/errors.js';
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
+import { runHome } from './home.js';
 
 export * from './args.js';
 export * from './project.js';
@@ -50,15 +51,21 @@ export async function runCli(options: CliOptions): Promise<number> {
     process.stdout.write(renderProvidersHelp());
     return 0;
   }
-  // A bare `opengeo` runs `start`, because the first thing a person types after installing is the
-  // name of the thing they installed, and answering that with a wall of flags wastes the one moment
-  // they are most willing to be shown around. `start` explains itself, sets the project up if it is
-  // not set up, and opens the dashboard. Installs that ship no `start` (opengeo-testing and the
-  // other narrow packages) still get the help page, and so does a non-interactive shell, where
-  // opening a browser would be the wrong answer to `opengeo | head`.
-  if (argv.length === 0 && options.commands.start && process.stdout.isTTY) {
-    const handler = options.commands.start;
-    return await handler({ argv: [], packageName: options.packageName, version: options.version });
+  // A bare `opengeo` opens the home screen, because the first thing a person types after installing
+  // is the name of the thing they installed, and answering that with a wall of flags wastes the one
+  // moment they are most willing to be shown around. It reads the project, says where it stands and
+  // offers the things there are to do. `opengeo start` still goes straight to the dashboard, so
+  // nothing written before this exists has changed meaning.
+  //
+  // `runHome` returns -1 when there is nobody to ask - a pipe, a script, `opengeo | head` - and the
+  // help page below is the right answer there, exactly as it was.
+  if (argv.length === 0 && available.length > 0) {
+    const code = await runHome({
+      packageName: options.packageName,
+      version: options.version,
+      commands: options.commands,
+    });
+    if (code >= 0) return code;
   }
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
     process.stdout.write(renderHelp(options.packageName, options.version, available));
