@@ -152,6 +152,22 @@ function renderLocked(blocked: CheckResult[], score: Score, width: number): stri
 }
 
 /**
+ * The two lines of a report that setup can afford to show, and no more.
+ *
+ * Onboarding used to end on three commands to go and try, which is a homework list handed to
+ * somebody who has just answered four questions. This ends it on the number instead: what the site
+ * scores right now, and the ranked fixes that move it. It is deliberately the report's own
+ * `renderScore` and `renderNextSteps` rather than a smaller copy of them, because a second
+ * implementation of "how many points is this worth" is exactly how the two start disagreeing.
+ */
+export function renderSetupScore(result: TestResult, options: ReportOptions = {}): string {
+  const width = options.width ?? terminalWidth();
+  const lines = [renderScore(result.url, result.score, options)];
+  lines.push(...renderNextSteps(result.checks, result.score, width));
+  return `${lines.join('\n')}\n`;
+}
+
+/**
  * What to do next, ranked by points recovered.
  *
  * Replaces a single line suggesting `--prompt`. The ranking is the useful part: `lost` carries a

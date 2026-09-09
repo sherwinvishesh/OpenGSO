@@ -21,6 +21,8 @@ import { parseUrl } from '../shared/http.js';
 import { c, heading } from '../shared/log.js';
 import { pickBots } from './bot-picker.js';
 import type { Prompter } from './prompt.js';
+import type { SitePreview, WebRootGuess } from './setup-probe.js';
+import { detectWebRoot, previewLines } from './setup-probe.js';
 
 /**
  * The interactive configuration flow, behind both `opengeo start` and `opengeo settings` (§11, §12).
@@ -69,6 +71,19 @@ export interface SetupOptions {
   mode?: SetupMode;
   /** Where the flow narrates itself. Injected so the whole thing is testable without a terminal. */
   out?: (text: string) => void;
+  /**
+   * Fetches the site URL as it is entered, so the answer can be checked while it is still cheap to
+   * change. Injected rather than imported, because configure.ts should not decide on every caller's
+   * behalf that setup makes a network request: the CLI passes `previewSite`, tests pass a stub, and
+   * a caller that wants four silent questions passes nothing and gets exactly what it always got.
+   */
+  preview?: (url: string) => Promise<SitePreview | undefined>;
+  /**
+   * Runs after the config is saved, to end setup on a real number instead of three commands to go
+   * and try. Injected for the same reason and one more: `test` pulls in jsdom and the AI providers,
+   * and configure.ts is imported by packages that ship neither.
+   */
+  finish?: (result: SetupResult, write: (text: string) => void) => Promise<void>;
 }
 
 export interface SetupResult {
@@ -111,6 +126,7 @@ interface StepContext {
   /** Framing only. In settings mode every default is the current value, never a recommendation. */
   settings: boolean;
   hasConfig: boolean;
+  preview?: SetupOptions['preview'];
 }
 
 async function askSiteUrl(ctx: StepContext, current: string): Promise<string> {
@@ -118,7 +134,10 @@ async function askSiteUrl(ctx: StepContext, current: string): Promise<string> {
   // unbounded retry loop would spin forever on it.
   for (let attempt = 1; ; attempt += 1) {
     const answer = await ctx.prompter.ask('  Site URL', current);
-    if (parseUrl(answer)) return answer;
+    if (parseUrl(answer)) {
+      await reportSite(ctx, answer);
+      return answer;
+    }
     if (attempt >= MAX_URL_ATTEMPTS) {
       throw new SetupAbort(`"${answer}" is not a URL OpenGEO can fetch, and setup ran out of attempts. Nothing was written.`);
     }
@@ -126,8 +145,36 @@ async function askSiteUrl(ctx: StepContext, current: string): Promise<string> {
   }
 }
 
-function askWebRoot(ctx: StepContext, current: string): Promise<string> {
-  return ctx.prompter.ask('  Web root (generated files land here)', current || defaultConfig().publicDir);
+/**
+ * What is actually at that URL, said out loud before the next question.
+ *
+ * Never a gate. A site that is not running yet is a completely normal thing to be setting OpenGEO up
+ * against, and refusing the URL over it would be wrong. The probe is here so that a typo, a wrong
+ * port or a client-rendered page is visible now rather than three commands later.
+ */
+async function reportSite(ctx: StepContext, url: string): Promise<void> {
+  if (!ctx.preview) return;
+  const preview = await ctx.preview(url).catch(() => undefined);
+  if (!preview) return;
+  for (const line of previewLines(preview)) ctx.write(`  ${line}\n`);
+}
+
+/**
+ * The one question setup can usually answer for itself.
+ *
+ * A configured project's own value always wins: the detector is a guess about a convention, and the
+ * answer already in `opengeo.config.json` is a decision somebody made. On a fresh directory the
+ * guess becomes the default, and the reason is printed beside it so it can be overruled on sight
+ * rather than accepted because it was there.
+ */
+async function askWebRoot(ctx: StepContext, current: string): Promise<string> {
+  // `current` on a project with no config of its own is `defaultConfig().publicDir`, which nobody
+  // typed, so the detector is free to replace it. Once opengeo.config.json exists the same string
+  // is an answer somebody gave, and a guess about a convention does not get to overrule that.
+  const configured = ctx.hasConfig ? current : '';
+  const guess: WebRootGuess = detectWebRoot(ctx.root);
+  if (!configured && guess.found) ctx.write(`  ${c.gray(`Detected ${guess.dir}/ - ${guess.why}.`)}\n`);
+  return ctx.prompter.ask('  Web root (generated files land here)', configured || guess.dir);
 }
 
 interface RoutingAnswer {
@@ -307,7 +354,19 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   // Only reuse a config that belongs to this directory. Walking up found someone else's project.
   const hasConfig = existing.exists && existing.root === root;
   const base = hasConfig ? existing.config : defaultConfig();
-  const ctx: StepContext = { root, prompter, write, settings: false, hasConfig };
+  const ctx: StepContext = { root, prompter, write, settings: false, hasConfig, preview: options.preview };
+
+  /**
+   * One step announced two ways, and never both at once.
+   *
+   * A prompter that draws a rail is already showing "Step 2 of 4  Blocking" at the top of the frame,
+   * and the underlined `2/4  Blocking` three lines below it is the same four words again. The flat
+   * flow has no rail, so there the heading is the only thing saying where you are.
+   */
+  const step = (index: number, label: string, title: string): void => {
+    prompter.stage?.(label, index, 4);
+    if (!prompter.stage) write(heading(title));
+  };
 
   write(`\n${c.bold('OpenGEO setup')}\n`);
   write(`${c.gray(root)}\n`);
@@ -315,34 +374,41 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   writeIntro(write);
 
   // 1. Site ------------------------------------------------------------------------------------
-  write(heading('1/4  Your site'));
+  step(1, 'Your site', '1/4  Your site');
   write(`\n${c.gray('OpenGEO always works against a URL, never a source directory: it has to see what your')}\n`);
   write(`${c.gray('site actually serves. A local dev server is fine.')}\n\n`);
   const site = await askSiteUrl(ctx, base.site);
   const publicDir = await askWebRoot(ctx, base.publicDir);
 
   // 2. Bot routing -----------------------------------------------------------------------------
-  write(heading('2/4  Which AI agents get the Markdown twin'));
+  step(2, 'Which agents get the twin', '2/4  Which AI agents get the Markdown twin');
   write(`\n${c.gray('This chooses a format, never access. An agent that is not on this list still sees your')}\n`);
   write(`${c.gray('normal site, exactly like a human visitor.')}\n\n`);
   const routing = await askRouting(ctx, base);
   const customBots = [...base.bots.custom, ...routing.addedBots];
 
   // 3. Blocking --------------------------------------------------------------------------------
-  write(heading('3/4  Blocking (a separate lever)'));
+  step(3, 'Blocking', '3/4  Blocking (a separate lever)');
   write(`\n${c.gray('Blocking is not the same setting as routing, and OpenGEO never turns it on for you.')}\n`);
   write(`${c.gray('It is written into robots.txt by `opengeo generate`, is advisory, and starts empty.')}\n\n`);
   // Not offered on a first run. Putting the question in front of a new user would imply OpenGEO
   // thinks they should be blocking somebody.
   write(`  ${c.gray('Nothing is blocked.')}\n`);
   write(`  ${c.gray(`Run \`opengeo settings\` if you ever want to change that.`)}\n`);
+  // The one step that tells rather than asks. In scrollback that is the end of it, but a prompter
+  // drawing frames would paint step 4 straight over these four lines, so it holds for a keypress.
+  await prompter.pause?.();
 
   // 4. API key ---------------------------------------------------------------------------------
-  write(heading('4/4  AI provider (optional)'));
+  step(4, 'AI provider', '4/4  AI provider (optional)');
   write(`\n${c.gray('Everything that matters works without one: the structural 0-100 test, the whole free')}\n`);
   write(`${c.gray('generate tier, and opengeo-prod. A key only unlocks `generate --tier ai` and')}\n`);
   write(`${c.gray('`test --content`, and it is only ever sent to the provider you pick below.')}\n\n`);
   const provider = await askProvider(ctx, base);
+
+  // The last question is answered, so the screen goes back to whoever had it. Everything below this
+  // line is output rather than interaction, and belongs in scrollback.
+  prompter.settle?.();
 
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
   const config: OpenGeoConfig = {
@@ -367,13 +433,22 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   writeAddedBots(write, routing.addedBots);
   writeKeyLocation(write, root, Boolean(provider?.keyWritten) || Boolean(readCredentials(root)));
 
-  write(`\n${c.bold('Next')}\n`);
-  write(`  opengeo test ${site}${c.gray('       score the page as it is today')}\n`);
-  write(`  opengeo generate ${site}${c.gray('   write the twins, robots.txt, llms.txt, sitemap.xml')}\n`);
-  write(`  opengeo prod test ${site}${c.gray('  once the middleware is wired in')}\n`);
-  write('\n');
+  const result: SetupResult = { root, configPath, config, createdConfig, addedBots: routing.addedBots, keyWritten: provider?.keyWritten };
 
-  return { root, configPath, config, createdConfig, addedBots: routing.addedBots, keyWritten: provider?.keyWritten };
+  // A number beats a homework list. When the caller can run the structural test it does so here and
+  // setup ends on the score the site has right now, which is also the only honest way to show what
+  // the rest of OpenGEO is for. Without one, the three commands are still the best available close.
+  if (options.finish) {
+    await options.finish(result, write);
+  } else {
+    write(`\n${c.bold('Next')}\n`);
+    write(`  opengeo test ${site}${c.gray('       score the page as it is today')}\n`);
+    write(`  opengeo generate ${site}${c.gray('   write the twins, robots.txt, llms.txt, sitemap.xml')}\n`);
+    write(`  opengeo prod test ${site}${c.gray('  once the middleware is wired in')}\n`);
+    write('\n');
+  }
+
+  return result;
 }
 
 type SettingKey = 'site' | 'webroot' | 'routing' | 'blocked' | 'provider' | 'done';
@@ -396,7 +471,7 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
   const existing = loadConfig(root);
   const hasConfig = existing.exists && existing.root === root;
   const before = hasConfig ? existing.config : defaultConfig();
-  const ctx: StepContext = { root, prompter, write, settings: true, hasConfig };
+  const ctx: StepContext = { root, prompter, write, settings: true, hasConfig, preview: options.preview };
 
   let config: OpenGeoConfig = { ...before, bots: { ...before.bots }, ai: { ...before.ai } };
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
@@ -405,6 +480,9 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
   let keyWritten: SetupResult['keyWritten'];
   let saved = false;
 
+  // Before the header, so a prompter that draws a frame has these three lines as its first context
+  // rather than leaving them in scrollback underneath a screen nobody can scroll to.
+  prompter.stage?.('Settings', 0, 0);
   write(`\n${c.bold('OpenGEO settings')}\n`);
   write(`${c.gray(root)}\n`);
   write(`${c.gray(hasConfig ? `${CONFIG_FILENAME} - pick a number to change that one setting.` : `${CONFIG_FILENAME} does not exist yet. Changing anything here creates it.`)}\n`);
@@ -415,6 +493,9 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
     if (choice === 'done') break;
 
     write('\n');
+    // Zero steps, so a prompter that draws a rail draws the label alone: settings is a menu you
+    // return to, not a sequence you are partway through. The name tracks whatever is being edited.
+    prompter.stage?.(menuLabel(choice), 0, 0);
     if (choice === 'site') {
       config = { ...config, site: await askSiteUrl(ctx, config.site) };
     } else if (choice === 'webroot') {
@@ -441,8 +522,13 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
 
     configPath = saveConfig(root, config);
     saved = true;
+    // Back to the menu, and the confirmation is the first thing on that frame rather than the last
+    // thing on the one being replaced, which is a frame nobody ever sees.
+    prompter.stage?.('Settings', 0, 0);
     write(`\n  ${c.green('saved')} ${c.gray(relative(root, configPath) || CONFIG_FILENAME)}\n`);
   }
+
+  prompter.settle?.();
 
   write(heading('Saved'));
   write('\n');
@@ -454,6 +540,18 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
   write('\n');
 
   return { root, configPath, config, createdConfig: createdConfig && saved, addedBots, keyWritten };
+}
+
+/** What the frame is called while one setting is being edited. */
+function menuLabel(choice: Exclude<SettingKey, 'done'>): string {
+  const labels: Record<Exclude<SettingKey, 'done'>, string> = {
+    site: 'Site URL',
+    webroot: 'Web root',
+    routing: 'Markdown routing',
+    blocked: 'Blocked crawlers',
+    provider: 'AI provider',
+  };
+  return labels[choice];
 }
 
 /** The menu itself: every setting on one screen, with what it is set to right now beside it. */

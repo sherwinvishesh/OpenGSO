@@ -1,9 +1,9 @@
 import { resolve } from 'node:path';
 import { c } from '../../shared/log.js';
 import { parseArgs } from '../args.js';
-import { SetupAbort, runSetup, setupMode } from '../configure.js';
+import { SetupAbort, setupMode } from '../configure.js';
 import type { CommandContext } from '../index.js';
-import { createPrompter } from '../prompt.js';
+import { runOnboarding } from '../onboarding.js';
 
 /**
  * `opengeo settings` (§11, §12): the menu of everything in `opengeo.config.json`.
@@ -37,10 +37,14 @@ export async function settingsCommand(ctx: CommandContext): Promise<number> {
 
   const dir = args.str('project');
   const root = dir ? resolve(process.cwd(), dir) : process.cwd();
-  const prompter = createPrompter({ autoAccept: args.bool('yes') });
 
   try {
-    await runSetup({ root, prompter, mode: setupMode(root) });
+    await runOnboarding({
+      root,
+      mode: setupMode(root),
+      autoAccept: args.bool('yes'),
+      tag: `${ctx.packageName} ${ctx.version}`,
+    });
     return 0;
   } catch (error) {
     if (error instanceof SetupAbort) {
@@ -48,7 +52,5 @@ export async function settingsCommand(ctx: CommandContext): Promise<number> {
       return 1;
     }
     throw error;
-  } finally {
-    prompter.close();
   }
 }

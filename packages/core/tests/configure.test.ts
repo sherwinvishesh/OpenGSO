@@ -679,3 +679,235 @@ describe('the prompter', () => {
     prompter.close();
   });
 });
+
+/**
+ * The three things setup stopped asking blind.
+ *
+ * All three are injected into `runSetup` rather than imported by it, which is what makes them
+ * testable at all: no network, no terminal, and a `finish` that is a function rather than the whole
+ * test pillar. It is also what keeps them optional, and the last test here is the one that matters
+ * most - a caller that passes none of them gets the flat four questions, unchanged.
+ */
+describe('what setup works out for itself', () => {
+  let root: string;
+  const silent = () => {};
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'opengeo-setup-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  /** Records `stage()` and `settle()` the way the full-screen stepper consumes them. */
+  function staged(script: Script): Prompter & { stages: Array<[string, number, number]>; settled: number; pauses: number } {
+    const base = scripted(script);
+    const stages: Array<[string, number, number]> = [];
+    const recorder = {
+      ...base,
+      stages,
+      settled: 0,
+      pauses: 0,
+      stage: (label: string, index: number, total: number) => void stages.push([label, index, total]),
+      settle: () => {
+        recorder.settled += 1;
+      },
+      pause: async () => {
+        recorder.pauses += 1;
+      },
+    };
+    return recorder;
+  }
+
+  const answers = { ask: ['http://localhost:3000'], choose: ['all', 'skip'] } satisfies Script;
+
+  it('tells the prompter which of the four steps it is on, in order', async () => {
+    const prompter = staged(answers);
+
+    await runSetup({ root, prompter, out: silent });
+
+    expect(prompter.stages.map(([, index]) => index)).toEqual([1, 2, 3, 4]);
+    expect(prompter.stages.every(([, , total]) => total === 4)).toBe(true);
+    expect(prompter.stages[0]?.[0]).toBe('Your site');
+  });
+
+  it('names the setting being edited in settings mode, with no step count to claim', async () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+    const prompter = staged({ choose: ['webroot', 'done'] });
+
+    await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+    // Zero of zero: a menu is not a sequence, and the rail would be lying about progress.
+    expect(prompter.stages.every(([, index, total]) => index === 0 && total === 0)).toBe(true);
+    expect(prompter.stages.map(([label]) => label)).toContain('Web root');
+  });
+
+  it('does not also print the underlined heading to a prompter that draws a rail', async () => {
+    let framed = '';
+    let flat = '';
+
+    await runSetup({ root, prompter: staged(answers), out: (text) => (framed += text) });
+    rmSync(join(root, CONFIG_FILENAME), { force: true });
+    await runSetup({ root, prompter: scripted(answers), out: (text) => (flat += text) });
+
+    // The same four words twice, three lines apart, is what this stops.
+    expect(framed).not.toContain('1/4');
+    expect(flat).toContain('1/4  Your site');
+  });
+
+  it('holds the one step that asks nothing, so it is not painted over unread', async () => {
+    const prompter = staged(answers);
+
+    await runSetup({ root, prompter, out: silent });
+
+    // Step 3 states a policy and moves on. Exactly one hold, and only there.
+    expect(prompter.pauses).toBe(1);
+  });
+
+  it('does not hold in settings mode, where every step is already a question', async () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+    const prompter = staged({ choose: ['webroot', 'done'] });
+
+    await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+    expect(prompter.pauses).toBe(0);
+  });
+
+  it('hands the screen back when the questions end, not when the command does', async () => {
+    let transcript = '';
+    const prompter = staged(answers);
+
+    await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+    expect(prompter.settled).toBe(1);
+    // Everything below is output rather than interaction, so it belongs in scrollback.
+    expect(transcript.indexOf('Where your key lives')).toBeGreaterThan(-1);
+  });
+
+  it('hands it back at the end of the settings menu too', async () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000' }), 'utf8');
+    const prompter = staged({ choose: ['done'] });
+
+    await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+    expect(prompter.settled).toBe(1);
+  });
+
+  it('probes the URL once it parses, and prints what came back', async () => {
+    const probed: string[] = [];
+    let transcript = '';
+
+    await runSetup({
+      root,
+      prompter: scripted(answers),
+      out: (text) => (transcript += text),
+      preview: async (url) => {
+        probed.push(url);
+        return { url, ok: true, status: 200, ttfbMs: 41, framework: 'Next.js', twin: { url: `${url}.md`, ok: false, status: 404, served: false } };
+      },
+    });
+
+    expect(probed).toEqual(['http://localhost:3000']);
+    expect(transcript).toContain('Reachable');
+    expect(transcript).toContain('Next.js');
+  });
+
+  it('does not probe a URL it is about to reject', async () => {
+    const probed: string[] = [];
+
+    await runSetup({
+      root,
+      prompter: scripted({ ask: ['not a url', 'http://localhost:3000'], choose: ['all', 'skip'] }),
+      out: silent,
+      preview: async (url) => {
+        probed.push(url);
+        return undefined;
+      },
+    });
+
+    expect(probed).toEqual(['http://localhost:3000']);
+  });
+
+  it('carries on when the probe throws, because a diagnostic must not be able to stop setup', async () => {
+    const result = await runSetup({
+      root,
+      prompter: scripted(answers),
+      out: silent,
+      preview: async () => {
+        throw new Error('getaddrinfo ENOTFOUND');
+      },
+    });
+
+    expect(result.config.site).toBe('http://localhost:3000');
+  });
+
+  it('offers the web root the project actually uses, and says why', async () => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { gatsby: '5.0.0' } }), 'utf8');
+    let transcript = '';
+
+    // The second `ask` is the web root, and an empty answer takes whatever default was offered.
+    const result = await runSetup({ root, prompter: scripted({ ask: ['http://localhost:3000', ''], choose: ['all', 'skip'] }), out: (text) => (transcript += text) });
+
+    expect(result.config.publicDir).toBe('static');
+    expect(transcript).toContain('Detected static/');
+    expect(transcript).toContain('Gatsby');
+  });
+
+  it('never lets the detector overrule an answer the project already has', async () => {
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { next: '15.0.0' } }), 'utf8');
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000', publicDir: 'web' }), 'utf8');
+    let transcript = '';
+
+    const result = await runSetup({ root, prompter: scripted({ ask: ['', ''], choose: ['all', 'skip'] }), out: (text) => (transcript += text) });
+
+    expect(result.config.publicDir).toBe('web');
+    expect(transcript).not.toContain('Detected');
+  });
+
+  it('ends on the score instead of a list of commands to go and try', async () => {
+    let transcript = '';
+
+    const result = await runSetup({
+      root,
+      prompter: scripted(answers),
+      out: (text) => (transcript += text),
+      finish: async (setup, write) => write(`  scored ${setup.config.site}\n`),
+    });
+
+    expect(transcript).toContain('scored http://localhost:3000');
+    expect(transcript).not.toContain('opengeo prod test');
+    expect(result.configPath).toContain(CONFIG_FILENAME);
+  });
+
+  it('is handed the finished result, so the closing test runs against what was saved', async () => {
+    let seen: string | undefined;
+
+    await runSetup({
+      root,
+      prompter: scripted({ ask: ['http://localhost:4000'], choose: ['all', 'skip'] }),
+      out: silent,
+      finish: async (setup) => {
+        seen = setup.config.site;
+        expect(existsSync(setup.configPath)).toBe(true);
+      },
+    });
+
+    expect(seen).toBe('http://localhost:4000');
+  });
+
+  it('is the same four questions with none of them supplied', async () => {
+    let transcript = '';
+    const prompter = scripted(answers);
+
+    await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+    expect(prompter.asked).toContain('Site URL');
+    expect(transcript).toContain('1/4');
+    expect(transcript).toContain('4/4');
+    // The old close, still the right one when there is no test to run.
+    expect(transcript).toContain('opengeo prod test http://localhost:3000');
+    expect(transcript).not.toContain('Detected');
+    expect(transcript).not.toContain('Reachable');
+  });
+});

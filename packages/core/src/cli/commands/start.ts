@@ -6,9 +6,9 @@ import { startServer } from '../../server/server.js';
 import { CONFIG_FILENAME } from '../../shared/config.js';
 import { c } from '../../shared/log.js';
 import { parseArgs } from '../args.js';
-import { SetupAbort, runSetup, setupMode } from '../configure.js';
+import { SetupAbort, setupMode } from '../configure.js';
 import type { CommandContext } from '../index.js';
-import { createPrompter } from '../prompt.js';
+import { runOnboarding } from '../onboarding.js';
 
 const SPEC = {
   booleans: ['no-open', 'no-setup', 'setup', 'yes'],
@@ -49,22 +49,19 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
   const wantsSetup = args.bool('setup') || (mode === 'first-run' && !args.bool('no-setup'));
 
   if (wantsSetup) {
-    const prompter = createPrompter({ autoAccept: args.bool('yes') });
     try {
       // A project that already has a config is being edited, not onboarded, even when `--setup`
       // asked for the questions again: settings mode puts every current value on one screen, so
       // pressing Enter through it cannot quietly widen a list the user had narrowed.
-      await runSetup({ root, prompter, mode });
+      await runOnboarding({ root, mode, autoAccept: args.bool('yes'), tag: `${ctx.packageName} ${ctx.version}` });
     } catch (error) {
       if (error instanceof SetupAbort) {
         process.stderr.write(`\n${c.red('setup stopped')} ${error.message}\n`);
         return 1;
       }
       throw error;
-    } finally {
-      prompter.close();
     }
-    process.stdout.write(`${c.gray('Opening the dashboard.')}\n`);
+    process.stdout.write(`\n${c.gray('Opening the dashboard.')}\n`);
   }
 
   let running: Awaited<ReturnType<typeof startServer>>;
