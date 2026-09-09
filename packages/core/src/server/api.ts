@@ -32,6 +32,8 @@ import {
 } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
+import type { SitePreview, WebRootGuess } from '../shared/site-probe.js';
+import { detectWebRoot, previewSite } from '../shared/site-probe.js';
 import type { History, HistoryEntry, SuiteAi, TestMode } from '../test/index.js';
 import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
 
@@ -87,6 +89,8 @@ export async function handleApi(request: ApiRequest, options: ApiOptions): Promi
       return ok({ bots: resolveBots(loadConfig(options.root).config.bots.custom) });
     case 'POST /api/config':
       return saveConfigPatch(request.body, options);
+    case 'POST /api/preview':
+      return await runPreview(request.body);
     case 'POST /api/test':
       return await runTest(request.body, options);
     case 'POST /api/generate':
@@ -114,6 +118,15 @@ export interface StateResponse {
   /** Presence only. The value never crosses this boundary, not even to localhost. */
   key: { present: boolean; provider?: AiProvider; model?: string; source?: string; path: string };
   ci: boolean;
+  /**
+   * Where generated files probably belong, worked out from the project rather than asked.
+   *
+   * Part of the state rather than its own endpoint because it is a fact about the directory the
+   * server was pointed at, known before anybody types anything, and onboarding needs it on the
+   * first screen. `found: false` means nothing pointed anywhere and the usual answer is being
+   * offered for want of better, which is worth saying differently in the UI.
+   */
+  webRoot: WebRootGuess;
   providers: AiProvider[];
   defaultModels: Record<AiProvider, string>;
   /**
@@ -172,6 +185,7 @@ function readState(options: ApiOptions): StateResponse {
       : undefined,
     publicDir: publicDirPath(loaded),
     internalDir: internalDirPath(loaded),
+    webRoot: detectWebRoot(loaded.root),
   };
 }
 
@@ -221,6 +235,32 @@ function normalizeCustomList(input: unknown): CustomBotInput[] | string {
     });
   }
   return cleaned;
+}
+
+// -- preview -------------------------------------------------------------------------------------
+
+export interface PreviewResponse {
+  preview: SitePreview;
+}
+
+/**
+ * What is at that URL, asked while somebody is still typing it (§8).
+ *
+ * Onboarding's first field used to be a string the server validated and forgot. One fetch turns it
+ * into an answer: the site is up or it is not, this is what is serving it, the content is in the
+ * HTML or it is waiting on JavaScript, and a twin may already be being served. All four are things
+ * the person filling in the field would otherwise discover after their first generate.
+ *
+ * The failure mode is the point. An unreachable site comes back 200 with `ok: false` and a reason,
+ * not as an API error, because "we could not reach it" is a finding about the site rather than a
+ * fault in the request, and onboarding must not stall on a diagnostic. Only an unparseable URL is
+ * a 400, and that one is the user's next keystroke away from being fixed.
+ */
+async function runPreview(body: unknown): Promise<ApiResponse> {
+  const input = (body ?? {}) as { url?: string };
+  const target = (input.url ?? '').trim();
+  if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
+  return ok({ preview: await previewSite(target) } satisfies PreviewResponse);
 }
 
 // -- test ----------------------------------------------------------------------------------------

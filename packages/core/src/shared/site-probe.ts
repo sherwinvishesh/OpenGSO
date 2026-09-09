@@ -1,11 +1,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { defaultConfig } from '../shared/config.js';
-import { BROWSER_UA, probe } from '../shared/http.js';
-import { twinUrl } from '../shared/routes.js';
-import { c } from '../shared/log.js';
-import { HEADERS } from '../shared/version.js';
-import { ink } from './tui/theme.js';
+import { defaultConfig } from './config.js';
+import { BROWSER_UA, parseUrl, probe } from './http.js';
+import { twinUrl } from './routes.js';
+import { HEADERS } from './version.js';
 
 /**
  * The two things setup can find out for itself instead of asking.
@@ -19,6 +17,10 @@ import { ink } from './tui/theme.js';
  * actually is. Neither is allowed to block. A probe that times out, a `package.json` that will not
  * parse, a directory that cannot be read - all of it degrades to "we could not tell", because a
  * setup flow that fails on a diagnostic is worse than one that never ran it.
+ *
+ * It lives in `shared/` rather than beside the setup flow because both doors onto setup need it and
+ * neither owns it: the terminal reads it through `cli/setup-preview.ts`, and the dashboard reads it
+ * over `POST /api/preview`. Nothing here knows about either. The rendering is somebody else's job.
  */
 
 export interface SitePreview {
@@ -72,7 +74,7 @@ export async function previewSite(url: string, options: PreviewOptions = {}): Pr
   const page = await fetchPage(url, { timeoutMs, headers: { 'User-Agent': BROWSER_UA } });
 
   const preview: SitePreview = { url, ok: page.ok, status: page.status, ttfbMs: page.ttfbMs };
-  if (page.error) preview.error = page.error;
+  if (page.error) preview.error = whyUnreachable(url, page.error);
   if (!page.ok) return preview;
 
   const poweredBy = page.headers.get('x-powered-by') ?? '';
@@ -93,6 +95,25 @@ export async function previewSite(url: string, options: PreviewOptions = {}): Pr
     served: found.ok && Boolean(found.headers.get(HEADERS.aeoVersion)),
   };
   return preview;
+}
+
+/**
+ * The fetch failure as something a person can act on.
+ *
+ * Undici says "fetch failed" for a refused connection, an unknown host and a rejected certificate
+ * alike, and a setup prompt that repeats those two words has told the reader nothing they had not
+ * already worked out from the fact that they are reading an error. The cause is not on the message,
+ * so this does not pretend to diagnose: for a loopback address the port is the only thing that can
+ * be wrong and it says so, and everything else gets the honest general answer. Anything that already
+ * reads like a sentence is passed through untouched.
+ */
+function whyUnreachable(url: string, message: string): string {
+  const target = parseUrl(url);
+  if (/abort|timed? ?out/i.test(message)) return 'it did not answer in time';
+  if (!/fetch failed|ECONNREFUSED|ECONNRESET|terminated|other side closed|socket hang up/i.test(message)) return message;
+  const local = target?.hostname === 'localhost' || target?.hostname === '127.0.0.1' || target?.hostname === '::1';
+  if (local) return `nothing is listening on port ${target?.port || (target?.protocol === 'https:' ? '443' : '80')}`;
+  return 'the host could not be reached';
 }
 
 export interface WebRootGuess {
@@ -160,44 +181,4 @@ function isDirectory(path: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * The probe as two or three lines under the URL prompt.
- *
- * Written so that every line is either a fact about the response or a consequence of it. "Reachable"
- * on its own is not worth the round trip; "reachable, Next.js, and the content is in the HTML" tells
- * somebody that generate is going to work before they run it.
- */
-export function previewLines(preview: SitePreview): string[] {
-  if (preview.error) {
-    return [
-      ink.warn(`Could not reach ${preview.url}: ${preview.error}`),
-      c.gray('Setup carries on. The URL is saved either way, and nothing here is a blocker.'),
-    ];
-  }
-  if (!preview.ok) {
-    return [
-      ink.warn(`${preview.url} answered ${preview.status}.`),
-      c.gray('Worth checking the URL, though the rest of setup does not depend on it.'),
-    ];
-  }
-
-  const facts = [`${preview.status} in ${preview.ttfbMs}ms`];
-  if (preview.framework) facts.push(preview.framework);
-  const lines = [`${ink.ok('Reachable')} ${c.gray(`(${facts.join(', ')})`)}`];
-
-  if (preview.clientRendered) {
-    lines.push(ink.warn('The raw HTML is an empty mount element, so the content only exists after JavaScript runs.'));
-    lines.push(c.gray('Agents mostly do not run it, and neither does generate. Server-rendering is the fix.'));
-  }
-
-  if (preview.twin?.served) {
-    lines.push(`${ink.ok('A markdown twin is already being served')} ${c.gray(`at ${preview.twin.url}, by opengeo-prod.`)}`);
-  } else if (preview.twin?.ok) {
-    lines.push(`${ink.ok('Something already answers')} ${c.gray(`at ${preview.twin.url}, without OpenGEO's headers.`)}`);
-  } else {
-    lines.push(c.gray(`No twin at ${preview.twin?.url ?? twinUrl(preview.url)} yet. That is what generate and prod are for.`));
-  }
-  return lines;
 }

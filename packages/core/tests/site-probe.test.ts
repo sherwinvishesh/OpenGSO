@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { detectWebRoot, previewLines, previewSite, type SitePreview } from '../src/cli/setup-probe.js';
+import { previewLines } from '../src/cli/setup-preview.js';
+import { detectWebRoot, previewSite, type SitePreview } from '../src/shared/site-probe.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
 import { BROWSER_UA, type ProbeOptions, type ProbeResult } from '../src/shared/http.js';
 import { HEADERS } from '../src/shared/version.js';
@@ -71,9 +72,36 @@ describe('previewSite', () => {
     const preview = await previewSite(SITE, { fetchPage });
 
     expect(preview.ok).toBe(false);
-    expect(preview.error).toContain('ECONNREFUSED');
     // Nothing else was probed: there is no point asking about a twin of a site that is not up.
     expect(preview.twin).toBeUndefined();
+  });
+
+  it('names the port rather than repeating "fetch failed" when a dev server is not up', async () => {
+    const { fetchPage } = fakeProbe({ [SITE]: { error: 'fetch failed' } });
+
+    const preview = await previewSite(SITE, { fetchPage });
+
+    expect(preview.error).toBe('nothing is listening on port 3000');
+  });
+
+  it('does not guess at a port for a host it cannot resolve', async () => {
+    const { fetchPage } = fakeProbe({ 'https://nope.example': { error: 'fetch failed' } });
+
+    const preview = await previewSite('https://nope.example', { fetchPage });
+
+    expect(preview.error).toBe('the host could not be reached');
+  });
+
+  it('calls a timeout a timeout', async () => {
+    const { fetchPage } = fakeProbe({ [SITE]: { error: 'The operation was aborted due to timeout' } });
+
+    expect((await previewSite(SITE, { fetchPage })).error).toBe('it did not answer in time');
+  });
+
+  it('leaves an error that already reads like a sentence alone', async () => {
+    const { fetchPage } = fakeProbe({ [SITE]: { error: 'unable to verify the first certificate' } });
+
+    expect((await previewSite(SITE, { fetchPage })).error).toBe('unable to verify the first certificate');
   });
 
   it('names the framework from the header before it looks at the markup', async () => {

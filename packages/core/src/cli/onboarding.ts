@@ -8,7 +8,7 @@ import type { SetupMode, SetupResult } from './configure.js';
 import { runSetup } from './configure.js';
 import type { Prompter } from './prompt.js';
 import { createPrompter } from './prompt.js';
-import { previewSite } from './setup-probe.js';
+import { previewSite } from '../shared/site-probe.js';
 import type { Stepper } from './stepper.js';
 import { openStepper } from './stepper.js';
 import { canUseTui } from './tui/screen.js';

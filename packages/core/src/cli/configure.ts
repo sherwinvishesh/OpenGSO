@@ -21,8 +21,8 @@ import { parseUrl } from '../shared/http.js';
 import { c, heading } from '../shared/log.js';
 import { pickBots } from './bot-picker.js';
 import type { Prompter } from './prompt.js';
-import type { SitePreview, WebRootGuess } from './setup-probe.js';
-import { detectWebRoot, previewLines } from './setup-probe.js';
+import { detectWebRoot, type SitePreview, type WebRootGuess } from '../shared/site-probe.js';
+import { previewLines } from './setup-preview.js';
 
 /**
  * The interactive configuration flow, behind both `opengeo start` and `opengeo settings` (§11, §12).
