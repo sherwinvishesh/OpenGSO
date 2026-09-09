@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { ContentReview, DocumentReview, QualityRecommendation, State, TestMode, TestResponse } from '../types';
+import type { ContentReview, DocumentReview, HistoryEntry, QualityRecommendation, State, TestMode, TestResponse } from '../types';
 import { CheckList } from '../components/Checks';
 import { ScorePanel } from '../components/Score';
-import { Banner, Button, Card, CardHead, Empty, PageHead, Pill } from '../components/ui';
+import { ago, Banner, Button, Card, CardHead, Empty, PageHead, Pill } from '../components/ui';
 
 /**
  * Test, in the same three shapes the CLI has (§5).
@@ -136,21 +136,110 @@ export function TestView({
         <>
           {result.score ? (
             <Card>
-              <ScorePanel score={result.score} url={result.url} framework={result.framework} />
+              <ScorePanel score={result.score} url={result.url} framework={result.framework} history={result.history} />
             </Card>
           ) : null}
-          {result.checks ? <CheckList checks={result.checks} /> : null}
+          {result.checks ? <CheckList checks={result.checks} score={result.score} /> : null}
           <ContentCard result={result} />
         </>
       ) : busy ? null : (
-        <Card className="card-pad">
-          <Empty title="No result yet">
-            Run a test to see which of the 22 checks pass, which fail, and exactly why.
-          </Empty>
-        </Card>
+        <PastRuns url={url} />
       )}
     </>
   );
+}
+
+/**
+ * Where this URL has been, on the screen that has no result on it yet.
+ *
+ * "No result yet, run a test" is true and useless: the project has almost certainly been tested
+ * before, the scores are on disk, and a returning user asking "did my change help" should not have
+ * to run something to find out where they started. Filtered to the URL in the box, because a trend
+ * mixing two different sites is a line with no meaning.
+ *
+ * Local only. `.opengeo/history.json` sits beside the manifest and is never web-served, so this is
+ * the only way to see it short of opening the file.
+ */
+function PastRuns({ url }: { url: string }) {
+  const [entries, setEntries] = useState<HistoryEntry[]>();
+
+  useEffect(() => {
+    // Errors are swallowed: a project with no history at all is the normal first-run case, and it
+    // arrives here as an empty list or a failed read depending on whether `.opengeo/` exists yet.
+    void api
+      .history()
+      .then((history) => setEntries(history.entries))
+      .catch(() => setEntries([]));
+  }, []);
+
+  const mine = (entries ?? []).filter((entry) => entry.score !== undefined && sameUrl(entry.url, url));
+  if (entries === undefined || mine.length === 0) {
+    return (
+      <Card className="card-pad">
+        <Empty title="No result yet">
+          Run a test to see which of the 22 checks pass, which fail, and exactly why.
+        </Empty>
+      </Card>
+    );
+  }
+
+  // Oldest first on disk and oldest first on screen, which is the only order in which the deltas
+  // between the chips mean what they say. Capped at the last eight: the file keeps twenty, and a row
+  // of twenty numbers is a table nobody asked for.
+  const ordered = mine.slice(-8);
+  const latest = ordered[ordered.length - 1]!;
+
+  return (
+    <Card>
+      <CardHead title="Where this URL has been" sub={`${mine.length} recorded run${mine.length === 1 ? '' : 's'}, on this machine only`} />
+      <div className="card-pad stack-sm">
+        <div className="past-runs">
+          {ordered.map((entry, index) => {
+            const before = ordered[index - 1];
+            const change = before?.score === undefined ? undefined : entry.score! - before.score;
+            return (
+              <div className="past-run" key={`${entry.at}-${index}`}>
+                <b>{entry.score}</b>
+                <span className="muted">{ago(entry.at)}</span>
+                {change ? <span className={change > 0 ? 'delta delta-up' : 'delta delta-down'}>{change > 0 ? '+' : ''}{change}</span> : null}
+              </div>
+            );
+          })}
+        </div>
+        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+          Last run {ago(latest.at)} and scored {latest.score}. Run it again to see what has moved.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Whether two URL strings name the same page.
+ *
+ * The box holds whatever was typed and the history holds what the runner resolved, so
+ * `http://localhost:3100` and `http://localhost:3100/` are one site recorded two ways. Compared as
+ * parsed URLs rather than as strings, because a string comparison hid every past run behind a
+ * trailing slash nobody types.
+ */
+function sameUrl(a: string, b: string): boolean {
+  try {
+    return new URL(a).href === new URL(b).href;
+  } catch {
+    return a.trim() === b.trim();
+  }
+}
+
+/**
+ * The first line of a message written for a terminal, capitalised, without the block under it.
+ *
+ * `ERRORS.noApiKey` is hard-wrapped at 68 columns with indented shell lines beneath it. That is
+ * right where it was written and collapses into one grey paragraph the moment HTML lays it out. The
+ * first line is the reason, which is the only part of it a page with a Settings tab needs.
+ */
+function reasonOnly(message: string): string {
+  const line = message.split('\n', 1)[0]!.trim();
+  return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
 function ContentCard({ result }: { result: TestResponse }) {
@@ -160,7 +249,10 @@ function ContentCard({ result }: { result: TestResponse }) {
         <CardHead title="Content review" sub="Separate from the score, always." />
         <div className="card-pad">
           <Banner tone="fail" title="The review did not run">
-            {result.contentError}
+            {/* Line structure preserved. These messages are written for a terminal and some of them
+                are several lines with an indented command in the middle, which HTML otherwise lays
+                out as one unreadable grey paragraph. */}
+            <span className="pre-wrap">{result.contentError}</span>
           </Banner>
         </div>
       </Card>
@@ -173,7 +265,11 @@ function ContentCard({ result }: { result: TestResponse }) {
         <CardHead title="Content review" sub="Separate from the score, always." />
         <div className="card-pad">
           <Banner tone="info" title="Skipped">
-            {result.contentSkipped}
+            {/* The reason only. The rest of the canonical message is instructions for setting a key
+                up by hand in a terminal, and this page has a Settings tab that does it with a form,
+                so it points at that instead of reprinting a shell transcript. */}
+            {reasonOnly(result.contentSkipped)} Add one in Settings and run this again. The
+            structural score above is complete either way.
           </Banner>
         </div>
       </Card>

@@ -158,7 +158,7 @@ export function Onboarding({
                 {scoring ? <Working /> : null}
                 {result?.score ? (
                   <>
-                    <ScorePanel score={result.score} url={result.url} framework={result.framework} />
+                    <ScorePanel score={result.score} url={result.url} framework={result.framework} history={result.history} />
                     {next.length > 0 ? (
                       <div>
                         <div className="group-title">Do this next (most points first)</div>

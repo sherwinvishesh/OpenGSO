@@ -387,6 +387,13 @@ select:focus {
   font-size: 13px;
 }
 
+/* For a message that was written for a terminal. Every user-facing error string lives in core and is
+   hard-wrapped with indented commands in it, so the line structure is part of the meaning. */
+.pre-wrap {
+  white-space: pre-wrap;
+  display: block;
+}
+
 .banner-warn {
   background: var(--warn-soft);
   border-color: color-mix(in srgb, var(--warn) 30%, transparent);
@@ -486,6 +493,50 @@ select:focus {
   gap: 8px;
 }
 
+/* The URL, the direction and the shape of the last few runs, on one line above the counts. */
+.score-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta-up {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.delta-down {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.sparkline {
+  color: var(--text-3);
+  overflow: visible;
+}
+
+/* The arc grows into place on a fresh result, so a score that changed is visibly a change. */
+.score-arc {
+  transition: stroke-dasharray 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-arc {
+    transition: none;
+  }
+}
+
 .score-meta .counts {
   display: flex;
   gap: 14px;
@@ -558,6 +609,108 @@ select:focus {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/*
+ * A partial's arithmetic, inline in the row title. Small enough to read as an annotation on the
+ * check rather than as a second element competing with it.
+ */
+.check-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.check-meter-track {
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.check-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--warn);
+}
+
+/* The one line in a check row the reader is going to act on, so it is the one that is not grey. */
+.check-fix {
+  margin-top: 5px;
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+/* -- the locked block -------------------------------------------------------------------------- */
+
+.locked-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.locked-points {
+  color: var(--warn);
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.locked-prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The shape of what is waiting, at a glance: every id and what it is worth, and nothing else. */
+.locked-price {
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.locked-price b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+/* -- past runs --------------------------------------------------------------------------------- */
+
+.past-runs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.past-run {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.past-run b {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* -- tables ------------------------------------------------------------------------------------ */

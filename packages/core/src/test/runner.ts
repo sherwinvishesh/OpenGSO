@@ -239,7 +239,8 @@ function checkSitemap(e: Evidence): CheckResult {
       fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `opengeo generate` writes one from the crawl.',
     });
   }
-  const locs = (body.match(/<loc>/gi) ?? []).length;
+  const listed = Array.from(body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi), (match) => match[1]!);
+  const locs = listed.length;
   if (locs === 0) {
     return partial('A3', 3, 'sitemap.xml parses but contains no <loc> entries, so it advertises nothing.', {
       fix: 'Add one `<url><loc>` per page (+6).',
@@ -248,13 +249,26 @@ function checkSitemap(e: Evidence): CheckResult {
   // The page being tested is the one URL known for certain to exist, so a sitemap that omits it is
   // demonstrably incomplete. This is a weaker statement than a full crawl comparison and is the
   // strongest one the evidence supports, which is why the reason says exactly what was checked.
-  const listsTarget = body.includes(e.target.toString()) || body.includes(e.target.pathname);
+  //
+  // Compared as parsed paths rather than as a substring of the document. The pathname of a homepage
+  // is "/", every sitemap ever written contains a slash, and a substring test therefore handed a
+  // free pass to exactly the case people test first.
+  const listsTarget = listed.some((loc) => locPath(loc, e.target) === locPath(e.target.pathname, e.target));
   if (!listsTarget) {
     return partial('A3', 6, `sitemap.xml is valid and lists ${locs} URL${locs === 1 ? '' : 's'}, but ${e.target.pathname} is not one of them, so at least one real page is missing from it.`, {
       fix: `Add ${e.target.pathname} and any other pages the sitemap is missing (+3). \`opengeo generate\` rebuilds it from a crawl.`,
     });
   }
   return pass('A3', `sitemap.xml is present and valid, listing ${locs} URL${locs === 1 ? '' : 's'}.`);
+}
+
+/** The path a `<loc>` points at, tolerant of a relative entry, compared without a trailing slash. */
+function locPath(loc: string, base: URL): string {
+  try {
+    return new URL(loc, base).pathname.replace(/\/+$/, '') || '/';
+  } catch {
+    return loc.replace(/\/+$/, '') || '/';
+  }
 }
 
 function checkJsonLd(e: Evidence): CheckResult {

@@ -161,6 +161,23 @@ describe('category A bands', () => {
     expect(result.reason).toContain('/resume');
   });
 
+  it('A3 does not credit a homepage to a sitemap that leaves the homepage out', () => {
+    // "/" is a substring of every sitemap ever written, so the page most people test first was the
+    // one page a sitemap could omit and still score full marks.
+    const evidence = perfect();
+    evidence.target = new URL('https://example.com/');
+    evidence.sitemap = probe({ body: '<urlset><url><loc>https://example.com/about</loc></url></urlset>' });
+    expectBand(check(evidence, 'A3'), 6);
+  });
+
+  it('A3 accepts the target however the sitemap spells it', () => {
+    for (const loc of ['https://example.com/resume', 'https://example.com/resume/', '/resume']) {
+      const evidence = perfect();
+      evidence.sitemap = probe({ body: `<urlset><url><loc>${loc}</loc></url></urlset>` });
+      expect(check(evidence, 'A3').status, loc).toBe('pass');
+    }
+  });
+
   it('A4 earns 1 of 2 for JSON-LD that is present but unusable', () => {
     const broken = perfect();
     broken.html = probe({ body: PAGE.replace('{"@context":"https://schema.org","@type":"Person","name":"A"}', '{oops'), headers: broken.html.headers });
