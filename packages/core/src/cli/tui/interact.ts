@@ -198,6 +198,31 @@ export async function confirm(
   return answer;
 }
 
+/**
+ * Hold the frame until it has been read.
+ *
+ * Not every step of a flow is a question. Setup's third one states a policy - blocking is a separate
+ * lever and OpenGEO leaves it empty - and in scrollback that prints and the flow moves on, which is
+ * right, because the words stay where they were printed. On a screen that repaints, "prints and
+ * moves on" means the next question wipes them before anybody has read a word of it.
+ *
+ * Any key continues, because there is nothing to get wrong here. Ctrl-C still leaves, and answers
+ * false so the caller aborts the same way it does from a real question: a screen with no answer on
+ * it is a bad place to make Ctrl-C stop working.
+ */
+export async function pause(
+  screen: Screen,
+  keys: KeyReader,
+  options: { header: string[]; hint?: string },
+): Promise<boolean> {
+  screen.paint([...options.header, '', keyHints([['enter', options.hint ?? 'continue']])]);
+  for (;;) {
+    const key = await keys.next();
+    if (key.name === 'ctrl-c' || key.name === 'ctrl-d') return false;
+    if (key.name !== 'unknown') return true;
+  }
+}
+
 /** A section divider inside a full-screen view, matching the one the flat report uses. */
 export function section(label: string): string {
   return rule(label);

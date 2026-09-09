@@ -26,6 +26,39 @@ export interface Prompter {
   secret(question: string): Promise<string>;
   confirm(question: string, fallback: boolean): Promise<boolean>;
   close(): void;
+  /**
+   * Where in a multi-step flow the next question sits.
+   *
+   * Optional because it is a drawing concern and most prompters have no drawing to do: the readline
+   * prompter below ignores it entirely and `runSetup`'s own `heading()` lines already say the same
+   * thing in scrollback. The full-screen stepper is the one implementation that needs it, and this
+   * is how it finds out without setup having to know which prompter it got.
+   */
+  stage?(label: string, index: number, total: number): void;
+  /**
+   * No more questions.
+   *
+   * A prompter that took the screen over gives it back here, so everything setup says afterwards -
+   * the summary, where the key lives, the closing score - lands in normal scrollback where it can be
+   * scrolled and copied like any other command's output. Called once, before the last thing setup
+   * prints rather than after it, so the tail is written live instead of appearing all at once.
+   *
+   * Optional for the same reason `stage` is: the readline prompter never held the screen and has
+   * nothing to hand back.
+   */
+  settle?(): void;
+  /**
+   * Nothing to answer here, but something to read.
+   *
+   * Step 3 of setup asks no question: it explains that blocking is a lever separate from routing and
+   * that OpenGEO leaves it empty (§7). In scrollback that prints and the flow moves on, which is
+   * right, because the words stay on the screen. On a display that repaints, "prints and moves on"
+   * means the next question wipes them before anybody has read one, so a prompter that draws frames
+   * holds here for a keypress instead.
+   *
+   * Optional, and ignored by the readline prompter for exactly that reason.
+   */
+  pause?(): Promise<void>;
 }
 
 export interface ChoiceOption<T extends string> {
