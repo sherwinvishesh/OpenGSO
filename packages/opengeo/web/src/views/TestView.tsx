@@ -29,12 +29,23 @@ const MODES: ModeOption[] = [
   { value: 'content', label: 'Content only', note: 'Skip the checks and just review the Markdown. Needs a key.' },
 ];
 
-export function TestView({ state, onResult }: { state: State; onResult: (result: TestResponse) => void }) {
+export function TestView({
+  state,
+  initial,
+  onResult,
+}: {
+  state: State;
+  /** The last run of this session, if there was one. Onboarding's closing score is one. */
+  initial?: TestResponse;
+  onResult: (result: TestResponse) => void;
+}) {
   const [url, setUrl] = useState(state.config.site);
   const [mode, setMode] = useState<TestMode>('full');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const [result, setResult] = useState<TestResponse>();
+  // Seeded rather than empty, so the tab opens on the number the user has already watched arrive
+  // instead of on "No result yet" inviting them to run the test they just ran.
+  const [result, setResult] = useState<TestResponse | undefined>(initial);
 
   async function run() {
     setBusy(true);

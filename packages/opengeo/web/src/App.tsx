@@ -86,8 +86,11 @@ export function App() {
       <Onboarding
         state={state}
         bots={bots}
-        onDone={() => {
+        onDone={(firstTest) => {
           setOnboarded(true);
+          // Onboarding ran the structural test on its way out, so the Test tab opens on that number
+          // rather than on an empty panel inviting the user to run the thing they just watched run.
+          if (firstTest) setLastTest(firstTest);
           void reload();
         }}
       />
@@ -144,6 +147,7 @@ export function App() {
           {tab === 'test' ? (
             <TestView
               state={state}
+              initial={lastTest}
               onResult={(result) => {
                 setLastTest(result);
                 void reload();

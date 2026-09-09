@@ -1,4 +1,14 @@
-import type { AiBot, GenerateResponse, History, OpenGeoConfig, ProdResponse, State, TestMode, TestResponse } from './types';
+import type {
+  AiBot,
+  GenerateResponse,
+  History,
+  OpenGeoConfig,
+  ProdResponse,
+  SitePreview,
+  State,
+  TestMode,
+  TestResponse,
+} from './types';
 
 /**
  * Every call goes to this page's own origin, which is 127.0.0.1. There is no other host in this
@@ -40,6 +50,7 @@ export const api = {
   history: () => call<History>('/api/history'),
   saveConfig: (patch: Partial<OpenGeoConfig>) =>
     call<{ config: OpenGeoConfig; configPath: string }>('/api/config', { method: 'POST', body: JSON.stringify(patch) }),
+  preview: (url: string) => call<{ preview: SitePreview }>('/api/preview', { method: 'POST', body: JSON.stringify({ url }) }),
   test: (input: { url?: string; mode?: TestMode; maxDocs?: number }) =>
     call<TestResponse>('/api/test', { method: 'POST', body: JSON.stringify(input) }),
   generate: (input: { url?: string; tier?: 'free' | 'ai'; single?: boolean; force?: boolean; skipSiteFiles?: boolean }) =>

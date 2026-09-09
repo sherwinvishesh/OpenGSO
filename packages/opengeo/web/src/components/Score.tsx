@@ -46,13 +46,27 @@ export function ScorePanel({ score, url, framework }: { score: Score; url: strin
         <div className="mono muted" style={{ fontSize: 12, wordBreak: 'break-all' }}>
           {url}
         </div>
+        {/* Passed, failed and not applicable always show, the first two because a zero of either is
+            worth reading. Partial and locked only when there are some: a site with none of either
+            should not be asked to wonder what those words mean. The five together are every check,
+            which is the property that makes this row worth trusting. */}
         <div className="counts">
           <span>
             <b>{score.counts.pass}</b> passed
           </span>
+          {score.counts.partial > 0 ? (
+            <span>
+              <b>{score.counts.partial}</b> partly there
+            </span>
+          ) : null}
           <span>
             <b>{score.counts.fail}</b> failed
           </span>
+          {score.counts.locked > 0 ? (
+            <span>
+              <b>{score.counts.locked}</b> locked
+            </span>
+          ) : null}
           <span>
             <b>{score.counts.na}</b> not applicable
           </span>

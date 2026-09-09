@@ -259,6 +259,25 @@ export interface ManifestPage {
   tier: string;
 }
 
+/** What the URL in onboarding's first field actually answers with. Mirrors `SitePreview` in core. */
+export interface SitePreview {
+  url: string;
+  ok: boolean;
+  status: number;
+  ttfbMs: number;
+  error?: string;
+  framework?: string;
+  clientRendered?: boolean;
+  twin?: { url: string; ok: boolean; status: number; served: boolean };
+}
+
+/** Where generated files probably belong, and why. `found: false` is a shrug, not a detection. */
+export interface WebRootGuess {
+  dir: string;
+  why: string;
+  found: boolean;
+}
+
 export interface State {
   root: string;
   configPath: string;
@@ -274,4 +293,5 @@ export interface State {
   manifest?: { generatedAt: string; site: string; pages: ManifestPage[] };
   publicDir: string;
   internalDir: string;
+  webRoot: WebRootGuess;
 }

@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { AiBot, CustomBot, State } from '../types';
+import type { AiBot, CheckResult, CustomBot, SitePreview, State, TestResponse } from '../types';
 import type { RoutingMode } from '../components/BotPicker';
 import { AddCrawler, CrawlerChecklist, RoutingModes, routableOnly, routingForMode, routingModeOf } from '../components/BotPicker';
 import type { ProviderDraft } from '../components/ProviderFields';
 import { ProviderFields, draftForProvider, providerInfoOf } from '../components/ProviderFields';
-import { Banner, Button, Card, CardHead, Field } from '../components/ui';
+import { ScorePanel } from '../components/Score';
+import { Banner, Button, Card, CardHead, Field, Pill } from '../components/ui';
 
 /**
  * First run: project, then key, then bots (§8).
@@ -14,22 +16,46 @@ import { Banner, Button, Card, CardHead, Field } from '../components/ui';
  * The key step comes second rather than first for the same reason setup asks in that order: it is
  * optional, and putting an optional secret in front of the thing that actually works would make the
  * tool feel like it needs one.
+ *
+ * The same three upgrades the terminal flow got, over the same endpoints, because the two doors onto
+ * setup should not disagree about what OpenGEO can work out for itself. The URL is probed while it
+ * is being typed, the web root arrives already detected with the reason attached, and Finish ends on
+ * the site's actual score rather than on a redirect to an empty dashboard.
  */
 
 const STEPS = ['Project', 'AI key', 'Bots'] as const;
 
-export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[]; onDone: () => void }) {
+export function Onboarding({
+  state,
+  bots,
+  onDone,
+}: {
+  state: State;
+  bots: AiBot[];
+  /** The closing test, so the dashboard opens on the number the user just watched arrive. */
+  onDone: (firstTest?: TestResponse) => void;
+}) {
   const [step, setStep] = useState(0);
   const [site, setSite] = useState(state.config.site);
   const [ai, setAi] = useState<ProviderDraft>(() => ({
     ...draftForProvider(state.providerCatalog, state.config.ai.provider),
     model: state.config.ai.model,
   }));
-  const [publicDir, setPublicDir] = useState(state.config.publicDir);
+  // The detector may fill in a box nobody has typed into, and may not overrule a saved answer. On
+  // this screen there is no saved answer by definition, so the guess wins whenever it found one.
+  const [publicDir, setPublicDir] = useState(state.webRoot.found ? state.webRoot.dir : state.config.publicDir);
   const [added, setAdded] = useState<CustomBot[]>([]);
   const [routing, setRouting] = useState<string[]>(state.config.bots.markdownRouting);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const { preview, pending: probing } = useSitePreview(site);
+  // Set once the config is saved and the closing test has run. Onboarding stays on screen for it:
+  // the number is the reason the three questions were worth answering. `saved` rather than
+  // `result !== undefined`, so a site that could not be reached still ends on the closing screen
+  // instead of dropping back onto a form whose answers have already been written.
+  const [saved, setSaved] = useState(false);
+  const [result, setResult] = useState<TestResponse>();
+  const [scoring, setScoring] = useState(false);
 
   // Crawlers added during onboarding join the list immediately, so they can be ticked in the same
   // pass rather than after a save-and-reload.
@@ -38,6 +64,17 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
   // selection happens to match one of the three canned answers, which is exactly when a first-run
   // user clicks it: the default is everyone.
   const [mode, setMode] = useState<RoutingMode>(() => routingModeOf(routing, routableOnly(bots)));
+
+  // Ranked by points recoverable rather than by check order, because the first line of a first
+  // report is the only one everybody reads and it should be the one worth most.
+  const next = useMemo<CheckResult[]>(
+    () =>
+      (result?.checks ?? [])
+        .filter((check) => check.status === 'fail' || check.status === 'partial')
+        .sort((a, b) => b.weight - b.earned - (a.weight - a.earned))
+        .slice(0, 3),
+    [result],
+  );
 
   async function finish() {
     setBusy(true);
@@ -66,11 +103,23 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
           custom: [...state.config.bots.custom, ...added],
         },
       });
-      onDone();
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : String(thrown));
       setBusy(false);
+      return;
     }
+
+    // Saved. From here nothing can fail in a way that should undo the setup, so the score runs on
+    // its own and a failure to reach the site is reported as a finding rather than as an error.
+    setBusy(false);
+    setSaved(true);
+    setScoring(true);
+    try {
+      setResult(await api.test({ url: site.trim(), mode: 'structure' }));
+    } catch (thrown) {
+      setError(thrown instanceof ApiError ? thrown.message : String(thrown));
+    }
+    setScoring(false);
   }
 
   function toggle(name: string) {
@@ -90,10 +139,64 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
 
         <div className="steps" aria-hidden="true">
           {STEPS.map((name, index) => (
-            <div key={name} className={`step-dot ${index <= step ? 'done' : ''}`} />
+            <div key={name} className={`step-dot ${saved || index <= step ? 'done' : ''}`} />
           ))}
         </div>
 
+        {saved ? (
+          <>
+            <Card>
+              <CardHead
+                title="Where you stand"
+                sub={scoring ? 'Running the structural test' : result?.score ? `${result.score.earned} of ${result.score.possible} applicable points` : undefined}
+              />
+              <div className="card-pad stack">
+                <p className="muted" style={{ margin: 0 }}>
+                  Saved. This is <span className="mono">{site.trim()}</span> against the structural
+                  checks, run just now. Nothing was uploaded.
+                </p>
+                {scoring ? <Working /> : null}
+                {result?.score ? (
+                  <>
+                    <ScorePanel score={result.score} url={result.url} framework={result.framework} />
+                    {next.length > 0 ? (
+                      <div>
+                        <div className="group-title">Do this next (most points first)</div>
+                        {next.map((check) => (
+                          <div className="check" key={check.id}>
+                            <div className="check-id">{check.id}</div>
+                            <div>
+                              <div className="check-title">{check.title}</div>
+                              <div className="check-reason">{check.fix ?? check.reason}</div>
+                            </div>
+                            <div className="check-points">+{check.weight - check.earned}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <Banner tone="ok" title="Nothing to fix">
+                        Every applicable check passed on the first run.
+                      </Banner>
+                    )}
+                  </>
+                ) : null}
+                {error ? (
+                  <Banner tone="warn" title="The score did not run">
+                    {error} The settings are saved, and Test in the dashboard will try again.
+                  </Banner>
+                ) : null}
+              </div>
+            </Card>
+
+            <div className="row">
+              <div className="grow" />
+              <Button primary disabled={scoring} onClick={() => onDone(result)}>
+                Open the dashboard
+              </Button>
+            </div>
+          </>
+        ) : (
+        <>
         <Card>
           <CardHead title={STEPS[step]} sub={`Step ${step + 1} of ${STEPS.length}`} />
           <div className="card-pad stack">
@@ -108,9 +211,14 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
                     onChange={(event) => setSite(event.target.value)}
                   />
                 </Field>
+                <SitePreviewNote preview={preview} pending={probing} />
                 <Field
                   label="Web root"
-                  hint={`Where generated files land. Default: ${state.config.publicDir}`}
+                  hint={
+                    state.webRoot.found
+                      ? `Where generated files land. ${state.webRoot.why}.`
+                      : `Where generated files land. Default: ${state.config.publicDir}`
+                  }
                 >
                   <input
                     type="text"
@@ -214,6 +322,8 @@ export function Onboarding({ state, bots, onDone }: { state: State; bots: AiBot[
             </Button>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
@@ -230,4 +340,135 @@ function asBot(bot: CustomBot): AiBot {
     notes: bot.notes,
     custom: true,
   };
+}
+
+/** The one place onboarding waits on the network for longer than a keystroke. */
+function Working() {
+  return (
+    <div className="row" style={{ gap: 8 }}>
+      <span className="spinner" aria-hidden="true" />
+      <span className="muted">Fetching the site and running the structural checks...</span>
+    </div>
+  );
+}
+
+/**
+ * The probe under the URL field, saying the same things the terminal says.
+ *
+ * Never an error banner, whatever it finds. Nothing here blocks setup: the URL is saved either way,
+ * and the reason to show this at all is that "we cannot reach that" is worth knowing while the field
+ * still has focus rather than after the first generate. A URL half-typed is the normal state of this
+ * component, so it renders nothing until there is an answer about a whole one.
+ */
+function SitePreviewNote({ preview, pending }: { preview?: SitePreview; pending: boolean }) {
+  if (pending && !preview) {
+    return (
+      <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+        Checking that URL...
+      </p>
+    );
+  }
+  if (!preview) return null;
+
+  if (preview.error) {
+    return (
+      <Note>
+        <Pill tone="warn">no answer</Pill> Could not reach it: {preview.error}. Saved either way, and
+        nothing else in setup depends on it.
+      </Note>
+    );
+  }
+  if (!preview.ok) {
+    return (
+      <Note>
+        <Pill tone="warn">{preview.status}</Pill> That URL answered {preview.status}. Worth a second
+        look, though the rest of setup does not depend on it.
+      </Note>
+    );
+  }
+
+  return (
+    <Note>
+      <div>
+        <Pill tone="ok">reachable</Pill> {preview.status} in {preview.ttfbMs}ms
+        {preview.framework ? `, ${preview.framework}` : ''}
+      </div>
+      {preview.clientRendered ? (
+        <div>
+          The raw HTML is an empty mount element, so the content only exists once JavaScript has run.
+          Agents mostly do not run it, and neither does generate. Server-rendering is the fix.
+        </div>
+      ) : null}
+      {preview.twin?.served ? (
+        <div>
+          A markdown twin is already being served at <span className="mono">{preview.twin.url}</span>,
+          by opengeo-prod.
+        </div>
+      ) : preview.twin?.ok ? (
+        <div>
+          Something already answers at <span className="mono">{preview.twin.url}</span>, without
+          OpenGEO's headers.
+        </div>
+      ) : preview.twin ? (
+        <div>
+          No twin at <span className="mono">{preview.twin.url}</span> yet. That is what generate and
+          prod are for.
+        </div>
+      ) : null}
+    </Note>
+  );
+}
+
+function Note({ children }: { children: ReactNode }) {
+  return (
+    <div className="stack-sm muted" style={{ marginTop: -8, fontSize: 12.5 }}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The URL probed while it is being typed, without a request per keystroke.
+ *
+ * Debounced, and then sequence-guarded rather than aborted: a slow reply that lands after a newer
+ * request went out is dropped instead of being allowed to overwrite it, which is the one failure
+ * mode a field-driven fetch really has. Errors are swallowed on purpose. This is a convenience on
+ * top of a field that works fine without it, and a red box about a URL somebody is halfway through
+ * typing would be worse than showing nothing at all.
+ */
+function useSitePreview(url: string): { preview?: SitePreview; pending: boolean } {
+  const [preview, setPreview] = useState<SitePreview>();
+  const [pending, setPending] = useState(false);
+  const latest = useRef(0);
+
+  useEffect(() => {
+    const target = url.trim();
+    // Anything that is not yet a whole absolute URL is somebody mid-keystroke, not a site to probe.
+    if (!/^https?:\/\/[^\s/]+/.test(target)) {
+      latest.current += 1;
+      setPreview(undefined);
+      setPending(false);
+      return;
+    }
+
+    const ticket = (latest.current += 1);
+    setPending(true);
+    const timer = setTimeout(() => {
+      void api
+        .preview(target)
+        .then((response) => {
+          if (ticket !== latest.current) return;
+          setPreview(response.preview);
+          setPending(false);
+        })
+        .catch(() => {
+          if (ticket !== latest.current) return;
+          setPreview(undefined);
+          setPending(false);
+        });
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [url]);
+
+  return { preview, pending };
 }
