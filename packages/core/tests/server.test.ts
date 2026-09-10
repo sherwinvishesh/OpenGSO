@@ -2,11 +2,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { handleApi, readGeneratedFile, type StateResponse } from '../src/server/api.js';
-import { crossOriginDenial, resolveStaticPath } from '../src/server/server.js';
+import { generateFrame, handleApi, readGeneratedFile, testFrame, type StateResponse } from '../src/server/api.js';
+import { crossOriginDenial, resolveStaticPath, sseFrame } from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME, defaultConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
+import type { Evidence, TestResult } from '../src/test/index.js';
 
 /**
  * The dashboard server is the only part of OpenGEO that listens on a socket, which makes it the
@@ -246,3 +247,120 @@ describe('reading generated files', () => {
     expect((await post('/api/file', { path: 'md/nothing.md' })).status).toBe(404);
   });
 });
+
+/**
+ * Streaming, for the two endpoints that can run for minutes.
+ *
+ * Three properties, and the middle one is the reason this exists as its own layer rather than as a
+ * second copy of the handlers:
+ *
+ *   1. `/api/test/stream` and `/api/test` reach the same code, so there is one implementation.
+ *   2. A progress frame carries what a browser can use and nothing it cannot. `structure-done`
+ *      arrives holding the whole `TestResult`, evidence included, which is every byte of every
+ *      document the probe fetched and a `URL` that does not survive `JSON.stringify`.
+ *   3. A frame ends with a blank line, which is the only thing that tells a client it is complete.
+ */
+describe('the streaming endpoints', () => {
+  it('sends a test run down the same handler as the plain path', async () => {
+    // A 404 would mean the route was never wired, and the browser would be told the endpoint does
+    // not exist rather than that the URL it typed is not a URL.
+    const response = await post('/api/test/stream', { url: 'not-a-url' });
+    expect(response.status).toBe(400);
+    expect(String((response.body as { error: string }).error)).not.toContain('No such endpoint');
+  });
+
+  it('sends a generate run down the same handler as the plain path', async () => {
+    const response = await post('/api/generate/stream', { url: 'not-a-url' });
+    expect(response.status).toBe(400);
+    expect(String((response.body as { error: string }).error)).not.toContain('No such endpoint');
+  });
+
+  it('formats one frame as an event line, a data line and the blank line that ends it', () => {
+    expect(sseFrame('progress', { phase: 'discover' })).toBe('event: progress\ndata: {"phase":"discover"}\n\n');
+  });
+
+  it('ends every frame with the blank line, whatever is in it', () => {
+    expect(sseFrame('done', { status: 200, body: null }).endsWith('\n\n')).toBe(true);
+  });
+
+  it('keeps the evidence out of a structure-done frame', () => {
+    const frame = testFrame({ phase: 'structure-done', result: structuralResult() });
+    const wire = JSON.stringify(frame);
+    expect(wire).not.toContain('<html>');
+    expect(wire).not.toContain('user-agent');
+  });
+
+  it('sends the four fields the dashboard reads at the top level of a finished run', () => {
+    const frame = testFrame({ phase: 'structure-done', result: structuralResult() });
+    expect(frame).toEqual({
+      phase: 'structure-done',
+      structure: {
+        url: 'https://example.com/resume',
+        twinUrl: 'https://example.com/resume.md',
+        framework: undefined,
+        score: structuralResult().score,
+        checks: [],
+      },
+    });
+  });
+
+  it('survives the round trip it is about to be put through', () => {
+    const wire = JSON.stringify(testFrame({ phase: 'structure-done', result: structuralResult() }));
+    // A URL instance stringifies to `{}` rather than throwing, which is the failure that would go
+    // unnoticed: the frame would arrive, and the field inside it would be an empty object.
+    expect(wire).toContain('"twinUrl":"https://example.com/resume.md"');
+    expect(JSON.parse(wire).structure.score.locked.points).toBe(46);
+  });
+
+  it('passes a review phase through as it is, since there is nothing in it a browser cannot read', () => {
+    const event = { phase: 'review', done: 2, total: 5, url: 'https://example.com/a.md' } as const;
+    expect(testFrame(event)).toEqual(event);
+  });
+
+  it('flattens a crawl event, so a client switches on one field instead of two', () => {
+    expect(generateFrame({ phase: 'crawl', crawl: { route: '/a', depth: 1, found: 4, visited: 2 } })).toEqual({
+      phase: 'crawl',
+      route: '/a',
+      depth: 1,
+      found: 4,
+      visited: 2,
+    });
+  });
+
+  it('renames generate\'s own phase to step, so the outer discriminant is not shadowed', () => {
+    expect(
+      generateFrame({ phase: 'generate', generate: { route: '/a', index: 2, total: 5, phase: 'ai' } }),
+    ).toEqual({ phase: 'generate', step: 'ai', route: '/a', index: 2, total: 5 });
+  });
+
+  it('carries the files phase across with nothing attached to it', () => {
+    expect(generateFrame({ phase: 'files' })).toEqual({ phase: 'files' });
+  });
+});
+
+/**
+ * A finished structural run, with the evidence filled in only far enough to be recognisable in a
+ * frame that should not contain it. The checks are empty because none of these tests score
+ * anything: what is under test is which fields cross the wire.
+ */
+function structuralResult(): TestResult {
+  const evidence = {
+    target: new URL('https://example.com/resume'),
+    origin: 'https://example.com',
+    html: { body: '<html>a page</html>', headers: new Headers({ 'user-agent': 'probe' }) },
+  } as unknown as Evidence;
+  return {
+    url: 'https://example.com/resume',
+    twinUrl: 'https://example.com/resume.md',
+    checks: [],
+    score: {
+      value: 78,
+      earned: 52,
+      possible: 67,
+      counts: { pass: 5, partial: 3, fail: 1, locked: 12, na: 1 },
+      lost: [{ id: 'B1', points: 10 }],
+      locked: { count: 12, points: 46, unlockedBy: ['B1'] },
+    },
+    evidence,
+  };
+}

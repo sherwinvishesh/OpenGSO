@@ -3,6 +3,7 @@ import { join, resolve, sep } from 'node:path';
 import { createAiEnhancer } from '../generate/ai.js';
 import type { EnhanceInput, EnhanceOutput } from '../generate/generate.js';
 import { readManifest } from '../generate/manifest.js';
+import type { SiteProgress } from '../generate/site.js';
 import { generateSite } from '../generate/site.js';
 import { verifyProd } from '../prod/verify.js';
 import type { CustomBotInput } from '../shared/bots.js';
@@ -34,7 +35,7 @@ import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
 import type { SitePreview, WebRootGuess } from '../shared/site-probe.js';
 import { detectWebRoot, previewSite } from '../shared/site-probe.js';
-import type { History, HistoryEntry, SuiteAi, TestMode } from '../test/index.js';
+import type { CheckResult, Framework, History, HistoryEntry, Score, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js';
 import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
 
 /**
@@ -65,6 +66,44 @@ export interface ApiOptions {
   root: string;
   version: string;
   packageName: string;
+  /**
+   * Set by the transport for the `/stream` routes, absent everywhere else.
+   *
+   * An endpoint that takes minutes has to be able to say so while it is still working, and the two
+   * that do already accept an `onProgress` from the CLI. This is the same callback, one hop further
+   * out, so the dashboard watches exactly what the terminal watches.
+   */
+  onProgress?: (event: ApiProgress) => void;
+}
+
+/**
+ * What a streaming endpoint sends while it works.
+ *
+ * Its own union rather than `SuiteProgress | SiteProgress` forwarded raw. `structure-done` carries
+ * the whole `TestResult`, evidence included, which is every byte of every document the probe
+ * fetched plus a `URL` object that does not survive `JSON.stringify`. The frame a browser needs is
+ * the flattened structural payload the final response already sends, so it is built once, here.
+ *
+ * Discriminated on `phase`, and the eight names are distinct across both pillars, so a client can
+ * switch on one field without being told which endpoint it called.
+ */
+export type ApiProgress =
+  | { phase: 'structure' }
+  | { phase: 'structure-done'; structure: StructurePayload }
+  | { phase: 'discover' }
+  | { phase: 'discovered'; documents: number }
+  | { phase: 'review'; done: number; total: number; url: string }
+  | { phase: 'crawl'; route: string; depth: number; found: number; visited: number }
+  | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
+  | { phase: 'files' };
+
+/** The structural half of a run, in the shape the dashboard reads it at the top level. */
+export interface StructurePayload {
+  url: string;
+  twinUrl: string;
+  framework?: Framework;
+  score: Score;
+  checks: CheckResult[];
 }
 
 const ok = (body: unknown): ApiResponse => ({ status: 200, body });
@@ -91,9 +130,14 @@ export async function handleApi(request: ApiRequest, options: ApiOptions): Promi
       return saveConfigPatch(request.body, options);
     case 'POST /api/preview':
       return await runPreview(request.body);
+    // Each of these two answers on two paths. The handler is identical; `/stream` only tells the
+    // transport to hold the response open and forward `options.onProgress` as it arrives, so a
+    // script that wants one JSON object and a browser that wants narration run the same code.
     case 'POST /api/test':
+    case 'POST /api/test/stream':
       return await runTest(request.body, options);
     case 'POST /api/generate':
+    case 'POST /api/generate/stream':
       return await runGenerate(request.body, options);
     case 'POST /api/prod-test':
       return await runProdTest(request.body, options);
@@ -310,6 +354,7 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
     ai,
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,
+    onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event)) : undefined,
   });
   recordRun(internalDir, result);
 
@@ -347,6 +392,44 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
     contentSkipped: result.contentSkipped ?? null,
     contentError: result.contentError ?? null,
   });
+}
+
+/**
+ * A suite progress event, in the shape that survives a JSON frame.
+ *
+ * Only `structure-done` needs any work: the terminal takes the whole `TestResult` because it is
+ * about to render a report from it, and a browser cannot be sent the evidence that report was
+ * derived from. The other four pass through as they are.
+ */
+export function testFrame(event: SuiteProgress): ApiProgress {
+  return event.phase === 'structure-done' ? { phase: 'structure-done', structure: structurePayload(event.result) } : event;
+}
+
+/** The same four fields `runTest` flattens into its response, so a client merges one shape. */
+function structurePayload(result: TestResult): StructurePayload {
+  return {
+    url: result.url,
+    twinUrl: result.twinUrl,
+    framework: result.framework,
+    score: result.score,
+    checks: result.checks,
+  };
+}
+
+/**
+ * A site progress event, flattened by one level.
+ *
+ * `SiteProgress` nests the crawl and generate payloads under a key named after the phase, which is
+ * an awkward shape to switch on twice in a browser. Flattened here instead, and `phase` renamed to
+ * `step` on the generate branch so the outer discriminant is not shadowed by an inner one.
+ */
+export function generateFrame(event: SiteProgress): ApiProgress {
+  if (event.phase === 'crawl') return { phase: 'crawl', ...event.crawl };
+  if (event.phase === 'generate') {
+    const { phase, ...rest } = event.generate;
+    return { phase: 'generate', step: phase, ...rest };
+  }
+  return { phase: 'files' };
 }
 
 /**
@@ -394,6 +477,7 @@ async function runGenerate(body: unknown, options: ApiOptions): Promise<ApiRespo
     maxDepth: input.maxDepth,
     skipSiteFiles: input.skipSiteFiles,
     enhance,
+    onProgress: options.onProgress ? (event) => options.onProgress?.(generateFrame(event)) : undefined,
   });
 
   return ok({

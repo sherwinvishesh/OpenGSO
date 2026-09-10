@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
-import { handleApi, type ApiOptions } from './api.js';
+import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
 
 /**
  * The `opengeo start` server (§8).
@@ -42,6 +42,23 @@ const MIME: Record<string, string> = {
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
+/**
+ * The two endpoints that answer as a stream of server-sent events instead of one JSON object.
+ *
+ * Test and generate are the only two routes here that can run for minutes, and both already report
+ * progress to the CLI. Everything else answers in one round trip and has nothing to narrate.
+ *
+ * They are POST, not GET, which means the browser cannot use `EventSource`. That is the trade taken
+ * deliberately: `EventSource` only issues a GET, and a GET that runs a test or writes files is
+ * reachable from any page on the internet through an `<img>` tag, which sends no `Origin` header
+ * and so walks straight past `crossOriginDenial`. A POST carrying a JSON content type cannot be
+ * forged that way. The wire format is still SSE, so `curl -N` reads it as text.
+ */
+const STREAM_PATHS = new Set(['/api/test/stream', '/api/generate/stream']);
+
+/** Long enough to stay out of the way, short enough that no idle timer sees a dead connection. */
+const HEARTBEAT_MS = 15_000;
+
 export async function startServer(options: StartOptions): Promise<RunningServer> {
   const host = options.host ?? '127.0.0.1';
   const server = createServer((request, response) => {
@@ -78,11 +95,80 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
     } catch (error) {
       return send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
     }
-    const result = await handleApi({ method: request.method ?? 'GET', path: url.pathname, body }, options);
+    const method = request.method ?? 'GET';
+    if (method === 'POST' && STREAM_PATHS.has(url.pathname)) {
+      return await streamApi(request, response, { method, path: url.pathname, body }, options);
+    }
+    const result = await handleApi({ method, path: url.pathname, body }, options);
     return send(response, result.status, 'application/json; charset=utf-8', JSON.stringify(result.body));
   }
 
   serveStatic(url.pathname, response, options.webRoot);
+}
+
+/**
+ * Run one endpoint with the response held open, narrating as it goes.
+ *
+ * Two frame types and no more. `progress` is whatever the pillar reported, verbatim; `done` is the
+ * `ApiResponse` the handler returned, status included, so the client's success and failure paths are
+ * the same two lines they are on every other route. A thrown error becomes a `done` with a 500,
+ * because by this point the status line has already gone out and cannot be changed.
+ */
+async function streamApi(
+  request: IncomingMessage,
+  response: ServerResponse,
+  api: { method: string; path: string; body: unknown },
+  options: StartOptions,
+): Promise<void> {
+  response.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-store',
+    Connection: 'keep-alive',
+    // For the day somebody puts this behind a proxy. Buffering an event stream defeats it entirely.
+    'X-Accel-Buffering': 'no',
+  });
+  // A comment before any work starts, so `fetch` resolves its promise and the client can begin
+  // reading rather than sitting on an empty body for as long as the first phase takes.
+  response.write(': open\n\n');
+
+  // The run cannot be cancelled once started, so a browser that navigates away only stops us
+  // writing to a socket that is gone. Without this every frame after it throws EPIPE.
+  let open = true;
+  request.on('close', () => {
+    open = false;
+  });
+  const write = (event: string, data: unknown): void => {
+    if (!open || response.writableEnded) return;
+    response.write(sseFrame(event, data));
+  };
+
+  const heartbeat = setInterval(() => {
+    if (open && !response.writableEnded) response.write(': ping\n\n');
+  }, HEARTBEAT_MS);
+  // Node keeps the process alive for a pending timer, and this one outlives nothing.
+  heartbeat.unref?.();
+
+  try {
+    const onProgress = (event: ApiProgress) => write('progress', event);
+    const result = await handleApi(api, { ...options, onProgress });
+    write('done', result);
+  } catch (error) {
+    write('done', { status: 500, body: { error: error instanceof Error ? error.message : String(error) } });
+  } finally {
+    clearInterval(heartbeat);
+    if (!response.writableEnded) response.end();
+  }
+}
+
+/**
+ * One server-sent event.
+ *
+ * `JSON.stringify` never emits a raw newline, so the payload is always one `data:` line and the
+ * multi-line form of the format never comes up. The blank line at the end is what marks the frame
+ * complete; without it a client waits for the next one before delivering this one.
+ */
+export function sseFrame(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 /**

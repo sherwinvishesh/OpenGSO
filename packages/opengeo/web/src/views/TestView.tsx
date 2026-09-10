@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import type { ContentReview, DocumentReview, HistoryEntry, QualityRecommendation, State, TestMode, TestResponse } from '../types';
+import type {
+  ApiProgress,
+  ContentReview,
+  DocumentReview,
+  HistoryEntry,
+  QualityRecommendation,
+  State,
+  TestMode,
+  TestResponse,
+} from '../types';
 import { CheckList } from '../components/Checks';
+import { RunProgress } from '../components/Progress';
 import { ScorePanel } from '../components/Score';
 import { ago, Banner, Button, Card, CardHead, Empty, PageHead, Pill } from '../components/ui';
 
@@ -43,6 +53,7 @@ export function TestView({
   const [mode, setMode] = useState<TestMode>('full');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [progress, setProgress] = useState<ApiProgress>();
   // Seeded rather than empty, so the tab opens on the number the user has already watched arrive
   // instead of on "No result yet" inviting them to run the test they just ran.
   const [result, setResult] = useState<TestResponse | undefined>(initial);
@@ -50,8 +61,15 @@ export function TestView({
   async function run() {
     setBusy(true);
     setError(undefined);
+    setProgress(undefined);
     try {
-      const next = await api.test({ url, mode });
+      const next = await api.test({ url, mode }, (event) => {
+        setProgress(event);
+        // The structural half is a finished answer on its own, and the content review after it is
+        // one provider call per document. Showing the score the moment it exists is what the
+        // terminal does, and it is the difference between a two second wait and a four minute one.
+        if (event.phase === 'structure-done') setResult({ mode, ...event.structure });
+      });
       setResult(next);
       onResult(next);
     } catch (thrown) {
@@ -59,6 +77,7 @@ export function TestView({
       setResult(undefined);
     } finally {
       setBusy(false);
+      setProgress(undefined);
     }
   }
 
@@ -119,6 +138,7 @@ export function TestView({
             whole score either way.
           </p>
         ) : null}
+        {busy ? <RunProgress event={progress} idle="Starting" /> : null}
         {busy && mode !== 'structure' ? (
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
             Reading each Markdown document is a separate model call, so this takes a while.

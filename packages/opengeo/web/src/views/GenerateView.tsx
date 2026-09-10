@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api';
-import type { GeneratePage, GenerateResponse, SiteFile, State } from '../types';
+import type { ApiProgress, GeneratePage, GenerateResponse, SiteFile, State } from '../types';
+import { RunProgress } from '../components/Progress';
 import { Banner, Button, Card, CardHead, Empty, Field, PageHead, Pill } from '../components/ui';
 
 /**
@@ -26,14 +27,16 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [needsKey, setNeedsKey] = useState(false);
+  const [progress, setProgress] = useState<ApiProgress>();
   const [result, setResult] = useState<GenerateResponse>();
 
   async function run() {
     setBusy(true);
     setError(undefined);
     setNeedsKey(false);
+    setProgress(undefined);
     try {
-      setResult(await api.generate({ url, tier, single, force }));
+      setResult(await api.generate({ url, tier, single, force }, setProgress));
       onDone();
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : String(thrown));
@@ -41,6 +44,7 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
       setResult(undefined);
     } finally {
       setBusy(false);
+      setProgress(undefined);
     }
   }
 
@@ -89,6 +93,11 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
             The AI tier needs a key. Add one in Settings first. The free tier needs nothing and is
             what produces the fallback whenever the AI output loses a fact.
           </p>
+        ) : null}
+        {busy ? (
+          <div style={{ marginTop: 14 }}>
+            <RunProgress event={progress} idle="Starting" />
+          </div>
         ) : null}
         {state.ci ? (
           <p className="muted" style={{ margin: '12px 0 0', fontSize: 13 }}>

@@ -144,6 +144,32 @@ export interface TestResponse {
   history?: { trend: number[]; previous: HistoryEntry | null };
 }
 
+/** The structural half of a run on its own, which is what a `structure-done` frame carries. */
+export interface StructurePayload {
+  url: string;
+  twinUrl: string;
+  framework?: { name: string; confidence: string; evidence: string };
+  score: Score;
+  checks: CheckResult[];
+}
+
+/**
+ * What the streaming endpoints send while they work. Mirrors `ApiProgress` in core.
+ *
+ * One union across both pillars, discriminated on `phase`, because the eight names are distinct and
+ * a view should not have to be told which endpoint it called to read a frame. The first five belong
+ * to a test run and the last three to a generate.
+ */
+export type ApiProgress =
+  | { phase: 'structure' }
+  | { phase: 'structure-done'; structure: StructurePayload }
+  | { phase: 'discover' }
+  | { phase: 'discovered'; documents: number }
+  | { phase: 'review'; done: number; total: number; url: string }
+  | { phase: 'crawl'; route: string; depth: number; found: number; visited: number }
+  | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
+  | { phase: 'files' };
+
 export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
 
 export interface GeneratePage {
