@@ -28,7 +28,7 @@ export function RunProgress({ event, idle }: { event?: ApiProgress; idle: string
       ) : (
         // Nothing to divide by yet, or a denominator that is still being discovered. A bar that
         // slides backwards when the crawl finds two more links is worse than no bar at all.
-        <div className="progress-track progress-track-idle" aria-hidden="true">
+        <div className="progress-track" aria-hidden="true">
           <span className="progress-drift" />
         </div>
       )}

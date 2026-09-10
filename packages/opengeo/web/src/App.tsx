@@ -57,6 +57,21 @@ export function App() {
     api.bots().then((response) => setBots(response.bots)).catch(() => setBots([]));
   }, [reload]);
 
+  // Five screens, five keys. The dashboard is a tool somebody comes back to a dozen times while
+  // fixing one page, and reaching for the mouse to change tab every time is the kind of small tax
+  // that makes a tool feel slow long before anything actually is.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
+      const index = Number(event.key) - 1;
+      if (!Number.isInteger(index) || index < 0 || index >= TABS.length) return;
+      event.preventDefault();
+      setTab(TABS[index].id);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -79,7 +94,7 @@ export function App() {
     );
   }
 
-  if (!state || !bots) return <div className="onboarding muted">Loading project...</div>;
+  if (!state || !bots) return <Skeleton />;
 
   if (!state.configExists && !onboarded) {
     return (
@@ -108,10 +123,13 @@ export function App() {
         </div>
 
         <nav className="nav">
-          {TABS.map((entry) => (
+          {TABS.map((entry, index) => (
             <button key={entry.id} aria-current={tab === entry.id} onClick={() => setTab(entry.id)}>
               <span>{entry.label}</span>
-              <NavDot id={entry.id} state={state} lastTest={lastTest} />
+              <span className="nav-right">
+                <kbd aria-hidden="true">{index + 1}</kbd>
+                <NavDot id={entry.id} state={state} lastTest={lastTest} />
+              </span>
             </button>
           ))}
         </nav>
@@ -162,6 +180,43 @@ export function App() {
       </main>
     </div>
   );
+}
+
+/**
+ * The shell, greyed, for the moment before `/api/state` and `/api/bots` land.
+ *
+ * It is the real layout rather than a centred word, so the sidebar and the first card are already
+ * in their final positions and nothing jumps when the data arrives.
+ */
+function Skeleton() {
+  return (
+    <div className="shell" aria-hidden="true">
+      <aside className="sidebar">
+        <div className="brand">
+          <strong>OpenGEO</strong>
+        </div>
+        <div className="nav">
+          {TABS.map((entry) => (
+            <div key={entry.id} className="skeleton skeleton-nav" />
+          ))}
+        </div>
+      </aside>
+      <main className="main">
+        <div className="main-inner">
+          <div className="skeleton skeleton-line" style={{ width: 180 }} />
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/** Typing into a field should never be read as a shortcut, whatever the field happens to be. */
+function isTyping(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+  if (!element) return false;
+  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable;
 }
 
 /** A status dot, only where there is a real status to report. Never a decoration. */

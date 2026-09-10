@@ -96,7 +96,7 @@ export function ScorePanel({
       <ScoreDial score={score} />
       <div className="score-meta">
         <div className="score-headline">
-          <span className="mono muted" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+          <span className="mono note note-sm" style={{ wordBreak: 'break-all' }}>
             {url}
           </span>
           <Delta score={score} previous={history?.previous ?? null} />
@@ -131,7 +131,7 @@ export function ScorePanel({
             <b>{score.counts.na}</b> not applicable
           </span>
         </div>
-        <div className="muted" style={{ fontSize: 12.5 }}>
+        <div className="note note-sm">
           {score.earned} of {score.possible} applicable points
           {score.counts.na > 0 ? `, with ${score.counts.na} check${score.counts.na === 1 ? '' : 's'} excluded because ${score.counts.na === 1 ? 'it does' : 'they do'} not apply here` : ''}
           {score.locked.points > 0 ? `, and ${score.locked.points} more waiting behind ${score.locked.unlockedBy.join(' and ') || 'one fix'}` : ''}

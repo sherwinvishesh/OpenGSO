@@ -130,7 +130,7 @@ export function Onboarding({
     <div className="onboarding">
       <div className="onboarding-card">
         <div>
-          <h1 style={{ margin: '0 0 4px', fontSize: 24, letterSpacing: '-0.02em' }}>Set up OpenGEO</h1>
+          <h1 className="onboarding-title">Set up OpenGEO</h1>
           <p className="muted" style={{ margin: 0 }}>
             Three questions, then a first result. Everything is written into{' '}
             <span className="mono">{state.root}</span>.
@@ -228,7 +228,7 @@ export function Onboarding({
                     onChange={(event) => setPublicDir(event.target.value)}
                   />
                 </Field>
-                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                <p className="note">
                   OpenGEO reads this site over HTTP, exactly like an agent would. It never imports your
                   code and never needs to know which framework you use.
                 </p>
@@ -248,7 +248,7 @@ export function Onboarding({
                   keyLabel="API key"
                   keyHint="Leave blank to skip."
                 />
-                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                <p className="note">
                   Not on the list? Pick <strong>Your own endpoint</strong> and give it a base URL.
                   Anything speaking the OpenAI, Anthropic or Gemini request format works.
                 </p>
@@ -295,7 +295,7 @@ export function Onboarding({
                     />
                   </>
                 ) : (
-                  <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                  <p className="note">
                     {routing.length} of {routable.length} agents. Pick "Let me pick" to choose them by
                     name, or to add a crawler OpenGEO has never heard of.
                   </p>
@@ -363,7 +363,7 @@ function Working() {
 function SitePreviewNote({ preview, pending }: { preview?: SitePreview; pending: boolean }) {
   if (pending && !preview) {
     return (
-      <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+      <p className="note note-sm">
         Checking that URL...
       </p>
     );
@@ -421,7 +421,7 @@ function SitePreviewNote({ preview, pending }: { preview?: SitePreview; pending:
 
 function Note({ children }: { children: ReactNode }) {
   return (
-    <div className="stack-sm muted" style={{ marginTop: -8, fontSize: 12.5 }}>
+    <div className="stack-sm note note-sm probe-lines">
       {children}
     </div>
   );

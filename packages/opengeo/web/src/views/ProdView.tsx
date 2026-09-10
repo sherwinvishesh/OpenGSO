@@ -60,7 +60,7 @@ export function ProdView({ state, bots }: { state: State; bots: AiBot[] }) {
       </PageHead>
 
       <Card className="card-pad">
-        <div className="row" style={{ alignItems: 'flex-end' }}>
+        <div className="row row-end">
           <div className="grow">
             <Field label="Site URL">
               <input

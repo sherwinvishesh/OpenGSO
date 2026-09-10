@@ -203,7 +203,7 @@ function RoutingPresets({
 }) {
   const assistants = routable.filter((bot) => bot.kind !== 'training').length;
   return (
-    <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="row">
       <span className="group-title" style={{ margin: 0 }}>
         Markdown routing
       </span>
@@ -217,7 +217,7 @@ function RoutingPresets({
         Nobody
       </Button>
       <div className="grow" />
-      <span className="muted" style={{ fontSize: 12 }}>
+      <span className="note note-sm">
         {mode === 'custom' ? 'A list you picked by hand.' : 'Or tick them one by one below.'}
       </span>
     </div>

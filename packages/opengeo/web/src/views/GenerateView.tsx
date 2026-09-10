@@ -56,7 +56,7 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
       </PageHead>
 
       <Card className="card-pad">
-        <div className="row" style={{ alignItems: 'flex-end' }}>
+        <div className="row row-end">
           <div className="grow">
             <Field label="Site URL">
               <input
@@ -78,7 +78,7 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
             {busy ? 'Generating' : 'Generate'}
           </Button>
         </div>
-        <div className="row" style={{ marginTop: 14 }}>
+        <div className="row row-spaced">
           <label className="checkbox">
             <input type="checkbox" checked={single} onChange={(event) => setSingle(event.target.checked)} />
             This page only, do not crawl
@@ -89,18 +89,18 @@ export function GenerateView({ state, onDone }: { state: State; onDone: () => vo
           </label>
         </div>
         {tier === 'ai' && !state.key.present ? (
-          <p className="muted" style={{ margin: '12px 0 0', fontSize: 13 }}>
+          <p className="note note-spaced">
             The AI tier needs a key. Add one in Settings first. The free tier needs nothing and is
             what produces the fallback whenever the AI output loses a fact.
           </p>
         ) : null}
         {busy ? (
-          <div style={{ marginTop: 14 }}>
+          <div className="row-spaced">
             <RunProgress event={progress} idle="Starting" />
           </div>
         ) : null}
         {state.ci ? (
-          <p className="muted" style={{ margin: '12px 0 0', fontSize: 13 }}>
+          <p className="note note-spaced">
             CI is set in this environment, so the AI tier will refuse to run. That is deliberate:
             generation is a local-machine step, never a build step.
           </p>

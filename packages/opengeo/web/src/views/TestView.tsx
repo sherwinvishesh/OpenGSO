@@ -128,19 +128,19 @@ export function TestView({
         </div>
 
         {keyBlocked ? (
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          <p className="note">
             A content review needs an API key. Add one in Settings, or switch to Structure only.
           </p>
         ) : null}
         {keyPartial ? (
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          <p className="note">
             No key configured, so this will run the structural checks and stop there. That is the
             whole score either way.
           </p>
         ) : null}
         {busy ? <RunProgress event={progress} idle="Starting" /> : null}
         {busy && mode !== 'structure' ? (
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          <p className="note">
             Reading each Markdown document is a separate model call, so this takes a while.
           </p>
         ) : null}
@@ -226,7 +226,7 @@ function PastRuns({ url }: { url: string }) {
             );
           })}
         </div>
-        <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>
+        <p className="note note-sm">
           Last run {ago(latest.at)} and scored {latest.score}. Run it again to see what has moved.
         </p>
       </div>

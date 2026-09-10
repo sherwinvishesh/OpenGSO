@@ -69,13 +69,8 @@ export function Button({
       onClick={onClick}
       disabled={disabled || busy}
     >
-      {busy ? (
-        <>
-          <span className="spinner" aria-hidden="true" /> <span style={{ marginLeft: 6 }}>{children}</span>
-        </>
-      ) : (
-        children
-      )}
+      {busy ? <span className="spinner" aria-hidden="true" /> : null}
+      {children}
     </button>
   );
 }

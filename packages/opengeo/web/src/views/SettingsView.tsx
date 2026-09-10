@@ -110,7 +110,7 @@ function ProjectCard({ state, onSaved }: { state: State; onSaved: () => void }) 
             <option value="ai">ai</option>
           </select>
         </Field>
-        <div className="muted" style={{ fontSize: 13 }}>
+        <div className="note">
           Generated files go to <span className="mono">{state.publicDir}</span>. Bookkeeping that must
           never be web-served goes to <span className="mono">{state.internalDir}</span>.
         </div>
@@ -183,7 +183,7 @@ function KeyCard({ state, onSaved }: { state: State; onSaved: () => void }) {
           keyPlaceholder={state.key.present ? 'leave blank to keep the current key' : 'sk-...'}
         />
 
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+        <p className="note">
           Not on the list? Pick <strong>Your own endpoint</strong> and give it a base URL. Anything
           speaking the OpenAI, Anthropic or Gemini request format works, including a company gateway.
         </p>

@@ -217,7 +217,7 @@ export function AddCrawler({
         >
           Cancel
         </Button>
-        <span className="muted" style={{ fontSize: 13 }}>
+        <span className="note">
           Saved into opengeo.config.json. Your site picks it up on the next restart.
         </span>
       </div>

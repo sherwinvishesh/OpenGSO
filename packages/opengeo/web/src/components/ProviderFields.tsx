@@ -66,7 +66,7 @@ export function ProviderFields({
 
   return (
     <>
-      <div className="row" style={{ alignItems: 'flex-end' }}>
+      <div className="row row-end">
         <Field label="Provider">
           <select
             value={draft.provider}
@@ -95,7 +95,7 @@ export function ProviderFields({
       </div>
 
       {custom ? (
-        <div className="row" style={{ alignItems: 'flex-end' }}>
+        <div className="row row-end">
           <div className="grow">
             <Field label="Base URL" hint="Everything up to the endpoint path, with no trailing slash.">
               <input
@@ -118,7 +118,7 @@ export function ProviderFields({
       ) : null}
 
       {info?.keyless ? (
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+        <p className="note">
           {info.label} runs on this machine at <span className="mono">{info.baseUrl}</span>. There is no
           key to enter and nothing leaves the box.
         </p>
