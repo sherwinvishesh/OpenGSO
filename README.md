@@ -15,6 +15,7 @@ Unlike existing tools, which each solve one piece and are usually locked to a si
 ```bash
 npm install --save-dev opengeo
 
+npx opengeo                                         # the terminal app: where you stand, and what to do
 npx opengeo start                                   # set the project up, then open the dashboard
 npx opengeo test https://your-site.com              # score it as it is today
 npx opengeo generate https://your-site.com          # write the twins and the three root files
@@ -22,6 +23,10 @@ npx opengeo generate https://your-site.com          # write the twins and the th
 npx opengeo prod test https://your-site.com         # prove the deployment serves them correctly
 npx opengeo test https://your-site.com              # score it again
 ```
+
+`opengeo` on its own opens the home screen: your project, its last score, how many twins it has,
+and a menu of everything there is to do. It is the one command worth remembering. Piped or run from
+a script it prints the help page instead, so nothing that shells out to it changes behaviour.
 
 `opengeo start` asks four questions the first time it runs in a directory: your site URL and web
 root, which AI agents get the markdown twin, blocking, and an optional API key. After that it goes
