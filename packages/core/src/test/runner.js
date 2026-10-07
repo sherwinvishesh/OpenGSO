@@ -112,7 +112,7 @@ function collapseTwinCascade(results, e) {
   if (servesFile(e.twin)) return results;
 
   return results.map((result) => {
-    const why = LOCKED_ON_TWIN[result.id] ?? (result.status === 'fail' ? LOCKED_ON_LIVE_URL[result.id] : undefined);
+    const why = LOCKED_ON_TWIN[result.id] ?? (result.status === 'pass' ? undefined : LOCKED_ON_LIVE_URL[result.id]);
     if (!why) return result;
     return {
       ...result,
@@ -141,7 +141,9 @@ const LOCKED_ON_TWIN = {
 };
 
 // Probed against the live URL. These can genuinely succeed without a `.md` twin - a site can wire
-// Accept negotiation at the same URL - so a pass is kept and only the failure is dropped.
+// Accept negotiation at the same URL - so a pass is kept and anything short of one is locked. A
+// partial is locked too: kept in the denominator, a `Vary: Accept` on the HTML alone cost the site
+// points it would not have lost by sending nothing.
 /** @type {Record<string, string>} */
 const LOCKED_ON_LIVE_URL = {
   B7: 'there are not two formats for a CDN to cache apart',

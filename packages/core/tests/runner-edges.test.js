@@ -135,3 +135,30 @@ describe('a sitemap index', () => {
     expect(sitemapTwins(body, 'https://x.example')).toEqual([]);
   });
 });
+
+describe('a site with no twin', () => {
+  /** @type {Record<string, string>} */
+  let extra = {};
+
+  beforeEach(() => {
+    extra = {};
+    handler = (_req, res, path) => {
+      if (path !== '/docs/page') {
+        res.writeHead(404, { 'content-type': 'text/plain' });
+        res.end('not found');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...extra });
+      res.end(PAGE);
+    };
+  });
+
+  it('does not lose points for a header that only half-applies without a twin', async () => {
+    const bare = await testUrl(`${site}/docs/page`);
+    extra = { vary: 'Accept', link: '</feed.xml>; rel="alternate"; type="application/rss+xml"' };
+    const withHeaders = await testUrl(`${site}/docs/page`);
+    expect(check(withHeaders, 'B7').status).toBe('locked');
+    expect(check(withHeaders, 'B8').status).toBe('locked');
+    expect(withHeaders.score.value).toBe(bare.score.value);
+  });
+});

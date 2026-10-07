@@ -183,9 +183,10 @@ describe('the twin a page advertises', () => {
       expect(evidence.advertisedTwinUrl).toBeUndefined();
       expect(evidence.twinUrl).toBe(`${site.base}/page.md`);
       const b8 = testEvidence(evidence).checks.find((check) => check.id === 'B8');
-      expect(b8?.status).toBe('partial');
-      expect(b8?.reason).toContain(`${elsewhere.base}/twin.md`);
-      expect(b8?.reason).toMatch(/not on this site/i);
+      // There is no twin on this site, so B8 is locked behind B1; what it saw is kept as the detail.
+      expect(b8?.status).toBe('locked');
+      expect(b8?.detail).toContain(`${elsewhere.base}/twin.md`);
+      expect(b8?.detail).toMatch(/not on this site/i);
     } finally {
       await site.close();
       await elsewhere.close();
