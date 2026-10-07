@@ -28,7 +28,6 @@ import { SSR_MIN_WORDS, liveExtract } from './live-page.js';
  * show progress on a page someone is actively optimising.
  */
 export const TTFB_FAST_MS = 400;
-
 export const TTFB_SLOW_MS = 1500;
 
 /** Under this, there is so little text that partial credit would be flattery rather than measurement. */

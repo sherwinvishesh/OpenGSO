@@ -25,7 +25,6 @@ import { liveExtract } from './live-page.js';
  * stub, not auditing prose.
  */
 export const TWIN_FULL_RATIO = 0.5;
-
 export const TWIN_FLOOR_RATIO = 0.08;
 
 /**
