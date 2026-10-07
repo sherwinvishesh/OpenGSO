@@ -122,6 +122,15 @@ the job can run.
   406 behaviour, frontmatter. Written so you could implement it without OpenGEO.
 - [docs/providers.md](docs/providers.md) - every AI provider OpenGEO ships with, the environment
   variables it already understands, and how to add your own AI tool.
+- [docs/config.md](docs/config.md) - every field of `opengeo.config.json`, with its default.
+- [docs/prod-api.md](docs/prod-api.md) - every export of `opengeo-prod`, `opengeo-prod/next` and
+  `opengeo-prod/edge`.
+- [docs/troubleshooting.md](docs/troubleshooting.md) - the problems people hit first, and the fix for
+  each.
+- [docs/versioning.md](docs/versioning.md) - how the `opengeo/1.0` spec version relates to the
+  package version.
+- [docs/architecture.md](docs/architecture.md) - for contributors: where the code lives, how it
+  reaches the five packages, and what the build enforces.
 - [CONTRIBUTING.md](CONTRIBUTING.md) - the dev loop, the test layout, and how to add a bot.
 - [SECURITY.md](SECURITY.md) - the dashboard's threat model, where the API key goes, and how to
   report a vulnerability privately.
@@ -138,8 +147,8 @@ packages/prod        opengeo-prod
 packages/cli         opengeo-cli
 packages/opengeo     opengeo, including web/ (the dashboard: plain HTML, CSS and JS, no build)
 examples/nextjs-demo the Next.js app the whole pipeline is exercised against
-docs/                checks.md, spec.md and providers.md
-scripts/             check-bundles.mjs, which asserts those structural guarantees on every build
+docs/                the user and contributor docs listed above
+scripts/             check-bundles.mjs and check-packages.mjs, which check what the build produced
 ```
 
 ## Working on it

@@ -14,6 +14,9 @@ it serves are written by [`opengeo-generate`](https://github.com/sherwinvishesh/
 
 ## Install
 
+Needs Node.js 22 or later. The `opengeo-prod/edge` entry imports no Node module, so it also runs
+on edge runtimes.
+
 ```bash
 npm install opengeo-prod
 ```

@@ -17,6 +17,7 @@ docs/                the user and contributor docs, listed in the README
 `§7` or `§16`. They point into the original product spec, which is not distributed with the repo.
 You do not need it: the decisions those sections drove are all described where they are cited, and
 the documents in `docs/` cover the parts a contributor actually has to match.
+[docs/architecture.md](docs/architecture.md) is the map of how the code fits together.
 
 `@opengeo/core` is private and its `exports` map points at its source files. Each published package
 bundles core with tsup (`noExternal: [/@opengeo\/core/]`), so core is never an install-time

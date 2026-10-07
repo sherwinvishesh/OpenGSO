@@ -15,6 +15,8 @@ Part of [OpenGEO](https://github.com/sherwinvishesh/OpenGEO).
 
 ## Install
 
+Needs Node.js 22 or later.
+
 ```bash
 npx opengeo-testing test https://example.com
 ```

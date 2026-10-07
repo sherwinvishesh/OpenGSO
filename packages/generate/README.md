@@ -18,6 +18,8 @@ files it writes are served by
 
 ## Install
 
+Needs Node.js 22 or later.
+
 ```bash
 npm install --save-dev opengeo-generate
 ```

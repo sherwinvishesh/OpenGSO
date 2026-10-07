@@ -13,6 +13,8 @@ Part of [OpenGEO](https://github.com/sherwinvishesh/OpenGEO).
 
 ## Install
 
+Needs Node.js 22 or later.
+
 ```bash
 npm install --save-dev opengeo
 ```

@@ -21,6 +21,7 @@ import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../src/shared/
 import { NOT_ACCEPTABLE_BODY } from '../src/prod/headers.js';
 import { routeToTwinUrlPath } from '../src/shared/routes.js';
 import { COMMAND_PACKAGES } from '../src/shared/errors.js';
+import { defaultConfig } from '../src/shared/config.js';
 
 /**
  * Documentation that describes behaviour is documentation that can be wrong. These tests are the
@@ -199,6 +200,86 @@ describe('the bot list is the documented contribution surface (§17)', () => {
   });
 });
 
+describe('docs/config.md', () => {
+  const doc = read('docs/config.md');
+  const rowFor = (/** @type {string} */ key) => doc.split('\n').find((line) => line.startsWith(`| \`${key}\` |`));
+
+  // FIELD_RULES is module-private, and it is the one list of every field the loader validates, so
+  // it is read from source: a field added there without a row here fails this test.
+  const rules = [...read('packages/core/src/shared/config.js').matchAll(/^\s+\[(?:undefined|'(\w+)'), '(\w+)',/gm)].map(
+    ([, section, key]) => (section ? `${section}.${key}` : key),
+  );
+
+  it('has a row for every field the loader checks', () => {
+    expect(rules.length).toBeGreaterThan(15);
+    for (const key of rules) expect(rowFor(key), `${key} has no row`).toBeDefined();
+  });
+
+  it('has a row for every field defaultConfig sets, and states its literal default', () => {
+    const defaults = /** @type {Record<string, unknown>} */ (defaultConfig());
+    for (const [name, value] of Object.entries(defaults)) {
+      const entries =
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? Object.entries(value).map(([key, inner]) => [`${name}.${key}`, inner])
+          : [[name, value]];
+      for (const [key, inner] of entries) {
+        const row = rowFor(String(key));
+        expect(row, `${key} has no row`).toBeDefined();
+        // markdownRouting's default is derived from the bot list, so the row describes it instead.
+        if (key === 'bots.markdownRouting') continue;
+        expect(row?.split('|')[2], `${key} default`).toContain(`\`${JSON.stringify(inner)}\``);
+      }
+    }
+  });
+
+  it('documents no field the loader does not know', () => {
+    const fieldsTable = doc.slice(doc.indexOf('## Fields'), doc.indexOf('### A `bots.custom` entry'));
+    const documented = [...fieldsTable.matchAll(/^\| `([\w.]+)` \|/gm)].map((m) => m[1]);
+    expect(documented.sort()).toEqual([...rules].sort());
+  });
+
+  it('documents every field of a bots.custom entry', () => {
+    const fields = read('packages/core/src/shared/bots.js').match(/@typedef \{object\} CustomBotInput([\s\S]*?)\*\//)?.[1] ?? '';
+    const names = [...fields.matchAll(/@property \{[^}]+\} \[?(\w+)/g)].map((m) => m[1]);
+    expect(names).toContain('uaPatterns');
+    for (const name of names) expect(rowFor(name), `bots.custom ${name}`).toBeDefined();
+  });
+});
+
+describe('docs/prod-api.md', () => {
+  const doc = read('docs/prod-api.md');
+
+  it('documents every export of the three opengeo-prod entries, and nothing else', async () => {
+    const exported = new Set([
+      ...Object.keys(await import('../src/prod/index.js')),
+      ...Object.keys(await import('../src/prod/adapters/next.js')),
+      ...Object.keys(await import('../src/prod/edge.js')),
+    ]);
+    for (const name of exported) expect(doc, `${name} is not documented`).toMatch(new RegExp(`\\*\\*\`${name}[(\`]`));
+    const documented = [...doc.matchAll(/\*\*`(\w+)[(`]/g)].map((m) => m[1]);
+    for (const name of documented) expect(exported, `${name} is not exported`).toContain(name);
+  });
+
+  it('keeps the Node-only exports out of the edge entry it says has none', async () => {
+    const edge = Object.keys(await import('../src/prod/edge.js'));
+    for (const name of ['createFsStore', 'buildStartupStatus', 'logStartupStatus']) expect(edge).not.toContain(name);
+  });
+});
+
+describe('docs/versioning.md', () => {
+  const doc = read('docs/versioning.md');
+
+  it('names the real spec version and the real package version', () => {
+    expect(doc).toContain(`\`${AEO_SPEC_VERSION}\``);
+    const versions = new Set(
+      ['testing', 'generate', 'prod', 'cli', 'opengeo'].map((dir) => JSON.parse(read(`packages/${dir}/package.json`)).version),
+    );
+    // The doc says all five share one version today; when they diverge, so must the sentence.
+    expect(versions.size).toBe(1);
+    expect(doc).toContain(`today all five are\n\`${[...versions][0]}\``);
+  });
+});
+
 describe('docs/providers.md', () => {
   const doc = read('docs/providers.md');
 
@@ -272,6 +353,16 @@ describe('the READMEs', () => {
       expect(read(file).split('\n').slice(0, 4).join('\n'), file).toContain(
         '> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.',
       );
+    }
+  });
+
+  it('state the Node version each engines field requires', () => {
+    for (const dir of ['testing', 'generate', 'prod', 'cli', 'opengeo']) {
+      const engines = JSON.parse(read(`packages/${dir}/package.json`)).engines?.node ?? '';
+      const major = engines.match(/^>=(\d+)$/)?.[1];
+      expect(major, `packages/${dir} engines.node`).toBeDefined();
+      expect(read(`packages/${dir}/README.md`), dir).toContain(`Needs Node.js ${major} or later.`);
+      expect(read('README.md')).toContain(`Needs Node.js ${major} or later.`);
     }
   });
 
