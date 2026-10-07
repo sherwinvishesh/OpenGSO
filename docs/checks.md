@@ -109,7 +109,8 @@ of 9, and the reason line says so.
 
 **Fix:** `opengeo generate` writes a `robots.txt` that allows every AI bot except the ones you list
 in `bots.blocked`. Or hand-write one. A missing `robots.txt` also fails, because agents cannot tell
-"no file" from "no answer".
+"no file" from "no answer", and so does an HTML page answering at `/robots.txt` (a catch-all route),
+because a crawler finds no rules in it.
 
 ### A2 - llms.txt is present and valid
 **Recommended, weight 3.**
@@ -216,7 +217,8 @@ answer, not a bug.
 **Required, weight 10.**
 
 Requests `<path>.md` (so `/resume` becomes `/resume.md`, and `/` becomes `/index.md`) and expects a
-2xx. Every other B check depends on this one.
+2xx that is not an HTML page. A single-page app or catch-all route that answers every path with its
+HTML shell has no twin, so it fails here and locks the rest. Every other B check depends on this one.
 
 **Fix:** run `opengeo generate` to write the twins, then install the middleware so they are served
 with the right headers.

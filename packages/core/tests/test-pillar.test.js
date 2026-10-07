@@ -297,10 +297,13 @@ describe('category B', () => {
     expect(byId(evidence).get('B2')?.reason).toContain('text/plain');
   });
 
-  it('B3 catches an HTML document served at the .md URL', () => {
+  it('B1 catches an HTML document served at the .md URL, and locks what depends on it', () => {
     const evidence = goodEvidence();
     evidence.twin = probe({ body: '<!doctype html><html><body>Not found</body></html>', headers: new Headers({ 'content-type': MARKDOWN_CONTENT_TYPE }) });
-    expect(byId(evidence).get('B3')?.reason).toContain('HTML document');
+    const results = byId(evidence);
+    expect(results.get('B1')?.status).toBe('fail');
+    expect(results.get('B1')?.reason).toContain('HTML page');
+    expect(results.get('B3')?.status).toBe('locked');
   });
 
   it('B7 names which side is missing Vary: Accept', () => {

@@ -109,7 +109,7 @@ export function runChecks(evidence) {
  * @returns {CheckResult[]}
  */
 function collapseTwinCascade(results, e) {
-  if (e.twin.ok) return results;
+  if (servesFile(e.twin)) return results;
 
   return results.map((result) => {
     const why = LOCKED_ON_TWIN[result.id] ?? (result.status === 'fail' ? LOCKED_ON_LIVE_URL[result.id] : undefined);
@@ -161,6 +161,20 @@ const LOCKED_ON_LIVE_URL = {
  */
 export const TWIN_LOCKED_IDS = [...Object.keys(LOCKED_ON_TWIN), ...Object.keys(LOCKED_ON_LIVE_URL)];
 
+/**
+ * A 2xx that is the file it claims to be, rather than an HTML page standing in for it.
+ *
+ * A single-page app or a catch-all route answers 200 with its shell for every path. Reading that
+ * shell as a robots.txt, an llms.txt or a markdown twin hands out points for files the site does
+ * not have, and with the twin it also keeps the cascade from locking.
+ *
+ * @param {ProbeResult} response
+ * @returns {boolean}
+ */
+function servesFile(response) {
+  return response.ok && !looksLikeHtml(response.body);
+}
+
 // ---- Category A ------------------------------------------------------------------------------
 
 /**
@@ -174,6 +188,14 @@ function checkRobots(e) {
       `No robots.txt at ${e.robots.url} (HTTP ${e.robots.status || 'unreachable'}). AI crawlers get no explicit signal about what they may read.`,
       undefined,
       'Serve a robots.txt that allows the AI agents you want reading the site (+9). `opengeo generate` writes one.',
+    );
+  }
+  if (!servesFile(e.robots)) {
+    return fail(
+      'A1',
+      `${e.robots.url} answered with an HTML page, not a robots.txt. A catch-all route is handling it, so AI crawlers get no robots rules at all.`,
+      undefined,
+      'Serve a real robots.txt ahead of the catch-all route (+9). `opengeo generate` writes one.',
     );
   }
   const groups = parseRobots(e.robots.body);
@@ -225,6 +247,14 @@ function checkLlmsTxt(e) {
       `No llms.txt at ${e.llms.url} (HTTP ${e.llms.status || 'unreachable'}).`,
       undefined,
       'Serve /llms.txt with a title and your key pages as markdown links (+3). `opengeo generate` writes it.',
+    );
+  }
+  if (!servesFile(e.llms)) {
+    return fail(
+      'A2',
+      `${e.llms.url} answered with an HTML page, not an llms.txt. A catch-all route is handling it.`,
+      undefined,
+      'Serve a real /llms.txt ahead of the catch-all route (+3). `opengeo generate` writes it.',
     );
   }
   const body = e.llms.body.trim();
@@ -543,6 +573,14 @@ function checkTwinReachable(e) {
       `Serve a markdown twin at ${e.twinUrl} (+10). \`opengeo generate\` writes it and the prod middleware serves it.`,
     );
   }
+  if (!servesFile(e.twin)) {
+    return fail(
+      'B1',
+      `The markdown twin URL ${e.twinUrl} answered HTTP ${e.twin.status} with an HTML page, not markdown. A catch-all route or the page renderer is handling the .md URL.`,
+      undefined,
+      `Route ${e.twinUrl} to the markdown twin, ahead of the page renderer (+10). \`opengeo generate\` writes it and the prod middleware serves it.`,
+    );
+  }
   return pass('B1', `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}.`);
 }
 
@@ -610,15 +648,6 @@ function checkTwinNonEmpty(e) {
       undefined,
       'Regenerate the twin: the route answers, but with nothing in it (+5).',
     );
-  if (looksLikeHtml(body)) {
-    return fail(
-      'B3',
-      'The markdown twin URL returned an HTML document, not markdown. The route is being handled by the normal page renderer.',
-      undefined,
-      'Route the .md URL to the markdown, ahead of the page renderer (+5).',
-    );
-  }
-
   // Non-empty is the letter of the check; complete is the point of it. A twin holding a title and
   // nothing else is technically a body and is useless to the agent that fetched it, so the credit
   // slides with how much of the page actually made it across.
