@@ -14,7 +14,9 @@ import {
   sseFrame,
   startServer,
 } from '../src/server/server.js';
+import { CONTENT_BANDS, STRUCTURAL_BANDS, structuralBand } from '../src/cli/tui/theme.js';
 import { AI_BOTS } from '../src/shared/bots.js';
+import { CHECKS } from '../src/test/checks.js';
 import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
 /** @import { StateResponse } from '../src/server/api.js' */
@@ -277,6 +279,17 @@ describe('the API', () => {
     expect(state.config.site).toBe(defaultConfig().site);
     expect(state.key.present).toBe(false);
     expect(state.manifest).toBeUndefined();
+  });
+
+  /** The dashboard used to retype these three, and its score bands had already drifted to 90/60. */
+  it('sends the values the dashboard would otherwise have to retype', async () => {
+    const state = /** @type {StateResponse} */ ((await get('/api/state')).body);
+    expect(state.checkCount).toBe(CHECKS.length);
+    expect(state.bands).toEqual({ structural: { ...STRUCTURAL_BANDS }, content: { ...CONTENT_BANDS } });
+    expect(structuralBand(state.bands.structural.good)).toBe('good');
+    expect(structuralBand(state.bands.structural.good - 1)).toBe('fair');
+    expect(structuralBand(state.bands.structural.fair - 1)).toBe('poor');
+    expect(state.defaultBot).toBe('ClaudeBot');
   });
 
   it('serves the bot list the config UI is built from', async () => {

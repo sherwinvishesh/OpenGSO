@@ -14,6 +14,12 @@ import { testUrl } from './run.js';
  */
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').TestMode} TestMode
+ */
+
+/**
  * The three shapes a test run can take, and the single function that runs all of them.
  *
  * There are two genuinely different questions to ask about a site, and conflating them was the old
@@ -32,8 +38,6 @@ import { testUrl } from './run.js';
  * The CLI and the dashboard both call this. Neither has its own copy of the sequencing, which is
  * why the two can never disagree about what "run the full test" means.
  */
-
-/** @typedef {'full' | 'structure' | 'content'} TestMode */
 
 /** @type {readonly TestMode[]} */
 export const TEST_MODES = ['full', 'structure', 'content'];

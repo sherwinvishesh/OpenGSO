@@ -35,12 +35,16 @@ export const PALETTE = /* @__PURE__ */ Object.freeze({
  * @typedef {'good' | 'fair' | 'poor'} Band
  */
 
+/** The dashboard is sent these through `/api/state` rather than keeping its own pair. */
+export const STRUCTURAL_BANDS = Object.freeze({ good: 85, fair: 60 });
+export const CONTENT_BANDS = Object.freeze({ good: 75, fair: 50 });
+
 /**
  * @param {number} score
  * @returns {Band}
  */
 export function structuralBand(score) {
-  return score >= 85 ? 'good' : score >= 60 ? 'fair' : 'poor';
+  return bandOf(score, STRUCTURAL_BANDS);
 }
 
 /**
@@ -48,7 +52,16 @@ export function structuralBand(score) {
  * @returns {Band}
  */
 export function contentBand(score) {
-  return score >= 75 ? 'good' : score >= 50 ? 'fair' : 'poor';
+  return bandOf(score, CONTENT_BANDS);
+}
+
+/**
+ * @param {number} score
+ * @param {{ good: number; fair: number }} thresholds
+ * @returns {Band}
+ */
+function bandOf(score, thresholds) {
+  return score >= thresholds.good ? 'good' : score >= thresholds.fair ? 'fair' : 'poor';
 }
 
 /**

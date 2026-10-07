@@ -9,6 +9,14 @@ import { AEO_SPEC_VERSION } from '../shared/version.js';
 /** @import { AiBot } from '../shared/bots.js' */
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').SiteFileName} SiteFileName
+ * @typedef {import('../shared/api-types.js').SiteFileStatus} SiteFileStatus
+ * @typedef {import('../shared/api-types.js').SiteFileResult} SiteFileResult
+ */
+
+/**
  * robots.txt, llms.txt and sitemap.xml (§6).
  *
  * `generate` is the sole owner of all three. `prod` reads them and reports on them at boot, and
@@ -37,9 +45,6 @@ const MARKER_LINE = new RegExp(`^(?:# |<!-- )${GENERATED_MARKER} \\(`, 'm');
 /** RFC 9309's product token, plus digits and dots, which real crawler tokens use. */
 const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
 
-/** @typedef {'robots.txt' | 'llms.txt' | 'sitemap.xml'} SiteFileName */
-/** @typedef {'written' | 'unchanged' | 'proposed' | 'failed'} SiteFileStatus */
-
 /**
  * @typedef {object} SitePage
  * @property {string} route
@@ -48,15 +53,6 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @property {string} [description]
  * @property {number} [tokens]
  * @property {string} [lastUpdated]
- */
-
-/**
- * @typedef {object} SiteFileResult
- * @property {SiteFileName} name
- * @property {string} path Absolute path actually written, which is the `.opengeo-proposed` path when
- *   status is proposed.
- * @property {SiteFileStatus} status
- * @property {string} [message] Populated for `proposed` and `failed`, using the shared §13 copy.
  */
 
 /**

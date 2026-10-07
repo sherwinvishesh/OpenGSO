@@ -11,6 +11,16 @@ import { summarizeRobots } from './startup.js';
  */
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').ProbeVerdict} ProbeVerdict
+ * @typedef {import('../shared/api-types.js').LeverId} LeverId
+ * @typedef {import('../shared/api-types.js').ProdProbe} ProdProbe
+ * @typedef {import('../shared/api-types.js').RobotsReport} RobotsReport
+ * @typedef {import('../shared/api-types.js').ProdVerification} ProdVerification
+ */
+
+/**
  * `opengeo prod test <url>` (§7).
  *
  * This is not a second scorer. `opengeo test` grades a site; this answers a narrower and more
@@ -29,49 +39,6 @@ import { summarizeRobots } from './startup.js';
  * Each probe isolates one variable. The routed-bot probe sends a browser-typical Accept header so
  * that a markdown response can only have been caused by the User-Agent, and the Accept probe sends
  * a browser User-Agent so a markdown response can only have been caused by the Accept header.
- */
-
-/** @typedef {'pass' | 'fail' | 'warn'} ProbeVerdict */
-/** @typedef {'routing' | 'negotiation' | 'blocking'} LeverId */
-
-/**
- * @typedef {object} ProdProbe
- * @property {string} id
- * @property {string} title
- * @property {LeverId} lever
- * @property {{ url: string; userAgent: string; accept: string }} sent Exactly what was sent, so a
- *   reader can reproduce the result by hand.
- * @property {number} status
- * @property {ProbeVerdict} verdict
- * @property {string} reason
- * @property {string} [detail]
- * @property {Record<string, string>} headers The §7 headers that came back. Only the ones OpenGEO
- *   has an opinion about.
- * @property {string} curl
- */
-
-/**
- * @typedef {object} RobotsReport
- * @property {string} url
- * @property {boolean} found
- * @property {string[]} blocked
- * @property {string[]} allowed
- * @property {string[]} notes
- */
-
-/**
- * @typedef {object} ProdVerification
- * @property {string} target
- * @property {string} twinUrl
- * @property {string} bot The bot whose User-Agent was impersonated for the routing probe.
- * @property {boolean} installed True when at least one response carried `X-AEO-Version`, i.e. prod
- *   answered at all.
- * @property {ProdProbe[]} probes
- * @property {RobotsReport} robots
- * @property {string[]} conflicts Places where the two levers contradict each other. Empty is the
- *   healthy case.
- * @property {{ pass: number; warn: number; fail: number }} counts
- * @property {boolean} ok
  */
 
 /**
@@ -97,7 +64,7 @@ const HOSTILE_ACCEPT = 'application/pdf';
  */
 const UNKNOWN_BOT_UA = 'Mozilla/5.0 (compatible; NotYetKnownAiBot/1.0; +https://example.com/bot)';
 
-const DEFAULT_BOT = 'ClaudeBot';
+export const DEFAULT_BOT = 'ClaudeBot';
 
 /**
  * @param {string} url

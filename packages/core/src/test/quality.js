@@ -10,6 +10,19 @@ import { callProvider, stripCodeFence } from '../generate/ai.js';
  */
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').Priority} Priority
+ * @typedef {import('../shared/api-types.js').QualityRecommendation} QualityRecommendation
+ * @typedef {import('../shared/api-types.js').QualityFinding} QualityFinding
+ * @typedef {import('../shared/api-types.js').QualityReview} QualityReview
+ * @typedef {import('../shared/api-types.js').DocumentReview} DocumentReview
+ * @typedef {import('../shared/api-types.js').AreaScore} AreaScore
+ * @typedef {import('../shared/api-types.js').AggregatedRecommendation} AggregatedRecommendation
+ * @typedef {import('../shared/api-types.js').ContentReview} ContentReview
+ */
+
+/**
  * The optional AI content review (§5), and its own 0-100 score.
  *
  * There are two numbers in OpenGEO and they are never added together. The structural score says
@@ -103,43 +116,8 @@ export function qualityBand(score) {
   return (QUALITY_BANDS.find((band) => score >= band.from) ?? /** @type {NonNullable<(typeof QUALITY_BANDS)[number]>} */ (QUALITY_BANDS[QUALITY_BANDS.length - 1])).label;
 }
 
-/** @typedef {'high' | 'medium' | 'low'} Priority */
-
 /** @type {readonly Priority[]} */
 const PRIORITIES = ['high', 'medium', 'low'];
-
-/**
- * One thing to change, in the imperative.
- *
- * The shape is what makes a recommendation usable rather than decorative: `action` is the edit,
- * `where` is the place in the document to make it, and `impact` is what the reader gains. A model
- * that answers "improve clarity" fails all three, which is why the prompt asks for them by name.
- *
- * @typedef {object} QualityRecommendation
- * @property {string} area Which of the five areas this lifts. Free text, because a model may name its own.
- * @property {string} action The edit to make, in the imperative: "Add the billing period to each plan".
- * @property {string} [impact] What a reader gains. Absent when the model gave only the action.
- * @property {Priority} priority
- * @property {string} [where] A heading or quoted phrase locating the edit. Absent when the change is document-wide.
- */
-
-/**
- * @typedef {object} QualityFinding
- * @property {string} area Short label, normally one of the five area labels.
- * @property {string} note The model's read on this area, in one or two sentences.
- * @property {number} [score] 0-100 for this area alone. Optional: a reply that omitted it still renders.
- */
-
-/**
- * @typedef {object} QualityReview
- * @property {number} [score] 0-100 for this document. Derived from the findings, never asked for directly.
- * @property {string} summary
- * @property {QualityFinding[]} findings
- * @property {QualityRecommendation[]} recommendations
- * @property {AiProvider} provider
- * @property {string} model
- * @property {string} [raw] Set when the model answered but not in the shape asked for. The raw text is still shown.
- */
 
 /**
  * @typedef {object} QualityOptions
@@ -277,53 +255,6 @@ export async function reviewQuality(input, options) {
 
   return parseQuality(text, options.provider, model);
 }
-
-/**
- * The content pass over every document the structural pass found.
- *
- * One call per document, because a single call carrying ten documents produces ten shallow
- * paragraphs and one exhausted context window. Documents are reviewed a few at a time and a failure
- * on one is recorded against that document rather than losing the rest.
- *
- * @typedef {object} DocumentReview
- * @property {string} url
- * @property {string} [pageUrl]
- * @property {string} source
- * @property {number} words
- * @property {QualityReview} [review]
- * @property {string} [error] Set when this one document could not be reviewed. The rest of the run still stands.
- */
-
-/**
- * One area, averaged across every document that scored it, with what the gap is costing.
- *
- * @typedef {object} AreaScore
- * @property {string} area
- * @property {number} score 0-100, the mean across documents.
- * @property {number} [weight] Out of 100. Absent for an area the model invented, which therefore costs nothing.
- * @property {number} lost Points off the content score this area is responsible for. `weight * (100 - score) / 100`.
- * @property {number} documents
- */
-
-/**
- * A recommendation after the same edit has been collapsed across the documents that need it.
- *
- * @typedef {QualityRecommendation & {
- *   documents: string[]; // Every document this edit applies to. One entry is the normal case.
- * }} AggregatedRecommendation
- */
-
-/**
- * @typedef {object} ContentReview
- * @property {AiProvider} provider
- * @property {string} model
- * @property {DocumentReview[]} documents
- * @property {number} [score] 0-100 across the whole site's Markdown, and never mixed into the structural score. The mean of
- *   the per-document scores, so ten strong pages are not rescued by one perfect one.
- * @property {AreaScore[]} areaScores Per-area means across every document that scored that area, weakest first.
- * @property {AggregatedRecommendation[]} recommendations Every recommendation, deduplicated across documents and ordered by priority.
- * @property {number} notReviewed Documents found but not reviewed because of `maxDocuments`.
- */
 
 /**
  * @typedef {QualityOptions & {

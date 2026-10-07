@@ -5,6 +5,13 @@ import { writeFileAtomic } from '../shared/fs.js';
 /** @import { SuiteResult, TestMode } from './suite.js' */
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').HistoryEntry} HistoryEntry
+ * @typedef {import('../shared/api-types.js').History} History
+ */
+
+/**
  * A short local record of what the score has been (§5).
  *
  * Nothing on disk recorded a test until this file existed, which had two visible costs: the
@@ -25,24 +32,6 @@ export const HISTORY_VERSION = 1;
 
 /** How many runs to keep. Enough for a sparkline and a week of work, small enough to stay hand-readable. */
 export const HISTORY_LIMIT = 20;
-
-/**
- * @typedef {object} HistoryEntry
- * @property {string} at ISO timestamp of when the run finished.
- * @property {string} url
- * @property {TestMode} mode
- * @property {number} [score] The structural 0-100. Absent in `content` mode, which never runs the checks.
- * @property {number} [contentScore] The content 0-100, kept separate from the structural one exactly as §5 requires.
- * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} [counts]
- * @property {number} [lockedPoints] Points sitting behind a locked check, so the home screen can price the next fix.
- * @property {string[]} [failedIds] Ids of the checks that actually failed, so a delta can say what changed rather than only by how much.
- */
-
-/**
- * @typedef {object} History
- * @property {number} version
- * @property {HistoryEntry[]} entries
- */
 
 /**
  * @param {string} internalDir

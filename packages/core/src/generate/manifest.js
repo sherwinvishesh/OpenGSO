@@ -5,6 +5,12 @@ import { writeFileAtomic } from '../shared/fs.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').GenerationTier} GenerationTier
+ */
+
+/**
  * `.opengeo/manifest.json` - the one record of what generate produced.
  *
  * It lives in the internal directory rather than `public/` on purpose: it is bookkeeping, not
@@ -17,8 +23,6 @@ import { AEO_SPEC_VERSION } from '../shared/version.js';
 
 export const MANIFEST_FILENAME = 'manifest.json';
 export const MANIFEST_VERSION = 1;
-
-/** @typedef {'free' | 'ai' | 'manual'} GenerationTier */
 
 /**
  * @typedef {object} ManifestEntry

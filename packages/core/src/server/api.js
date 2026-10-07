@@ -3,7 +3,8 @@ import { join, resolve, sep } from 'node:path';
 import { createAiEnhancer } from '../generate/ai.js';
 import { readManifest } from '../generate/manifest.js';
 import { generateSite } from '../generate/site.js';
-import { verifyProd } from '../prod/verify.js';
+import { DEFAULT_BOT, verifyProd } from '../prod/verify.js';
+import { CONTENT_BANDS, STRUCTURAL_BANDS } from '../cli/tui/theme.js';
 import { resolveAiCall } from '../shared/ai-call.js';
 import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
 import {
@@ -32,6 +33,7 @@ import {
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
 import { detectWebRoot, previewSite } from '../shared/site-probe.js';
+import { CHECKS } from '../test/checks.js';
 import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
 
 /**
@@ -42,6 +44,15 @@ import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson 
  * @import { AiProvider, ProviderApi, ProviderAuth, ProviderInfo } from '../shared/providers.js'
  * @import { SitePreview, WebRootGuess } from '../shared/site-probe.js'
  * @import { CheckResult, Framework, History, HistoryEntry, Score, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js'
+ */
+
+/**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').ApiProgress} ApiProgress
+ * @typedef {import('../shared/api-types.js').StructurePayload} StructurePayload
+ * @typedef {import('../shared/api-types.js').StateResponse} StateResponse
+ * @typedef {import('../shared/api-types.js').PreviewResponse} PreviewResponse
  */
 
 /**
@@ -81,38 +92,6 @@ import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson 
  *   An endpoint that takes minutes has to be able to say so while it is still working, and the two
  *   that do already accept an `onProgress` from the CLI. This is the same callback, one hop further
  *   out, so the dashboard watches exactly what the terminal watches.
- */
-
-/**
- * What a streaming endpoint sends while it works.
- *
- * Its own union rather than `SuiteProgress | SiteProgress` forwarded raw. `structure-done` carries
- * the whole `TestResult`, evidence included, which is every byte of every document the probe
- * fetched plus a `URL` object that does not survive `JSON.stringify`. The frame a browser needs is
- * the flattened structural payload the final response already sends, so it is built once, here.
- *
- * Discriminated on `phase`, and the eight names are distinct across both pillars, so a client can
- * switch on one field without being told which endpoint it called.
- *
- * @typedef {{ phase: 'structure' }
- *   | { phase: 'structure-done'; structure: StructurePayload }
- *   | { phase: 'discover' }
- *   | { phase: 'discovered'; documents: number }
- *   | { phase: 'review'; done: number; total: number; url: string }
- *   | { phase: 'crawl'; route: string; depth: number; found: number; visited: number }
- *   | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
- *   | { phase: 'files' }} ApiProgress
- */
-
-/**
- * The structural half of a run, in the shape the dashboard reads it at the top level.
- *
- * @typedef {object} StructurePayload
- * @property {string} url
- * @property {string} twinUrl
- * @property {Framework} [framework]
- * @property {Score} score
- * @property {CheckResult[]} checks
  */
 
 /**
@@ -176,38 +155,6 @@ export async function handleApi(request, options) {
 // -- state ---------------------------------------------------------------------------------------
 
 /**
- * @typedef {object} StateResponse
- * @property {string} root
- * @property {string} configPath
- * @property {boolean} configExists
- * @property {OpenGeoConfig} config
- * @property {string} version
- * @property {string} packageName
- * @property {{ present: boolean; provider?: AiProvider; model?: string; source?: string; path: string }} key
- *   Presence only. The value never crosses this boundary, not even to localhost.
- * @property {boolean} ci
- * @property {WebRootGuess} webRoot Where generated files probably belong, worked out from the
- *   project rather than asked.
- *
- *   Part of the state rather than its own endpoint because it is a fact about the directory the
- *   server was pointed at, known before anybody types anything, and onboarding needs it on the
- *   first screen. `found: false` means nothing pointed anywhere and the usual answer is being
- *   offered for want of better, which is worth saying differently in the UI.
- * @property {AiProvider[]} providers
- * @property {Record<AiProvider, string>} defaultModels
- * @property {ProviderInfo[]} providerCatalog The full catalogue, so the dashboard renders real names
- *   and "get a key" links instead of a dropdown of lowercase ids, and knows which entries need an
- *   endpoint typed in.
- * @property {{
- *   generatedAt: string;
- *   site: string;
- *   pages: Array<{ route: string; title: string; tokens: number; lastUpdated: string; tier: string }>;
- * }} [manifest]
- * @property {string} publicDir
- * @property {string} internalDir
- */
-
-/**
  * @param {ApiOptions} options
  * @returns {StateResponse}
  */
@@ -254,6 +201,9 @@ function readState(options) {
     publicDir: publicDirPath(loaded),
     internalDir: internalDirPath(loaded),
     webRoot: detectWebRoot(loaded.root),
+    checkCount: CHECKS.length,
+    bands: { structural: { ...STRUCTURAL_BANDS }, content: { ...CONTENT_BANDS } },
+    defaultBot: DEFAULT_BOT,
   };
 }
 
@@ -325,11 +275,6 @@ function normalizeCustomList(input) {
 }
 
 // -- preview -------------------------------------------------------------------------------------
-
-/**
- * @typedef {object} PreviewResponse
- * @property {SitePreview} preview
- */
 
 /**
  * What is at that URL, asked while somebody is still typing it (§8).

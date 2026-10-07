@@ -9,59 +9,18 @@ import { CONFIG_ERRORS } from './errors.js';
  * @import { AiProvider, ProviderApi, ProviderAuth, ProviderOverrides } from './providers.js'
  */
 
+/**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('./api-types.js').OpenGeoConfig} OpenGeoConfig
+ */
+
 // Types only, and deliberately: `prod` loads the config on every boot, and a value import from the
 // catalogue would drag twelve provider endpoints and twelve key variable names into a bundle whose
 // whole promise is that it contains no AI code. `check:bundles` fails the build if that happens
 // again. Callers that need PROVIDERS, providerInfo or DEFAULT_MODELS import './providers.js'.
 
 export const CONFIG_FILENAME = 'opengeo.config.json';
-
-/**
- * @typedef {object} OpenGeoConfig
- * @property {string} site Base URL the project is generated/tested against. Also the default for a
- *   bare `opengeo test`.
- * @property {string} publicDir Web root, relative to the project. Everything generate writes lands
- *   here (twins in `md/`).
- * @property {string} internalDir Bookkeeping that must NOT be web-served: the manifest and the
- *   content-hash cache.
- * @property {string[]} extraRoutes Routes the `<a href>` crawl can't reach. The escape hatch for
- *   §17's route-discovery ceiling.
- * @property {object} crawl
- * @property {number} crawl.maxPages
- * @property {number} crawl.maxDepth
- * @property {string[]} crawl.exclude Path prefixes to skip, in addition to the built-in
- *   asset/anchor filtering.
- * @property {object} generate
- * @property {'free' | 'ai'} generate.tier 'free' is algorithmic and needs no key. 'ai' is BYOK and
- *   local-machine-only.
- * @property {number} generate.minWords Below this word count an extracted page gets a low-content
- *   warning (§17 CSR ceiling).
- * @property {object} bots
- * @property {string[]} bots.markdownRouting Lever 1 (§7): which AI agents receive the markdown
- *   twin. Never blocks anyone - an unlisted bot simply sees the normal site.
- * @property {string[]} bots.blocked Lever 2 (§7): a separate, opt-in list of bots to disallow in
- *   robots.txt. Empty by default; blocking is never the default.
- * @property {CustomBotInput[]} bots.custom Crawlers this project knows about that OpenGEO's shipped
- *   list does not: an in-house agent, or an AI product newer than the installed version. They
- *   behave exactly like built-in entries - both levers apply to them - and naming one in
- *   `markdownRouting` is what turns it on.
- * @property {object} ai Which AI tool `generate --tier ai` and `test --content` talk to.
- *
- *   The four optional fields are the "bring your own provider" surface: name any endpoint that
- *   speaks one of the three API shapes and OpenGEO will use it, with no code change and no wait for
- *   a release. They are honoured for built-in providers too, because the usual reason to set
- *   `baseUrl` is a company gateway mirroring a vendor's API rather than a brand-new vendor.
- * @property {AiProvider} ai.provider
- * @property {string} ai.model
- * @property {string} [ai.baseUrl] Overrides the catalogue's endpoint. Required when provider is
- *   `custom`.
- * @property {ProviderApi} [ai.api] Which wire format that endpoint speaks. Defaults to the
- *   provider's own.
- * @property {ProviderAuth} [ai.auth] How the key is attached. Defaults to the provider's own.
- *   `none` sends no key at all.
- * @property {Record<string, string>} [ai.headers] Extra request headers the endpoint needs, e.g. a
- *   gateway's tenant id. Never the key.
- */
 
 /**
  * @param {string} [site]

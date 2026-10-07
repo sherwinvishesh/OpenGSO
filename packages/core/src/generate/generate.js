@@ -16,21 +16,11 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
  * @import { GenerationTier, Manifest, ManifestEntry } from './manifest.js'
  */
 
-/** @typedef {'written' | 'cached' | 'skipped-manual' | 'proposed' | 'failed'} PageStatus */
-
 /**
- * @typedef {object} GeneratePageResult
- * @property {string} route
- * @property {string} url
- * @property {PageStatus} status
- * @property {string} [title]
- * @property {string} [description]
- * @property {GenerationTier} [tier]
- * @property {string} [file]
- * @property {number} [tokens]
- * @property {number} [wordCount]
- * @property {string[]} warnings
- * @property {string} [reason]
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('../shared/api-types.js').PageStatus} PageStatus
+ * @typedef {import('../shared/api-types.js').GeneratePageResult} GeneratePageResult
  */
 
 /**

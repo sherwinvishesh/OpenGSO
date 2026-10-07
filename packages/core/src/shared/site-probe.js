@@ -6,6 +6,13 @@ import { twinUrl } from './routes.js';
 import { HEADERS } from './version.js';
 
 /**
+ * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
+ *
+ * @typedef {import('./api-types.js').SitePreview} SitePreview
+ * @typedef {import('./api-types.js').WebRootGuess} WebRootGuess
+ */
+
+/**
  * The two things setup can find out for itself instead of asking.
  *
  * Onboarding used to ask four questions blind and then print three commands to go and try. Both
@@ -21,22 +28,6 @@ import { HEADERS } from './version.js';
  * It lives in `shared/` rather than beside the setup flow because both doors onto setup need it and
  * neither owns it: the terminal reads it through `cli/setup-preview.js`, and the dashboard reads it
  * over `POST /api/preview`. Nothing here knows about either. The rendering is somebody else's job.
- */
-
-/**
- * @typedef {object} SitePreview
- * @property {string} url
- * @property {boolean} ok The page answered with a 2xx.
- * @property {number} status
- * @property {number} ttfbMs
- * @property {string} [error] Set when the request never completed: DNS, connection refused, a
- *   timeout.
- * @property {string} [framework] A human name for what is serving the page, when the response
- *   gives it away.
- * @property {boolean} [clientRendered] The raw HTML is an empty mount element, so `generate` will
- *   find nothing to convert.
- * @property {{ url: string; ok: boolean; status: number; served: boolean }} [twin] What is already
- *   at the `.md` URL, if anything.
  */
 
 /**
@@ -128,14 +119,6 @@ function whyUnreachable(url, message) {
   if (local) return `nothing is listening on port ${target?.port || (target?.protocol === 'https:' ? '443' : '80')}`;
   return 'the host could not be reached';
 }
-
-/**
- * @typedef {object} WebRootGuess
- * @property {string} dir
- * @property {string} why Why this directory, in the half-sentence a prompt can afford to show.
- * @property {boolean} found False when nothing pointed here and the default is being offered for
- *   want of anything better.
- */
 
 /**
  * Dependencies first, then directories.
