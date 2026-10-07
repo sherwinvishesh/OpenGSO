@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { callProvider, DEFAULT_MAX_TOKENS } from '@opengeo/core/generate';
+import { callProvider, createAiEnhancer, DEFAULT_MAX_TOKENS } from '@opengeo/core/generate';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
 /** @import { ProviderCall } from '@opengeo/core/generate' */
 
@@ -256,6 +256,44 @@ describe('an answer that goes wrong', () => {
       response.end('<html>a captive portal</html>');
     };
     await expect(callProvider(call({ provider: 'openai' }))).rejects.toThrow();
+  });
+
+  // A body that is not an object at all is refused as "not JSON", a misplaced field as "no content".
+  // Either is a named refusal the caller falls back from; a TypeError is what neither may be.
+  it('rejects JSON of the wrong shape with a named refusal, not as a TypeError', async () => {
+    const odd = [
+      null,
+      [],
+      'a string',
+      42,
+      { content: 'not an array', choices: {}, candidates: 'x' },
+      { content: [null], choices: [null], candidates: [null] },
+      { choices: [{ message: { content: [{ type: 'text', text: 'parts' }] } }], candidates: [{ content: { parts: 'x' } }] },
+    ];
+    for (const shape of Object.values(SHAPES)) {
+      for (const body of odd) {
+        answer = (_request, response) => json(response, 200, body);
+        await expect(callProvider(call({ provider: shape.provider })), `${shape.provider} ${JSON.stringify(body)}`).rejects.toThrow(
+          /returned no|not with JSON/,
+        );
+      }
+    }
+  });
+
+  /** It used to come back as an array, which broke the enhancer outside its own try. */
+  it('keeps the algorithmic page when a compatible server answers with an array of parts', async () => {
+    answer = (_request, response) =>
+      json(response, 200, { choices: [{ message: { content: [{ type: 'text', text: '# Hi' }] } }] });
+    const enhance = createAiEnhancer({
+      provider: 'custom',
+      model: 'm',
+      apiKey: '',
+      env: {},
+      overrides: { baseUrl: `${base}/v1`, api: 'openai', auth: 'none' },
+    });
+    const result = await enhance({ url: 'http://site.test/', title: 'Hi', html: '', algorithmicMarkdown: '# Hi\n\nBody.' });
+    expect(result.fellBack).toBe(true);
+    expect(result.markdown).toBe('# Hi\n\nBody.');
   });
 
   it('gives up on an endpoint that never answers, and says how long it waited', async () => {
