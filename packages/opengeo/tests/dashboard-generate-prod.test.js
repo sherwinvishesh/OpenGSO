@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError } from '../web-next/api.js';
-import { useDocument } from '../web-next/ui.js';
-import { createGenerateView, lastRunText, mdRelPath, pagesSummary } from '../web-next/views/generate.js';
-import { createProdView, probeTranscript, routableNames } from '../web-next/views/prod.js';
+import { api, ApiError } from '../web/api.js';
+import { useDocument } from '../web/ui.js';
+import { createGenerateView, lastRunText, mdRelPath, pagesSummary } from '../web/views/generate.js';
+import { createProdView, probeTranscript, routableNames } from '../web/views/prod.js';
 
 /**
  * @import { AiBot, GenerateResponse, ProdProbe, ProdVerification, StateResponse } from '../../core/src/shared/api-types.js'
- * @import { Ctx } from '../web-next/context.js'
+ * @import { Ctx } from '../web/context.js'
  */
 
 // Scripts never run: this jsdom is a document to build nodes in, nothing more.
@@ -312,7 +312,7 @@ describe('prod helpers', () => {
   });
 
   it('has no hard-coded default crawler', () => {
-    const source = readFileSync(new URL('../web-next/views/prod.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../web/views/prod.js', import.meta.url), 'utf8');
     expect(source).not.toContain('ClaudeBot');
   });
 });

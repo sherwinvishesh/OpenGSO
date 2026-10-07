@@ -128,21 +128,21 @@ export async function startCommand(ctx) {
 }
 
 /**
- * Where the built dashboard lives.
+ * Where the dashboard lives.
  *
- * At runtime this module is bundled into `<package>/dist/cli.js`, so `./web/` beside it is the
- * published location. The clone layout is checked too, so `node packages/opengeo/dist/cli.js start`
- * works from a source checkout without an install.
+ * It is plain HTML, CSS and JavaScript with no build step, so the files that ship are the files in
+ * the repo. At runtime this module is bundled into `<package>/dist/cli.js`, and `web/` is the
+ * package's own folder beside `dist/`, which is the same place in an install and in a clone. Run
+ * from source, this module is still in core, so the clone layout is the second candidate.
  *
  * @returns {string}
  */
 function findWebRoot() {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    join(here, 'web'),
     join(here, '..', 'web'),
-    // From source (vitest or plain node): packages/core/src/cli/commands -> packages/opengeo/dist/web
-    join(here, '..', '..', '..', '..', 'opengeo', 'dist', 'web'),
+    // From source (vitest or plain node): packages/core/src/cli/commands -> packages/opengeo/web
+    join(here, '..', '..', '..', '..', 'opengeo', 'web'),
   ];
   return candidates.find((candidate) => existsSync(join(candidate, 'index.html'))) ?? candidates[0];
 }

@@ -361,6 +361,18 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   badRequestTarget: () => 'That request asked for a path the dashboard could not read.',
 
+  /** @param {string} webRoot */
+  dashboardMissing: (webRoot) =>
+    [
+      `The dashboard files are missing.`,
+      ``,
+      `Expected them at: ${webRoot}`,
+      ``,
+      `They ship in the opengeo package's web/ folder, so reinstalling opengeo puts them back. There is`,
+      `nothing to build: in a clone they are packages/opengeo/web as checked out. --web <dir> points the`,
+      `dashboard at any folder with an index.html.`,
+    ].join('\n'),
+
   /** @param {string} method */
   staticMethod: (method) => `${method} is not something the dashboard's pages answer. They are only read, with GET or HEAD.`,
 

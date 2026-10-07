@@ -336,8 +336,8 @@ function show(next, moveFocus) {
   let view = views[next];
   if (!view) {
     view = views[next] = SCREENS[next](ctx);
-    // A screen's root is a wrapper only. React returned a fragment, so its cards sat directly in
-    // `.main-inner` and took its gap; a plain div here would close that gap up.
+    // A screen's root is a wrapper only: with `display: contents` its cards sit directly in
+    // `.main-inner` and take its gap, where a plain div would close that gap up.
     view.node.classList.add('contents');
     shell.viewsSlot.append(view.node);
     view.update();

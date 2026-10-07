@@ -129,7 +129,7 @@ packages/testing     opengeo-testing
 packages/generate    opengeo-generate
 packages/prod        opengeo-prod
 packages/cli         opengeo-cli
-packages/opengeo     opengeo, including web/ (the React + Vite dashboard)
+packages/opengeo     opengeo, including web/ (the dashboard: plain HTML, CSS and JS, no build)
 examples/nextjs-demo the Next.js app the whole pipeline is exercised against
 docs/                checks.md, spec.md and providers.md
 scripts/             check-bundles.mjs, which asserts those structural guarantees on every build

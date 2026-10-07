@@ -544,8 +544,8 @@ function contentCards(result, bands) {
 
   return [
     summaryCard(content, result.discovery?.rejected ?? [], bands),
-    // Every recommendation is drawn, even two with the same text: React keyed these by the action and
-    // quietly dropped a duplicate, which hid an edit the model asked for twice.
+    // Every recommendation is drawn, even two with the same text: deduplicating by the action would
+    // hide an edit the model asked for twice.
     content.recommendations.length > 0
       ? card(
           '',

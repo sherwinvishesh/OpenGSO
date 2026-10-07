@@ -570,9 +570,8 @@ summary:focus-visible,
 /* -- motion ------------------------------------------------------------------------------------
  *
  * The rule for this app is that motion marks a change of state and nothing else. Cards and banners
- * animate when they mount, which in practice means when a result arrives or a tab is opened: React
- * reuses the DOM node on a re-render, so a card that is already on screen never replays it. Nothing
- * loops except the two indicators that mean "still working".
+ * animate when they are added to the page, which in practice means when a result arrives or a tab is
+ * first opened. Nothing loops except the two indicators that mean "still working".
  */
 @keyframes rise {
   from {

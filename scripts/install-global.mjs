@@ -3,7 +3,7 @@
  *
  * A tarball install rather than `npm link`, because it exercises the exact artifact a user would
  * get from the registry: the `files` list, the `bin` entry, the real dependency tree, and the
- * built dashboard under dist/web. A symlink would quietly paper over a mistake in any of those.
+ * dashboard under web/. A symlink would quietly paper over a mistake in any of those.
  *
  * The cost is that the global copy is a snapshot, so re-run this after changing anything the CLI
  * or dashboard ships. That is the whole reason it is one command.

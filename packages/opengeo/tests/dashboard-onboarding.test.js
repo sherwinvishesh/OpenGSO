@@ -2,14 +2,14 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_BOTS, resolveBots } from '../../core/src/shared/bots.js';
 import { PROVIDERS } from '../../core/src/shared/providers.js';
-import { routableOnly } from '../web-next/components/bot-picker.js';
-import { providerInfoOf } from '../web-next/components/provider-fields.js';
-import { useDocument } from '../web-next/ui.js';
-import { createOnboarding, keyStepReady, keyStepSaves, nextFixes, previewNote, probeable } from '../web-next/views/onboarding.js';
+import { routableOnly } from '../web/components/bot-picker.js';
+import { providerInfoOf } from '../web/components/provider-fields.js';
+import { useDocument } from '../web/ui.js';
+import { createOnboarding, keyStepReady, keyStepSaves, nextFixes, previewNote, probeable } from '../web/views/onboarding.js';
 
 /**
  * @import { AiBot, CheckResult, StateResponse, TestResponse } from '../../core/src/shared/api-types.js'
- * @import { Ctx } from '../web-next/context.js'
+ * @import { Ctx } from '../web/context.js'
  */
 
 /** @type {import('jsdom').DOMWindow} */

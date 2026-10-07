@@ -11,15 +11,15 @@ import {
   sameNames,
   shownBots,
   toggled,
-} from '../web-next/components/bot-picker.js';
-import { customEndpointLabel, draftReady, keyKept, providerInfoOf } from '../web-next/components/provider-fields.js';
-import { useDocument } from '../web-next/ui.js';
-import { createBotsView } from '../web-next/views/bots.js';
-import { createSettingsView, wholeNumber } from '../web-next/views/settings.js';
+} from '../web/components/bot-picker.js';
+import { customEndpointLabel, draftReady, keyKept, providerInfoOf } from '../web/components/provider-fields.js';
+import { useDocument } from '../web/ui.js';
+import { createBotsView } from '../web/views/bots.js';
+import { createSettingsView, wholeNumber } from '../web/views/settings.js';
 
 /**
  * @import { AiBot, StateResponse } from '../../core/src/shared/api-types.js'
- * @import { Ctx } from '../web-next/context.js'
+ * @import { Ctx } from '../web/context.js'
  */
 
 /** @type {import('jsdom').DOMWindow} */

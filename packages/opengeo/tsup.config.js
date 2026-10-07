@@ -7,8 +7,8 @@ import { defineConfig } from 'tsup';
  *
  * Two builds: the importable middleware, so a project that installed only this package can wire up
  * prod without a second install, and the CLI. Only the library gets declarations, and only the CLI
- * gets a shebang. The library build cleans `dist/`, so it has to run first - and `vite build`,
- * which writes `dist/web`, has to run after both.
+ * gets a shebang. The library build cleans `dist/`, so it has to run first. The dashboard is not
+ * built at all: `web/` ships as it is.
  */
 export default defineConfig([
   {

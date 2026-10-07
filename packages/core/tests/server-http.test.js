@@ -135,6 +135,17 @@ describe('static files', () => {
     });
     expect(statusLine).toBe('HTTP/1.1 400 Bad Request');
   });
+
+  // The dashboard has no build step, so the fix is never "build it first".
+  it('names the folder and how to get it back when the dashboard files are missing', async () => {
+    rmSync(webRoot, { recursive: true, force: true });
+    const response = await hit('/');
+    expect(response.status).toBe(500);
+    const body = await response.text();
+    expect(body).toContain(webRoot);
+    expect(body).toContain('reinstalling opengeo');
+    expect(body).not.toContain('npm run build');
+  });
 });
 
 describe('headers on every kind of response', () => {

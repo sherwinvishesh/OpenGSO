@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { frameSplitter, parseFrame } from '../web-next/frames.js';
+import { frameSplitter, parseFrame } from '../web/frames.js';
 
-/** @import { Frame } from '../web-next/frames.js' */
+/** @import { Frame } from '../web/frames.js' */
 
 /** @param {string[]} chunks */
 function framesOf(chunks) {

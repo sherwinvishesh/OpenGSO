@@ -12,8 +12,8 @@ import { card, el, empty, pill } from '../ui.js';
  * inspected. Both now have a home, and the locked one is a single priced card rather than thirteen
  * shrugs.
  *
- * Group titles are `h2`. They sit straight under the page's `h1`, outside any card, so the `h3` the
- * React version used skipped a level.
+ * Group titles are `h2`. They sit straight under the page's `h1`, outside any card, so an `h3` would
+ * skip a level.
  */
 
 const DOCS = 'https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md';

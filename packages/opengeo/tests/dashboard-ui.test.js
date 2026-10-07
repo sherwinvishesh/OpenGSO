@@ -1,10 +1,10 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { stalenessOf } from '../web-next/components/staleness.js';
-import { ago, banner, button, el, field, safeUrl, setAttr, setBusy, setLabel, useDocument } from '../web-next/ui.js';
+import { stalenessOf } from '../web/components/staleness.js';
+import { ago, banner, button, el, field, safeUrl, setAttr, setBusy, setLabel, useDocument } from '../web/ui.js';
 
 /** @import { StateResponse } from '../../core/src/shared/api-types.js' */
 
@@ -13,7 +13,7 @@ beforeEach(() => {
   useDocument(new JSDOM('<!doctype html><body></body>').window.document);
 });
 
-const WEB = fileURLToPath(new URL('../web-next/', import.meta.url));
+const WEB = fileURLToPath(new URL('../web/', import.meta.url));
 
 /** @param {string} dir @returns {string[]} */
 function sources(dir) {
@@ -42,6 +42,32 @@ describe('the dashboard never parses a string as markup', () => {
     const html = readFileSync(join(WEB, 'index.html'), 'utf8');
     expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
     expect(html).not.toMatch(/<style|\sstyle=|\son[a-z]+=/i);
+  });
+});
+
+describe('the dashboard ships as it is', () => {
+  // Nothing bundles web/: the browser fetches each module by the path written in its import. One
+  // that reaches outside the folder works in a clone and 404s from an installed package, where
+  // core is not there to reach. Type-only `@import` comments are not imports and are exempt.
+  it('imports only files inside its own folder, and only ones that exist', () => {
+    /** @type {string[]} */
+    const outside = [];
+    for (const path of sources(WEB).filter((file) => file.endsWith('.js'))) {
+      const code = readFileSync(path, 'utf8');
+      for (const [, specifier] of code.matchAll(/^\s*(?:import|export)\b[^'"]*?from\s+'([^']+)'/gm)) {
+        const target = resolvePath(dirname(path), specifier);
+        if (!specifier.startsWith('.') || !target.startsWith(WEB) || !existsSync(target)) outside.push(`${path}: ${specifier}`);
+      }
+    }
+    expect(outside).toEqual([]);
+  });
+
+  it('is in the published package, with nothing beside it that would not run', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(pkg.files).toContain('web');
+    expect(pkg.files).toContain('!web/tsconfig.json');
+    const files = readdirSync(WEB, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile());
+    expect(files.map((entry) => entry.name).filter((name) => !/\.(js|html|css)$/.test(name) && name !== 'tsconfig.json')).toEqual([]);
   });
 });
 

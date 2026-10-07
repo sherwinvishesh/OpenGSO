@@ -1,8 +1,8 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { docsUrl, groupChecks, points, slug } from '../web-next/components/checks.js';
-import { lockedShare, pointsLine, scoreColour, sparklinePoints } from '../web-next/components/score.js';
-import { useDocument } from '../web-next/ui.js';
+import { docsUrl, groupChecks, points, slug } from '../web/components/checks.js';
+import { lockedShare, pointsLine, scoreColour, sparklinePoints } from '../web/components/score.js';
+import { useDocument } from '../web/ui.js';
 import {
   createTestView,
   pastRunsOf,
@@ -13,11 +13,11 @@ import {
   sortDocuments,
   toneFor,
   whereLine,
-} from '../web-next/views/test.js';
+} from '../web/views/test.js';
 
 /**
  * @import { CheckResult, DocumentReview, HistoryEntry, Score, StateResponse, TestResponse } from '../../core/src/shared/api-types.js'
- * @import { Ctx } from '../web-next/context.js'
+ * @import { Ctx } from '../web/context.js'
  */
 
 /** @type {JSDOM} */

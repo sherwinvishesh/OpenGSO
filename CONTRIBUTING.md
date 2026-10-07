@@ -25,7 +25,8 @@ entry point and nothing else.
 
 **Plain JavaScript, typed with JSDoc.** Every package's source, tests and config is JavaScript that
 Node runs exactly as written, so there is no compile step between editing a file and running it.
-(The dashboard in `packages/opengeo/web` is still React and TypeScript until its rewrite lands.) Types are
+The dashboard in `packages/opengeo/web` is the same: plain HTML, CSS and JavaScript that the browser
+loads as it is, and the files in the repo are the files that ship. Types are
 JSDoc comments (`@param`, `@returns`, `@typedef`, `@import`), and `npm run typecheck` checks them
 with `tsc` under `strict` and `checkJs`. TypeScript is a dev dependency and a checker, nothing more.
 `packages/core/tests/plain-js.test.js` fails if a `.ts` file comes back, and runs every CLI entry
@@ -42,7 +43,6 @@ through the workspace without `paths`, but tsup's declaration build does not: wi
 ```bash
 npm install
 npm run typecheck
-npx tsc --noEmit -p packages/opengeo/web/tsconfig.json
 npm test
 npm run build
 npm run check:bundles
@@ -51,11 +51,13 @@ npm run check:bundles
 `npm run build` is packaging only. Nothing needs it to run, test or change the code: after
 `npm install`, `npm run opengeo -- <command>` runs the CLI straight from `src/`, and
 `npm run example:dev` builds the one thing the demo needs (`opengeo-prod`) before starting it.
-The exception, until the dashboard is rewritten, is `opengeo start`, which serves the built
-dashboard from `packages/opengeo/dist/web`.
+`opengeo start` serves the dashboard straight from `packages/opengeo/web`, so a change there shows
+on the next reload.
 
-The second line checks the dashboard, which the root `tsconfig.json` does not cover. Run it from
-the repository root.
+`npm run typecheck` checks two projects: the Node code, and the dashboard against the browser's
+types. The root `tsconfig.json` does not cover the dashboard, which is why the script names both.
+Dashboard modules import only from inside `web/`, because nothing bundles them: a test fails on
+an import that reaches into core.
 
 `check:bundles` reads `dist/` and asserts the two structural promises from §3:
 `opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency

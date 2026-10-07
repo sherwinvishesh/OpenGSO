@@ -132,8 +132,8 @@ Picking the last one asks for a base URL and which of the three API shapes it sp
 
 ## What it ships
 
-`jsdom` is the only runtime dependency. React and Vite build the dashboard into static files at
-publish time and are never installed into your `node_modules`.
+`jsdom` is the only runtime dependency. The dashboard is plain HTML, CSS and JavaScript in `web/`,
+served as it is, with no framework and nothing built at publish time.
 
 ## Reference
 

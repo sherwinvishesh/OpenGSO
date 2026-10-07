@@ -445,19 +445,7 @@ export function crossOriginDenial(request) {
  */
 function serveStatic(pathname, response, webRoot) {
   if (!existsSync(webRoot)) {
-    return send(
-      response,
-      500,
-      'text/plain; charset=utf-8',
-      [
-        'The dashboard assets are missing.',
-        '',
-        `Expected them at: ${webRoot}`,
-        '',
-        'If you are running from a clone, build them first:',
-        '  npm run build -w packages/opengeo',
-      ].join('\n'),
-    );
+    return send(response, 500, 'text/plain; charset=utf-8', ERRORS.dashboardMissing(webRoot));
   }
 
   const file = resolveStaticPath(pathname, webRoot);
