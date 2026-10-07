@@ -1220,6 +1220,11 @@ details.probe > summary::marker {
   align-items: flex-end;
 }
 
+/* Fields side by side with hints under them: labels line up, whichever hint is longer. */
+.row-top {
+  align-items: flex-start;
+}
+
 .onboarding-title {
   margin: 0 0 var(--s-4);
   font-size: var(--text-2xl);

@@ -150,7 +150,7 @@ export function createProviderFields({ catalog, onChange, keyLabel, keyHint, key
 
   const customRow = el(
     'div',
-    { className: 'row row-end', hidden: true },
+    { className: 'row row-top', hidden: true },
     el('div', { className: 'grow' }, field('Base URL', baseUrl, 'Everything up to the endpoint path, with no trailing slash.')),
     field('API shape', api, 'Which request format it speaks.'),
   );
@@ -163,7 +163,7 @@ export function createProviderFields({ catalog, onChange, keyLabel, keyHint, key
   const node = el(
     'div',
     { className: 'contents' },
-    el('div', { className: 'row row-end' }, field('Provider', provider), el('div', { className: 'grow' }, field('Model', model, modelHint))),
+    el('div', { className: 'row row-top' }, field('Provider', provider), el('div', { className: 'grow' }, field('Model', model, modelHint))),
     customRow,
     keylessNote,
     keyField,
