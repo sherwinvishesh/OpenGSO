@@ -14,65 +14,72 @@ import { join, resolve } from 'node:path';
  *    the markdown bodies as data at build time and hands them over.
  */
 
-export interface MarkdownDoc {
-  route: string;
-  title: string;
-  /** Body only - frontmatter is stripped once at load, never per request. */
-  body: string;
-  tokens: number;
-  lastUpdated: string;
-  /**
-   * Hash of the HTML this twin was generated from. Carried so prod can advertise it and `test`'s
-   * B14 check can tell "regenerated from this exact page" from "the page moved on without me".
-   */
-  sourceHash?: string;
-}
+/**
+ * @typedef {object} MarkdownDoc
+ * @property {string} route
+ * @property {string} title
+ * @property {string} body Body only - frontmatter is stripped once at load, never per request.
+ * @property {number} tokens
+ * @property {string} lastUpdated
+ * @property {string} [sourceHash] Hash of the HTML this twin was generated from. Carried so prod
+ *   can advertise it and `test`'s B14 check can tell "regenerated from this exact page" from "the
+ *   page moved on without me".
+ */
 
-export interface MarkdownStore {
-  get(route: string): MarkdownDoc | undefined;
-  has(route: string): boolean;
-  routes(): string[];
-  size: number;
-  /** Non-fatal problems found while loading, reported by the startup log. */
-  problems: string[];
-}
+/**
+ * @typedef {object} MarkdownStore
+ * @property {(route: string) => MarkdownDoc | undefined} get
+ * @property {(route: string) => boolean} has
+ * @property {() => string[]} routes
+ * @property {number} size
+ * @property {string[]} problems Non-fatal problems found while loading, reported by the startup log.
+ */
 
-interface StoreManifestEntry {
-  route: string;
-  title?: string;
-  file: string;
-  tokens: number;
-  lastUpdated?: string;
-  sourceHash?: string;
-}
+/**
+ * @typedef {object} StoreManifestEntry
+ * @property {string} route
+ * @property {string} [title]
+ * @property {string} file
+ * @property {number} tokens
+ * @property {string} [lastUpdated]
+ * @property {string} [sourceHash]
+ */
 
-interface StoreManifest {
-  pages: Record<string, StoreManifestEntry>;
-}
+/**
+ * @typedef {object} StoreManifest
+ * @property {Record<string, StoreManifestEntry>} pages
+ */
 
-export interface FsStoreOptions {
-  /** Project root. `publicDir` and `internalDir` are resolved against it. */
-  root: string;
-  publicDir?: string;
-  internalDir?: string;
-}
+/**
+ * @typedef {object} FsStoreOptions
+ * @property {string} root Project root. `publicDir` and `internalDir` are resolved against it.
+ * @property {string} [publicDir]
+ * @property {string} [internalDir]
+ */
 
-export function createFsStore(options: FsStoreOptions): MarkdownStore {
+/**
+ * @param {FsStoreOptions} options
+ * @returns {MarkdownStore}
+ */
+export function createFsStore(options) {
   const root = resolve(options.root);
   const publicDir = resolve(root, options.publicDir ?? 'public');
   const internalDir = resolve(root, options.internalDir ?? '.opengeo');
   const manifestFile = join(internalDir, 'manifest.json');
-  const problems: string[] = [];
-  const docs = new Map<string, MarkdownDoc>();
+  /** @type {string[]} */
+  const problems = [];
+  /** @type {Map<string, MarkdownDoc>} */
+  const docs = new Map();
 
   if (!existsSync(manifestFile)) {
     problems.push(`No manifest at ${manifestFile}. Run \`opengeo generate <url>\` to create the markdown twins.`);
     return buildStore(docs, problems);
   }
 
-  let manifest: StoreManifest;
+  /** @type {StoreManifest} */
+  let manifest;
   try {
-    manifest = JSON.parse(readFileSync(manifestFile, 'utf8')) as StoreManifest;
+    manifest = /** @type {StoreManifest} */ (JSON.parse(readFileSync(manifestFile, 'utf8')));
   } catch (error) {
     problems.push(`Could not read ${manifestFile}: ${error instanceof Error ? error.message : String(error)}`);
     return buildStore(docs, problems);
@@ -97,15 +104,22 @@ export function createFsStore(options: FsStoreOptions): MarkdownStore {
   return buildStore(docs, problems);
 }
 
-export interface ManifestStoreOptions {
-  manifest: StoreManifest;
-  /** Raw file contents keyed by the manifest's `file` value, e.g. `md/resume.md`. */
-  contents: Record<string, string>;
-}
+/**
+ * @typedef {object} ManifestStoreOptions
+ * @property {StoreManifest} manifest
+ * @property {Record<string, string>} contents Raw file contents keyed by the manifest's `file`
+ *   value, e.g. `md/resume.md`.
+ */
 
-export function createManifestStore(options: ManifestStoreOptions): MarkdownStore {
-  const problems: string[] = [];
-  const docs = new Map<string, MarkdownDoc>();
+/**
+ * @param {ManifestStoreOptions} options
+ * @returns {MarkdownStore}
+ */
+export function createManifestStore(options) {
+  /** @type {string[]} */
+  const problems = [];
+  /** @type {Map<string, MarkdownDoc>} */
+  const docs = new Map();
   for (const entry of Object.values(options.manifest.pages ?? {})) {
     const raw = options.contents[entry.file];
     if (raw === undefined) {
@@ -124,12 +138,22 @@ export function createManifestStore(options: ManifestStoreOptions): MarkdownStor
   return buildStore(docs, problems);
 }
 
-/** In-memory store, used by tests and by the local product website's preview. */
-export function createMemoryStore(docs: MarkdownDoc[]): MarkdownStore {
+/**
+ * In-memory store, used by tests and by the local product website's preview.
+ *
+ * @param {MarkdownDoc[]} docs
+ * @returns {MarkdownStore}
+ */
+export function createMemoryStore(docs) {
   return buildStore(new Map(docs.map((d) => [d.route, d])), []);
 }
 
-function buildStore(docs: Map<string, MarkdownDoc>, problems: string[]): MarkdownStore {
+/**
+ * @param {Map<string, MarkdownDoc>} docs
+ * @param {string[]} problems
+ * @returns {MarkdownStore}
+ */
+function buildStore(docs, problems) {
   return {
     get: (route) => docs.get(route),
     has: (route) => docs.has(route),
@@ -142,8 +166,11 @@ function buildStore(docs: Map<string, MarkdownDoc>, problems: string[]): Markdow
 /**
  * Strip a leading `---` frontmatter block. Done once per file at load; the served body is the
  * markdown a reader actually wants, without OpenGEO's bookkeeping at the top.
+ *
+ * @param {string} raw
+ * @returns {string}
  */
-function stripFrontmatter(raw: string): string {
+function stripFrontmatter(raw) {
   const text = raw.replace(/^﻿/, '');
   if (!text.startsWith('---')) return text.trim();
   const end = text.indexOf('\n---', 3);

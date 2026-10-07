@@ -1,7 +1,13 @@
-import { providerOverridesOf, type OpenGeoConfig } from './config.js';
-import { readCredentials, readNativeKey, type Credentials } from './env.js';
+import { providerOverridesOf } from './config.js';
+import { readCredentials, readNativeKey } from './env.js';
 import { ERRORS } from './errors.js';
-import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo, type AiProvider, type ProviderOverrides } from './providers.js';
+import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './providers.js';
+
+/**
+ * @import { OpenGeoConfig } from './config.js'
+ * @import { Credentials } from './env.js'
+ * @import { AiProvider, ProviderOverrides } from './providers.js'
+ */
 
 /**
  * Which provider to call, with which key, at which address (§11).
@@ -13,32 +19,36 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo, type AiProvid
  * dashboard both come through here, which is what keeps them from disagreeing about it.
  */
 
-export interface AiCall {
-  provider: AiProvider;
-  model: string;
-  apiKey: string;
-  overrides: ProviderOverrides;
-  /** Where the key came from. Absent for a provider that runs without one. */
-  keySource?: Credentials['source'];
-}
+/**
+ * @typedef {object} AiCall
+ * @property {AiProvider} provider
+ * @property {string} model
+ * @property {string} apiKey
+ * @property {ProviderOverrides} overrides
+ * @property {Credentials['source']} [keySource] Where the key came from. Absent for a provider that
+ *   runs without one.
+ */
 
 /**
  * `missing` is not an error on its own: a missing key is a footnote to a structural test and a
  * refusal to generate's AI tier, and only the caller knows which.
+ *
+ * @typedef {{ call: AiCall } | { missing: AiProvider } | { error: string }} AiResolution
  */
-export type AiResolution = { call: AiCall } | { missing: AiProvider } | { error: string };
 
-export function resolveAiCall(
-  root: string,
-  config: Pick<OpenGeoConfig, 'ai'>,
-  flags: { provider?: string; model?: string } = {},
-): AiResolution {
+/**
+ * @param {string} root
+ * @param {Pick<OpenGeoConfig, 'ai'>} config
+ * @param {{ provider?: string; model?: string }} [flags]
+ * @returns {AiResolution}
+ */
+export function resolveAiCall(root, config, flags = {}) {
   if (flags.provider && !isAiProvider(flags.provider)) {
     return { error: ERRORS.unknownProvider(flags.provider, AI_PROVIDERS) };
   }
 
   const credentials = readCredentials(root);
-  const provider = (flags.provider as AiProvider | undefined) || credentials?.provider || config.ai.provider;
+  const provider = /** @type {AiProvider | undefined} */ (flags.provider) || credentials?.provider || config.ai.provider;
   // `.env` outranks the config, as it always has, but only where both describe this provider.
   const fromEnv = credentials?.provider === provider ? credentials : undefined;
   const fromConfig = config.ai.provider === provider ? config.ai : undefined;
@@ -54,7 +64,8 @@ export function resolveAiCall(
     return { missing: provider };
   }
 
-  const overrides: ProviderOverrides = fromConfig ? providerOverridesOf(config) : {};
+  /** @type {ProviderOverrides} */
+  const overrides = fromConfig ? providerOverridesOf(config) : {};
   if (fromEnv?.baseUrl) overrides.baseUrl = fromEnv.baseUrl;
 
   return {

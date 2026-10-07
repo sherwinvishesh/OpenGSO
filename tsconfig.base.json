@@ -27,7 +27,7 @@
         "./packages/core/src/index.ts"
       ],
       "@opengeo/core/shared": [
-        "./packages/core/src/shared/index.ts"
+        "./packages/core/src/shared/index.js"
       ],
       "@opengeo/core/generate": [
         "./packages/core/src/generate/index.ts"
@@ -36,10 +36,10 @@
         "./packages/core/src/test/index.ts"
       ],
       "@opengeo/core/prod": [
-        "./packages/core/src/prod/index.ts"
+        "./packages/core/src/prod/index.js"
       ],
       "@opengeo/core/prod/next": [
-        "./packages/core/src/prod/adapters/next.ts"
+        "./packages/core/src/prod/adapters/next.js"
       ],
       "@opengeo/core/server": [
         "./packages/core/src/server/index.ts"

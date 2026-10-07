@@ -5,7 +5,7 @@
 export const AEO_SPEC_VERSION = 'opengeo/1.0';
 
 /** Header name constants, so test and prod can never drift apart on spelling. */
-export const HEADERS = {
+export const HEADERS = /* @__PURE__ */ Object.freeze({
   contentType: 'Content-Type',
   markdownTokens: 'X-Markdown-Tokens',
   contentTypeOptions: 'X-Content-Type-Options',
@@ -20,6 +20,6 @@ export const HEADERS = {
    */
   markdownSourceHash: 'X-Markdown-Source-Hash',
   lastModified: 'Last-Modified',
-} as const;
+});
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';

@@ -2,7 +2,8 @@ import { c, heading, SYM, terminalSafe } from '../shared/log.js';
 import { terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
 import { ink } from '../cli/tui/theme.js';
 import { meter } from '../cli/tui/widgets.js';
-import type { ProdProbe, ProdVerification } from './verify.js';
+
+/** @import { ProdProbe, ProdVerification } from './verify.js' */
 
 /**
  * Terminal rendering for `opengeo prod test`.
@@ -11,17 +12,22 @@ import type { ProdProbe, ProdVerification } from './verify.js';
  * knowing that routing and blocking are two different things, and which one they are looking at.
  */
 
-export interface VerifyReportOptions {
-  /** Show the exact curl for every probe and the headers that came back. */
-  verbose?: boolean;
-  /** Overrides the terminal width. Only the tests pass this. */
-  width?: number;
-}
+/**
+ * @typedef {object} VerifyReportOptions
+ * @property {boolean} [verbose] Show the exact curl for every probe and the headers that came back.
+ * @property {number} [width] Overrides the terminal width. Only the tests pass this.
+ */
 
-export function renderProdVerification(result: ProdVerification, options: VerifyReportOptions = {}): string {
+/**
+ * @param {ProdVerification} result
+ * @param {VerifyReportOptions} [options]
+ * @returns {string}
+ */
+export function renderProdVerification(result, options = {}) {
   result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
 
   lines.push('');
   lines.push(`${c.bold('OpenGEO')} ${c.gray('prod test')}  ${result.target}`);
@@ -74,8 +80,11 @@ export function renderProdVerification(result: ProdVerification, options: Verify
  * This command has no score, so the bar reads share of probes passed rather than points. It is the
  * same glyphs and the same colour ramp on purpose: two commands in one product should not have two
  * visual languages for "how did that go".
+ *
+ * @param {ProdVerification} result
+ * @returns {string}
  */
-function summaryLine(result: ProdVerification): string {
+function summaryLine(result) {
   const total = result.counts.pass + result.counts.warn + result.counts.fail;
   const share = total === 0 ? 0 : (result.counts.pass / total) * 100;
   const parts = [ink.ok(`${result.counts.pass} passed`)];
@@ -84,7 +93,13 @@ function summaryLine(result: ProdVerification): string {
   return `${meter(share, 18)}  ${parts.join(c.gray(', '))}  ${c.gray(`impersonating ${result.bot}`)}`;
 }
 
-function renderProbe(probe: ProdProbe, options: VerifyReportOptions, width: number): string[] {
+/**
+ * @param {ProdProbe} probe
+ * @param {VerifyReportOptions} options
+ * @param {number} width
+ * @returns {string[]}
+ */
+function renderProbe(probe, options, width) {
   const symbol = probe.verdict === 'pass' ? SYM.pass() : probe.verdict === 'warn' ? SYM.warn() : SYM.fail();
   const status = probe.status > 0 ? c.gray(`  ${probe.status}`) : '';
   const lines = ['', `  ${symbol} ${c.bold(probe.id)} ${probe.title}${status}`];
@@ -99,13 +114,25 @@ function renderProbe(probe: ProdProbe, options: VerifyReportOptions, width: numb
   return lines;
 }
 
-/** Wrapped to the terminal, under the six-space gutter the probe rows use. */
-function indent(text: string, width: number, paint: (value: string) => string = (value) => value): string[] {
+/**
+ * Wrapped to the terminal, under the six-space gutter the probe rows use.
+ *
+ * @param {string} text
+ * @param {number} width
+ * @param {(value: string) => string} [paint]
+ * @returns {string[]}
+ */
+function indent(text, width, paint = (value) => value) {
   return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
 }
 
-/** Machine-readable output for `--json` and for the product website's local API. */
-export function prodVerificationToJson(result: ProdVerification): string {
+/**
+ * Machine-readable output for `--json` and for the product website's local API.
+ *
+ * @param {ProdVerification} result
+ * @returns {string}
+ */
+export function prodVerificationToJson(result) {
   return JSON.stringify(
     {
       target: result.target,
@@ -139,7 +166,8 @@ export function prodVerificationToJson(result: ProdVerification): string {
   );
 }
 
-function probeJson(probe: ProdProbe) {
+/** @param {ProdProbe} probe */
+function probeJson(probe) {
   return {
     id: probe.id,
     title: probe.title,

@@ -82,7 +82,7 @@ describe('the catalogue', () => {
 });
 
 describe("the config default, which cannot import the catalogue", () => {
-  // defaultConfig() writes the provider and model out as literals on purpose: shared/config.ts is
+  // defaultConfig() writes the provider and model out as literals on purpose: shared/config.js is
   // in `opengeo-prod`'s import graph, and a value import from providers.ts would bundle twelve
   // endpoints and twelve key variable names into the one package that must contain no AI code.
   // check:bundles catches that at build time; these two catch the other half, a catalogue edit

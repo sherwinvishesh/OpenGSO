@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-export interface AtomicWriteOptions {
-  /** The mode a newly created file gets. A file that already exists keeps the mode it has. */
-  mode?: number;
-}
+/**
+ * @typedef {object} AtomicWriteOptions
+ * @property {number} [mode] The mode a newly created file gets. A file that already exists keeps
+ *   the mode it has.
+ */
 
 /**
  * Write a whole file or nothing.
@@ -16,8 +17,13 @@ export interface AtomicWriteOptions {
  *
  * Two things writeFileSync did are kept on purpose. A symlink is written through rather than
  * replaced, and an existing file keeps its mode, so a `.env` its owner locked down stays that way.
+ *
+ * @param {string} path
+ * @param {string} contents
+ * @param {AtomicWriteOptions} [options]
+ * @returns {void}
  */
-export function writeFileAtomic(path: string, contents: string, options: AtomicWriteOptions = {}): void {
+export function writeFileAtomic(path, contents, options = {}) {
   const target = existsSync(path) ? realpathSync(path) : path;
   const dir = dirname(target);
   mkdirSync(dir, { recursive: true });

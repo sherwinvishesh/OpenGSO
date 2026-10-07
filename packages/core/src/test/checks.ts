@@ -3,7 +3,7 @@
  *
  * Category A asks "can AI find and understand this site at all". Category B asks "is the markdown
  * twin actually being served correctly" - it is the same contract opengeo-prod implements in §7,
- * which is why both sides share the header constants in shared/version.ts.
+ * which is why both sides share the header constants in shared/version.js.
  *
  * Weights are an implementation detail per §5, but the shape is fixed: required checks outweigh
  * recommended ones, and a check that cannot apply (HSTS on localhost) is marked n/a and dropped

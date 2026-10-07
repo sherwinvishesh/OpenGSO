@@ -1,6 +1,7 @@
-import type { AiBot } from '../shared/bots.js';
 import { AI_BOTS, identifyBot } from '../shared/bots.js';
 import { isMarkdownPath, normalizeRoute, twinUrlPathToRoute } from '../shared/routes.js';
+
+/** @import { AiBot } from '../shared/bots.js' */
 
 /**
  * Visitor classification and content negotiation (§7).
@@ -13,38 +14,42 @@ import { isMarkdownPath, normalizeRoute, twinUrlPathToRoute } from '../shared/ro
  *     serve substantively different content to bots, which would be cloaking.
  */
 
-export type VisitorKind = 'human' | 'routed-ai' | 'unrouted-bot';
+/** @typedef {'human' | 'routed-ai' | 'unrouted-bot'} VisitorKind */
 
-export interface AcceptSummary {
-  /** No Accept header at all - treated as `*` / `*`, the same as a plain HTTP client. */
-  absent: boolean;
-  acceptsHtml: boolean;
-  acceptsMarkdown: boolean;
-  /** Markdown explicitly listed and ranked at least as high as HTML. */
-  prefersMarkdown: boolean;
-}
+/**
+ * @typedef {object} AcceptSummary
+ * @property {boolean} absent No Accept header at all - treated as `*` / `*`, the same as a plain
+ *   HTTP client.
+ * @property {boolean} acceptsHtml
+ * @property {boolean} acceptsMarkdown
+ * @property {boolean} prefersMarkdown Markdown explicitly listed and ranked at least as high as HTML.
+ */
 
-export interface Classification {
-  kind: VisitorKind;
-  bot?: AiBot;
-  accept: AcceptSummary;
-  /** Canonical route being asked for, with any `.md` suffix already resolved away. */
-  route: string;
-  /** True when the request targeted the markdown twin URL directly (`/resume.md`). */
-  explicitTwin: boolean;
-  /** What prod should do. */
-  serve: 'markdown' | 'html' | 'not-acceptable';
-  /** Plain-language reason, surfaced by `opengeo prod test`. */
-  reason: string;
-}
+/**
+ * @typedef {object} Classification
+ * @property {VisitorKind} kind
+ * @property {AiBot} [bot]
+ * @property {AcceptSummary} accept
+ * @property {string} route Canonical route being asked for, with any `.md` suffix already resolved
+ *   away.
+ * @property {boolean} explicitTwin True when the request targeted the markdown twin URL directly
+ *   (`/resume.md`).
+ * @property {'markdown' | 'html' | 'not-acceptable'} serve What prod should do.
+ * @property {string} reason Plain-language reason, surfaced by `opengeo prod test`.
+ */
 
-interface AcceptEntry {
-  type: string;
-  subtype: string;
-  q: number;
-}
+/**
+ * @typedef {object} AcceptEntry
+ * @property {string} type
+ * @property {string} subtype
+ * @property {number} q
+ */
 
-export function parseAccept(header: string | null | undefined): AcceptEntry[] {
+/**
+ * @param {string | null | undefined} header
+ * @returns {AcceptEntry[]}
+ */
+export function parseAccept(header) {
   if (!header) return [];
   return header
     .split(',')
@@ -63,7 +68,13 @@ export function parseAccept(header: string | null | undefined): AcceptEntry[] {
     });
 }
 
-function qualityFor(entries: AcceptEntry[], type: string, subtype: string): number {
+/**
+ * @param {AcceptEntry[]} entries
+ * @param {string} type
+ * @param {string} subtype
+ * @returns {number}
+ */
+function qualityFor(entries, type, subtype) {
   let best = -1;
   for (const entry of entries) {
     const typeMatch = entry.type === '*' || entry.type === type;
@@ -73,8 +84,15 @@ function qualityFor(entries: AcceptEntry[], type: string, subtype: string): numb
   return best;
 }
 
-/** Exact (non-wildcard) match, used to tell "explicitly asked for markdown" from "accepts anything". */
-function explicitQualityFor(entries: AcceptEntry[], type: string, subtype: string): number {
+/**
+ * Exact (non-wildcard) match, used to tell "explicitly asked for markdown" from "accepts anything".
+ *
+ * @param {AcceptEntry[]} entries
+ * @param {string} type
+ * @param {string} subtype
+ * @returns {number}
+ */
+function explicitQualityFor(entries, type, subtype) {
   let best = -1;
   for (const entry of entries) {
     if (entry.type === type && entry.subtype === subtype) best = Math.max(best, entry.q);
@@ -82,7 +100,11 @@ function explicitQualityFor(entries: AcceptEntry[], type: string, subtype: strin
   return best;
 }
 
-export function summarizeAccept(header: string | null | undefined): AcceptSummary {
+/**
+ * @param {string | null | undefined} header
+ * @returns {AcceptSummary}
+ */
+export function summarizeAccept(header) {
   const entries = parseAccept(header);
   if (entries.length === 0) {
     return { absent: true, acceptsHtml: true, acceptsMarkdown: true, prefersMarkdown: false };
@@ -104,20 +126,23 @@ export function summarizeAccept(header: string | null | undefined): AcceptSummar
   };
 }
 
-export interface ClassifyInput {
-  pathname: string;
-  userAgent?: string | null;
-  accept?: string | null;
-  /** Bot names from `bots.markdownRouting` - lever 1. Never used to block anything. */
-  markdownRouting: readonly string[];
-  /**
-   * The crawler catalogue to recognise User-Agents against. Defaults to the shipped list; a project
-   * with `bots.custom` entries passes the resolved list so its own crawlers are routable too.
-   */
-  bots?: readonly AiBot[];
-}
+/**
+ * @typedef {object} ClassifyInput
+ * @property {string} pathname
+ * @property {string | null} [userAgent]
+ * @property {string | null} [accept]
+ * @property {readonly string[]} markdownRouting Bot names from `bots.markdownRouting` - lever 1.
+ *   Never used to block anything.
+ * @property {readonly AiBot[]} [bots] The crawler catalogue to recognise User-Agents against.
+ *   Defaults to the shipped list; a project with `bots.custom` entries passes the resolved list so
+ *   its own crawlers are routable too.
+ */
 
-export function classify(input: ClassifyInput): Classification {
+/**
+ * @param {ClassifyInput} input
+ * @returns {Classification}
+ */
+export function classify(input) {
   const accept = summarizeAccept(input.accept);
   const explicitTwin = isMarkdownPath(input.pathname);
   const route = explicitTwin
@@ -126,7 +151,8 @@ export function classify(input: ClassifyInput): Classification {
 
   const bot = identifyBot(input.userAgent, input.bots ?? AI_BOTS);
   const routed = Boolean(bot && input.markdownRouting.some((name) => name.toLowerCase() === bot.name.toLowerCase()));
-  const kind: VisitorKind = routed ? 'routed-ai' : bot ? 'unrouted-bot' : 'human';
+  /** @type {VisitorKind} */
+  const kind = routed ? 'routed-ai' : bot ? 'unrouted-bot' : 'human';
 
   if (!accept.acceptsHtml && !accept.acceptsMarkdown) {
     return {

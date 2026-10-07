@@ -12,25 +12,27 @@
  *                    tokens ONLY: they are opt-out signals with no crawler of their own, so they
  *                    have no `uaPatterns` and can never be routed by User-Agent.
  */
-export type BotKind = 'assistant' | 'search' | 'training';
 
-export interface AiBot {
-  /** Canonical name, and the identifier a user writes in opengeo.config.json. */
-  name: string;
-  vendor: string;
-  /** Case-insensitive User-Agent substrings. Empty means robots.txt-only (no crawler to match). */
-  uaPatterns: string[];
-  /** The token used in robots.txt `User-agent:` lines. */
-  robotsToken: string;
-  kind: BotKind;
-  notes?: string;
-  /** True for a crawler the user defined in their own config rather than one shipped in this file. */
-  custom?: boolean;
-}
+/** @typedef {'assistant' | 'search' | 'training'} BotKind */
 
-export const BOT_KINDS: readonly BotKind[] = ['assistant', 'search', 'training'];
+/**
+ * @typedef {object} AiBot
+ * @property {string} name Canonical name, and the identifier a user writes in opengeo.config.json.
+ * @property {string} vendor
+ * @property {string[]} uaPatterns Case-insensitive User-Agent substrings. Empty means robots.txt-only
+ *   (no crawler to match).
+ * @property {string} robotsToken The token used in robots.txt `User-agent:` lines.
+ * @property {BotKind} kind
+ * @property {string} [notes]
+ * @property {boolean} [custom] True for a crawler the user defined in their own config rather than
+ *   one shipped in this file.
+ */
 
-export const AI_BOTS: readonly AiBot[] = [
+/** @type {readonly BotKind[]} */
+export const BOT_KINDS = ['assistant', 'search', 'training'];
+
+/** @type {readonly AiBot[]} */
+export const AI_BOTS = [
   { name: 'GPTBot', vendor: 'OpenAI', uaPatterns: ['gptbot'], robotsToken: 'GPTBot', kind: 'training' },
   { name: 'OAI-SearchBot', vendor: 'OpenAI', uaPatterns: ['oai-searchbot'], robotsToken: 'OAI-SearchBot', kind: 'search' },
   { name: 'ChatGPT-User', vendor: 'OpenAI', uaPatterns: ['chatgpt-user'], robotsToken: 'ChatGPT-User', kind: 'assistant' },
@@ -75,11 +77,19 @@ export const AI_BOTS: readonly AiBot[] = [
   { name: 'Timpibot', vendor: 'Timpi', uaPatterns: ['timpibot'], robotsToken: 'Timpibot', kind: 'training' },
 ];
 
-/** Bots that can actually be routed by User-Agent. The robots.txt-only tokens are excluded. */
-export const ROUTABLE_BOTS: readonly AiBot[] = AI_BOTS.filter((b) => b.uaPatterns.length > 0);
+/**
+ * Bots that can actually be routed by User-Agent. The robots.txt-only tokens are excluded.
+ *
+ * @type {readonly AiBot[]}
+ */
+export const ROUTABLE_BOTS = AI_BOTS.filter((b) => b.uaPatterns.length > 0);
 
-/** Default markdown-routing list: every routable bot. Narrowing is the user's choice, not ours. */
-export const DEFAULT_MARKDOWN_ROUTING: readonly string[] = ROUTABLE_BOTS.map((b) => b.name);
+/**
+ * Default markdown-routing list: every routable bot. Narrowing is the user's choice, not ours.
+ *
+ * @type {readonly string[]}
+ */
+export const DEFAULT_MARKDOWN_ROUTING = ROUTABLE_BOTS.map((b) => b.name);
 
 /**
  * A crawler the user added themselves, as it appears in `bots.custom` in opengeo.config.json.
@@ -88,27 +98,30 @@ export const DEFAULT_MARKDOWN_ROUTING: readonly string[] = ROUTABLE_BOTS.map((b)
  * a shared list and the wrong one for the person whose in-house agent started crawling yesterday.
  * Everything except the name has a sensible answer derived from it, so the minimum viable entry is
  * `{ "name": "AcmeBot" }`.
+ *
+ * @typedef {object} CustomBotInput
+ * @property {string} name
+ * @property {string} [vendor]
+ * @property {string[]} [uaPatterns]
+ * @property {string} [robotsToken]
+ * @property {BotKind} [kind]
+ * @property {string} [notes]
  */
-export interface CustomBotInput {
-  name: string;
-  vendor?: string;
-  uaPatterns?: string[];
-  robotsToken?: string;
-  kind?: BotKind;
-  notes?: string;
-}
 
 /**
  * Fill a user-supplied entry out into a real bot, or return undefined if it is unusable.
  *
  * Nothing here trusts the input: it arrives from a hand-edited JSON file or from a browser form,
  * and a malformed entry must not be able to take the middleware down on the next request.
+ *
+ * @param {CustomBotInput | null | undefined} input
+ * @returns {AiBot | undefined}
  */
-export function normalizeCustomBot(input: CustomBotInput | null | undefined): AiBot | undefined {
+export function normalizeCustomBot(input) {
   const name = typeof input?.name === 'string' ? input.name.trim() : '';
   if (!name) return undefined;
   const patterns = (Array.isArray(input?.uaPatterns) ? input.uaPatterns : [])
-    .filter((pattern): pattern is string => typeof pattern === 'string')
+    .filter(/** @returns {pattern is string} */ (pattern) => typeof pattern === 'string')
     .map((pattern) => pattern.trim().toLowerCase())
     .filter(Boolean);
   const kind = input?.kind && BOT_KINDS.includes(input.kind) ? input.kind : 'assistant';
@@ -129,11 +142,15 @@ export function normalizeCustomBot(input: CustomBotInput | null | undefined): Ai
  *
  * A custom entry that reuses a built-in name is dropped rather than merged: silently shadowing
  * GPTBot's User-Agent patterns with a typo would be a very quiet way to break routing.
+ *
+ * @param {readonly CustomBotInput[] | undefined} custom
+ * @returns {readonly AiBot[]}
  */
-export function resolveBots(custom: readonly CustomBotInput[] | undefined): readonly AiBot[] {
+export function resolveBots(custom) {
   if (!custom || custom.length === 0) return AI_BOTS;
   const seen = new Set(AI_BOTS.map((bot) => bot.name.toLowerCase()));
-  const extra: AiBot[] = [];
+  /** @type {AiBot[]} */
+  const extra = [];
   for (const entry of custom) {
     const bot = normalizeCustomBot(entry);
     if (!bot || seen.has(bot.name.toLowerCase())) continue;
@@ -143,12 +160,22 @@ export function resolveBots(custom: readonly CustomBotInput[] | undefined): read
   return extra.length > 0 ? [...AI_BOTS, ...extra] : AI_BOTS;
 }
 
-/** The routable subset of `resolveBots`. */
-export function resolveRoutableBots(custom: readonly CustomBotInput[] | undefined): readonly AiBot[] {
+/**
+ * The routable subset of `resolveBots`.
+ *
+ * @param {readonly CustomBotInput[] | undefined} custom
+ * @returns {readonly AiBot[]}
+ */
+export function resolveRoutableBots(custom) {
   return resolveBots(custom).filter((bot) => bot.uaPatterns.length > 0);
 }
 
-export function findBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBot | undefined {
+/**
+ * @param {string} name
+ * @param {readonly AiBot[]} [bots]
+ * @returns {AiBot | undefined}
+ */
+export function findBot(name, bots = AI_BOTS) {
   const lowered = name.toLowerCase();
   return bots.find((b) => b.name.toLowerCase() === lowered || b.robotsToken.toLowerCase() === lowered);
 }
@@ -162,8 +189,12 @@ export function findBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBot |
  *
  * `bots` defaults to the built-in list. Pass `resolveBots(config.bots.custom)` to include the
  * crawlers the user defined themselves.
+ *
+ * @param {string | null | undefined} userAgent
+ * @param {readonly AiBot[]} [bots]
+ * @returns {AiBot | undefined}
  */
-export function identifyBot(userAgent: string | null | undefined, bots: readonly AiBot[] = AI_BOTS): AiBot | undefined {
+export function identifyBot(userAgent, bots = AI_BOTS) {
   if (!userAgent) return undefined;
   const ua = userAgent.toLowerCase();
   return bots.find((bot) => bot.uaPatterns.length > 0 && bot.uaPatterns.some((p) => ua.includes(p)));

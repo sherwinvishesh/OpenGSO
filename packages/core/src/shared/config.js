@@ -1,10 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './fs.js';
 import { dirname, join, resolve, sep } from 'node:path';
-import type { CustomBotInput } from './bots.js';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
 import { CONFIG_ERRORS } from './errors.js';
-import type { AiProvider, ProviderApi, ProviderAuth, ProviderOverrides } from './providers.js';
+
+/**
+ * @import { CustomBotInput } from './bots.js'
+ * @import { AiProvider, ProviderApi, ProviderAuth, ProviderOverrides } from './providers.js'
+ */
 
 // Types only, and deliberately: `prod` loads the config on every boot, and a value import from the
 // catalogue would drag twelve provider endpoints and twelve key variable names into a bundle whose
@@ -13,68 +16,58 @@ import type { AiProvider, ProviderApi, ProviderAuth, ProviderOverrides } from '.
 
 export const CONFIG_FILENAME = 'opengeo.config.json';
 
-export interface OpenGeoConfig {
-  /** Base URL the project is generated/tested against. Also the default for a bare `opengeo test`. */
-  site: string;
-  /** Web root, relative to the project. Everything generate writes lands here (twins in `md/`). */
-  publicDir: string;
-  /** Bookkeeping that must NOT be web-served: the manifest and the content-hash cache. */
-  internalDir: string;
-  /** Routes the `<a href>` crawl can't reach. The escape hatch for §17's route-discovery ceiling. */
-  extraRoutes: string[];
-  crawl: {
-    maxPages: number;
-    maxDepth: number;
-    /** Path prefixes to skip, in addition to the built-in asset/anchor filtering. */
-    exclude: string[];
-  };
-  generate: {
-    /** 'free' is algorithmic and needs no key. 'ai' is BYOK and local-machine-only. */
-    tier: 'free' | 'ai';
-    /** Below this word count an extracted page gets a low-content warning (§17 CSR ceiling). */
-    minWords: number;
-  };
-  bots: {
-    /**
-     * Lever 1 (§7): which AI agents receive the markdown twin. Never blocks anyone - an unlisted
-     * bot simply sees the normal site.
-     */
-    markdownRouting: string[];
-    /**
-     * Lever 2 (§7): a separate, opt-in list of bots to disallow in robots.txt. Empty by default;
-     * blocking is never the default.
-     */
-    blocked: string[];
-    /**
-     * Crawlers this project knows about that OpenGEO's shipped list does not: an in-house agent, or
-     * an AI product newer than the installed version. They behave exactly like built-in entries -
-     * both levers apply to them - and naming one in `markdownRouting` is what turns it on.
-     */
-    custom: CustomBotInput[];
-  };
-  /**
-   * Which AI tool `generate --tier ai` and `test --content` talk to.
-   *
-   * The four optional fields are the "bring your own provider" surface: name any endpoint that
-   * speaks one of the three API shapes and OpenGEO will use it, with no code change and no wait for
-   * a release. They are honoured for built-in providers too, because the usual reason to set
-   * `baseUrl` is a company gateway mirroring a vendor's API rather than a brand-new vendor.
-   */
-  ai: {
-    provider: AiProvider;
-    model: string;
-    /** Overrides the catalogue's endpoint. Required when provider is `custom`. */
-    baseUrl?: string;
-    /** Which wire format that endpoint speaks. Defaults to the provider's own. */
-    api?: ProviderApi;
-    /** How the key is attached. Defaults to the provider's own. `none` sends no key at all. */
-    auth?: ProviderAuth;
-    /** Extra request headers the endpoint needs, e.g. a gateway's tenant id. Never the key. */
-    headers?: Record<string, string>;
-  };
-}
+/**
+ * @typedef {object} OpenGeoConfig
+ * @property {string} site Base URL the project is generated/tested against. Also the default for a
+ *   bare `opengeo test`.
+ * @property {string} publicDir Web root, relative to the project. Everything generate writes lands
+ *   here (twins in `md/`).
+ * @property {string} internalDir Bookkeeping that must NOT be web-served: the manifest and the
+ *   content-hash cache.
+ * @property {string[]} extraRoutes Routes the `<a href>` crawl can't reach. The escape hatch for
+ *   §17's route-discovery ceiling.
+ * @property {object} crawl
+ * @property {number} crawl.maxPages
+ * @property {number} crawl.maxDepth
+ * @property {string[]} crawl.exclude Path prefixes to skip, in addition to the built-in
+ *   asset/anchor filtering.
+ * @property {object} generate
+ * @property {'free' | 'ai'} generate.tier 'free' is algorithmic and needs no key. 'ai' is BYOK and
+ *   local-machine-only.
+ * @property {number} generate.minWords Below this word count an extracted page gets a low-content
+ *   warning (§17 CSR ceiling).
+ * @property {object} bots
+ * @property {string[]} bots.markdownRouting Lever 1 (§7): which AI agents receive the markdown
+ *   twin. Never blocks anyone - an unlisted bot simply sees the normal site.
+ * @property {string[]} bots.blocked Lever 2 (§7): a separate, opt-in list of bots to disallow in
+ *   robots.txt. Empty by default; blocking is never the default.
+ * @property {CustomBotInput[]} bots.custom Crawlers this project knows about that OpenGEO's shipped
+ *   list does not: an in-house agent, or an AI product newer than the installed version. They
+ *   behave exactly like built-in entries - both levers apply to them - and naming one in
+ *   `markdownRouting` is what turns it on.
+ * @property {object} ai Which AI tool `generate --tier ai` and `test --content` talk to.
+ *
+ *   The four optional fields are the "bring your own provider" surface: name any endpoint that
+ *   speaks one of the three API shapes and OpenGEO will use it, with no code change and no wait for
+ *   a release. They are honoured for built-in providers too, because the usual reason to set
+ *   `baseUrl` is a company gateway mirroring a vendor's API rather than a brand-new vendor.
+ * @property {AiProvider} ai.provider
+ * @property {string} ai.model
+ * @property {string} [ai.baseUrl] Overrides the catalogue's endpoint. Required when provider is
+ *   `custom`.
+ * @property {ProviderApi} [ai.api] Which wire format that endpoint speaks. Defaults to the
+ *   provider's own.
+ * @property {ProviderAuth} [ai.auth] How the key is attached. Defaults to the provider's own.
+ *   `none` sends no key at all.
+ * @property {Record<string, string>} [ai.headers] Extra request headers the endpoint needs, e.g. a
+ *   gateway's tenant id. Never the key.
+ */
 
-export function defaultConfig(site = 'http://localhost:3000'): OpenGeoConfig {
+/**
+ * @param {string} [site]
+ * @returns {OpenGeoConfig}
+ */
+export function defaultConfig(site = 'http://localhost:3000') {
   return {
     site,
     publicDir: 'public',
@@ -89,17 +82,22 @@ export function defaultConfig(site = 'http://localhost:3000'): OpenGeoConfig {
   };
 }
 
-export interface LoadedConfig {
-  config: OpenGeoConfig;
-  /** Absolute path of the project root (the directory holding opengeo.config.json, or cwd). */
-  root: string;
-  /** Absolute path of the config file, if one was found on disk. */
-  path?: string;
-  exists: boolean;
-}
+/**
+ * @typedef {object} LoadedConfig
+ * @property {OpenGeoConfig} config
+ * @property {string} root Absolute path of the project root (the directory holding
+ *   opengeo.config.json, or cwd).
+ * @property {string} [path] Absolute path of the config file, if one was found on disk.
+ * @property {boolean} exists
+ */
 
-/** Walk up from `startDir` looking for opengeo.config.json, stopping at the filesystem root. */
-export function findConfigFile(startDir = process.cwd()): string | undefined {
+/**
+ * Walk up from `startDir` looking for opengeo.config.json, stopping at the filesystem root.
+ *
+ * @param {string} [startDir]
+ * @returns {string | undefined}
+ */
+export function findConfigFile(startDir = process.cwd()) {
   let dir = resolve(startDir);
   for (;;) {
     const candidate = join(dir, CONFIG_FILENAME);
@@ -115,13 +113,19 @@ export function findConfigFile(startDir = process.cwd()): string | undefined {
  * it, so unlike an arbitrary exception it is safe to hand to the dashboard as it is.
  */
 export class ConfigError extends Error {
-  override name = 'ConfigError';
+  /** @override */
+  name = 'ConfigError';
 }
 
-export function loadConfig(startDir = process.cwd()): LoadedConfig {
+/**
+ * @param {string} [startDir]
+ * @returns {LoadedConfig}
+ */
+export function loadConfig(startDir = process.cwd()) {
   const path = findConfigFile(startDir);
   if (!path) return { config: defaultConfig(), root: resolve(startDir), exists: false };
-  let raw: unknown;
+  /** @type {unknown} */
+  let raw;
   try {
     raw = JSON.parse(readFileSync(path, 'utf8'));
   } catch (error) {
@@ -129,18 +133,29 @@ export function loadConfig(startDir = process.cwd()): LoadedConfig {
   }
   const shape = configPatchProblem(raw);
   if (shape) throw new ConfigError(shape);
-  const config = mergeConfig(defaultConfig(), raw as ConfigPatch);
+  const config = mergeConfig(defaultConfig(), /** @type {ConfigPatch} */ (raw));
   const problem = projectDirProblem(dirname(path), config);
   if (problem) throw new ConfigError(problem);
   return { config, root: dirname(path), path, exists: true };
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+const isObject = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-const isString = (value: unknown) => typeof value === 'string';
-const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
-const whole = (min: number, max: number) => (value: unknown) =>
-  Number.isInteger(value) && (value as number) >= min && (value as number) <= max;
+/** @param {unknown} value */
+const isString = (value) => typeof value === 'string';
+/** @param {unknown} value */
+const isStringList = (value) => Array.isArray(value) && value.every(isString);
+/**
+ * @param {number} min
+ * @param {number} max
+ * @returns {(value: unknown) => boolean}
+ */
+const whole = (min, max) => (value) =>
+  Number.isInteger(value) && /** @type {number} */ (value) >= min && /** @type {number} */ (value) <= max;
 
 /**
  * Every field a patch may set, with what it has to be. The bounds are wide on purpose: they are there
@@ -149,8 +164,10 @@ const whole = (min: number, max: number) => (value: unknown) =>
  * take a site down over a setting prod does not even read. `ai.provider`
  * is only checked for being a string here, because naming the providers would mean importing the
  * catalogue into a module `opengeo-prod` loads; the catalogue refuses an unknown one when it is used.
+ *
+ * @type {Array<[section: string | undefined, key: string, expected: string, ok: (value: unknown) => boolean]>}
  */
-const FIELD_RULES: Array<[section: string | undefined, key: string, expected: string, ok: (value: unknown) => boolean]> = [
+const FIELD_RULES = [
   [undefined, 'site', 'a URL string', isString],
   [undefined, 'publicDir', 'a folder name', isString],
   [undefined, 'internalDir', 'a folder name', isString],
@@ -175,8 +192,11 @@ const FIELD_RULES: Array<[section: string | undefined, key: string, expected: st
  * Why a config file or an API patch is not one OpenGEO can use, or nothing if it is. Only the fields
  * present are checked, so a patch of one field is fine; unknown fields are left alone, so a config
  * written by a newer version still loads. Directory confinement is `projectDirProblem`'s job.
+ *
+ * @param {unknown} patch
+ * @returns {string | undefined}
  */
-export function configPatchProblem(patch: unknown): string | undefined {
+export function configPatchProblem(patch) {
   if (!isObject(patch)) return CONFIG_ERRORS.badField('The config', 'a JSON object', patch);
   for (const section of ['crawl', 'generate', 'bots', 'ai']) {
     if (patch[section] !== undefined && !isObject(patch[section])) {
@@ -184,7 +204,7 @@ export function configPatchProblem(patch: unknown): string | undefined {
     }
   }
   for (const [section, key, expected, ok] of FIELD_RULES) {
-    const holder = section ? (patch[section] as Record<string, unknown> | undefined) : patch;
+    const holder = section ? /** @type {Record<string, unknown> | undefined} */ (patch[section]) : patch;
     const value = holder?.[key];
     if (value !== undefined && !ok(value)) return CONFIG_ERRORS.badField(section ? `${section}.${key}` : key, expected, value);
   }
@@ -197,18 +217,28 @@ export function configPatchProblem(patch: unknown): string | undefined {
  * Generate writes into both, the dashboard reads out of the first, and the project root holds `.env`.
  * A web root of `.` once let the dashboard hand the API key to anybody who asked for `.env`, and
  * `/etc` let it read the host's files. Strictly inside, never equal: the root is where the key lives.
+ *
+ * @param {string} root
+ * @param {Pick<OpenGeoConfig, 'publicDir' | 'internalDir'>} config
+ * @returns {string | undefined}
  */
-export function projectDirProblem(root: string, config: Pick<OpenGeoConfig, 'publicDir' | 'internalDir'>): string | undefined {
+export function projectDirProblem(root, config) {
   const base = resolve(root);
-  for (const field of ['publicDir', 'internalDir'] as const) {
-    const value: unknown = config[field];
+  for (const field of /** @type {const} */ (['publicDir', 'internalDir'])) {
+    /** @type {unknown} */
+    const value = config[field];
     const inside = typeof value === 'string' && value.trim() !== '' && resolve(base, value).startsWith(base + sep);
     if (!inside) return CONFIG_ERRORS.dirOutsideProject(field, value, base);
   }
   return undefined;
 }
 
-export function saveConfig(root: string, config: OpenGeoConfig): string {
+/**
+ * @param {string} root
+ * @param {OpenGeoConfig} config
+ * @returns {string}
+ */
+export function saveConfig(root, config) {
   const problem = projectDirProblem(root, config);
   if (problem) throw new ConfigError(problem);
   const path = join(root, CONFIG_FILENAME);
@@ -222,16 +252,23 @@ export function saveConfig(root: string, config: OpenGeoConfig): string {
  * `Partial<OpenGeoConfig>` was the old signature and it lied. It made every section all-or-nothing
  * while the merge below has always accepted a fragment of one, so the honest types had to be
  * written out by hand for a config file, an API patch and a settings screen to say the same thing.
+ *
+ * @typedef {Partial<Omit<OpenGeoConfig, 'crawl' | 'generate' | 'bots' | 'ai'>> & {
+ *   crawl?: Partial<OpenGeoConfig['crawl']>;
+ *   generate?: Partial<OpenGeoConfig['generate']>;
+ *   bots?: Partial<OpenGeoConfig['bots']>;
+ *   ai?: Partial<OpenGeoConfig['ai']>;
+ * }} ConfigPatch
  */
-export interface ConfigPatch extends Partial<Omit<OpenGeoConfig, 'crawl' | 'generate' | 'bots' | 'ai'>> {
-  crawl?: Partial<OpenGeoConfig['crawl']>;
-  generate?: Partial<OpenGeoConfig['generate']>;
-  bots?: Partial<OpenGeoConfig['bots']>;
-  ai?: Partial<OpenGeoConfig['ai']>;
-}
 
-/** Shallow-per-section merge, so a partial config file only overrides what it actually names. */
-export function mergeConfig(base: OpenGeoConfig, patch: ConfigPatch): OpenGeoConfig {
+/**
+ * Shallow-per-section merge, so a partial config file only overrides what it actually names.
+ *
+ * @param {OpenGeoConfig} base
+ * @param {ConfigPatch} patch
+ * @returns {OpenGeoConfig}
+ */
+export function mergeConfig(base, patch) {
   return {
     ...base,
     ...patch,
@@ -249,10 +286,15 @@ export function mergeConfig(base: OpenGeoConfig, patch: ConfigPatch): OpenGeoCon
  * change of provider would point a freshly entered OpenAI key at whatever host the previous
  * `custom` provider named, which is exactly the mistake §11 exists to prevent. Changing the
  * provider therefore clears them unless the same patch restates them.
+ *
+ * @param {OpenGeoConfig['ai']} base
+ * @param {Partial<OpenGeoConfig['ai']> | undefined} patch
+ * @returns {OpenGeoConfig['ai']}
  */
-function mergeAi(base: OpenGeoConfig['ai'], patch: Partial<OpenGeoConfig['ai']> | undefined): OpenGeoConfig['ai'] {
+function mergeAi(base, patch) {
   if (!patch) return { ...base };
-  const merged: OpenGeoConfig['ai'] = { ...base, ...patch };
+  /** @type {OpenGeoConfig['ai']} */
+  const merged = { ...base, ...patch };
   if (patch.provider && patch.provider !== base.provider) {
     if (patch.baseUrl === undefined) delete merged.baseUrl;
     if (patch.api === undefined) delete merged.api;
@@ -262,15 +304,28 @@ function mergeAi(base: OpenGeoConfig['ai'], patch: Partial<OpenGeoConfig['ai']> 
   return merged;
 }
 
-/** The endpoint overrides a project's config carries, in the shape the provider catalogue wants. */
-export function providerOverridesOf(config: Pick<OpenGeoConfig, 'ai'>): ProviderOverrides {
+/**
+ * The endpoint overrides a project's config carries, in the shape the provider catalogue wants.
+ *
+ * @param {Pick<OpenGeoConfig, 'ai'>} config
+ * @returns {ProviderOverrides}
+ */
+export function providerOverridesOf(config) {
   return { baseUrl: config.ai.baseUrl, api: config.ai.api, auth: config.ai.auth, headers: config.ai.headers };
 }
 
-export function publicDirPath(loaded: Pick<LoadedConfig, 'root' | 'config'>): string {
+/**
+ * @param {Pick<LoadedConfig, 'root' | 'config'>} loaded
+ * @returns {string}
+ */
+export function publicDirPath(loaded) {
   return resolve(loaded.root, loaded.config.publicDir);
 }
 
-export function internalDirPath(loaded: Pick<LoadedConfig, 'root' | 'config'>): string {
+/**
+ * @param {Pick<LoadedConfig, 'root' | 'config'>} loaded
+ * @returns {string}
+ */
+export function internalDirPath(loaded) {
   return resolve(loaded.root, loaded.config.internalDir);
 }

@@ -146,7 +146,7 @@ describe('docs/spec.md', () => {
 
 describe('the bot list is the documented contribution surface (§17)', () => {
   it('is one file, and the docs point at it', () => {
-    const source = read('packages/core/src/shared/bots.ts');
+    const source = read('packages/core/src/shared/bots.js');
     expect(source).toContain('contribution');
     expect(AI_BOTS.length).toBeGreaterThan(20);
   });

@@ -1,9 +1,10 @@
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { writeFileAtomic } from './fs.js';
 import { join } from 'node:path';
-import type { AiProvider } from './providers.js';
 import { ERRORS } from './errors.js';
 import { PROVIDERS, isAiProvider, providerInfo } from './providers.js';
+
+/** @import { AiProvider } from './providers.js' */
 
 /**
  * API key handling (§11).
@@ -25,8 +26,13 @@ export const MODEL_VAR = 'OPENGEO_MODEL';
  */
 export const BASE_URL_VAR = 'OPENGEO_BASE_URL';
 
-export function parseEnv(contents: string): Record<string, string> {
-  const out: Record<string, string> = {};
+/**
+ * @param {string} contents
+ * @returns {Record<string, string>}
+ */
+export function parseEnv(contents) {
+  /** @type {Record<string, string>} */
+  const out = {};
   for (const rawLine of contents.split('\n')) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
@@ -45,23 +51,28 @@ export function parseEnv(contents: string): Record<string, string> {
   return out;
 }
 
-export function readEnvFile(root: string): Record<string, string> {
+/**
+ * @param {string} root
+ * @returns {Record<string, string>}
+ */
+export function readEnvFile(root) {
   const path = join(root, ENV_FILENAME);
   if (!existsSync(path)) return {};
   return parseEnv(readFileSync(path, 'utf8'));
 }
 
-export interface Credentials {
-  provider: AiProvider;
-  apiKey: string;
-  model?: string;
-  /** Set only when `.env` names an endpoint, which is how a self-hosted provider is configured. */
-  baseUrl?: string;
-  /** Where the key came from, so the UI and CLI can tell the user exactly where it lives. */
-  source: 'env-file' | 'process-env';
-  /** True for a provider that needs no key at all, where an empty `apiKey` is the correct answer. */
-  keyless?: boolean;
-}
+/**
+ * @typedef {object} Credentials
+ * @property {AiProvider} provider
+ * @property {string} apiKey
+ * @property {string} [model]
+ * @property {string} [baseUrl] Set only when `.env` names an endpoint, which is how a self-hosted
+ *   provider is configured.
+ * @property {'env-file' | 'process-env'} source Where the key came from, so the UI and CLI can tell
+ *   the user exactly where it lives.
+ * @property {boolean} [keyless] True for a provider that needs no key at all, where an empty
+ *   `apiKey` is the correct answer.
+ */
 
 /**
  * Every provider-native variable the catalogue accepts, flattened in picker order.
@@ -69,19 +80,25 @@ export interface Credentials {
  * Derived rather than written out: a provider added to the catalogue without a matching entry here
  * would silently ignore the key the user already had exported, and nobody would find out until they
  * filed a bug about it.
+ *
+ * @type {Array<[AiProvider, string]>}
  */
-const NATIVE_KEY_VARS: Array<[AiProvider, string]> = PROVIDERS.flatMap((provider) =>
-  provider.envVars.map((name) => [provider.id, name] as [AiProvider, string]),
+const NATIVE_KEY_VARS = PROVIDERS.flatMap((provider) =>
+  provider.envVars.map((name) => /** @type {[AiProvider, string]} */ ([provider.id, name])),
 );
 
 /**
  * Resolve credentials from `.env`, falling back to the process environment. Also accepts the
  * provider-native variable names people already have exported, so nobody has to duplicate a key
  * they've already set up.
+ *
+ * @param {string} root
+ * @returns {Credentials | undefined}
  */
-export function readCredentials(root: string): Credentials | undefined {
+export function readCredentials(root) {
   const fileEnv = readEnvFile(root);
-  const pick = (name: string) => pickVar(fileEnv, name);
+  /** @param {string} name */
+  const pick = (name) => pickVar(fileEnv, name);
 
   const explicit = pick(KEY_VAR);
   const providerVar = pick(PROVIDER_VAR);
@@ -97,7 +114,7 @@ export function readCredentials(root: string): Credentials | undefined {
   // A provider that needs no key is configured the moment it is named. Ollama is the case that
   // matters: requiring a placeholder key for a model running on the same machine would be theatre.
   if (provider && providerInfo(provider).keyless) {
-    return { provider, apiKey: '', model, baseUrl, source: providerVar!.source, keyless: true };
+    return { provider, apiKey: '', model, baseUrl, source: /** @type {NonNullable<typeof providerVar>} */ (providerVar).source, keyless: true };
   }
 
   for (const [nativeProvider, varName] of NATIVE_KEY_VARS) {
@@ -112,8 +129,12 @@ export function readCredentials(root: string): Credentials | undefined {
  * The key issued by one particular provider, under its own variable names only. `OPENGEO_API_KEY`
  * is not one of them: it belongs to whichever provider `OPENGEO_PROVIDER` names, and that is
  * `readCredentials`'s answer, not this one's.
+ *
+ * @param {string} root
+ * @param {AiProvider} provider
+ * @returns {{ value: string; source: Credentials['source'] } | undefined}
  */
-export function readNativeKey(root: string, provider: AiProvider): { value: string; source: Credentials['source'] } | undefined {
+export function readNativeKey(root, provider) {
   const fileEnv = readEnvFile(root);
   for (const name of providerInfo(provider).envVars) {
     const found = pickVar(fileEnv, name);
@@ -122,8 +143,14 @@ export function readNativeKey(root: string, provider: AiProvider): { value: stri
   return undefined;
 }
 
-/** `.env` first, then the process environment. */
-function pickVar(fileEnv: Record<string, string>, name: string): { value: string; source: Credentials['source'] } | undefined {
+/**
+ * `.env` first, then the process environment.
+ *
+ * @param {Record<string, string>} fileEnv
+ * @param {string} name
+ * @returns {{ value: string; source: Credentials['source'] } | undefined}
+ */
+function pickVar(fileEnv, name) {
   if (fileEnv[name]) return { value: fileEnv[name], source: 'env-file' };
   const fromProcess = process.env[name];
   if (fromProcess) return { value: fromProcess, source: 'process-env' };
@@ -134,15 +161,20 @@ function pickVar(fileEnv: Record<string, string>, name: string): { value: string
  * Set each variable in `.env`, or remove it when the value is `undefined`. Removal matters because
  * `.env` outranks the config: a base URL left behind by an earlier provider would quietly receive
  * the next provider's key.
+ *
+ * @param {string} root
+ * @param {Record<string, string | undefined>} vars
+ * @returns {string}
  */
-export function writeEnvVars(root: string, vars: Record<string, string | undefined>): string {
+export function writeEnvVars(root, vars) {
   const problem = envValueProblem(vars);
   if (problem) throw new Error(problem);
   const path = join(root, ENV_FILENAME);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
   let lines = existing ? existing.replace(/\n+$/, '').split('\n') : [];
   for (const [key, value] of Object.entries(vars)) {
-    const matches = (line: string) => line.trim().startsWith(`${key}=`);
+    /** @param {string} line */
+    const matches = (line) => line.trim().startsWith(`${key}=`);
     if (value === undefined) {
       lines = lines.filter((line) => !matches(line));
       continue;
@@ -161,22 +193,31 @@ export function writeEnvVars(root: string, vars: Record<string, string | undefin
  * Why these values cannot go into `.env`, or nothing if they can. A line break in a model name or a
  * pasted key would write a second variable, `OPENGEO_BASE_URL` included, so control characters are
  * refused outright rather than escaped into a syntax every dotenv reader parses differently.
+ *
+ * @param {Record<string, string | undefined>} vars
+ * @returns {string | undefined}
  */
-export function envValueProblem(vars: Record<string, string | undefined>): string | undefined {
+export function envValueProblem(vars) {
   for (const [name, value] of Object.entries(vars)) {
     if (value !== undefined && /[\u0000-\u001f\u007f]/.test(value)) return ERRORS.envValueRefused(name);
   }
   return undefined;
 }
 
-export interface GitignoreResult {
-  path: string;
-  added: boolean;
-  alreadyPresent: boolean;
-}
+/**
+ * @typedef {object} GitignoreResult
+ * @property {string} path
+ * @property {boolean} added
+ * @property {boolean} alreadyPresent
+ */
 
-/** Ensure `.env` is gitignored. Called before any key is ever written, on every path that writes one. */
-export function ensureEnvGitignored(root: string): GitignoreResult {
+/**
+ * Ensure `.env` is gitignored. Called before any key is ever written, on every path that writes one.
+ *
+ * @param {string} root
+ * @returns {GitignoreResult}
+ */
+export function ensureEnvGitignored(root) {
   const path = join(root, '.gitignore');
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
   const present = existing
@@ -192,8 +233,11 @@ export function ensureEnvGitignored(root: string): GitignoreResult {
 /**
  * Anything AI-touched is local-machine-only (§5, §6, §16). This is the enforcement point, not a
  * doc comment: generate's AI tier and `test --quality` both call it and refuse under CI.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {boolean}
  */
-export function isCI(env: Record<string, string | undefined> = process.env): boolean {
+export function isCI(env = process.env) {
   return Boolean(
     env.CI || env.CONTINUOUS_INTEGRATION || env.GITHUB_ACTIONS || env.GITLAB_CI || env.CIRCLECI || env.BUILDKITE,
   );

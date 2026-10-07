@@ -6,6 +6,7 @@
     "packages/*/tests/**/*.ts",
     "packages/*/tests/**/*.js",
     "packages/*/tsup.config.ts",
+    "packages/*/tsup.config.js",
     "types/**/*.d.ts",
     "*.ts"
   ],

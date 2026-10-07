@@ -1,15 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
-
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
-  name: string;
-  version: string;
-};
-
-const define = {
-  __OPENGEO_PACKAGE__: JSON.stringify(pkg.name),
-  __OPENGEO_VERSION__: JSON.stringify(pkg.version),
-};
 
 /**
  * Two builds: the importable middleware library, and the CLI that ships `opengeo prod test`.
@@ -20,7 +9,7 @@ const define = {
  */
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts', next: 'src/next.ts' },
+    entry: { index: 'src/index.js', next: 'src/next.js' },
     format: ['esm'],
     target: 'node20',
     platform: 'neutral',
@@ -36,10 +25,9 @@ export default defineConfig([
     dts: { resolve: true },
     sourcemap: false,
     noExternal: [/@opengeo\/core/],
-    define,
   },
   {
-    entry: { cli: 'src/cli.ts' },
+    entry: { cli: 'src/cli.js' },
     format: ['esm'],
     target: 'node20',
     platform: 'node',
@@ -48,6 +36,5 @@ export default defineConfig([
     sourcemap: false,
     noExternal: [/@opengeo\/core/],
     banner: { js: '#!/usr/bin/env node' },
-    define,
   },
 ]);

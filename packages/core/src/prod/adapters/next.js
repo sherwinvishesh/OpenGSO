@@ -1,10 +1,13 @@
 import { resolveBots } from '../../shared/bots.js';
 import { loadConfig } from '../../shared/config.js';
-import type { ProdContext, ProdDecision, RequestLike } from '../middleware.js';
 import { createProdHandler } from '../middleware.js';
 import { logStartupStatus } from '../startup.js';
-import type { MarkdownStore } from '../store.js';
 import { createFsStore } from '../store.js';
+
+/**
+ * @import { ProdContext, ProdDecision, RequestLike } from '../middleware.js'
+ * @import { MarkdownStore } from '../store.js'
+ */
 
 /**
  * Next.js adapter (§19: one thin adapter per hosting target).
@@ -22,29 +25,30 @@ import { createFsStore } from '../store.js';
  * Markdown responses are unaffected. Verified on 16.3.4 and 16.3.8; see examples/nextjs-demo/README.md.
  */
 
-export interface NextAdapterOptions {
-  /** Project root - where opengeo.config.json, public/ and .opengeo/ live. */
-  root?: string;
-  publicDir?: string;
-  internalDir?: string;
-  /** Overrides the config file's `bots.markdownRouting`. */
-  markdownRouting?: readonly string[];
-  specVersion?: string;
-  /** Startup status logging is on by default and only ever runs once per process (§7). */
-  logStartup?: boolean;
-  /** Pre-built store, for tests or for a build-time-inlined manifest. */
-  store?: MarkdownStore;
-}
+/**
+ * @typedef {object} NextAdapterOptions
+ * @property {string} [root] Project root - where opengeo.config.json, public/ and .opengeo/ live.
+ * @property {string} [publicDir]
+ * @property {string} [internalDir]
+ * @property {readonly string[]} [markdownRouting] Overrides the config file's
+ *   `bots.markdownRouting`.
+ * @property {string} [specVersion]
+ * @property {boolean} [logStartup] Startup status logging is on by default and only ever runs once
+ *   per process (§7).
+ * @property {MarkdownStore} [store] Pre-built store, for tests or for a build-time-inlined manifest.
+ */
 
-export interface NextMiddlewareResult {
-  /** Present when prod answered the request itself: markdown, or a 406. */
-  response?: Response;
-  /** Headers to copy onto the host's own HTML response when prod did not answer. */
-  headers: Record<string, string>;
-  decision: ProdDecision;
-}
+/**
+ * @typedef {object} NextMiddlewareResult
+ * @property {Response} [response] Present when prod answered the request itself: markdown, or a
+ *   406.
+ * @property {Record<string, string>} headers Headers to copy onto the host's own HTML response
+ *   when prod did not answer.
+ * @property {ProdDecision} decision
+ */
 
-export function createNextMiddleware(options: NextAdapterOptions = {}) {
+/** @param {NextAdapterOptions} [options] */
+export function createNextMiddleware(options = {}) {
   const root = options.root ?? process.cwd();
   const loaded = loadConfig(root);
   const store =
@@ -55,7 +59,8 @@ export function createNextMiddleware(options: NextAdapterOptions = {}) {
       internalDir: options.internalDir ?? loaded.config.internalDir,
     });
 
-  const ctx: ProdContext = {
+  /** @type {ProdContext} */
+  const ctx = {
     store,
     markdownRouting: options.markdownRouting ?? loaded.config.bots.markdownRouting,
     // Resolved once at boot, like everything else here: a request must stay a map lookup (§7).
@@ -69,17 +74,24 @@ export function createNextMiddleware(options: NextAdapterOptions = {}) {
 
   const handler = createProdHandler(ctx);
 
-  return function openGeoNextMiddleware(request: RequestLike): NextMiddlewareResult {
+  /**
+   * @param {RequestLike} request
+   * @returns {NextMiddlewareResult}
+   */
+  return function openGeoNextMiddleware(request) {
     const decision = handler(request);
     if (decision.type === 'passthrough') return { headers: decision.headers, decision };
     return { response: decision.response, headers: {}, decision };
   };
 }
 
-/** Copy prod's passthrough headers onto a NextResponse (or any Headers-bearing response). */
-export function applyPassthroughHeaders(
-  target: { headers: { set(name: string, value: string): void } },
-  headers: Record<string, string>,
-): void {
+/**
+ * Copy prod's passthrough headers onto a NextResponse (or any Headers-bearing response).
+ *
+ * @param {{ headers: { set(name: string, value: string): void } }} target
+ * @param {Record<string, string>} headers
+ * @returns {void}
+ */
+export function applyPassthroughHeaders(target, headers) {
   for (const [name, value] of Object.entries(headers)) target.headers.set(name, value);
 }

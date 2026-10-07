@@ -7,11 +7,11 @@
   "license": "Apache-2.0",
   "exports": {
     ".": "./src/index.ts",
-    "./shared": "./src/shared/index.ts",
+    "./shared": "./src/shared/index.js",
     "./generate": "./src/generate/index.ts",
     "./test": "./src/test/index.ts",
-    "./prod": "./src/prod/index.ts",
-    "./prod/next": "./src/prod/adapters/next.ts",
+    "./prod": "./src/prod/index.js",
+    "./prod/next": "./src/prod/adapters/next.js",
     "./server": "./src/server/index.ts",
     "./cli": "./src/cli/index.ts",
     "./cli/commands/*": "./src/cli/commands/*.ts"

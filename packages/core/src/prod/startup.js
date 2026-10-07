@@ -1,8 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { AiBot } from '../shared/bots.js';
 import { AI_BOTS } from '../shared/bots.js';
-import type { MarkdownStore } from './store.js';
+
+/**
+ * @import { AiBot } from '../shared/bots.js'
+ * @import { MarkdownStore } from './store.js'
+ */
 
 /**
  * Startup-only status logging (§7).
@@ -16,32 +19,40 @@ import type { MarkdownStore } from './store.js';
 
 let alreadyLogged = false;
 
-export interface StartupStatusOptions {
-  root: string;
-  publicDir?: string;
-  store?: MarkdownStore;
-  /** Built-ins plus the project's own crawlers, so the robots.txt summary covers both. */
-  bots?: readonly AiBot[];
-  /** Injected in tests so the guard and the formatting can be checked without touching stdout. */
-  logger?: (line: string) => void;
-}
+/**
+ * @typedef {object} StartupStatusOptions
+ * @property {string} root
+ * @property {string} [publicDir]
+ * @property {MarkdownStore} [store]
+ * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so the robots.txt
+ *   summary covers both.
+ * @property {(line: string) => void} [logger] Injected in tests so the guard and the formatting can
+ *   be checked without touching stdout.
+ */
 
-export interface FileStatus {
-  name: string;
-  found: boolean;
-  detail?: string;
-}
+/**
+ * @typedef {object} FileStatus
+ * @property {string} name
+ * @property {boolean} found
+ * @property {string} [detail]
+ */
 
-export interface StartupStatus {
-  files: FileStatus[];
-  twins: number;
-  problems: string[];
-  lines: string[];
-}
+/**
+ * @typedef {object} StartupStatus
+ * @property {FileStatus[]} files
+ * @property {number} twins
+ * @property {string[]} problems
+ * @property {string[]} lines
+ */
 
-export function buildStartupStatus(options: StartupStatusOptions): StartupStatus {
+/**
+ * @param {StartupStatusOptions} options
+ * @returns {StartupStatus}
+ */
+export function buildStartupStatus(options) {
   const publicDir = resolve(options.root, options.publicDir ?? 'public');
-  const files: FileStatus[] = [
+  /** @type {FileStatus[]} */
+  const files = [
     describeRobots(join(publicDir, 'robots.txt'), options.bots),
     describeSimple('llms.txt', join(publicDir, 'llms.txt')),
     describeSimple('sitemap.xml', join(publicDir, 'sitemap.xml')),
@@ -49,7 +60,8 @@ export function buildStartupStatus(options: StartupStatusOptions): StartupStatus
 
   const twins = options.store?.size ?? 0;
   const problems = options.store?.problems ?? [];
-  const lines: string[] = ['[opengeo-prod] startup check'];
+  /** @type {string[]} */
+  const lines = ['[opengeo-prod] startup check'];
 
   for (const file of files) {
     lines.push(
@@ -68,26 +80,45 @@ export function buildStartupStatus(options: StartupStatusOptions): StartupStatus
   return { files, twins, problems, lines };
 }
 
-/** Log the startup status exactly once per process. Repeat calls are no-ops by design. */
-export function logStartupStatus(options: StartupStatusOptions): StartupStatus | undefined {
+/**
+ * Log the startup status exactly once per process. Repeat calls are no-ops by design.
+ *
+ * @param {StartupStatusOptions} options
+ * @returns {StartupStatus | undefined}
+ */
+export function logStartupStatus(options) {
   if (alreadyLogged) return undefined;
   alreadyLogged = true;
   const status = buildStartupStatus(options);
-  const log = options.logger ?? ((line: string) => console.log(line));
+  const log = options.logger ?? ((/** @type {string} */ line) => console.log(line));
   for (const line of status.lines) log(line);
   return status;
 }
 
-/** Test-only: reset the once-per-process guard. */
-export function resetStartupLogForTests(): void {
+/**
+ * Test-only: reset the once-per-process guard.
+ *
+ * @returns {void}
+ */
+export function resetStartupLogForTests() {
   alreadyLogged = false;
 }
 
-function describeSimple(name: string, path: string): FileStatus {
+/**
+ * @param {string} name
+ * @param {string} path
+ * @returns {FileStatus}
+ */
+function describeSimple(name, path) {
   return { name, found: existsSync(path) };
 }
 
-function describeRobots(path: string, bots?: readonly AiBot[]): FileStatus {
+/**
+ * @param {string} path
+ * @param {readonly AiBot[]} [bots]
+ * @returns {FileStatus}
+ */
+function describeRobots(path, bots) {
   if (!existsSync(path)) return { name: 'robots.txt', found: false };
   let contents = '';
   try {
@@ -96,7 +127,8 @@ function describeRobots(path: string, bots?: readonly AiBot[]): FileStatus {
     return { name: 'robots.txt', found: true, detail: 'could not be read' };
   }
   const { allowed, blocked } = summarizeRobots(contents, bots);
-  const parts: string[] = [];
+  /** @type {string[]} */
+  const parts = [];
   parts.push(blocked.length > 0 ? `blocking ${blocked.join(', ')}` : 'blocking no AI bots');
   if (allowed.length > 0) parts.push(`explicitly allowing ${allowed.length} AI bot${allowed.length === 1 ? '' : 's'}`);
   return { name: 'robots.txt', found: true, detail: parts.join('; ') };
@@ -108,11 +140,17 @@ function describeRobots(path: string, bots?: readonly AiBot[]): FileStatus {
  * `bots` widens "known" to include the project's own `bots.custom` entries, so a custom crawler
  * named in `bots.blocked` shows up in the boot log and in `prod test` rather than being silently
  * absent from a summary that claims to be complete.
+ *
+ * @param {string} contents
+ * @param {readonly AiBot[]} [bots]
+ * @returns {{ allowed: string[]; blocked: string[] }}
  */
-export function summarizeRobots(contents: string, bots: readonly AiBot[] = AI_BOTS): { allowed: string[]; blocked: string[] } {
+export function summarizeRobots(contents, bots = AI_BOTS) {
   const groups = parseRobots(contents);
-  const allowed: string[] = [];
-  const blocked: string[] = [];
+  /** @type {string[]} */
+  const allowed = [];
+  /** @type {string[]} */
+  const blocked = [];
   for (const bot of bots) {
     const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
     if (!rules) continue;
@@ -122,14 +160,21 @@ export function summarizeRobots(contents: string, bots: readonly AiBot[] = AI_BO
   return { allowed, blocked };
 }
 
-interface RobotsRule {
-  type: 'allow' | 'disallow';
-  path: string;
-}
+/**
+ * @typedef {object} RobotsRule
+ * @property {'allow' | 'disallow'} type
+ * @property {string} path
+ */
 
-export function parseRobots(contents: string): Map<string, RobotsRule[]> {
-  const groups = new Map<string, RobotsRule[]>();
-  let currentAgents: string[] = [];
+/**
+ * @param {string} contents
+ * @returns {Map<string, RobotsRule[]>}
+ */
+export function parseRobots(contents) {
+  /** @type {Map<string, RobotsRule[]>} */
+  const groups = new Map();
+  /** @type {string[]} */
+  let currentAgents = [];
   let expectingAgents = true;
 
   for (const rawLine of contents.split('\n')) {

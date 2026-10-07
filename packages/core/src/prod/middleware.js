@@ -1,9 +1,12 @@
-import type { AiBot } from '../shared/bots.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 import { htmlHeaders, markdownHeaders, notAcceptableHeaders, NOT_ACCEPTABLE_BODY } from './headers.js';
-import type { Classification } from './negotiate.js';
 import { classify } from './negotiate.js';
-import type { MarkdownDoc, MarkdownStore } from './store.js';
+
+/**
+ * @import { AiBot } from '../shared/bots.js'
+ * @import { Classification } from './negotiate.js'
+ * @import { MarkdownDoc, MarkdownStore } from './store.js'
+ */
 
 /**
  * The framework-agnostic heart of opengeo-prod (§7).
@@ -16,40 +19,42 @@ import type { MarkdownDoc, MarkdownStore } from './store.js';
  * substantive content in a different format.
  */
 
-export interface ProdContext {
-  store: MarkdownStore;
-  /** Lever 1 (§7): which bots get markdown. Never a blocking list. */
-  markdownRouting: readonly string[];
-  /**
-   * The crawler catalogue to match User-Agents against, built-ins plus the project's own
-   * `bots.custom` entries. Omitted means the shipped list, which is what a hand-wired middleware
-   * with no config gets.
-   */
-  bots?: readonly AiBot[];
-  specVersion?: string;
-}
+/**
+ * @typedef {object} ProdContext
+ * @property {MarkdownStore} store
+ * @property {readonly string[]} markdownRouting Lever 1 (§7): which bots get markdown. Never a
+ *   blocking list.
+ * @property {readonly AiBot[]} [bots] The crawler catalogue to match User-Agents against, built-ins
+ *   plus the project's own `bots.custom` entries. Omitted means the shipped list, which is what a
+ *   hand-wired middleware with no config gets.
+ * @property {string} [specVersion]
+ */
 
-export interface RequestLike {
-  url: string;
-  method?: string;
-  headers: { get(name: string): string | null };
-}
+/**
+ * @typedef {object} RequestLike
+ * @property {string} url
+ * @property {string} [method]
+ * @property {{ get(name: string): string | null }} headers
+ */
 
-export type ProdDecision =
-  | { type: 'markdown'; response: Response; classification: Classification; doc: MarkdownDoc }
-  | { type: 'not-acceptable'; response: Response; classification: Classification }
-  | {
-      type: 'passthrough';
-      /** Headers the adapter must copy onto the host's own HTML response. */
-      headers: Record<string, string>;
-      classification: Classification;
-    };
+/**
+ * On a passthrough, `headers` are the ones the adapter must copy onto the host's own HTML response.
+ *
+ * @typedef {{ type: 'markdown'; response: Response; classification: Classification; doc: MarkdownDoc }
+ *   | { type: 'not-acceptable'; response: Response; classification: Classification }
+ *   | { type: 'passthrough'; headers: Record<string, string>; classification: Classification }} ProdDecision
+ */
 
 /** Paths prod never touches: static assets and framework internals. `.md` is the exception. */
 const IGNORED_PREFIXES = ['/_next/', '/_nuxt/', '/_astro/', '/__nextjs', '/@vite/', '/node_modules/'];
 const ASSET_EXTENSION = /\.[a-z0-9]{1,8}$/i;
 
-export function handleRequest(request: RequestLike, ctx: ProdContext): ProdDecision {
+/**
+ * @param {RequestLike} request
+ * @param {ProdContext} ctx
+ * @returns {ProdDecision}
+ */
+export function handleRequest(request, ctx) {
   const url = new URL(request.url);
   const method = (request.method ?? 'GET').toUpperCase();
   const specVersion = ctx.specVersion ?? AEO_SPEC_VERSION;
@@ -109,7 +114,12 @@ export function handleRequest(request: RequestLike, ctx: ProdContext): ProdDecis
   };
 }
 
-/** Convenience wrapper for adapters that only care about "did prod answer this request". */
-export function createProdHandler(ctx: ProdContext) {
-  return (request: RequestLike): ProdDecision => handleRequest(request, ctx);
+/**
+ * Convenience wrapper for adapters that only care about "did prod answer this request".
+ *
+ * @param {ProdContext} ctx
+ * @returns {(request: RequestLike) => ProdDecision}
+ */
+export function createProdHandler(ctx) {
+  return (request) => handleRequest(request, ctx);
 }

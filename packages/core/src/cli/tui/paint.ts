@@ -1,7 +1,7 @@
 /**
  * Colour, width and glyphs, for a terminal whose capabilities are not known in advance.
  *
- * `shared/log.ts` covers the nine basic SGR pairs and is used in fifty places, so it stays exactly
+ * `shared/log.js` covers the nine basic SGR pairs and is used in fifty places, so it stays exactly
  * as it is. This is the layer above it: 24-bit colour where the terminal has it, 256 where it does
  * not, the basic nine where it has neither, and plain text where colour is switched off entirely.
  * Everything degrades on its own, so a caller never has to ask what it is drawing on.

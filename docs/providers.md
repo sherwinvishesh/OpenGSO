@@ -8,7 +8,7 @@ whole free generate tier, and `opengeo-prod` never call a model. A key buys exac
 
 ## The list
 
-Every provider below is a row in one table, `packages/core/src/shared/providers.ts`. Adding one is a
+Every provider below is a row in one table, `packages/core/src/shared/providers.js`. Adding one is a
 row, not a code change, because OpenGEO dispatches on the **API shape** a provider speaks rather
 than on the vendor's name. There are three shapes in the whole market and OpenGEO speaks all three.
 

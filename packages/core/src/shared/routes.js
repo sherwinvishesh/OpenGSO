@@ -10,8 +10,13 @@
 
 export const MD_DIR = 'md';
 
-/** Normalise any path into a canonical route: leading slash, no trailing slash (except "/"). */
-export function normalizeRoute(pathname: string): string {
+/**
+ * Normalise any path into a canonical route: leading slash, no trailing slash (except "/").
+ *
+ * @param {string} pathname
+ * @returns {string}
+ */
+export function normalizeRoute(pathname) {
   let p = pathname.trim();
   if (!p.startsWith('/')) p = `/${p}`;
   p = p.replace(/\/{2,}/g, '/');
@@ -26,20 +31,33 @@ export function normalizeRoute(pathname: string): string {
  * the crawl have been through the URL parser, which resolves dots, so this only ever trips on a
  * route someone typed: `extraRoutes`, or a caller of the programmatic API. Backslashes count as
  * separators because they are on Windows.
+ *
+ * @param {string} route
+ * @returns {boolean}
  */
-export function hasDotSegment(route: string): boolean {
+export function hasDotSegment(route) {
   return route.split(/[\\/]/).some((segment) => /^(?:\.|%2e){1,2}$/i.test(segment));
 }
 
-/** `/` -> `md/index.md`, `/resume` -> `md/resume.md`, `/blog/post` -> `md/blog/post.md`. */
-export function routeToMdRelPath(route: string): string {
+/**
+ * `/` -> `md/index.md`, `/resume` -> `md/resume.md`, `/blog/post` -> `md/blog/post.md`.
+ *
+ * @param {string} route
+ * @returns {string}
+ */
+export function routeToMdRelPath(route) {
   const r = normalizeRoute(route);
   const slug = r === '/' ? 'index' : r.slice(1);
   return `${MD_DIR}/${slug}.md`;
 }
 
-/** `/` -> `/index.md`, `/resume` -> `/resume.md`. */
-export function routeToTwinUrlPath(route: string): string {
+/**
+ * `/` -> `/index.md`, `/resume` -> `/resume.md`.
+ *
+ * @param {string} route
+ * @returns {string}
+ */
+export function routeToTwinUrlPath(route) {
   const r = normalizeRoute(route);
   return r === '/' ? '/index.md' : `${r}.md`;
 }
@@ -47,8 +65,11 @@ export function routeToTwinUrlPath(route: string): string {
 /**
  * Reverse of the two above. Accepts both the canonical twin URL (`/resume.md`) and a direct hit on
  * the on-disk location (`/md/resume.md`), because prod intercepts both.
+ *
+ * @param {string} pathname
+ * @returns {string | undefined}
  */
-export function twinUrlPathToRoute(pathname: string): string | undefined {
+export function twinUrlPathToRoute(pathname) {
   let p = normalizeRoute(pathname);
   if (!p.endsWith('.md')) return undefined;
   p = p.slice(0, -'.md'.length);
@@ -58,12 +79,21 @@ export function twinUrlPathToRoute(pathname: string): string | undefined {
   return normalizeRoute(p);
 }
 
-export function isMarkdownPath(pathname: string): boolean {
+/**
+ * @param {string} pathname
+ * @returns {boolean}
+ */
+export function isMarkdownPath(pathname) {
   return normalizeRoute(pathname).endsWith('.md');
 }
 
-/** Absolute URL of a route's twin, for `Link: rel="alternate"` and test output. */
-export function twinUrl(pageUrl: string): string {
+/**
+ * Absolute URL of a route's twin, for `Link: rel="alternate"` and test output.
+ *
+ * @param {string} pageUrl
+ * @returns {string}
+ */
+export function twinUrl(pageUrl) {
   const u = new URL(pageUrl);
   u.pathname = routeToTwinUrlPath(u.pathname);
   u.search = '';

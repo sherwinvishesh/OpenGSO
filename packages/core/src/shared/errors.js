@@ -5,15 +5,22 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
-import { AI_PROVIDERS, PROVIDERS, providerInfo, type AiProvider } from './providers.js';
+import { AI_PROVIDERS, PROVIDERS, providerInfo } from './providers.js';
+
+/** @import { AiProvider } from './providers.js' */
 
 /**
  * The errors config loading can raise, kept apart from `ERRORS` because `opengeo-prod` loads the
  * config on every boot and `ERRORS` reaches into the provider catalogue. Nothing in here may
  * reference a provider, or prod's bundle grows AI code and `check:bundles` fails the build.
  */
-export const CONFIG_ERRORS = {
-  dirOutsideProject: (field: string, value: unknown, root: string) =>
+export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
+  /**
+   * @param {string} field
+   * @param {unknown} value
+   * @param {string} root
+   */
+  dirOutsideProject: (field, value, root) =>
     [
       `${field} in opengeo.config.json is ${JSON.stringify(value)}, which is not a directory inside the project.`,
       ``,
@@ -21,21 +28,34 @@ export const CONFIG_ERRORS = {
       `itself is refused too: it holds .env, and anything OpenGEO can read or write there is too much.`,
     ].join('\n'),
 
-  badField: (field: string, expected: string, value: unknown) =>
+  /**
+   * @param {string} field
+   * @param {string} expected
+   * @param {unknown} value
+   */
+  badField: (field, expected, value) =>
     `${field} in opengeo.config.json has to be ${expected}, and it is ${JSON.stringify(value) ?? String(value)}.`,
 
-  unreadable: (path: string, reason: string) =>
+  /**
+   * @param {string} path
+   * @param {string} reason
+   */
+  unreadable: (path, reason) =>
     [
       `${path} could not be read: ${reason}`,
       ``,
       `Fix the file by hand, or delete it and run \`opengeo settings\` to write a fresh one.`,
     ].join('\n'),
-} as const;
+});
 
-export type CommandName ='test' | 'generate' | 'settings' | 'start' | 'prod test';
+/** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */
 
-/** Which published packages actually ship each command (§10). */
-export const COMMAND_PACKAGES: Record<CommandName, string[]> = {
+/**
+ * Which published packages actually ship each command (§10).
+ *
+ * @type {Record<CommandName, string[]>}
+ */
+export const COMMAND_PACKAGES = {
   test: ['opengeo', 'opengeo-cli', 'opengeo-testing'],
   generate: ['opengeo', 'opengeo-cli', 'opengeo-generate'],
   settings: ['opengeo', 'opengeo-cli'],
@@ -43,7 +63,8 @@ export const COMMAND_PACKAGES: Record<CommandName, string[]> = {
   'prod test': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
 };
 
-export const COMMAND_BLURB: Record<CommandName, string> = {
+/** @type {Record<CommandName, string>} */
+export const COMMAND_BLURB = {
   test: 'scores a live URL 0-100 for AI-readiness',
   generate: 'writes the .md twins, robots.txt, llms.txt and sitemap.xml',
   settings: 'change the site, the bot lists and the API key, in your terminal',
@@ -51,8 +72,12 @@ export const COMMAND_BLURB: Record<CommandName, string> = {
   'prod test': 'verifies a deployed opengeo-prod middleware is serving correctly',
 };
 
-/** The narrowest package that ships a given command, for the "install just this" suggestion. */
-export const NARROWEST_PACKAGE: Record<CommandName, string> = {
+/**
+ * The narrowest package that ships a given command, for the "install just this" suggestion.
+ *
+ * @type {Record<CommandName, string>}
+ */
+export const NARROWEST_PACKAGE = {
   test: 'opengeo-testing',
   generate: 'opengeo-generate',
   settings: 'opengeo-cli',
@@ -63,8 +88,10 @@ export const NARROWEST_PACKAGE: Record<CommandName, string> = {
 /**
  * Three of the five commands are pillars (§2). `settings` and `start` are not, and calling
  * them one would make the error read as if written by someone who had never run the tool.
+ *
+ * @type {Partial<Record<CommandName, string>>}
  */
-const PILLAR_OF: Partial<Record<CommandName, string>> = {
+const PILLAR_OF = {
   test: 'test',
   generate: 'generate',
   'prod test': 'prod',
@@ -77,8 +104,12 @@ const PILLAR_OF: Partial<Record<CommandName, string>> = {
  * The suggestions are derived rather than written out, because two of the five commands make the
  * hand-written version wrong: `opengeo-cli` does not ship `start`, and it is itself the narrowest
  * package that ships `settings`. Both cases used to recommend a package that would not have helped.
+ *
+ * @param {CommandName} command
+ * @param {string} installedPackage
+ * @returns {string}
  */
-export function commandUnavailable(command: CommandName, installedPackage: string): string {
+export function commandUnavailable(command, installedPackage) {
   const narrowest = NARROWEST_PACKAGE[command];
   const pillar = PILLAR_OF[command];
   const ways =
@@ -101,7 +132,12 @@ export function commandUnavailable(command: CommandName, installedPackage: strin
   ].join('\n');
 }
 
-export function unknownCommand(command: string, available: CommandName[]): string {
+/**
+ * @param {string} command
+ * @param {CommandName[]} available
+ * @returns {string}
+ */
+export function unknownCommand(command, available) {
   return [
     `Unknown command: \`opengeo ${command}\`.`,
     ``,
@@ -112,9 +148,13 @@ export function unknownCommand(command: string, available: CommandName[]): strin
   ].join('\n');
 }
 
-/** Wrap a comma-separated list at `width` so a long catalogue does not run off a terminal. */
-/** Only the host of a redirect target. Its path and query are the remote server's words, not ours. */
-function redirectHost(location: string): string {
+/**
+ * Only the host of a redirect target. Its path and query are the remote server's words, not ours.
+ *
+ * @param {string} location
+ * @returns {string}
+ */
+function redirectHost(location) {
   try {
     return new URL(location).host || 'another address';
   } catch {
@@ -122,8 +162,16 @@ function redirectHost(location: string): string {
   }
 }
 
-function wrapList(items: readonly string[], width: number): string[] {
-  const lines: string[] = [];
+/**
+ * Wrap a comma-separated list at `width` so a long catalogue does not run off a terminal.
+ *
+ * @param {readonly string[]} items
+ * @param {number} width
+ * @returns {string[]}
+ */
+function wrapList(items, width) {
+  /** @type {string[]} */
+  const lines = [];
   let current = '';
   items.forEach((item, index) => {
     const piece = index === items.length - 1 ? item : `${item}, `;
@@ -137,8 +185,12 @@ function wrapList(items: readonly string[], width: number): string[] {
   return lines;
 }
 
-/** One line per provider, for `--help` and the settings screen. */
-export function providerListing(): string[] {
+/**
+ * One line per provider, for `--help` and the settings screen.
+ *
+ * @returns {string[]}
+ */
+export function providerListing() {
   const width = Math.max(...PROVIDERS.map((provider) => provider.id.length));
   return PROVIDERS.map((provider) => {
     const info = providerInfo(provider.id);
@@ -147,8 +199,9 @@ export function providerListing(): string[] {
   });
 }
 
-export const ERRORS = {
-  missingUrl: (command: string) =>
+export const ERRORS = /* @__PURE__ */ Object.freeze({
+  /** @param {string} command */
+  missingUrl: (command) =>
     [
       `\`opengeo ${command}\` needs a URL.`,
       ``,
@@ -159,10 +212,15 @@ export const ERRORS = {
       `  opengeo ${command} https://your-site.com`,
     ].join('\n'),
 
-  invalidUrl: (value: string) =>
+  /** @param {string} value */
+  invalidUrl: (value) =>
     `"${value}" isn't a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000 or https://your-site.com.`,
 
-  fetchFailed: (url: string, reason: string) =>
+  /**
+   * @param {string} url
+   * @param {string} reason
+   */
+  fetchFailed: (url, reason) =>
     [
       `Couldn't reach ${url}`,
       `  ${reason}`,
@@ -170,7 +228,8 @@ export const ERRORS = {
       `If this is a local dev server, check it's running and on the port you expect.`,
     ].join('\n'),
 
-  noApiKey: (feature: string) =>
+  /** @param {string} feature */
+  noApiKey: (feature) =>
     [
       `${feature} needs an AI provider, and none is configured.`,
       ``,
@@ -196,8 +255,11 @@ export const ERRORS = {
    * A provider that is real but not yet usable: `custom` with no endpoint, or any provider whose
    * model was never named. Says which field is missing rather than failing at the HTTP layer with
    * whatever a half-built URL produced.
+   *
+   * @param {string} provider
+   * @param {string[]} missing
    */
-  providerIncomplete: (provider: string, missing: string[]) =>
+  providerIncomplete: (provider, missing) =>
     [
       `The "${provider}" provider is missing ${missing.join(' and ')}.`,
       ``,
@@ -215,7 +277,8 @@ export const ERRORS = {
       `\`opengeo settings\` asks for all of it if you would rather answer questions.`,
     ].join('\n'),
 
-  ciBlocked: (feature: string) =>
+  /** @param {string} feature */
+  ciBlocked: (feature) =>
     [
       `${feature} is a local-machine-only feature and won't run in CI.`,
       ``,
@@ -225,10 +288,12 @@ export const ERRORS = {
       `Run it on your own machine, review the result, and commit the output.`,
     ].join('\n'),
 
-  twinNotOurs: (file: string) =>
+  /** @param {string} file */
+  twinNotOurs: (file) =>
     `${file} already exists and OpenGEO did not write it, so it was left alone and the twin went to ${file}.opengeo-proposed. Add generated_by: manual to its frontmatter to serve yours, or use --force to replace it.`,
 
-  wouldOverwrite: (file: string) =>
+  /** @param {string} file */
+  wouldOverwrite: (file) =>
     [
       `${file} already exists and wasn't written by OpenGEO - leaving it alone.`,
       ``,
@@ -239,14 +304,19 @@ export const ERRORS = {
       `To overwrite for real: opengeo generate <url> --force`,
     ].join('\n'),
 
-  noGeneratedOutput: (dir: string) =>
+  /** @param {string} dir */
+  noGeneratedOutput: (dir) =>
     [
       `No generated markdown found in ${dir}.`,
       ``,
       `Run \`opengeo generate <url>\` first - prod only ever serves files that already exist on disk.`,
     ].join('\n'),
 
-  unknownProvider: (provider: string, supported: string[]) =>
+  /**
+   * @param {string} provider
+   * @param {string[]} supported
+   */
+  unknownProvider: (provider, supported) =>
     [
       `Unknown AI provider "${provider}". OpenGEO supports:`,
       ...wrapList(supported, 68).map((line) => `  ${line}`),
@@ -255,8 +325,13 @@ export const ERRORS = {
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
     ].join('\n'),
 
-  /** Names both providers and never the key itself. */
-  keyForOtherProvider: (provider: AiProvider, keyProvider: AiProvider) => {
+  /**
+   * Names both providers and never the key itself.
+   *
+   * @param {AiProvider} provider
+   * @param {AiProvider} keyProvider
+   */
+  keyForOtherProvider: (provider, keyProvider) => {
     const native = providerInfo(provider).envVars[0];
     return [
       `The ${provider} provider was asked for, but the only key OpenGEO found belongs to ${keyProvider}, so`,
@@ -271,8 +346,12 @@ export const ERRORS = {
     ].join('\n');
   },
 
-  /** Names the variable and never echoes the value: the value may be the key. */
-  envValueRefused: (name: string) =>
+  /**
+   * Names the variable and never echoes the value: the value may be the key.
+   *
+   * @param {string} name
+   */
+  envValueRefused: (name) =>
     [
       `The value for ${name} contains a line break or another control character, so nothing was written.`,
       ``,
@@ -300,7 +379,8 @@ export const ERRORS = {
       `never pointed at a host nobody typed it for.`,
     ].join('\n'),
 
-  hostRefused: (host: string | undefined) =>
+  /** @param {string | undefined} host */
+  hostRefused: (host) =>
     [
       `Refused: this dashboard only answers to the address it was started on, and the request was`,
       `addressed to ${host === undefined ? 'no host at all' : `"${host}"`}.`,
@@ -318,16 +398,26 @@ export const ERRORS = {
       `the dashboard starts, so a URL from an earlier launch no longer works.`,
     ].join('\n'),
 
-  providerRedirected: (provider: string, status: number, location: string | null) =>
+  /**
+   * @param {string} provider
+   * @param {number} status
+   * @param {string | null} location
+   */
+  providerRedirected: (provider, status, location) =>
     [
       `The ${provider} API answered ${status} with a redirect${location ? ` to ${redirectHost(location)}` : ''}, and OpenGEO does not follow it.`,
       `A redirect would send your key to a host you did not configure. If the endpoint moved, put`,
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
-  pageCrashed: (message: string) => `Could not generate this page: ${message}. The rest of the run carried on.`,
+  /** @param {string} message */
+  pageCrashed: (message) => `Could not generate this page: ${message}. The rest of the run carried on.`,
 
-  manifestUnreadable: (path: string, why: string) =>
+  /**
+   * @param {string} path
+   * @param {string} why
+   */
+  manifestUnreadable: (path, why) =>
     `${path} could not be read (${why}), so this run started without it: every page is regenerated and nothing from the last run is carried forward. It is rewritten when the run finishes.`,
 
   siteUnreachableKept:
@@ -336,13 +426,19 @@ export const ERRORS = {
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
 
-  pageTooLarge: (maxBytes: number) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
+  /** @param {number} maxBytes */
+  pageTooLarge: (maxBytes) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
 
-  providerFailed: (provider: string, status: number, body: string) =>
+  /**
+   * @param {string} provider
+   * @param {number} status
+   * @param {string} body
+   */
+  providerFailed: (provider, status, body) =>
     [
       `The ${provider} API returned ${status}.`,
       `  ${body.slice(0, 400)}`,
       ``,
       `Nothing was written. Your existing files are untouched.`,
     ].join('\n'),
-} as const;
+});

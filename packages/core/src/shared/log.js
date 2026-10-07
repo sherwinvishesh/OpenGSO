@@ -1,7 +1,8 @@
 /** Tiny ANSI helper. A colour library would be a dependency for something that is 20 lines. */
 const ESC = String.fromCharCode(27) + '[';
 
-const enabled = (): boolean => {
+/** @returns {boolean} */
+const enabled = () => {
   if (process.env.NO_COLOR) return false;
   // FORCE_COLOR=0 is the conventional way to turn colour off, so it cannot be read as merely "set".
   const force = process.env.FORCE_COLOR;
@@ -12,7 +13,12 @@ const enabled = (): boolean => {
   return Boolean(process.stdout && process.stdout.isTTY);
 };
 
-const wrap = (open: number, close: number) => (s: string) =>
+/**
+ * @param {number} open
+ * @param {number} close
+ * @returns {(s: string) => string}
+ */
+const wrap = (open, close) => (s) =>
   enabled() ? `${ESC}${open}m${s}${ESC}${close}m` : s;
 
 export const c = {
@@ -37,7 +43,11 @@ export const SYM = {
   locked: () => c.gray('LOCK'),
 };
 
-export function heading(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+export function heading(text) {
   return `\n${c.bold(text)}\n${c.gray('-'.repeat(Math.max(text.length, 8)))}`;
 }
 
@@ -54,8 +64,11 @@ const TERMINAL_UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩]
  * A tested page, a provider's error body and a model's answer can all carry escape sequences that
  * set the window title, write the clipboard, erase lines or hide everything after them. Dropping
  * the control bytes leaves the rest as inert, readable text.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-export function terminalText(text: string): string {
+export function terminalText(text) {
   return text.replace(TERMINAL_UNSAFE, '');
 }
 
@@ -66,12 +79,16 @@ export function terminalText(text: string): string {
  * its own, so one call covers every field and a new field is covered without anyone remembering.
  * Only plain objects and arrays are walked. JSON output does not come through here, because
  * `JSON.stringify` already escapes control characters and the data should stay exact.
+ *
+ * @template T
+ * @param {T} value
+ * @returns {T}
  */
-export function terminalSafe<T>(value: T): T {
-  if (typeof value === 'string') return terminalText(value) as T;
-  if (Array.isArray(value)) return value.map((item) => terminalSafe(item)) as T;
+export function terminalSafe(value) {
+  if (typeof value === 'string') return /** @type {T} */ (terminalText(value));
+  if (Array.isArray(value)) return /** @type {T} */ (value.map((item) => terminalSafe(item)));
   if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, terminalSafe(item)])) as T;
+    return /** @type {T} */ (Object.fromEntries(Object.entries(value).map(([key, item]) => [key, terminalSafe(item)])));
   }
   return value;
 }

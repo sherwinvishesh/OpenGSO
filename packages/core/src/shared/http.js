@@ -4,35 +4,35 @@
  * It records TTFB because `test` scores it (§5A), and it never throws on a non-2xx: check code
  * wants the failing status and headers, not an exception.
  */
-export interface ProbeResult {
-  url: string;
-  ok: boolean;
-  status: number;
-  headers: Headers;
-  body: string;
-  /** Milliseconds from request start to first byte of the response head. */
-  ttfbMs: number;
-  /** Milliseconds to a fully-read body. */
-  totalMs: number;
-  redirected: boolean;
-  finalUrl: string;
-  /** The body stopped at `maxBytes`. What is in `body` is the start of it, not all of it. */
-  truncated?: boolean;
-  error?: string;
-}
 
-export interface ProbeOptions {
-  headers?: Record<string, string>;
-  method?: string;
-  timeoutMs?: number;
-  /** Skip reading the body - used by header-only checks. */
-  headOnly?: boolean;
-  redirect?: RequestRedirect;
-  /** Stop reading after this many bytes. Defaults to {@link MAX_PROBE_BYTES}. */
-  maxBytes?: number;
-  /** Decide from the headers whether the body is worth downloading at all. */
-  readBody?: (headers: Headers) => boolean;
-}
+/**
+ * @typedef {object} ProbeResult
+ * @property {string} url
+ * @property {boolean} ok
+ * @property {number} status
+ * @property {Headers} headers
+ * @property {string} body
+ * @property {number} ttfbMs Milliseconds from request start to first byte of the response head.
+ * @property {number} totalMs Milliseconds to a fully-read body.
+ * @property {boolean} redirected
+ * @property {string} finalUrl
+ * @property {boolean} [truncated] The body stopped at `maxBytes`. What is in `body` is the start of
+ *   it, not all of it.
+ * @property {string} [error]
+ */
+
+/**
+ * @typedef {object} ProbeOptions
+ * @property {Record<string, string>} [headers]
+ * @property {string} [method]
+ * @property {number} [timeoutMs]
+ * @property {boolean} [headOnly] Skip reading the body - used by header-only checks.
+ * @property {RequestRedirect} [redirect]
+ * @property {number} [maxBytes] Stop reading after this many bytes. Defaults to
+ *   {@link MAX_PROBE_BYTES}.
+ * @property {(headers: Headers) => boolean} [readBody] Decide from the headers whether the body is
+ *   worth downloading at all.
+ */
 
 /**
  * The most of any one response OpenGEO will hold in memory.
@@ -47,7 +47,12 @@ export const BROWSER_UA =
 
 export const OPENGEO_UA = 'OpenGEO/1.0 (+https://github.com/sherwinvishesh/OpenGEO)';
 
-export async function probe(url: string, options: ProbeOptions = {}): Promise<ProbeResult> {
+/**
+ * @param {string} url
+ * @param {ProbeOptions} [options]
+ * @returns {Promise<ProbeResult>}
+ */
+export async function probe(url, options = {}) {
   const { headers = {}, method = 'GET', timeoutMs = 15_000, headOnly = false, redirect = 'follow', maxBytes = MAX_PROBE_BYTES } = options;
   const started = performance.now();
   const controller = new AbortController();
@@ -93,8 +98,14 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
   }
 }
 
-/** The body as text, up to `maxBytes`. The rest is never downloaded. */
-async function readCapped(response: Response, maxBytes: number): Promise<{ body: string; truncated: boolean }> {
+/**
+ * The body as text, up to `maxBytes`. The rest is never downloaded.
+ *
+ * @param {Response} response
+ * @param {number} maxBytes
+ * @returns {Promise<{ body: string; truncated: boolean }>}
+ */
+async function readCapped(response, maxBytes) {
   if (!response.body) return { body: '', truncated: false };
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -114,13 +125,22 @@ async function readCapped(response: Response, maxBytes: number): Promise<{ body:
   }
 }
 
-/** Close the connection without reading what is on it. */
-async function discard(response: Response): Promise<{ body: string; truncated: boolean }> {
+/**
+ * Close the connection without reading what is on it.
+ *
+ * @param {Response} response
+ * @returns {Promise<{ body: string; truncated: boolean }>}
+ */
+async function discard(response) {
   await response.body?.cancel().catch(() => {});
   return { body: '', truncated: false };
 }
 
-export function parseUrl(value: string): URL | undefined {
+/**
+ * @param {string} value
+ * @returns {URL | undefined}
+ */
+export function parseUrl(value) {
   try {
     const u = new URL(value);
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return undefined;
@@ -130,8 +150,13 @@ export function parseUrl(value: string): URL | undefined {
   }
 }
 
-/** Absolute origin + path, no query/hash - the form every route key uses. */
-export function cleanUrl(input: URL | string): string {
+/**
+ * Absolute origin + path, no query/hash - the form every route key uses.
+ *
+ * @param {URL | string} input
+ * @returns {string}
+ */
+export function cleanUrl(input) {
   const u = typeof input === 'string' ? new URL(input) : input;
   const out = new URL(u.toString());
   out.search = '';

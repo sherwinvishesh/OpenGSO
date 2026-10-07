@@ -7,17 +7,23 @@ import { routeToTwinUrlPath } from '../shared/routes.js';
  * disagree about a header name or value.
  */
 
-export interface MarkdownHeaderInput {
-  tokens: number;
-  specVersion?: string;
-  /** ISO timestamp from the manifest. Emitted as a standard `Last-Modified`. */
-  lastUpdated?: string;
-  /** Hash of the HTML the twin was built from, so `test`'s B14 check can detect drift exactly. */
-  sourceHash?: string;
-}
+/**
+ * @typedef {object} MarkdownHeaderInput
+ * @property {number} tokens
+ * @property {string} [specVersion]
+ * @property {string} [lastUpdated] ISO timestamp from the manifest. Emitted as a standard
+ *   `Last-Modified`.
+ * @property {string} [sourceHash] Hash of the HTML the twin was built from, so `test`'s B14 check
+ *   can detect drift exactly.
+ */
 
-export function markdownHeaders(input: MarkdownHeaderInput): Record<string, string> {
-  const headers: Record<string, string> = {
+/**
+ * @param {MarkdownHeaderInput} input
+ * @returns {Record<string, string>}
+ */
+export function markdownHeaders(input) {
+  /** @type {Record<string, string>} */
+  const headers = {
     [HEADERS.contentType]: MARKDOWN_CONTENT_TYPE,
     [HEADERS.markdownTokens]: String(Math.max(1, Math.trunc(input.tokens))),
     [HEADERS.contentTypeOptions]: 'nosniff',
@@ -36,23 +42,34 @@ export function markdownHeaders(input: MarkdownHeaderInput): Record<string, stri
   return headers;
 }
 
-/** RFC 7231 IMF-fixdate, or undefined when the input is missing or unparseable. */
-export function httpDate(iso: string | undefined): string | undefined {
+/**
+ * RFC 7231 IMF-fixdate, or undefined when the input is missing or unparseable.
+ *
+ * @param {string | undefined} iso
+ * @returns {string | undefined}
+ */
+export function httpDate(iso) {
   if (!iso) return undefined;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toUTCString();
 }
 
-export interface HtmlHeaderInput {
-  route: string;
-  specVersion?: string;
-  /** When true, advertise the twin. Omitted for routes with no generated markdown. */
-  hasTwin: boolean;
-}
+/**
+ * @typedef {object} HtmlHeaderInput
+ * @property {string} route
+ * @property {string} [specVersion]
+ * @property {boolean} hasTwin When true, advertise the twin. Omitted for routes with no generated
+ *   markdown.
+ */
 
-export function htmlHeaders(input: HtmlHeaderInput): Record<string, string> {
-  const headers: Record<string, string> = {
+/**
+ * @param {HtmlHeaderInput} input
+ * @returns {Record<string, string>}
+ */
+export function htmlHeaders(input) {
+  /** @type {Record<string, string>} */
+  const headers = {
     [HEADERS.vary]: 'Accept',
     [HEADERS.aeoVersion]: input.specVersion ?? AEO_SPEC_VERSION,
   };
@@ -62,11 +79,19 @@ export function htmlHeaders(input: HtmlHeaderInput): Record<string, string> {
   return headers;
 }
 
-export function linkAlternate(twinPath: string): string {
+/**
+ * @param {string} twinPath
+ * @returns {string}
+ */
+export function linkAlternate(twinPath) {
   return `<${twinPath}>; rel="alternate"; type="text/markdown"`;
 }
 
-export function notAcceptableHeaders(specVersion = AEO_SPEC_VERSION): Record<string, string> {
+/**
+ * @param {string} [specVersion]
+ * @returns {Record<string, string>}
+ */
+export function notAcceptableHeaders(specVersion = AEO_SPEC_VERSION) {
   return {
     [HEADERS.contentType]: 'text/plain; charset=utf-8',
     [HEADERS.vary]: 'Accept',
@@ -88,16 +113,24 @@ export const NOT_ACCEPTABLE_BODY = [
  *
  * It lives here, beside the code that writes the header, so the audit and the implementation can
  * never disagree about what counts.
+ *
+ * @param {string | null | undefined} value
+ * @returns {boolean}
  */
-export function varyIncludesAccept(value: string | null | undefined): boolean {
+export function varyIncludesAccept(value) {
   return (value ?? '')
     .split(',')
     .map((token) => token.trim().toLowerCase())
     .some((token) => token === 'accept' || token === '*');
 }
 
-/** Parse a `Link` header and pull out the markdown alternate, if one is advertised. */
-export function parseLinkAlternate(header: string | null | undefined): string | undefined {
+/**
+ * Parse a `Link` header and pull out the markdown alternate, if one is advertised.
+ *
+ * @param {string | null | undefined} header
+ * @returns {string | undefined}
+ */
+export function parseLinkAlternate(header) {
   if (!header) return undefined;
   for (const part of splitLinkHeader(header)) {
     const url = /<([^>]+)>/.exec(part)?.[1];
@@ -109,9 +142,15 @@ export function parseLinkAlternate(header: string | null | undefined): string | 
   return undefined;
 }
 
-/** Split on commas that separate link-values, not commas inside angle brackets or quotes. */
-function splitLinkHeader(header: string): string[] {
-  const parts: string[] = [];
+/**
+ * Split on commas that separate link-values, not commas inside angle brackets or quotes.
+ *
+ * @param {string} header
+ * @returns {string[]}
+ */
+function splitLinkHeader(header) {
+  /** @type {string[]} */
+  const parts = [];
   let current = '';
   let inAngle = false;
   let inQuote = false;

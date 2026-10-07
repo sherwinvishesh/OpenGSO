@@ -90,7 +90,7 @@ is hard to spot.
 
 ## The bot list
 
-`packages/core/src/shared/bots.ts` is the community-contribution surface (§17). Adding a
+`packages/core/src/shared/bots.js` is the community-contribution surface (§17). Adding a
 bot means one entry in `AI_BOTS`: its `name`, `vendor`, `uaPatterns`, `robotsToken`, `kind`, and
 `notes` when the bot needs explaining. Nothing else has to change. `ROUTABLE_BOTS` and
 `DEFAULT_MARKDOWN_ROUTING` are derived from that array.
@@ -112,7 +112,7 @@ lists wherever a catalogue is needed. Do not send a pull request adding a privat
 ## Style
 
 - Comments explain why, not what. A comment restating the line above it is noise.
-- Every user-facing error string belongs in `packages/core/src/shared/errors.ts` (§13), so the
+- Every user-facing error string belongs in `packages/core/src/shared/errors.js` (§13), so the
   wording changes in one place and a limited install can name the package that would help.
 - No new runtime dependencies. jsdom is the only one, and `opengeo-prod` may not have even that.
 - Non-goals in §16 are constraints, not suggestions. No headless browser, no per-framework

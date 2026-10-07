@@ -15,57 +15,63 @@
  * moment of the call and goes nowhere else.
  */
 
-/** The three request/response shapes every provider on the market currently speaks. */
-export type ProviderApi = 'anthropic' | 'openai' | 'gemini';
+/**
+ * The three request/response shapes every provider on the market currently speaks.
+ *
+ * @typedef {'anthropic' | 'openai' | 'gemini'} ProviderApi
+ */
 
-/** How the key is attached to the request. `none` is for a local server that wants no key. */
-export type ProviderAuth = 'bearer' | 'x-api-key' | 'x-goog-api-key' | 'none';
+/**
+ * How the key is attached to the request. `none` is for a local server that wants no key.
+ *
+ * @typedef {'bearer' | 'x-api-key' | 'x-goog-api-key' | 'none'} ProviderAuth
+ */
 
-export type AiProvider =
-  | 'anthropic'
-  | 'openai'
-  | 'gemini'
-  | 'xai'
-  | 'groq'
-  | 'mistral'
-  | 'deepseek'
-  | 'openrouter'
-  | 'together'
-  | 'perplexity'
-  | 'ollama'
-  | 'custom';
+/**
+ * @typedef {'anthropic'
+ *   | 'openai'
+ *   | 'gemini'
+ *   | 'xai'
+ *   | 'groq'
+ *   | 'mistral'
+ *   | 'deepseek'
+ *   | 'openrouter'
+ *   | 'together'
+ *   | 'perplexity'
+ *   | 'ollama'
+ *   | 'custom'} AiProvider
+ */
 
-export interface ProviderInfo {
-  id: AiProvider;
-  /** Shown in the picker and in reports. The vendor's own name for itself. */
-  label: string;
-  api: ProviderApi;
-  /** Everything up to but not including the endpoint path. Overridable per project. */
-  baseUrl: string;
-  defaultModel: string;
-  auth: ProviderAuth;
-  /**
-   * OpenAI's current endpoints reject `max_tokens` on their newer models, and most of the
-   * OpenAI-compatible clones reject `max_completion_tokens`. One field, so neither is broken.
-   */
-  tokenParam: 'max_tokens' | 'max_completion_tokens';
-  /** Provider-native variables people already have exported, accepted so nobody duplicates a key. */
-  envVars: string[];
-  /** Where a key comes from. Printed by `opengeo settings` and by the "no key" error. */
-  keysUrl?: string;
-  /** No key at all: a model server on the user's own machine. */
-  keyless?: boolean;
-  /** The endpoint is the user's to name, so `ai.baseUrl` and `ai.model` are required. */
-  userDefined?: boolean;
-  note?: string;
-}
+/**
+ * @typedef {object} ProviderInfo
+ * @property {AiProvider} id
+ * @property {string} label Shown in the picker and in reports. The vendor's own name for itself.
+ * @property {ProviderApi} api
+ * @property {string} baseUrl Everything up to but not including the endpoint path. Overridable per
+ *   project.
+ * @property {string} defaultModel
+ * @property {ProviderAuth} auth
+ * @property {'max_tokens' | 'max_completion_tokens'} tokenParam OpenAI's current endpoints reject
+ *   `max_tokens` on their newer models, and most of the OpenAI-compatible clones reject
+ *   `max_completion_tokens`. One field, so neither is broken.
+ * @property {string[]} envVars Provider-native variables people already have exported, accepted so
+ *   nobody duplicates a key.
+ * @property {string} [keysUrl] Where a key comes from. Printed by `opengeo settings` and by the
+ *   "no key" error.
+ * @property {boolean} [keyless] No key at all: a model server on the user's own machine.
+ * @property {boolean} [userDefined] The endpoint is the user's to name, so `ai.baseUrl` and
+ *   `ai.model` are required.
+ * @property {string} [note]
+ */
 
 /**
  * Order is the order the picker shows, not alphabetical: the three OpenGEO started with, then the
  * hosted APIs, then the local option, then the escape hatch. `custom` is last because it is the
  * answer for people the list did not cover, and putting it first would suggest the list is thin.
+ *
+ * @type {readonly ProviderInfo[]}
  */
-export const PROVIDERS: readonly ProviderInfo[] = [
+export const PROVIDERS = [
   {
     id: 'anthropic',
     label: 'Anthropic Claude',
@@ -206,31 +212,45 @@ export const PROVIDERS: readonly ProviderInfo[] = [
 ];
 
 // The three derived tables below are marked pure so a bundle that imports this module and uses none
-// of them can drop them, catalogue and all. `errors.ts` imports from here and `config.ts` imports
-// `errors.ts`, so without the marks `opengeo-prod` ships every provider endpoint. `check:bundles`
+// of them can drop them, catalogue and all. `errors.js` imports from here and `config.js` imports
+// `errors.js`, so without the marks `opengeo-prod` ships every provider endpoint. `check:bundles`
 // is what notices if a new top-level call undoes this.
-export const AI_PROVIDERS: AiProvider[] = /* @__PURE__ */ PROVIDERS.map((provider) => provider.id);
+/** @type {AiProvider[]} */
+export const AI_PROVIDERS = /* @__PURE__ */ PROVIDERS.map((provider) => provider.id);
 
-const BY_ID = /* @__PURE__ */ new Map<AiProvider, ProviderInfo>(
+/** @type {Map<AiProvider, ProviderInfo>} */
+const BY_ID = /* @__PURE__ */ new Map(
   /* @__PURE__ */ PROVIDERS.map((provider) => [provider.id, provider]),
 );
 
-export function isAiProvider(value: unknown): value is AiProvider {
-  return typeof value === 'string' && BY_ID.has(value as AiProvider);
+/**
+ * @param {unknown} value
+ * @returns {value is AiProvider}
+ */
+export function isAiProvider(value) {
+  return typeof value === 'string' && BY_ID.has(/** @type {AiProvider} */ (value));
 }
 
-export function providerInfo(id: AiProvider): ProviderInfo {
+/**
+ * @param {AiProvider} id
+ * @returns {ProviderInfo}
+ */
+export function providerInfo(id) {
   const found = BY_ID.get(id);
   if (!found) throw new Error(`Unknown AI provider: ${id}`);
   return found;
 }
 
-export const DEFAULT_MODELS: Record<AiProvider, string> = /* @__PURE__ */ Object.fromEntries(
+export const DEFAULT_MODELS = /** @type {Record<AiProvider, string>} */ (/* @__PURE__ */ Object.fromEntries(
   /* @__PURE__ */ PROVIDERS.map((provider) => [provider.id, provider.defaultModel]),
-) as Record<AiProvider, string>;
+));
 
-/** Every provider-native variable the catalogue accepts, in picker order, for the docs and `.env`. */
-export function providerEnvVars(): Array<{ provider: AiProvider; envVars: string[] }> {
+/**
+ * Every provider-native variable the catalogue accepts, in picker order, for the docs and `.env`.
+ *
+ * @returns {Array<{ provider: AiProvider; envVars: string[] }>}
+ */
+export function providerEnvVars() {
   return PROVIDERS.filter((provider) => provider.envVars.length > 0).map((provider) => ({
     provider: provider.id,
     envVars: [...provider.envVars],
@@ -243,26 +263,32 @@ export function providerEnvVars(): Array<{ provider: AiProvider; envVars: string
  * Every field is optional and every field is honoured for *any* provider, not just `custom`: the
  * common reason to set `baseUrl` on a built-in is a corporate gateway that mirrors the vendor's API
  * at a different host, and refusing that would push people to `custom` for no reason.
+ *
+ * @typedef {object} ProviderOverrides
+ * @property {string} [baseUrl]
+ * @property {ProviderApi} [api]
+ * @property {ProviderAuth} [auth]
+ * @property {Record<string, string>} [headers]
  */
-export interface ProviderOverrides {
-  baseUrl?: string;
-  api?: ProviderApi;
-  auth?: ProviderAuth;
-  headers?: Record<string, string>;
-}
 
-export interface ResolvedProvider {
-  id: AiProvider;
-  label: string;
-  api: ProviderApi;
-  baseUrl: string;
-  auth: ProviderAuth;
-  headers: Record<string, string>;
-  tokenParam: 'max_tokens' | 'max_completion_tokens';
-  keyless: boolean;
-}
+/**
+ * @typedef {object} ResolvedProvider
+ * @property {AiProvider} id
+ * @property {string} label
+ * @property {ProviderApi} api
+ * @property {string} baseUrl
+ * @property {ProviderAuth} auth
+ * @property {Record<string, string>} headers
+ * @property {'max_tokens' | 'max_completion_tokens'} tokenParam
+ * @property {boolean} keyless
+ */
 
-export function resolveProvider(id: AiProvider, overrides: ProviderOverrides = {}): ResolvedProvider {
+/**
+ * @param {AiProvider} id
+ * @param {ProviderOverrides} [overrides]
+ * @returns {ResolvedProvider}
+ */
+export function resolveProvider(id, overrides = {}) {
   const info = providerInfo(id);
   const baseUrl = (overrides.baseUrl || info.baseUrl).replace(/\/+$/, '');
   return {
@@ -277,10 +303,18 @@ export function resolveProvider(id: AiProvider, overrides: ProviderOverrides = {
   };
 }
 
-/** What is still missing before this provider can be called, in a sentence, or nothing. */
-export function providerGaps(id: AiProvider, model: string | undefined, overrides: ProviderOverrides = {}): string[] {
+/**
+ * What is still missing before this provider can be called, in a sentence, or nothing.
+ *
+ * @param {AiProvider} id
+ * @param {string | undefined} model
+ * @param {ProviderOverrides} [overrides]
+ * @returns {string[]}
+ */
+export function providerGaps(id, model, overrides = {}) {
   const info = providerInfo(id);
-  const gaps: string[] = [];
+  /** @type {string[]} */
+  const gaps = [];
   if (!(overrides.baseUrl || info.baseUrl)) gaps.push('ai.baseUrl');
   if (!model) gaps.push('ai.model');
   return gaps;

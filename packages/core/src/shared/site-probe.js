@@ -23,27 +23,29 @@ import { HEADERS } from './version.js';
  * over `POST /api/preview`. Nothing here knows about either. The rendering is somebody else's job.
  */
 
-export interface SitePreview {
-  url: string;
-  /** The page answered with a 2xx. */
-  ok: boolean;
-  status: number;
-  ttfbMs: number;
-  /** Set when the request never completed: DNS, connection refused, a timeout. */
-  error?: string;
-  /** A human name for what is serving the page, when the response gives it away. */
-  framework?: string;
-  /** The raw HTML is an empty mount element, so `generate` will find nothing to convert. */
-  clientRendered?: boolean;
-  /** What is already at the `.md` URL, if anything. */
-  twin?: { url: string; ok: boolean; status: number; served: boolean };
-}
+/**
+ * @typedef {object} SitePreview
+ * @property {string} url
+ * @property {boolean} ok The page answered with a 2xx.
+ * @property {number} status
+ * @property {number} ttfbMs
+ * @property {string} [error] Set when the request never completed: DNS, connection refused, a
+ *   timeout.
+ * @property {string} [framework] A human name for what is serving the page, when the response
+ *   gives it away.
+ * @property {boolean} [clientRendered] The raw HTML is an empty mount element, so `generate` will
+ *   find nothing to convert.
+ * @property {{ url: string; ok: boolean; status: number; served: boolean }} [twin] What is already
+ *   at the `.md` URL, if anything.
+ */
 
 /**
  * Signals in the order they are checked. A header beats markup, because markup can be copied from a
  * tutorial and a header is emitted by the thing actually running.
+ *
+ * @type {ReadonlyArray<{ name: string; header?: RegExp; markup?: RegExp }>}
  */
-const FRAMEWORKS: ReadonlyArray<{ name: string; header?: RegExp; markup?: RegExp }> = [
+const FRAMEWORKS = [
   { name: 'Next.js', header: /next\.js/i, markup: /__NEXT_DATA__|\/_next\/static\//i },
   { name: 'Nuxt', markup: /__NUXT__|\/_nuxt\//i },
   { name: 'SvelteKit', markup: /__sveltekit|\/_app\/immutable\//i },
@@ -60,20 +62,27 @@ const FRAMEWORKS: ReadonlyArray<{ name: string; header?: RegExp; markup?: RegExp
 /** An empty root element and nothing else is the shape of a page whose content only exists after JS. */
 const EMPTY_MOUNT = /<div[^>]+id=["'](root|app|__next)["'][^>]*>\s*<\/div>/i;
 
-export interface PreviewOptions {
-  /** Kept short on purpose: this runs while somebody is waiting at a prompt. */
-  timeoutMs?: number;
-  fetchPage?: typeof probe;
-}
+/**
+ * @typedef {object} PreviewOptions
+ * @property {number} [timeoutMs] Kept short on purpose: this runs while somebody is waiting at a
+ *   prompt.
+ * @property {typeof probe} [fetchPage]
+ */
 
-export async function previewSite(url: string, options: PreviewOptions = {}): Promise<SitePreview> {
+/**
+ * @param {string} url
+ * @param {PreviewOptions} [options]
+ * @returns {Promise<SitePreview>}
+ */
+export async function previewSite(url, options = {}) {
   const fetchPage = options.fetchPage ?? probe;
   const timeoutMs = options.timeoutMs ?? 6_000;
   // As a browser, because the answer wanted here is "what does this site serve people", and a site
   // that already routes markdown to OpenGEO's own agent would otherwise report itself as markdown.
   const page = await fetchPage(url, { timeoutMs, headers: { 'User-Agent': BROWSER_UA } });
 
-  const preview: SitePreview = { url, ok: page.ok, status: page.status, ttfbMs: page.ttfbMs };
+  /** @type {SitePreview} */
+  const preview = { url, ok: page.ok, status: page.status, ttfbMs: page.ttfbMs };
   if (page.error) preview.error = whyUnreachable(url, page.error);
   if (!page.ok) return preview;
 
@@ -106,8 +115,12 @@ export async function previewSite(url: string, options: PreviewOptions = {}): Pr
  * so this does not pretend to diagnose: for a loopback address the port is the only thing that can
  * be wrong and it says so, and everything else gets the honest general answer. Anything that already
  * reads like a sentence is passed through untouched.
+ *
+ * @param {string} url
+ * @param {string} message
+ * @returns {string}
  */
-function whyUnreachable(url: string, message: string): string {
+function whyUnreachable(url, message) {
   const target = parseUrl(url);
   if (/abort|timed? ?out/i.test(message)) return 'it did not answer in time';
   if (!/fetch failed|ECONNREFUSED|ECONNRESET|terminated|other side closed|socket hang up/i.test(message)) return message;
@@ -116,13 +129,13 @@ function whyUnreachable(url: string, message: string): string {
   return 'the host could not be reached';
 }
 
-export interface WebRootGuess {
-  dir: string;
-  /** Why this directory, in the half-sentence a prompt can afford to show. */
-  why: string;
-  /** False when nothing pointed here and the default is being offered for want of anything better. */
-  found: boolean;
-}
+/**
+ * @typedef {object} WebRootGuess
+ * @property {string} dir
+ * @property {string} why Why this directory, in the half-sentence a prompt can afford to show.
+ * @property {boolean} found False when nothing pointed here and the default is being offered for
+ *   want of anything better.
+ */
 
 /**
  * Dependencies first, then directories.
@@ -131,8 +144,10 @@ export interface WebRootGuess {
  * evidence for the same thing but weaker, because plenty of projects have one for other reasons.
  * `dist/` is last and says so: it is a build output, and anything written there is one `npm run
  * build` away from being deleted.
+ *
+ * @type {ReadonlyArray<{ dep: RegExp; dir: string; why: string }>}
  */
-const BY_DEPENDENCY: ReadonlyArray<{ dep: RegExp; dir: string; why: string }> = [
+const BY_DEPENDENCY = [
   { dep: /^next$/, dir: 'public', why: 'Next.js serves public/ from the site root' },
   { dep: /^gatsby$/, dir: 'static', why: 'Gatsby serves static/ from the site root' },
   { dep: /^@sveltejs\/kit$/, dir: 'static', why: 'SvelteKit serves static/ from the site root' },
@@ -142,14 +157,19 @@ const BY_DEPENDENCY: ReadonlyArray<{ dep: RegExp; dir: string; why: string }> = 
   { dep: /^(vite|react-scripts)$/, dir: 'public', why: 'Vite serves public/ from the site root' },
 ];
 
-const BY_DIRECTORY: ReadonlyArray<{ dir: string; why: string }> = [
+/** @type {ReadonlyArray<{ dir: string; why: string }>} */
+const BY_DIRECTORY = [
   { dir: 'public', why: 'public/ exists and is served as-is by most frameworks' },
   { dir: 'static', why: 'static/ exists and is served as-is by most static site generators' },
   { dir: 'www', why: 'www/ exists and looks like the served directory' },
   { dir: 'dist', why: 'dist/ exists, but it is a build output, so check this one' },
 ];
 
-export function detectWebRoot(root: string): WebRootGuess {
+/**
+ * @param {string} root
+ * @returns {WebRootGuess}
+ */
+export function detectWebRoot(root) {
   const deps = readDependencies(root);
   for (const candidate of BY_DEPENDENCY) {
     if (deps.some((name) => candidate.dep.test(name))) return { dir: candidate.dir, why: candidate.why, found: true };
@@ -160,14 +180,20 @@ export function detectWebRoot(root: string): WebRootGuess {
   return { dir: defaultConfig().publicDir, why: 'nothing on disk pointed anywhere, so this is the usual answer', found: false };
 }
 
-/** Every dependency name in `package.json`, or none if there is no readable one. */
-function readDependencies(root: string): string[] {
+/**
+ * Every dependency name in `package.json`, or none if there is no readable one.
+ *
+ * @param {string} root
+ * @returns {string[]}
+ */
+function readDependencies(root) {
   try {
-    const parsed = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as Record<string, unknown>;
-    const names: string[] = [];
+    const parsed = /** @type {Record<string, unknown>} */ (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')));
+    /** @type {string[]} */
+    const names = [];
     for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
       const block = parsed[field];
-      if (block && typeof block === 'object') names.push(...Object.keys(block as Record<string, unknown>));
+      if (block && typeof block === 'object') names.push(...Object.keys(/** @type {Record<string, unknown>} */ (block)));
     }
     return names;
   } catch {
@@ -175,7 +201,11 @@ function readDependencies(root: string): string[] {
   }
 }
 
-function isDirectory(path: string): boolean {
+/**
+ * @param {string} path
+ * @returns {boolean}
+ */
+function isDirectory(path) {
   try {
     return existsSync(path) && statSync(path).isDirectory();
   } catch {

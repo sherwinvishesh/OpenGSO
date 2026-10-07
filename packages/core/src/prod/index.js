@@ -18,5 +18,9 @@ export {
   resolveBots,
   resolveRoutableBots,
 } from '../shared/bots.js';
-export type { AiBot, BotKind, CustomBotInput } from '../shared/bots.js';
+/**
+ * @typedef {import('../shared/bots.js').AiBot} AiBot
+ * @typedef {import('../shared/bots.js').BotKind} BotKind
+ * @typedef {import('../shared/bots.js').CustomBotInput} CustomBotInput
+ */
 export { routeToTwinUrlPath, twinUrlPathToRoute, normalizeRoute, isMarkdownPath } from '../shared/routes.js';

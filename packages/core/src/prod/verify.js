@@ -1,11 +1,14 @@
-import type { AiBot } from '../shared/bots.js';
 import { AI_BOTS, findBot, identifyBot } from '../shared/bots.js';
-import type { ProbeOptions, ProbeResult } from '../shared/http.js';
 import { BROWSER_UA, cleanUrl, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
 import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
 import { summarizeRobots } from './startup.js';
+
+/**
+ * @import { AiBot } from '../shared/bots.js'
+ * @import { ProbeOptions, ProbeResult } from '../shared/http.js'
+ */
 
 /**
  * `opengeo prod test <url>` (§7).
@@ -28,59 +31,59 @@ import { summarizeRobots } from './startup.js';
  * a browser User-Agent so a markdown response can only have been caused by the Accept header.
  */
 
-export type ProbeVerdict = 'pass' | 'fail' | 'warn';
-export type LeverId = 'routing' | 'negotiation' | 'blocking';
+/** @typedef {'pass' | 'fail' | 'warn'} ProbeVerdict */
+/** @typedef {'routing' | 'negotiation' | 'blocking'} LeverId */
 
-export interface ProdProbe {
-  id: string;
-  title: string;
-  lever: LeverId;
-  /** Exactly what was sent, so a reader can reproduce the result by hand. */
-  sent: { url: string; userAgent: string; accept: string };
-  status: number;
-  verdict: ProbeVerdict;
-  reason: string;
-  detail?: string;
-  /** The §7 headers that came back. Only the ones OpenGEO has an opinion about. */
-  headers: Record<string, string>;
-  curl: string;
-}
+/**
+ * @typedef {object} ProdProbe
+ * @property {string} id
+ * @property {string} title
+ * @property {LeverId} lever
+ * @property {{ url: string; userAgent: string; accept: string }} sent Exactly what was sent, so a
+ *   reader can reproduce the result by hand.
+ * @property {number} status
+ * @property {ProbeVerdict} verdict
+ * @property {string} reason
+ * @property {string} [detail]
+ * @property {Record<string, string>} headers The §7 headers that came back. Only the ones OpenGEO
+ *   has an opinion about.
+ * @property {string} curl
+ */
 
-export interface RobotsReport {
-  url: string;
-  found: boolean;
-  blocked: string[];
-  allowed: string[];
-  notes: string[];
-}
+/**
+ * @typedef {object} RobotsReport
+ * @property {string} url
+ * @property {boolean} found
+ * @property {string[]} blocked
+ * @property {string[]} allowed
+ * @property {string[]} notes
+ */
 
-export interface ProdVerification {
-  target: string;
-  twinUrl: string;
-  /** The bot whose User-Agent was impersonated for the routing probe. */
-  bot: string;
-  /** True when at least one response carried `X-AEO-Version`, i.e. prod answered at all. */
-  installed: boolean;
-  probes: ProdProbe[];
-  robots: RobotsReport;
-  /** Places where the two levers contradict each other. Empty is the healthy case. */
-  conflicts: string[];
-  counts: { pass: number; warn: number; fail: number };
-  ok: boolean;
-}
+/**
+ * @typedef {object} ProdVerification
+ * @property {string} target
+ * @property {string} twinUrl
+ * @property {string} bot The bot whose User-Agent was impersonated for the routing probe.
+ * @property {boolean} installed True when at least one response carried `X-AEO-Version`, i.e. prod
+ *   answered at all.
+ * @property {ProdProbe[]} probes
+ * @property {RobotsReport} robots
+ * @property {string[]} conflicts Places where the two levers contradict each other. Empty is the
+ *   healthy case.
+ * @property {{ pass: number; warn: number; fail: number }} counts
+ * @property {boolean} ok
+ */
 
-export interface VerifyProdOptions {
-  /** Bot name to impersonate for the lever-1 probe. Default ClaudeBot. */
-  bot?: string;
-  timeoutMs?: number;
-  /**
-   * The crawler catalogue `--bot` resolves against. Defaults to the shipped list; callers with a
-   * config in hand pass the resolved one so `--bot MyCrawler` can probe a project's own agent.
-   */
-  bots?: readonly AiBot[];
-  /** Injected by tests so the probe matrix can be exercised without a live server. */
-  probeFn?: (url: string, options?: ProbeOptions) => Promise<ProbeResult>;
-}
+/**
+ * @typedef {object} VerifyProdOptions
+ * @property {string} [bot] Bot name to impersonate for the lever-1 probe. Default ClaudeBot.
+ * @property {number} [timeoutMs]
+ * @property {readonly AiBot[]} [bots] The crawler catalogue `--bot` resolves against. Defaults to
+ *   the shipped list; callers with a config in hand pass the resolved one so `--bot MyCrawler` can
+ *   probe a project's own agent.
+ * @property {(url: string, options?: ProbeOptions) => Promise<ProbeResult>} [probeFn] Injected by
+ *   tests so the probe matrix can be exercised without a live server.
+ */
 
 const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 const MARKDOWN_ACCEPT = 'text/markdown,text/plain;q=0.9';
@@ -96,14 +99,23 @@ const UNKNOWN_BOT_UA = 'Mozilla/5.0 (compatible; NotYetKnownAiBot/1.0; +https://
 
 const DEFAULT_BOT = 'ClaudeBot';
 
-export async function verifyProd(url: string, options: VerifyProdOptions = {}): Promise<ProdVerification> {
+/**
+ * @param {string} url
+ * @param {VerifyProdOptions} [options]
+ * @returns {Promise<ProdVerification>}
+ */
+export async function verifyProd(url, options = {}) {
   const bot = resolveBot(options.bot ?? DEFAULT_BOT, options.bots);
   const target = cleanUrl(url);
   const origin = new URL(target).origin;
   const run = options.probeFn ?? probe;
   const timeoutMs = options.timeoutMs;
 
-  const send = (userAgent: string, accept: string) =>
+  /**
+   * @param {string} userAgent
+   * @param {string} accept
+   */
+  const send = (userAgent, accept) =>
     run(target, { headers: { 'User-Agent': userAgent, Accept: accept }, timeoutMs });
 
   const botUa = botUserAgent(bot, options.bots);
@@ -116,7 +128,8 @@ export async function verifyProd(url: string, options: VerifyProdOptions = {}): 
     run(`${origin}/robots.txt`, { headers: { 'User-Agent': BROWSER_UA }, timeoutMs }),
   ]);
 
-  const probes: ProdProbe[] = [
+  /** @type {ProdProbe[]} */
+  const probes = [
     judgeRoutedBot(bot, botUa, routed, target),
     judgeUnknownBot(unknown, target),
     judgeAcceptMarkdown(negotiated, target),
@@ -151,8 +164,12 @@ export async function verifyProd(url: string, options: VerifyProdOptions = {}): 
  * Resolve a `--bot` name, and refuse the two robots.txt-only tokens with an explanation rather
  * than a probe that could never pass. Google-Extended and Applebot-Extended are opt-out signals
  * with no crawler behind them, so no request will ever carry them as a User-Agent.
+ *
+ * @param {string} name
+ * @param {readonly AiBot[]} [bots]
+ * @returns {AiBot}
  */
-export function resolveBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBot {
+export function resolveBot(name, bots = AI_BOTS) {
   const bot = findBot(name, bots);
   if (!bot) {
     throw new Error(
@@ -181,7 +198,12 @@ export function resolveBot(name: string, bots: readonly AiBot[] = AI_BOTS): AiBo
   return bot;
 }
 
-function botUserAgent(bot: AiBot, bots: readonly AiBot[] = AI_BOTS): string {
+/**
+ * @param {AiBot} bot
+ * @param {readonly AiBot[]} [bots]
+ * @returns {string}
+ */
+function botUserAgent(bot, bots = AI_BOTS) {
   const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
   if (identifyBot(ua, bots)?.name === bot.name) return ua;
   // Defensive: a bot whose UA token is not its own name. None today, but bots.ts is the
@@ -192,11 +214,18 @@ function botUserAgent(bot: AiBot, bots: readonly AiBot[] = AI_BOTS): string {
 
 // --- probe judgements -------------------------------------------------------------------------
 
-function judgeRoutedBot(bot: AiBot, ua: string, result: ProbeResult, url: string): ProdProbe {
+/**
+ * @param {AiBot} bot
+ * @param {string} ua
+ * @param {ProbeResult} result
+ * @param {string} url
+ * @returns {ProdProbe}
+ */
+function judgeRoutedBot(bot, ua, result, url) {
   const base = {
     id: 'routed-bot',
     title: `${bot.name} receives the markdown twin`,
-    lever: 'routing' as const,
+    lever: /** @type {const} */ ('routing'),
     sent: { url, userAgent: ua, accept: BROWSER_ACCEPT },
     status: result.status,
     headers: collectHeaders(result),
@@ -232,11 +261,16 @@ function judgeRoutedBot(bot: AiBot, ua: string, result: ProbeResult, url: string
   };
 }
 
-function judgeUnknownBot(result: ProbeResult, url: string): ProdProbe {
+/**
+ * @param {ProbeResult} result
+ * @param {string} url
+ * @returns {ProdProbe}
+ */
+function judgeUnknownBot(result, url) {
   const base = {
     id: 'unknown-bot',
     title: 'An unrecognised bot is served the normal site, never blocked',
-    lever: 'routing' as const,
+    lever: /** @type {const} */ ('routing'),
     sent: { url, userAgent: UNKNOWN_BOT_UA, accept: BROWSER_ACCEPT },
     status: result.status,
     headers: collectHeaders(result),
@@ -278,11 +312,16 @@ function judgeUnknownBot(result: ProbeResult, url: string): ProdProbe {
   };
 }
 
-function judgeAcceptMarkdown(result: ProbeResult, url: string): ProdProbe {
+/**
+ * @param {ProbeResult} result
+ * @param {string} url
+ * @returns {ProdProbe}
+ */
+function judgeAcceptMarkdown(result, url) {
   const base = {
     id: 'accept-markdown',
     title: 'Accept: text/markdown returns markdown at the same URL',
-    lever: 'negotiation' as const,
+    lever: /** @type {const} */ ('negotiation'),
     sent: { url, userAgent: BROWSER_UA, accept: MARKDOWN_ACCEPT },
     status: result.status,
     headers: collectHeaders(result),
@@ -323,11 +362,16 @@ function judgeAcceptMarkdown(result: ProbeResult, url: string): ProdProbe {
   };
 }
 
-function judgeBrowser(result: ProbeResult, url: string): ProdProbe {
+/**
+ * @param {ProbeResult} result
+ * @param {string} url
+ * @returns {ProdProbe}
+ */
+function judgeBrowser(result, url) {
   const base = {
     id: 'browser',
     title: 'An ordinary browser still gets the ordinary site',
-    lever: 'negotiation' as const,
+    lever: /** @type {const} */ ('negotiation'),
     sent: { url, userAgent: BROWSER_UA, accept: BROWSER_ACCEPT },
     status: result.status,
     headers: collectHeaders(result),
@@ -351,7 +395,8 @@ function judgeBrowser(result: ProbeResult, url: string): ProdProbe {
 
   const vary = base.headers[HEADERS.vary];
   const alternate = parseLinkAlternate(result.headers.get(HEADERS.link));
-  const notes: string[] = [];
+  /** @type {string[]} */
+  const notes = [];
   if (alternate) notes.push(`the twin is advertised at ${alternate}`);
   else notes.push('no Link: rel="alternate" header, so an agent has to guess the twin URL');
 
@@ -378,16 +423,24 @@ function judgeBrowser(result: ProbeResult, url: string): ProdProbe {
 /**
  * The notes below get joined into a sentence of their own, sometimes after another one. Written
  * lowercase at the call site so they read as a list, they need their first letter lifted here.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-function asSentence(text: string): string {
+function asSentence(text) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function judgeNotAcceptable(result: ProbeResult, url: string): ProdProbe {
+/**
+ * @param {ProbeResult} result
+ * @param {string} url
+ * @returns {ProdProbe}
+ */
+function judgeNotAcceptable(result, url) {
   const base = {
     id: 'not-acceptable',
     title: 'An Accept header that excludes both formats gets a 406',
-    lever: 'negotiation' as const,
+    lever: /** @type {const} */ ('negotiation'),
     sent: { url, userAgent: BROWSER_UA, accept: HOSTILE_ACCEPT },
     status: result.status,
     headers: collectHeaders(result),
@@ -419,7 +472,11 @@ function judgeNotAcceptable(result: ProbeResult, url: string): ProdProbe {
   };
 }
 
-function judgeUnreachable(result: ProbeResult): Pick<ProdProbe, 'verdict' | 'reason' | 'detail'> | undefined {
+/**
+ * @param {ProbeResult} result
+ * @returns {Pick<ProdProbe, 'verdict' | 'reason' | 'detail'> | undefined}
+ */
+function judgeUnreachable(result) {
   if (result.status !== 0) return undefined;
   return {
     verdict: 'fail',
@@ -428,7 +485,12 @@ function judgeUnreachable(result: ProbeResult): Pick<ProdProbe, 'verdict' | 'rea
   };
 }
 
-function judgeBlocked(result: ProbeResult, who: string): Pick<ProdProbe, 'verdict' | 'reason' | 'detail'> | undefined {
+/**
+ * @param {ProbeResult} result
+ * @param {string} who
+ * @returns {Pick<ProdProbe, 'verdict' | 'reason' | 'detail'> | undefined}
+ */
+function judgeBlocked(result, who) {
   if (result.status !== 401 && result.status !== 403 && result.status !== 429) return undefined;
   return {
     verdict: 'fail',
@@ -440,7 +502,13 @@ function judgeBlocked(result: ProbeResult, who: string): Pick<ProdProbe, 'verdic
 
 // --- lever 2 ----------------------------------------------------------------------------------
 
-function readRobots(url: string, result: ProbeResult, bots?: readonly AiBot[]): RobotsReport {
+/**
+ * @param {string} url
+ * @param {ProbeResult} result
+ * @param {readonly AiBot[]} [bots]
+ * @returns {RobotsReport}
+ */
+function readRobots(url, result, bots) {
   if (result.status === 0) {
     return {
       url,
@@ -464,7 +532,8 @@ function readRobots(url: string, result: ProbeResult, bots?: readonly AiBot[]): 
   }
 
   const { allowed, blocked } = summarizeRobots(result.body, bots);
-  const notes: string[] = [];
+  /** @type {string[]} */
+  const notes = [];
   notes.push(
     blocked.length > 0
       ? `Disallowed at the site root: ${blocked.join(', ')}.`
@@ -480,9 +549,15 @@ function readRobots(url: string, result: ProbeResult, bots?: readonly AiBot[]): 
 /**
  * The two levers are independent by design, but a user can still set them against each other. Say
  * so plainly rather than quietly doing something reasonable: the fix depends on what they meant.
+ *
+ * @param {AiBot} bot
+ * @param {RobotsReport} robots
+ * @param {ProdProbe[]} probes
+ * @returns {string[]}
  */
-function findConflicts(bot: AiBot, robots: RobotsReport, probes: ProdProbe[]): string[] {
-  const conflicts: string[] = [];
+function findConflicts(bot, robots, probes) {
+  /** @type {string[]} */
+  const conflicts = [];
   const routed = probes.find((p) => p.id === 'routed-bot');
   if (robots.blocked.includes(bot.name) && routed?.verdict === 'pass') {
     conflicts.push(
@@ -506,8 +581,13 @@ const INTERESTING_HEADERS = [
   HEADERS.lastModified,
 ];
 
-function collectHeaders(result: ProbeResult): Record<string, string> {
-  const out: Record<string, string> = {};
+/**
+ * @param {ProbeResult} result
+ * @returns {Record<string, string>}
+ */
+function collectHeaders(result) {
+  /** @type {Record<string, string>} */
+  const out = {};
   for (const name of INTERESTING_HEADERS) {
     const value = result.headers.get(name);
     if (value) out[name] = value;
@@ -515,10 +595,20 @@ function collectHeaders(result: ProbeResult): Record<string, string> {
   return out;
 }
 
-function isMarkdown(result: ProbeResult): boolean {
+/**
+ * @param {ProbeResult} result
+ * @returns {boolean}
+ */
+function isMarkdown(result) {
   return (result.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown');
 }
 
-function curlFor(url: string, userAgent: string, accept: string): string {
+/**
+ * @param {string} url
+ * @param {string} userAgent
+ * @param {string} accept
+ * @returns {string}
+ */
+function curlFor(url, userAgent, accept) {
   return `curl -sI -H 'User-Agent: ${userAgent}' -H 'Accept: ${accept}' '${url}'`;
 }
