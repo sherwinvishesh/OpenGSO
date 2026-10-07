@@ -144,6 +144,16 @@ export async function crawlSite(options) {
     // The type is checked from the headers, before the body is read, so a linked PDF or video is
     // never downloaded just to be thrown away.
     const response = await probe(url, { timeoutMs, readBody: servesHtml });
+    // fetch follows redirects, so the body may be another server's page. Only content served from
+    // the crawled origin becomes a twin.
+    const finalOrigin = new URL(response.finalUrl || url).origin;
+    if (finalOrigin !== origin) {
+      failures.push({ route: next.route, url, reason: ERRORS.redirectedOffSite(finalOrigin) });
+      if (next.depth === 0 && startRoutes.includes(next.route)) {
+        warnings.push(ERRORS.startRedirectedOffSite(origin, finalOrigin));
+      }
+      continue;
+    }
     if (!response.ok) {
       failures.push({ route: next.route, url, reason: response.error ?? `HTTP ${response.status}` });
       continue;

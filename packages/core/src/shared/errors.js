@@ -228,6 +228,18 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `If this is a local dev server, check it's running and on the port you expect.`,
     ].join('\n'),
 
+  // Every caller prints the route beside this, so it is not repeated here.
+  /** @param {string} finalOrigin */
+  redirectedOffSite: (finalOrigin) =>
+    `Redirected to ${finalOrigin}, which is another origin, so its content was not used as this site's twin - skipped.`,
+
+  /**
+   * @param {string} site
+   * @param {string} finalOrigin
+   */
+  startRedirectedOffSite: (site, finalOrigin) =>
+    `The start URL on ${site} redirects to ${finalOrigin}, so nothing was crawled. If that is the site's real address, run generate against ${finalOrigin} instead.`,
+
   /** @param {string} feature */
   noApiKey: (feature) =>
     [

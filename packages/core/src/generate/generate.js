@@ -141,13 +141,19 @@ export async function generatePages(options) {
         if (html === undefined) {
           onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
           const response = await probe(url, { timeoutMs: 20_000 });
-          if (!response.ok || !response.body || response.truncated) {
+          const finalOrigin = new URL(response.finalUrl || url).origin;
+          const offSite = finalOrigin !== new URL(site).origin;
+          if (offSite || !response.ok || !response.body || response.truncated) {
             pages.push({
               route,
               url,
               status: 'failed',
               warnings: [],
-              reason: response.truncated ? ERRORS.pageTooLarge(MAX_PROBE_BYTES) : (response.error ?? `HTTP ${response.status}`),
+              reason: offSite
+                ? ERRORS.redirectedOffSite(finalOrigin)
+                : response.truncated
+                  ? ERRORS.pageTooLarge(MAX_PROBE_BYTES)
+                  : (response.error ?? `HTTP ${response.status}`),
             });
             const carried = previous.pages[route];
             if (carried) manifest.pages[route] = carried;

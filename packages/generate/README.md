@@ -95,7 +95,9 @@ Same-origin breadth-first search over real `<a href>` links, starting from the U
 Depth and page caps come from your config (`crawl.maxDepth`, `crawl.maxPages`). Assets, anchors and
 query-only variants of a page already seen are skipped. `extraRoutes` in the config adds pages that
 nothing links to. An entry with a `.` or `..` segment is skipped with a warning, and no twin is ever
-written outside `public/md/`.
+written outside `public/md/`. A page that redirects to another origin is skipped rather than written
+as your twin, and a start URL that does (apex to `www`, `http` to `https`) is reported with the
+address to run against instead.
 
 It is not a router adapter and never will be. Reading a framework's route manifest means one
 integration per framework, forever, and OpenGEO is framework-agnostic on purpose. If a page is
