@@ -57,6 +57,21 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
     `[opengeo-prod] markdown is off, and every request passes through to the normal site, until opengeo.config.json is fixed: ${problem.split('\n')[0]}`,
 });
 
+/**
+ * Problems prod's twin store reports at boot. Same rule as `CONFIG_ERRORS`: this ships inside
+ * opengeo-prod, so nothing in here may reference a provider.
+ */
+export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
+  /**
+   * @param {string} route
+   * @param {string} file The manifest's `file` value, as written.
+   * @param {string} publicDir
+   */
+  twinOutsidePublicDir: (route, file, publicDir) =>
+    `Manifest lists ${route} at ${file}, which resolves outside ${publicDir}, so it was not loaded. ` +
+    'OpenGEO only ever writes twins inside publicDir: rerun `opengeo generate` to rewrite the manifest.',
+});
+
 /** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */
 
 /**

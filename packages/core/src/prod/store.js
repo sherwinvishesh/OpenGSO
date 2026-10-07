@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { STORE_ERRORS } from '../shared/errors.js';
 import { createManifestStore, createMemoryStore } from './manifest-store.js';
 
 export * from './manifest-store.js';
@@ -65,7 +66,14 @@ export function createFsStore(options) {
   /** @type {Record<string, string>} */
   const contents = {};
   for (const [key, entry] of Object.entries(manifest.pages ?? {})) {
-    const file = join(publicDir, entry.file);
+    const file = resolve(publicDir, entry.file);
+    // The manifest is a file on disk that anything with write access can edit, and prod serves
+    // whatever it points at to anyone who asks. Only files inside publicDir are twins.
+    const fromPublic = relative(publicDir, file);
+    if (fromPublic === '' || fromPublic === '..' || fromPublic.startsWith(`..${sep}`) || isAbsolute(fromPublic)) {
+      problems.push(STORE_ERRORS.twinOutsidePublicDir(entry.route, entry.file, publicDir));
+      continue;
+    }
     if (!existsSync(file)) {
       problems.push(`Manifest lists ${entry.route} but ${file} is missing. Rerun \`opengeo generate\`.`);
       continue;

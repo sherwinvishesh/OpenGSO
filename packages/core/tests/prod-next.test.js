@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MARKDOWN_CONTENT_TYPE } from '@opengeo/core/prod';
+import { MARKDOWN_CONTENT_TYPE, createFsStore } from '@opengeo/core/prod';
 import { createNextMiddleware } from '@opengeo/core/prod/next';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
@@ -100,5 +100,42 @@ describe('a config file the adapter cannot use', () => {
     const response = await fetch(`${site}/resume`, { headers: { accept: 'text/markdown' } });
     expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
     expect(errors).not.toHaveBeenCalled();
+  });
+});
+
+describe('a manifest entry that points outside publicDir', () => {
+  it('is skipped and reported, and never served', async () => {
+    const root = project(undefined);
+    writeFileSync(join(root, 'secret.md'), '# DATABASE_PASSWORD=hunter2\n');
+    writeFileSync(
+      join(root, '.opengeo', 'manifest.json'),
+      JSON.stringify({
+        pages: {
+          '/resume': { route: '/resume', file: 'md/resume.md', tokens: 3 },
+          '/leak': { route: '/leak', file: '../secret.md', tokens: 3 },
+          '/deep': { route: '/deep', file: 'md/../../secret.md', tokens: 3 },
+        },
+      }),
+    );
+
+    const store = createFsStore({ root });
+    expect(store.routes()).toEqual(['/resume']);
+    expect(store.problems).toHaveLength(2);
+    expect(store.problems.join('\n')).toMatch(/\/leak.*outside/);
+
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const site = await listen(createNextMiddleware({ root, store, logStartup: false }));
+    const leak = await fetch(`${site}/leak`, { headers: { accept: 'text/markdown' } });
+    expect(await leak.text()).not.toContain('hunter2');
+  });
+
+  it('still loads a file whose name merely starts with two dots', () => {
+    const root = project(undefined);
+    writeFileSync(join(root, 'public', 'md', '..notes.md'), '# Notes\n');
+    writeFileSync(
+      join(root, '.opengeo', 'manifest.json'),
+      JSON.stringify({ pages: { '/notes': { route: '/notes', file: 'md/..notes.md', tokens: 1 } } }),
+    );
+    expect(createFsStore({ root }).routes()).toEqual(['/notes']);
   });
 });
