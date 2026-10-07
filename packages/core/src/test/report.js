@@ -2,12 +2,12 @@ import { c, SYM, heading, terminalSafe } from '../shared/log.js';
 import { meter, lockedMeter, sparkline } from '../shared/render/meters.js';
 import { scoreInk, bandColour, contentBand, ink } from '../shared/render/theme.js';
 import { BODY_INDENT, fg, indentWrapped, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
-import { deltaFor, relativeAge, scoreTrend } from './history.js';
+import { deltaFor, relativeAge, scoreTrend } from '../shared/history.js';
 import { areaWeight, qualityBand } from './quality.js';
 import { scoreGain } from './score.js';
 
 /**
- * @import { History } from './history.js'
+ * @import { History } from '../shared/history.js'
  * @import { CheckResult } from './checks.js'
  * @import {
  *   AggregatedRecommendation,

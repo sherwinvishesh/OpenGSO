@@ -1,15 +1,15 @@
 import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
-import { ERRORS } from '../shared/errors.js';
-import { writeFileAtomic } from '../shared/fs.js';
+import { ERRORS } from './errors.js';
+import { writeFileAtomic } from './fs.js';
 
-/** @import { SuiteResult, TestMode } from './suite.js' */
+/** @import { SuiteResult } from '../test/suite.js' */
 
 /**
  * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
  *
- * @typedef {import('../shared/api-types.js').HistoryEntry} HistoryEntry
- * @typedef {import('../shared/api-types.js').History} History
+ * @typedef {import('./api-types.js').HistoryEntry} HistoryEntry
+ * @typedef {import('./api-types.js').History} History
  */
 
 /**

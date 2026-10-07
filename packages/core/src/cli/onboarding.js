@@ -2,7 +2,7 @@ import { internalDirPath } from '../shared/config.js';
 import { resolveBots } from '../shared/bots.js';
 import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
-import { recordRun } from '../test/history.js';
+import { recordRun } from '../shared/history.js';
 import { renderSetupScore } from '../test/report.js';
 import { runTestSuite } from '../test/suite.js';
 import { runSetup } from './configure.js';

@@ -5,7 +5,7 @@ import { readCredentials } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { PALETTE, ink } from '../shared/render/theme.js';
-import { deltaFor, lastScored, readHistory, relativeAge, scoreTrend } from '../test/history.js';
+import { deltaFor, lastScored, readHistory, relativeAge, scoreTrend } from '../shared/history.js';
 import { field, select } from './tui/interact.js';
 import { readKeys } from './tui/keys.js';
 import { padEnd, terminalWidth, truncate } from '../shared/render/paint.js';
