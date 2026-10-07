@@ -112,6 +112,21 @@ describe('generatePages', () => {
     expect(second.pages[0]?.reason).toContain('unchanged');
   });
 
+  it('leaves the manifest byte-identical when nothing changed', async () => {
+    const loaded = project();
+    await generatePages({ site, routes: ['/', '/about'], loaded });
+    const path = join(loaded.root, '.opengeo', 'manifest.json');
+    const stamped = readFileSync(path, 'utf8').replace(/"generatedAt": "[^"]+"/, '"generatedAt": "2020-01-01T00:00:00.000Z"');
+    writeFileSync(path, stamped, 'utf8');
+
+    const second = await generatePages({ site, routes: ['/', '/about'], loaded });
+    expect(second.pages.map((p) => p.status)).toEqual(['cached', 'cached']);
+    expect(readFileSync(path, 'utf8')).toBe(stamped);
+
+    const third = await generatePages({ site, routes: ['/', '/about'], loaded, force: true });
+    expect(third.manifest.generatedAt).not.toBe('2020-01-01T00:00:00.000Z');
+  });
+
   it('regenerates everything when forced', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/resume'], loaded });

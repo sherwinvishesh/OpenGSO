@@ -340,6 +340,16 @@ export async function generatePages(options) {
       const entry = previous.pages[route];
       if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
     }
+    // The manifest is often committed. A run that changed no entry keeps the previous timestamp, so
+    // a fully cached rerun leaves the file byte-identical instead of producing a one-line diff.
+    if (
+      typeof previous.generatedAt === 'string' &&
+      previous.site === manifest.site &&
+      previous.specVersion === manifest.specVersion &&
+      samePages(previous.pages, manifest.pages)
+    ) {
+      manifest.generatedAt = previous.generatedAt;
+    }
     manifestPath = writeManifest(internalDir, manifest);
   }
   return {
@@ -363,6 +373,17 @@ export async function generatePages(options) {
  */
 function tierSatisfied(prior, tier) {
   return prior.tier === tier || (tier === 'ai' && prior.tier === 'free' && prior.aiFallback !== undefined);
+}
+
+/**
+ * @param {Record<string, ManifestEntry>} a
+ * @param {Record<string, ManifestEntry>} b
+ * @returns {boolean}
+ */
+function samePages(a, b) {
+  const left = Object.keys(a).sort();
+  const right = Object.keys(b).sort();
+  return left.length === right.length && left.every((route, i) => route === right[i] && JSON.stringify(a[route]) === JSON.stringify(b[route]));
 }
 
 /**
