@@ -3,6 +3,9 @@
  * the provider catalogue. It reads only the environment.
  */
 
+/** Every variable a CI service is known to set. A test that wants a terminal has to clear all of them. */
+export const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'BUILDKITE'];
+
 /**
  * Anything AI-touched is local-machine-only (§5, §6, §16). This is the enforcement point, not a
  * doc comment: generate's AI tier and `test --quality` both call it and refuse under CI.
@@ -11,7 +14,7 @@
  * @returns {boolean}
  */
 export function isCI(env = process.env) {
-  return [env.CI, env.CONTINUOUS_INTEGRATION, env.GITHUB_ACTIONS, env.GITLAB_CI, env.CIRCLECI, env.BUILDKITE].some(isSet);
+  return CI_VARIABLES.some((name) => isSet(env[name]));
 }
 
 /**

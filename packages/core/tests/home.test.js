@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
 import { createPrompter } from '../src/cli/prompt.js';
+import { CI_VARIABLES } from '../src/shared/ci.js';
 import { glyphs, stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
 /** @import { CommandHandler } from '@opengeo/core/cli' */
 /** @import { CommandName } from '@opengeo/core/shared' */
@@ -411,8 +412,9 @@ describe('the full-screen menu after a command', () => {
   beforeEach(() => {
     saved = { ...process.env };
     process.env.FORCE_COLOR = '1';
-    // The gate closes on either, and a CI runner sets the first, so the suite would test nothing there.
-    delete process.env.CI;
+    // The gate closes on any CI variable or OPENGEO_NO_TUI, and a runner sets several, so the suite
+    // would test nothing there.
+    for (const name of CI_VARIABLES) delete process.env[name];
     delete process.env.OPENGEO_NO_TUI;
   });
   afterEach(() => {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canRedraw, createProgress } from '../src/cli/progress.js';
+import { CI_VARIABLES } from '../src/shared/ci.js';
 import { stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
 
 /**
@@ -48,7 +49,7 @@ function fakeStream(isTTY, columns = 80) {
 const ENV = { ...process.env };
 
 beforeEach(() => {
-  delete process.env.CI;
+  for (const name of CI_VARIABLES) delete process.env[name];
   delete process.env.OPENGEO_NO_TUI;
   delete process.env.NO_COLOR;
   process.env.FORCE_COLOR = '3';

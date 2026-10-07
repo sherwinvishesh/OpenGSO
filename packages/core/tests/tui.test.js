@@ -15,6 +15,7 @@ import {
 } from '../src/shared/render/paint.js';
 import { decode, readKeys, splitChunks } from '../src/cli/tui/keys.js';
 import { canUseTui, openScreen, restoreScreens } from '../src/cli/tui/screen.js';
+import { CI_VARIABLES } from '../src/shared/ci.js';
 import { c } from '../src/shared/log.js';
 import { lockedMeter, meter, sparkline } from '../src/shared/render/meters.js';
 import { box, listView, textField } from '../src/cli/tui/widgets.js';
@@ -62,6 +63,8 @@ describe('canUseTui and CI', () => {
 
   it('reads CI=false and CI=0 as not CI', () => {
     delete process.env.OPENGEO_NO_TUI;
+    // A runner sets GITHUB_ACTIONS and friends as well, and any one of them closes the gate.
+    for (const name of CI_VARIABLES) delete process.env[name];
     for (const value of ['false', '0', 'False']) {
       process.env.CI = value;
       expect(canUseTui({ input: tty, output: tty })).toBe(true);
