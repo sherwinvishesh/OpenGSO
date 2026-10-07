@@ -1,15 +1,11 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { createAiEnhancer } from '../generate/ai.js';
-import type { EnhanceInput, EnhanceOutput } from '../generate/generate.js';
 import { readManifest } from '../generate/manifest.js';
-import type { SiteProgress } from '../generate/site.js';
 import { generateSite } from '../generate/site.js';
 import { verifyProd } from '../prod/verify.js';
 import { resolveAiCall } from '../shared/ai-call.js';
-import type { CustomBotInput } from '../shared/bots.js';
 import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
-import type { OpenGeoConfig } from '../shared/config.js';
 import {
   CONFIG_FILENAME,
   configPatchProblem,
@@ -20,7 +16,6 @@ import {
   publicDirPath,
   saveConfig,
 } from '../shared/config.js';
-import type { AiProvider, ProviderApi, ProviderAuth, ProviderInfo } from '../shared/providers.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDERS, isAiProvider, providerInfo } from '../shared/providers.js';
 import {
   BASE_URL_VAR,
@@ -36,10 +31,18 @@ import {
 } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
-import type { SitePreview, WebRootGuess } from '../shared/site-probe.js';
 import { detectWebRoot, previewSite } from '../shared/site-probe.js';
-import type { CheckResult, Framework, History, HistoryEntry, Score, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js';
 import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
+
+/**
+ * @import { EnhanceInput, EnhanceOutput } from '../generate/generate.js'
+ * @import { SiteProgress } from '../generate/site.js'
+ * @import { CustomBotInput } from '../shared/bots.js'
+ * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { AiProvider, ProviderApi, ProviderAuth, ProviderInfo } from '../shared/providers.js'
+ * @import { SitePreview, WebRootGuess } from '../shared/site-probe.js'
+ * @import { CheckResult, Framework, History, HistoryEntry, Score, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js'
+ */
 
 /**
  * The local JSON API behind `opengeo start` (§8).
@@ -53,31 +56,32 @@ import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson 
  * belongs to and which file it came from - never the value.
  */
 
-export interface ApiRequest {
-  method: string;
-  path: string;
-  body: unknown;
-}
+/**
+ * @typedef {object} ApiRequest
+ * @property {string} method
+ * @property {string} path
+ * @property {unknown} body
+ */
 
-export interface ApiResponse {
-  status: number;
-  body: unknown;
-}
+/**
+ * @typedef {object} ApiResponse
+ * @property {number} status
+ * @property {unknown} body
+ */
 
-export interface ApiOptions {
-  /** Project root. Fixed for the lifetime of the server: the browser cannot ask for another. */
-  root: string;
-  version: string;
-  packageName: string;
-  /**
-   * Set by the transport for the `/stream` routes, absent everywhere else.
-   *
-   * An endpoint that takes minutes has to be able to say so while it is still working, and the two
-   * that do already accept an `onProgress` from the CLI. This is the same callback, one hop further
-   * out, so the dashboard watches exactly what the terminal watches.
-   */
-  onProgress?: (event: ApiProgress) => void;
-}
+/**
+ * @typedef {object} ApiOptions
+ * @property {string} root Project root. Fixed for the lifetime of the server: the browser cannot ask
+ *   for another.
+ * @property {string} version
+ * @property {string} packageName
+ * @property {(event: ApiProgress) => void} [onProgress] Set by the transport for the `/stream`
+ *   routes, absent everywhere else.
+ *
+ *   An endpoint that takes minutes has to be able to say so while it is still working, and the two
+ *   that do already accept an `onProgress` from the CLI. This is the same callback, one hop further
+ *   out, so the dashboard watches exactly what the terminal watches.
+ */
 
 /**
  * What a streaming endpoint sends while it works.
@@ -89,33 +93,49 @@ export interface ApiOptions {
  *
  * Discriminated on `phase`, and the eight names are distinct across both pillars, so a client can
  * switch on one field without being told which endpoint it called.
+ *
+ * @typedef {{ phase: 'structure' }
+ *   | { phase: 'structure-done'; structure: StructurePayload }
+ *   | { phase: 'discover' }
+ *   | { phase: 'discovered'; documents: number }
+ *   | { phase: 'review'; done: number; total: number; url: string }
+ *   | { phase: 'crawl'; route: string; depth: number; found: number; visited: number }
+ *   | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
+ *   | { phase: 'files' }} ApiProgress
  */
-export type ApiProgress =
-  | { phase: 'structure' }
-  | { phase: 'structure-done'; structure: StructurePayload }
-  | { phase: 'discover' }
-  | { phase: 'discovered'; documents: number }
-  | { phase: 'review'; done: number; total: number; url: string }
-  | { phase: 'crawl'; route: string; depth: number; found: number; visited: number }
-  | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
-  | { phase: 'files' };
 
-/** The structural half of a run, in the shape the dashboard reads it at the top level. */
-export interface StructurePayload {
-  url: string;
-  twinUrl: string;
-  framework?: Framework;
-  score: Score;
-  checks: CheckResult[];
-}
+/**
+ * The structural half of a run, in the shape the dashboard reads it at the top level.
+ *
+ * @typedef {object} StructurePayload
+ * @property {string} url
+ * @property {string} twinUrl
+ * @property {Framework} [framework]
+ * @property {Score} score
+ * @property {CheckResult[]} checks
+ */
 
-const ok = (body: unknown): ApiResponse => ({ status: 200, body });
-const bad = (message: string, extra: Record<string, unknown> = {}): ApiResponse => ({
+/**
+ * @param {unknown} body
+ * @returns {ApiResponse}
+ */
+const ok = (body) => ({ status: 200, body });
+/**
+ * @param {string} message
+ * @param {Record<string, unknown>} [extra]
+ * @returns {ApiResponse}
+ */
+const bad = (message, extra = {}) => ({
   status: 400,
   body: { error: message, ...extra },
 });
 
-export async function handleApi(request: ApiRequest, options: ApiOptions): Promise<ApiResponse> {
+/**
+ * @param {ApiRequest} request
+ * @param {ApiOptions} options
+ * @returns {Promise<ApiResponse>}
+ */
+export async function handleApi(request, options) {
   const { method, path } = request;
   const route = `${method} ${path}`;
 
@@ -155,42 +175,43 @@ export async function handleApi(request: ApiRequest, options: ApiOptions): Promi
 
 // -- state ---------------------------------------------------------------------------------------
 
-export interface StateResponse {
-  root: string;
-  configPath: string;
-  configExists: boolean;
-  config: OpenGeoConfig;
-  version: string;
-  packageName: string;
-  /** Presence only. The value never crosses this boundary, not even to localhost. */
-  key: { present: boolean; provider?: AiProvider; model?: string; source?: string; path: string };
-  ci: boolean;
-  /**
-   * Where generated files probably belong, worked out from the project rather than asked.
-   *
-   * Part of the state rather than its own endpoint because it is a fact about the directory the
-   * server was pointed at, known before anybody types anything, and onboarding needs it on the
-   * first screen. `found: false` means nothing pointed anywhere and the usual answer is being
-   * offered for want of better, which is worth saying differently in the UI.
-   */
-  webRoot: WebRootGuess;
-  providers: AiProvider[];
-  defaultModels: Record<AiProvider, string>;
-  /**
-   * The full catalogue, so the dashboard renders real names and "get a key" links instead of a
-   * dropdown of lowercase ids, and knows which entries need an endpoint typed in.
-   */
-  providerCatalog: ProviderInfo[];
-  manifest?: {
-    generatedAt: string;
-    site: string;
-    pages: Array<{ route: string; title: string; tokens: number; lastUpdated: string; tier: string }>;
-  };
-  publicDir: string;
-  internalDir: string;
-}
+/**
+ * @typedef {object} StateResponse
+ * @property {string} root
+ * @property {string} configPath
+ * @property {boolean} configExists
+ * @property {OpenGeoConfig} config
+ * @property {string} version
+ * @property {string} packageName
+ * @property {{ present: boolean; provider?: AiProvider; model?: string; source?: string; path: string }} key
+ *   Presence only. The value never crosses this boundary, not even to localhost.
+ * @property {boolean} ci
+ * @property {WebRootGuess} webRoot Where generated files probably belong, worked out from the
+ *   project rather than asked.
+ *
+ *   Part of the state rather than its own endpoint because it is a fact about the directory the
+ *   server was pointed at, known before anybody types anything, and onboarding needs it on the
+ *   first screen. `found: false` means nothing pointed anywhere and the usual answer is being
+ *   offered for want of better, which is worth saying differently in the UI.
+ * @property {AiProvider[]} providers
+ * @property {Record<AiProvider, string>} defaultModels
+ * @property {ProviderInfo[]} providerCatalog The full catalogue, so the dashboard renders real names
+ *   and "get a key" links instead of a dropdown of lowercase ids, and knows which entries need an
+ *   endpoint typed in.
+ * @property {{
+ *   generatedAt: string;
+ *   site: string;
+ *   pages: Array<{ route: string; title: string; tokens: number; lastUpdated: string; tier: string }>;
+ * }} [manifest]
+ * @property {string} publicDir
+ * @property {string} internalDir
+ */
 
-function readState(options: ApiOptions): StateResponse {
+/**
+ * @param {ApiOptions} options
+ * @returns {StateResponse}
+ */
+function readState(options) {
   const loaded = loadConfig(options.root);
   const credentials = readCredentials(options.root);
   // readManifest returns an empty manifest rather than undefined when nothing has been generated,
@@ -238,10 +259,15 @@ function readState(options: ApiOptions): StateResponse {
 
 // -- config --------------------------------------------------------------------------------------
 
-function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
+/**
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {ApiResponse}
+ */
+function saveConfigPatch(body, options) {
   const shape = configPatchProblem(body);
   if (shape) return bad(shape);
-  let patch = body as Partial<OpenGeoConfig>;
+  let patch = /** @type {Partial<OpenGeoConfig>} */ (body);
 
   // The key is in .env and goes wherever `ai` says. Only /api/key may move it, because it checks
   // the endpoint and takes the key in the same request; the dashboard never sends `ai` here.
@@ -265,15 +291,22 @@ function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
   return ok({ config: next, configPath });
 }
 
-/** Returns the cleaned list, or a message explaining why the whole patch was refused. */
-function normalizeCustomList(input: unknown): CustomBotInput[] | string {
+/**
+ * Returns the cleaned list, or a message explaining why the whole patch was refused.
+ *
+ * @param {unknown} input
+ * @returns {CustomBotInput[] | string}
+ */
+function normalizeCustomList(input) {
   if (!Array.isArray(input)) return 'bots.custom must be a list of crawlers.';
   const builtIn = new Set(resolveBots(undefined).map((bot) => bot.name.toLowerCase()));
-  const seen = new Set<string>();
-  const cleaned: CustomBotInput[] = [];
+  /** @type {Set<string>} */
+  const seen = new Set();
+  /** @type {CustomBotInput[]} */
+  const cleaned = [];
 
   for (const entry of input) {
-    const bot = normalizeCustomBot(entry as CustomBotInput);
+    const bot = normalizeCustomBot(/** @type {CustomBotInput} */ (entry));
     if (!bot) return 'Every custom crawler needs a name.';
     const key = bot.name.toLowerCase();
     if (builtIn.has(key)) return `${bot.name} is already one of the crawlers OpenGEO ships with.`;
@@ -293,9 +326,10 @@ function normalizeCustomList(input: unknown): CustomBotInput[] | string {
 
 // -- preview -------------------------------------------------------------------------------------
 
-export interface PreviewResponse {
-  preview: SitePreview;
-}
+/**
+ * @typedef {object} PreviewResponse
+ * @property {SitePreview} preview
+ */
 
 /**
  * What is at that URL, asked while somebody is still typing it (§8).
@@ -309,12 +343,15 @@ export interface PreviewResponse {
  * not as an API error, because "we could not reach it" is a finding about the site rather than a
  * fault in the request, and onboarding must not stall on a diagnostic. Only an unparseable URL is
  * a 400, and that one is the user's next keystroke away from being fixed.
+ *
+ * @param {unknown} body
+ * @returns {Promise<ApiResponse>}
  */
-async function runPreview(body: unknown): Promise<ApiResponse> {
-  const input = (body ?? {}) as { url?: string };
+async function runPreview(body) {
+  const input = /** @type {{ url?: string }} */ (body ?? {});
   const target = (input.url ?? '').trim();
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
-  return ok({ preview: await previewSite(target) } satisfies PreviewResponse);
+  return ok(/** @satisfies {PreviewResponse} */ ({ preview: await previewSite(target) }));
 }
 
 // -- test ----------------------------------------------------------------------------------------
@@ -325,26 +362,31 @@ async function runPreview(body: unknown): Promise<ApiResponse> {
  * The dashboard sends a mode rather than a pair of booleans because the modes are not independent:
  * `content` needs no structural run, `structure` must never make a paid call, and `full` is an
  * ordering, not a union. Everything below is `runTestSuite`, the same function the CLI calls.
+ *
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {Promise<ApiResponse>}
  */
-async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse> {
-  const input = (body ?? {}) as {
+async function runTest(body, options) {
+  const input = /** @type {{
     url?: string;
     mode?: string;
-    /** The old boolean, still honoured: `quality: true` means the full run with the review. */
-    quality?: boolean;
+    quality?: boolean; // The old boolean, still honoured: `quality: true` means the full run with the review.
     maxDocs?: number;
     timeoutMs?: number;
-  };
+  }} */ (body ?? {});
   const loaded = loadConfig(options.root);
   const target = input.url || loaded.config.site;
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
 
-  const mode: TestMode = isTestMode(input.mode) ? input.mode : input.quality ? 'full' : 'structure';
+  /** @type {TestMode} */
+  const mode = isTestMode(input.mode) ? input.mode : input.quality ? 'full' : 'structure';
   if (input.mode !== undefined && !isTestMode(input.mode)) {
     return bad(`Unknown test mode "${String(input.mode)}". Pick one of: full, structure, content.`);
   }
 
-  let ai: SuiteAi | undefined;
+  /** @type {SuiteAi | undefined} */
+  let ai;
   if (mode !== 'structure') {
     const built = resolveCredentials(options.root, loaded.config, 'the content review');
     // A missing key is not a 400 here. The suite reports it in the response body, in the same shape
@@ -410,13 +452,21 @@ async function runTest(body: unknown, options: ApiOptions): Promise<ApiResponse>
  * Only `structure-done` needs any work: the terminal takes the whole `TestResult` because it is
  * about to render a report from it, and a browser cannot be sent the evidence that report was
  * derived from. The other four pass through as they are.
+ *
+ * @param {SuiteProgress} event
+ * @returns {ApiProgress}
  */
-export function testFrame(event: SuiteProgress): ApiProgress {
+export function testFrame(event) {
   return event.phase === 'structure-done' ? { phase: 'structure-done', structure: structurePayload(event.result) } : event;
 }
 
-/** The same four fields `runTest` flattens into its response, so a client merges one shape. */
-function structurePayload(result: TestResult): StructurePayload {
+/**
+ * The same four fields `runTest` flattens into its response, so a client merges one shape.
+ *
+ * @param {TestResult} result
+ * @returns {StructurePayload}
+ */
+function structurePayload(result) {
   return {
     url: result.url,
     twinUrl: result.twinUrl,
@@ -432,8 +482,11 @@ function structurePayload(result: TestResult): StructurePayload {
  * `SiteProgress` nests the crawl and generate payloads under a key named after the phase, which is
  * an awkward shape to switch on twice in a browser. Flattened here instead, and `phase` renamed to
  * `step` on the generate branch so the outer discriminant is not shadowed by an inner one.
+ *
+ * @param {SiteProgress} event
+ * @returns {ApiProgress}
  */
-export function generateFrame(event: SiteProgress): ApiProgress {
+export function generateFrame(event) {
   if (event.phase === 'crawl') return { phase: 'crawl', ...event.crawl };
   if (event.phase === 'generate') {
     const { phase, ...rest } = event.generate;
@@ -447,16 +500,25 @@ export function generateFrame(event: SiteProgress): ApiProgress {
  *
  * Deliberately the history from *before* this run: the client already has the new score in the same
  * response, and sending it twice would have the sparkline draw its last point at both ends.
+ *
+ * @param {History} history
+ * @param {string} url
+ * @returns {{ trend: number[]; previous: HistoryEntry | null }}
  */
-function historyPayload(history: History, url: string): { trend: number[]; previous: HistoryEntry | null } {
+function historyPayload(history, url) {
   const forUrl = history.entries.filter((entry) => entry.url === url && typeof entry.score === 'number');
   return { trend: scoreTrend(history, url), previous: forUrl.at(-1) ?? null };
 }
 
 // -- generate ------------------------------------------------------------------------------------
 
-async function runGenerate(body: unknown, options: ApiOptions): Promise<ApiResponse> {
-  const input = (body ?? {}) as {
+/**
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {Promise<ApiResponse>}
+ */
+async function runGenerate(body, options) {
+  const input = /** @type {{
     url?: string;
     tier?: 'free' | 'ai';
     single?: boolean;
@@ -464,13 +526,14 @@ async function runGenerate(body: unknown, options: ApiOptions): Promise<ApiRespo
     skipSiteFiles?: boolean;
     maxPages?: number;
     maxDepth?: number;
-  };
+  }} */ (body ?? {});
   const loaded = loadConfig(options.root);
   const target = input.url || loaded.config.site;
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
 
   const tier = input.tier ?? loaded.config.generate.tier;
-  let enhance: ((enhanceInput: EnhanceInput) => Promise<EnhanceOutput>) | undefined;
+  /** @type {((enhanceInput: EnhanceInput) => Promise<EnhanceOutput>) | undefined} */
+  let enhance;
   if (tier === 'ai') {
     const built = resolveCredentials(options.root, loaded.config, "generate's AI tier");
     if ('error' in built) return bad(built.error, { needsKey: true });
@@ -502,8 +565,13 @@ async function runGenerate(body: unknown, options: ApiOptions): Promise<ApiRespo
 
 // -- prod test -----------------------------------------------------------------------------------
 
-async function runProdTest(body: unknown, options: ApiOptions): Promise<ApiResponse> {
-  const input = (body ?? {}) as { url?: string; bot?: string; timeoutMs?: number };
+/**
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {Promise<ApiResponse>}
+ */
+async function runProdTest(body, options) {
+  const input = /** @type {{ url?: string; bot?: string; timeoutMs?: number }} */ (body ?? {});
   const loaded = loadConfig(options.root);
   const target = input.url || loaded.config.site;
   if (!parseUrl(target)) return bad(ERRORS.invalidUrl(target));
@@ -531,16 +599,20 @@ async function runProdTest(body: unknown, options: ApiOptions): Promise<ApiRespo
  * so it is saved in `opengeo.config.json` where it can be committed and shared with the team; the
  * key stays in `.env`. A provider marked keyless (a model server on this machine) is allowed to save
  * with no key at all, because demanding a placeholder would be theatre.
+ *
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {ApiResponse}
  */
-function saveKey(body: unknown, options: ApiOptions): ApiResponse {
-  const input = (body ?? {}) as {
+function saveKey(body, options) {
+  const input = /** @type {{
     provider?: string;
     apiKey?: string;
     model?: string;
     baseUrl?: string;
     api?: string;
     auth?: string;
-  };
+  }} */ (body ?? {});
   if (!input.provider || !isAiProvider(input.provider)) {
     return bad(ERRORS.unknownProvider(String(input.provider), AI_PROVIDERS));
   }
@@ -559,8 +631,10 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   if (rawAuth && !isProviderAuth(rawAuth)) {
     return bad(`Unknown auth style "${rawAuth}". Use one of: bearer, x-api-key, x-goog-api-key, none.`);
   }
-  const api: ProviderApi | undefined = isProviderApi(rawApi) ? rawApi : undefined;
-  const auth: ProviderAuth | undefined = isProviderAuth(rawAuth) ? rawAuth : undefined;
+  /** @type {ProviderApi | undefined} */
+  const api = isProviderApi(rawApi) ? rawApi : undefined;
+  /** @type {ProviderAuth | undefined} */
+  const auth = isProviderAuth(rawAuth) ? rawAuth : undefined;
 
   const endpoint = baseUrl || (info.userDefined ? '' : info.baseUrl);
   if (!endpoint) return bad(ERRORS.providerIncomplete(provider, ['ai.baseUrl']));
@@ -572,7 +646,8 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   if (!apiKey && !keyless) return bad('No key was provided, so nothing was written.');
 
   // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
-  const vars: Record<string, string | undefined> = {
+  /** @type {Record<string, string | undefined>} */
+  const vars = {
     [PROVIDER_VAR]: provider,
     [MODEL_VAR]: model,
     [BASE_URL_VAR]: baseUrl || undefined,
@@ -586,10 +661,11 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   const envPath = writeEnvVars(options.root, vars);
 
   const loaded = loadConfig(options.root);
-  const ai: Partial<OpenGeoConfig['ai']> = { provider, model, baseUrl: baseUrl || undefined };
+  /** @type {Partial<OpenGeoConfig['ai']>} */
+  const ai = { provider, model, baseUrl: baseUrl || undefined };
   if (api) ai.api = api;
   if (auth) ai.auth = auth;
-  saveConfig(options.root, mergeConfig(loaded.config, { ai: ai as OpenGeoConfig['ai'] }));
+  saveConfig(options.root, mergeConfig(loaded.config, { ai: /** @type {OpenGeoConfig['ai']} */ (ai) }));
 
   return ok({
     provider,
@@ -602,19 +678,33 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   });
 }
 
-function isProviderApi(value: string): value is ProviderApi {
+/**
+ * @param {string} value
+ * @returns {value is ProviderApi}
+ */
+function isProviderApi(value) {
   return value === 'anthropic' || value === 'openai' || value === 'gemini';
 }
 
-function isProviderAuth(value: string): value is ProviderAuth {
+/**
+ * @param {string} value
+ * @returns {value is ProviderAuth}
+ */
+function isProviderAuth(value) {
   return value === 'bearer' || value === 'x-api-key' || value === 'x-goog-api-key' || value === 'none';
 }
 
 // -- generated files -----------------------------------------------------------------------------
 
-/** Show the reader the bytes an agent would receive, straight off disk, with no re-rendering. */
-function readFileRoute(body: unknown, options: ApiOptions): ApiResponse {
-  const input = (body ?? {}) as { path?: string };
+/**
+ * Show the reader the bytes an agent would receive, straight off disk, with no re-rendering.
+ *
+ * @param {unknown} body
+ * @param {ApiOptions} options
+ * @returns {ApiResponse}
+ */
+function readFileRoute(body, options) {
+  const input = /** @type {{ path?: string }} */ (body ?? {});
   const relative = (input.path ?? '').trim();
   if (!relative) return bad('Expected a path relative to the public directory.');
   const content = readGeneratedFile(options.root, relative);
@@ -632,8 +722,13 @@ const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.open
  * The endpoint overrides travel with the credentials because they are half the address: a key
  * without the gateway it belongs to points at the wrong host, which is the one failure mode §11
  * cares about most.
+ *
+ * @param {string} root
+ * @param {OpenGeoConfig} config
+ * @param {string} feature
+ * @returns {SuiteAi | { error: string }}
  */
-function resolveCredentials(root: string, config: OpenGeoConfig, feature: string): SuiteAi | { error: string } {
+function resolveCredentials(root, config, feature) {
   if (isCI()) return { error: ERRORS.ciBlocked(feature) };
   const resolved = resolveAiCall(root, config);
   if ('error' in resolved) return resolved;
@@ -653,8 +748,12 @@ function resolveCredentials(root: string, config: OpenGeoConfig, feature: string
  * Staying inside is necessary and not enough. A web root holds whatever the project put there, so
  * on top of it the name has to be one generate writes: a twin under `md/`, or one of the three site
  * files and its proposed copy. No dotfile anywhere in the path, whatever directory it is in.
+ *
+ * @param {string} root
+ * @param {string} relativePath
+ * @returns {string | undefined}
  */
-export function readGeneratedFile(root: string, relativePath: string): string | undefined {
+export function readGeneratedFile(root, relativePath) {
   if (!GENERATED_FILE.test(relativePath) || relativePath.split('/').some((part) => part.startsWith('.'))) {
     return undefined;
   }

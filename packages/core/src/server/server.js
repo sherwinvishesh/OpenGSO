@@ -1,10 +1,15 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { ConfigError } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
-import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
+import { handleApi } from './api.js';
+
+/**
+ * @import { IncomingMessage, Server, ServerResponse } from 'node:http'
+ * @import { ApiOptions, ApiProgress } from './api.js'
+ */
 
 /**
  * The `opengeo start` server (§8).
@@ -18,25 +23,27 @@ import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
  * container case, and then every request has to carry a token minted for that launch.
  */
 
-export interface StartOptions extends ApiOptions {
-  port: number;
-  host?: string;
-  /** Directory of built dashboard assets. */
-  webRoot: string;
-  /** Required on every request when set. Defaults to `launchToken(host)`. */
-  token?: string;
-}
+/**
+ * @typedef {ApiOptions & {
+ *   port: number;
+ *   host?: string;
+ *   webRoot: string; // Directory of built dashboard assets.
+ *   token?: string; // Required on every request when set. Defaults to `launchToken(host)`.
+ * }} StartOptions
+ */
 
-export interface RunningServer {
-  /** What to open. Carries `?token=` when there is one, so it is the only URL that gets in. */
-  url: string;
-  port: number;
-  token?: string;
-  server: Server;
-  close(): Promise<void>;
-}
+/**
+ * @typedef {object} RunningServer
+ * @property {string} url What to open. Carries `?token=` when there is one, so it is the only URL
+ *   that gets in.
+ * @property {number} port
+ * @property {string} [token]
+ * @property {Server} server
+ * @property {() => Promise<void>} close
+ */
 
-const MIME: Record<string, string> = {
+/** @type {Record<string, string>} */
+const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -71,19 +78,23 @@ const STREAM_PATHS = new Set(['/api/test/stream', '/api/generate/stream']);
  * this server, so `'self'` is the whole policy; it must not be framed, since it has buttons that
  * write to disk; and nothing it links to needs to learn the local port it was opened on.
  */
-const SECURITY_HEADERS = {
+const SECURITY_HEADERS = /** @type {const} */ ({
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
   'Content-Security-Policy':
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
     "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-} as const;
+});
 
 /** Long enough to stay out of the way, short enough that no idle timer sees a dead connection. */
 const HEARTBEAT_MS = 15_000;
 
-export async function startServer(options: StartOptions): Promise<RunningServer> {
+/**
+ * @param {StartOptions} options
+ * @returns {Promise<RunningServer>}
+ */
+export async function startServer(options) {
   const host = options.host ?? '127.0.0.1';
   const token = options.token ?? launchToken(host);
   // The real port is only known once listening, and `--port 0` is legal. Nothing is served before
@@ -91,7 +102,11 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
   const bound = { host, port: options.port };
   const server = createServer((request, response) => {
     const api = (request.url ?? '').startsWith('/api/');
-    const refuse = (status: number, message: string) =>
+    /**
+     * @param {number} status
+     * @param {string} message
+     */
+    const refuse = (status, message) =>
       api
         ? send(response, status, 'application/json; charset=utf-8', JSON.stringify({ error: message }))
         : send(response, status, 'text/plain; charset=utf-8', message);
@@ -122,13 +137,20 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
     token,
     server,
     close: () =>
-      new Promise<void>((resolveClose, rejectClose) => {
+      new Promise((resolveClose, rejectClose) => {
         server.close((error) => (error ? rejectClose(error) : resolveClose()));
       }),
   };
 }
 
-async function handle(request: IncomingMessage, response: ServerResponse, options: StartOptions, host: string): Promise<void> {
+/**
+ * @param {IncomingMessage} request
+ * @param {ServerResponse} response
+ * @param {StartOptions} options
+ * @param {string} host
+ * @returns {Promise<void>}
+ */
+async function handle(request, response, options, host) {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
 
   if (url.pathname.startsWith('/api/')) {
@@ -140,7 +162,8 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
       return send(response, 415, 'application/json; charset=utf-8', JSON.stringify({ error: ERRORS.jsonRequired() }));
     }
 
-    let body: unknown;
+    /** @type {unknown} */
+    let body;
     try {
       body = await readJsonBody(request);
     } catch (error) {
@@ -164,13 +187,14 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
  * `ApiResponse` the handler returned, status included, so the client's success and failure paths are
  * the same two lines they are on every other route. A thrown error becomes a `done` with a 500,
  * because by this point the status line has already gone out and cannot be changed.
+ *
+ * @param {IncomingMessage} request
+ * @param {ServerResponse} response
+ * @param {{ method: string; path: string; body: unknown }} api
+ * @param {StartOptions} options
+ * @returns {Promise<void>}
  */
-async function streamApi(
-  request: IncomingMessage,
-  response: ServerResponse,
-  api: { method: string; path: string; body: unknown },
-  options: StartOptions,
-): Promise<void> {
+async function streamApi(request, response, api, options) {
   response.writeHead(200, {
     ...SECURITY_HEADERS,
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -189,7 +213,12 @@ async function streamApi(
   request.on('close', () => {
     open = false;
   });
-  const write = (event: string, data: unknown): void => {
+  /**
+   * @param {string} event
+   * @param {unknown} data
+   * @returns {void}
+   */
+  const write = (event, data) => {
     if (!open || response.writableEnded) return;
     response.write(sseFrame(event, data));
   };
@@ -201,7 +230,8 @@ async function streamApi(
   heartbeat.unref?.();
 
   try {
-    const onProgress = (event: ApiProgress) => write('progress', event);
+    /** @param {ApiProgress} event */
+    const onProgress = (event) => write('progress', event);
     const result = await handleApi(api, { ...options, onProgress });
     write('done', result);
   } catch (error) {
@@ -218,8 +248,12 @@ async function streamApi(
  * `JSON.stringify` never emits a raw newline, so the payload is always one `data:` line and the
  * multi-line form of the format never comes up. The blank line at the end is what marks the frame
  * complete; without it a client waits for the next one before delivering this one.
+ *
+ * @param {string} event
+ * @param {unknown} data
+ * @returns {string}
  */
-export function sseFrame(event: string, data: unknown): string {
+export function sseFrame(event, data) {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
@@ -227,8 +261,11 @@ export function sseFrame(event: string, data: unknown): string {
  * What a request that threw sends back. A `ConfigError` was written for the user and says which file
  * to fix, so it goes through, flagged so the dashboard stops blaming the network. Anything else is a
  * bug, and its text can carry absolute paths and stack frames: that stays in the terminal.
+ *
+ * @param {unknown} error
+ * @returns {{ status: number; body: { error: string; configBroken?: true } }}
  */
-export function errorReply(error: unknown): { status: number; body: { error: string; configBroken?: true } } {
+export function errorReply(error) {
   if (error instanceof ConfigError) return { status: 500, body: { error: error.message, configBroken: true } };
   return { status: 500, body: { error: ERRORS.serverFailed() } };
 }
@@ -252,14 +289,16 @@ const WILDCARD_BINDS = new Set(['0.0.0.0', '[::]']);
  * machine knows it by. It only ever runs with a launch token, and the token is what a rebound page
  * cannot have, since the cookie that carries it belongs to the name it was set under. So there, and
  * only while a token is in force, any name on the right port is let through to the token check.
+ *
+ * @param {string | undefined} hostHeader
+ * @param {{ host: string; port: number }} bound
+ * @param {boolean} [tokenGated]
+ * @returns {string | undefined}
  */
-export function hostDenial(
-  hostHeader: string | undefined,
-  bound: { host: string; port: number },
-  tokenGated = false,
-): string | undefined {
+export function hostDenial(hostHeader, bound, tokenGated = false) {
   if (!hostHeader) return ERRORS.hostRefused(undefined);
-  let parsed: URL;
+  /** @type {URL} */
+  let parsed;
   try {
     parsed = new URL(`http://${hostHeader}`);
   } catch {
@@ -274,8 +313,13 @@ export function hostDenial(
   return nameOk && portOk ? undefined : ERRORS.hostRefused(hostHeader);
 }
 
-/** Whether a bind address is the loopback interface, which nothing on the network can reach. */
-export function isLoopbackBind(host: string): boolean {
+/**
+ * Whether a bind address is the loopback interface, which nothing on the network can reach.
+ *
+ * @param {string} host
+ * @returns {boolean}
+ */
+export function isLoopbackBind(host) {
   const name = host.replace(/^\[(.*)\]$/, '$1').toLowerCase();
   return name === 'localhost' || name === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(name);
 }
@@ -283,13 +327,21 @@ export function isLoopbackBind(host: string): boolean {
 /**
  * The token a launch on `host` needs, or none for loopback. A new one every launch, so a URL left in
  * a shell history or a screenshot stops working the moment that dashboard is stopped.
+ *
+ * @param {string} host
+ * @returns {string | undefined}
  */
-export function launchToken(host: string): string | undefined {
+export function launchToken(host) {
   return isLoopbackBind(host) ? undefined : randomBytes(24).toString('base64url');
 }
 
-/** Per port, so two dashboards open on one machine do not log each other out. */
-function tokenCookie(port: number): string {
+/**
+ * Per port, so two dashboards open on one machine do not log each other out.
+ *
+ * @param {number} port
+ * @returns {string}
+ */
+function tokenCookie(port) {
   return `opengeo_token_${port}`;
 }
 
@@ -301,12 +353,13 @@ function tokenCookie(port: number): string {
  * history or a `Referer`. The cookie is HttpOnly, so the page's own script never holds it, and
  * SameSite=Strict, so no other site's request ever arrives with it. A bearer header is accepted too,
  * for curl and scripts.
+ *
+ * @param {IncomingMessage} request
+ * @param {string} token
+ * @param {string} cookieName
+ * @returns {'ok' | 'refused' | { location: string; cookie: string }}
  */
-function tokenVerdict(
-  request: IncomingMessage,
-  token: string,
-  cookieName: string,
-): 'ok' | 'refused' | { location: string; cookie: string } {
+function tokenVerdict(request, token, cookieName) {
   const url = new URL(request.url ?? '/', 'http://placeholder');
   const offered = url.searchParams.get('token');
   if (offered !== null) {
@@ -328,8 +381,14 @@ function tokenVerdict(
   return cookie !== undefined && sameSecret(cookie, token) ? 'ok' : 'refused';
 }
 
-/** Compared in constant time, so a guess cannot be refined by how long the refusal took. */
-function sameSecret(offered: string, expected: string): boolean {
+/**
+ * Compared in constant time, so a guess cannot be refined by how long the refusal took.
+ *
+ * @param {string} offered
+ * @param {string} expected
+ * @returns {boolean}
+ */
+function sameSecret(offered, expected) {
   const a = Buffer.from(offered);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -339,13 +398,17 @@ function sameSecret(offered: string, expected: string): boolean {
  * Same-origin enforcement for a local server. A browser always sends `Origin` on a cross-origin
  * fetch, so an absent Origin means a same-origin request or a non-browser client such as curl, and
  * a present one has to match the host we are serving from.
+ *
+ * @param {Pick<IncomingMessage, 'headers'>} request
+ * @returns {string | undefined}
  */
-export function crossOriginDenial(request: Pick<IncomingMessage, 'headers'>): string | undefined {
+export function crossOriginDenial(request) {
   const origin = request.headers.origin;
   if (!origin) return undefined;
   const host = request.headers.host;
   if (!host) return 'Refused: the request has an Origin but no Host.';
-  let parsed: URL;
+  /** @type {URL} */
+  let parsed;
   try {
     parsed = new URL(origin);
   } catch {
@@ -357,7 +420,13 @@ export function crossOriginDenial(request: Pick<IncomingMessage, 'headers'>): st
   return undefined;
 }
 
-function serveStatic(pathname: string, response: ServerResponse, webRoot: string): void {
+/**
+ * @param {string} pathname
+ * @param {ServerResponse} response
+ * @param {string} webRoot
+ * @returns {void}
+ */
+function serveStatic(pathname, response, webRoot) {
   if (!existsSync(webRoot)) {
     return send(
       response,
@@ -382,8 +451,14 @@ function serveStatic(pathname: string, response: ServerResponse, webRoot: string
   send(response, 200, type, readFileSync(file), file.endsWith('.html') ? 'no-store' : undefined);
 }
 
-/** Resolve a URL path inside the web root, refusing anything that escapes it. */
-export function resolveStaticPath(pathname: string, webRoot: string): string | undefined {
+/**
+ * Resolve a URL path inside the web root, refusing anything that escapes it.
+ *
+ * @param {string} pathname
+ * @param {string} webRoot
+ * @returns {string | undefined}
+ */
+export function resolveStaticPath(pathname, webRoot) {
   const decoded = safeDecode(pathname);
   if (decoded === undefined) return undefined;
   const relative = normalize(decoded).replace(/^([/\\.]+)/, '');
@@ -399,7 +474,11 @@ export function resolveStaticPath(pathname: string, webRoot: string): string | u
   return existsSync(index) ? index : undefined;
 }
 
-function safeDecode(value: string): string | undefined {
+/**
+ * @param {string} value
+ * @returns {string | undefined}
+ */
+function safeDecode(value) {
   try {
     return decodeURIComponent(value);
   } catch {
@@ -407,12 +486,17 @@ function safeDecode(value: string): string | undefined {
   }
 }
 
-function readJsonBody(request: IncomingMessage): Promise<unknown> {
+/**
+ * @param {IncomingMessage} request
+ * @returns {Promise<unknown>}
+ */
+function readJsonBody(request) {
   if (request.method === 'GET' || request.method === 'HEAD') return Promise.resolve(undefined);
   return new Promise((resolveBody, rejectBody) => {
-    const chunks: Buffer[] = [];
+    /** @type {Buffer[]} */
+    const chunks = [];
     let size = 0;
-    request.on('data', (chunk: Buffer) => {
+    request.on('data', (/** @type {Buffer} */ chunk) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
         rejectBody(new Error('Request body too large.'));
@@ -434,11 +518,23 @@ function readJsonBody(request: IncomingMessage): Promise<unknown> {
   });
 }
 
-function isJson(contentType: string | undefined): boolean {
+/**
+ * @param {string | undefined} contentType
+ * @returns {boolean}
+ */
+function isJson(contentType) {
   return contentType?.split(';')[0]?.trim().toLowerCase() === 'application/json';
 }
 
-function send(response: ServerResponse, status: number, type: string, body: string | Buffer, cacheControl?: string): void {
+/**
+ * @param {ServerResponse} response
+ * @param {number} status
+ * @param {string} type
+ * @param {string | Buffer} body
+ * @param {string} [cacheControl]
+ * @returns {void}
+ */
+function send(response, status, type, body, cacheControl) {
   response.writeHead(status, {
     ...SECURITY_HEADERS,
     'Content-Type': type,
@@ -448,8 +544,15 @@ function send(response: ServerResponse, status: number, type: string, body: stri
   response.end(body);
 }
 
-/** Port 0 means "any free port", which is what the tests use. */
-function listen(server: Server, port: number, host: string): Promise<number> {
+/**
+ * Port 0 means "any free port", which is what the tests use.
+ *
+ * @param {Server} server
+ * @param {number} port
+ * @param {string} host
+ * @returns {Promise<number>}
+ */
+function listen(server, port, host) {
   return new Promise((resolveListen, rejectListen) => {
     server.once('error', rejectListen);
     server.listen(port, host, () => {

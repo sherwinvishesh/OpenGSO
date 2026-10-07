@@ -42,7 +42,7 @@
         "./packages/core/src/prod/adapters/next.js"
       ],
       "@opengeo/core/server": [
-        "./packages/core/src/server/index.ts"
+        "./packages/core/src/server/index.js"
       ],
       "@opengeo/core/cli": [
         "./packages/core/src/cli/index.ts"
