@@ -130,6 +130,21 @@ describe('extraction keeps the page shape intact', () => {
     expect(markdown.match(/^# Install guide$/gm)).toHaveLength(1);
     expect(markdown).toContain('Docs / Guides');
   });
+
+  it('turns a link wrapped around a card into a heading link, not a heading inside a link', () => {
+    const html = page(`<main><h1>Blog</h1><a href="/posts/one"><div><h3>Post one</h3><p>${words}</p></div></a></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).toContain('### [Post one](https://example.com/posts/one)');
+    expect(markdown).toContain(`\n\n${words}`);
+    expect(markdown).not.toContain('[###');
+  });
+
+  it('keeps the destination of a block link that has no heading to hang it on', () => {
+    const html = page(`<main><h1>Blog</h1><a href="/posts/two"><ul><li>One</li><li>Two</li></ul></a><p>${words}</p></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).toContain('- One\n- Two');
+    expect(markdown).toContain('<https://example.com/posts/two>');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {

@@ -265,7 +265,7 @@ function renderChildren(parent, ctx) {
     }
     if (child.nodeType !== ELEMENT_NODE) continue;
     const el = /** @type {Element} */ (child);
-    if (isInline(el.tagName.toLowerCase())) {
+    if (isInline(el.tagName.toLowerCase()) && !isBlockLink(el)) {
       inlineBuffer += renderInline(el, ctx);
       continue;
     }
@@ -288,6 +288,44 @@ const INLINE_TAGS = new Set([
  */
 function isInline(tag) {
   return INLINE_TAGS.has(tag);
+}
+
+const BLOCK_DESCENDANTS = [
+  'address', 'article', 'aside', 'blockquote', 'dd', 'div', 'dl', 'dt', 'figure', 'figcaption',
+  'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p',
+  'pre', 'section', 'table', 'ul',
+].join(',');
+
+/**
+ * An <a> wrapped around a whole card. Rendered inline, its heading and paragraphs collapse into one
+ * link text with a literal `###` in it, which is neither a link nor a heading to a reader.
+ *
+ * @param {Element} el
+ * @returns {boolean}
+ */
+function isBlockLink(el) {
+  return el.tagName.toLowerCase() === 'a' && el.querySelector(BLOCK_DESCENDANTS) !== null;
+}
+
+/**
+ * Render a card link as its own blocks, and hang the destination on the first single-line heading.
+ * With no heading to carry it, the destination follows as an autolink so it is not lost.
+ *
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string[]}
+ */
+function renderBlockLink(el, ctx) {
+  const blocks = renderChildren(el, ctx);
+  const href = absolute(el.getAttribute('href'), ctx.baseUrl);
+  if (!href || href.startsWith('javascript:') || blocks.length === 0) return blocks;
+  const headingAt = blocks.findIndex((block) => /^#{1,6} [^\n]+$/.test(block));
+  if (headingAt >= 0) {
+    const heading = /** @type {string} */ (blocks[headingAt]);
+    blocks[headingAt] = heading.replace(/^(#{1,6} )(.*)$/, (_, marker, text) => `${marker}[${text}](${href})`);
+    return blocks;
+  }
+  return [...blocks, `<${href}>`];
 }
 
 /**
@@ -337,6 +375,8 @@ function renderBlock(el, ctx) {
     case 'li':
       // A stray <li> outside a list; render as a bullet rather than dropping it.
       return [`- ${collapse(renderInlineChildren(el, ctx))}`];
+    case 'a':
+      return renderBlockLink(el, ctx);
     default:
       return renderChildren(el, ctx);
   }
@@ -399,7 +439,7 @@ function renderList(el, ctx, depth) {
       const subTag = sub.tagName.toLowerCase();
       if (subTag === 'ul' || subTag === 'ol') {
         nested.push(renderList(sub, ctx, depth + 1));
-      } else if (isInline(subTag)) {
+      } else if (isInline(subTag) && !isBlockLink(sub)) {
         inlineParts.push(renderInline(sub, ctx));
       } else {
         const rendered = renderBlock(sub, ctx).join('\n\n');
