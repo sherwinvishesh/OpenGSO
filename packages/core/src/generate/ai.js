@@ -1,9 +1,12 @@
-import type { AiProvider, ProviderOverrides, ResolvedProvider } from '../shared/providers.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps, resolveProvider } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
-import type { EnhanceInput, EnhanceOutput } from './generate.js';
 import { verifyFidelity } from './fidelity.js';
+
+/**
+ * @import { AiProvider, ProviderOverrides, ResolvedProvider } from '../shared/providers.js'
+ * @import { EnhanceInput, EnhanceOutput } from './generate.js'
+ */
 
 /**
  * The bring-your-own-key AI tier (§6).
@@ -14,43 +17,45 @@ import { verifyFidelity } from './fidelity.js';
  *    reproducing what is on the page rather than improving it, because a subtly reworded price is
  *    worse than a rough-but-correct algorithmic extraction.
  * 2. Nothing is trusted on the model's word. Whatever comes back goes through the fidelity guard in
- *    fidelity.ts, and a failed check silently keeps the algorithmic markdown instead.
+ *    fidelity.js, and a failed check silently keeps the algorithmic markdown instead.
  * 3. The key is used for exactly one thing: an HTTPS call to the provider the user picked. It is
  *    never logged, never attached to any other request, and there is no telemetry anywhere in this
  *    package to attach it to (§11).
  */
 
-export interface ProviderCall {
-  provider: AiProvider;
-  model: string;
-  apiKey: string;
-  system: string;
-  prompt: string;
-  maxTokens?: number;
-  timeoutMs?: number;
-  /**
-   * Endpoint overrides from the project's `ai` block. Absent means "use the catalogue row", which
-   * is what every built-in provider does until somebody points it at a gateway.
-   */
-  overrides?: ProviderOverrides;
-}
+/**
+ * @typedef {object} ProviderCall
+ * @property {AiProvider} provider
+ * @property {string} model
+ * @property {string} apiKey
+ * @property {string} system
+ * @property {string} prompt
+ * @property {number} [maxTokens]
+ * @property {number} [timeoutMs]
+ * @property {ProviderOverrides} [overrides] Endpoint overrides from the project's `ai` block. Absent
+ *   means "use the catalogue row", which is what every built-in provider does until somebody points
+ *   it at a gateway.
+ */
 
-/** Injectable so tests, and the mock-provider fixtures, never touch the network. */
-export type ProviderFn = (call: ProviderCall) => Promise<string>;
+/**
+ * Injectable so tests, and the mock-provider fixtures, never touch the network.
+ *
+ * @typedef {(call: ProviderCall) => Promise<string>} ProviderFn
+ */
 
-export interface AiEnhancerOptions {
-  provider: AiProvider;
-  model?: string;
-  apiKey: string;
-  /** Defaults to the real HTTP providers. */
-  call?: ProviderFn;
-  maxTokens?: number;
-  timeoutMs?: number;
-  /** Endpoint overrides for a gateway or a provider OpenGEO does not ship with. */
-  overrides?: ProviderOverrides;
-  /** Overridable only so the CI guard itself is testable. */
-  env?: Record<string, string | undefined>;
-}
+/**
+ * @typedef {object} AiEnhancerOptions
+ * @property {AiProvider} provider
+ * @property {string} [model]
+ * @property {string} apiKey
+ * @property {ProviderFn} [call] Defaults to the real HTTP providers.
+ * @property {number} [maxTokens]
+ * @property {number} [timeoutMs]
+ * @property {ProviderOverrides} [overrides] Endpoint overrides for a gateway or a provider OpenGEO
+ *   does not ship with.
+ * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is
+ *   testable.
+ */
 
 export const SYSTEM_PROMPT = [
   'You convert an already-rendered web page into clean Markdown for AI agents to read.',
@@ -78,7 +83,11 @@ export const SYSTEM_PROMPT = [
   'Output only the Markdown document. No code fence around the whole thing.',
 ].join('\n');
 
-export function buildFidelityPrompt(input: EnhanceInput): string {
+/**
+ * @param {EnhanceInput} input
+ * @returns {string}
+ */
+export function buildFidelityPrompt(input) {
   return [
     `Page title: ${input.title}`,
     `Page URL: ${input.url}`,
@@ -100,8 +109,11 @@ export function buildFidelityPrompt(input: EnhanceInput): string {
  *
  * Any failure - a provider error, a timeout, a fidelity violation - resolves to the algorithmic
  * markdown with a warning. Generate never dies because an AI call went wrong.
+ *
+ * @param {AiEnhancerOptions} options
+ * @returns {(input: EnhanceInput) => Promise<EnhanceOutput>}
  */
-export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInput) => Promise<EnhanceOutput> {
+export function createAiEnhancer(options) {
   if (!isAiProvider(options.provider)) {
     throw new Error(ERRORS.unknownProvider(options.provider, AI_PROVIDERS));
   }
@@ -117,8 +129,9 @@ export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInp
   const gaps = providerGaps(options.provider, model, options.overrides);
   if (gaps.length > 0) throw new Error(ERRORS.providerIncomplete(options.provider, gaps));
 
-  return async (input: EnhanceInput): Promise<EnhanceOutput> => {
-    let text: string;
+  return async (input) => {
+    /** @type {string} */
+    let text;
     try {
       text = await call({
         provider: options.provider,
@@ -158,14 +171,21 @@ export function createAiEnhancer(options: AiEnhancerOptions): (input: EnhanceInp
 /**
  * Models often wrap a whole document in ```markdown despite being told not to. Unwrapping that is
  * not a fidelity concern, so it happens before the check rather than being counted against it.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-export function stripCodeFence(text: string): string {
+export function stripCodeFence(text) {
   const trimmed = text.trim();
   const match = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n?```$/.exec(trimmed);
-  return match ? match[1]! : trimmed;
+  return match ? match[1] : trimmed;
 }
 
-function errorText(error: unknown): string {
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function errorText(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -176,8 +196,11 @@ function errorText(error: unknown): string {
  * OpenAI-compatible endpoint, so one caller plus a base URL covers Grok, Groq, Mistral, DeepSeek,
  * OpenRouter, Together, Perplexity, a local Ollama, and whatever gateway a company put in front of
  * them. Adding a vendor that follows the pattern is a row in the catalogue, not a branch here.
+ *
+ * @param {ProviderCall} call
+ * @returns {Promise<string>}
  */
-export async function callProvider(call: ProviderCall): Promise<string> {
+export async function callProvider(call) {
   if (!isAiProvider(call.provider)) {
     throw new Error(ERRORS.unknownProvider(call.provider, AI_PROVIDERS));
   }
@@ -202,8 +225,12 @@ export async function callProvider(call: ProviderCall): Promise<string> {
  *
  * `none` is a real answer, not a missing case: a model server on the user's own machine has no key
  * to send, and inventing a placeholder would only make the failure harder to read.
+ *
+ * @param {ResolvedProvider} provider
+ * @param {string} apiKey
+ * @returns {Record<string, string>}
  */
-function authHeaders(provider: ResolvedProvider, apiKey: string): Record<string, string> {
+function authHeaders(provider, apiKey) {
   const extra = provider.headers;
   if (provider.auth === 'none' || !apiKey) return { ...extra };
   switch (provider.auth) {
@@ -216,7 +243,14 @@ function authHeaders(provider: ResolvedProvider, apiKey: string): Record<string,
   }
 }
 
-async function post(url: string, init: RequestInit, timeoutMs: number, label: string): Promise<unknown> {
+/**
+ * @param {string} url
+ * @param {RequestInit} init
+ * @param {number} timeoutMs
+ * @param {string} label
+ * @returns {Promise<unknown>}
+ */
+async function post(url, init, timeoutMs, label) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -231,7 +265,7 @@ async function post(url: string, init: RequestInit, timeoutMs: number, label: st
     if (!response.ok) {
       throw new Error(ERRORS.providerFailed(label, response.status, body));
     }
-    return JSON.parse(body) as unknown;
+    return /** @type {unknown} */ (JSON.parse(body));
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`The ${label} API did not respond within ${Math.round(timeoutMs / 1000)}s.`);
@@ -242,8 +276,13 @@ async function post(url: string, init: RequestInit, timeoutMs: number, label: st
   }
 }
 
-async function callAnthropic(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
-  const json = (await post(
+/**
+ * @param {ProviderCall} call
+ * @param {ResolvedProvider} provider
+ * @returns {Promise<string>}
+ */
+async function callAnthropic(call, provider) {
+  const json = /** @type {{ content?: Array<{ type?: string; text?: string }> }} */ (await post(
     `${provider.baseUrl}/messages`,
     {
       method: 'POST',
@@ -261,7 +300,7 @@ async function callAnthropic(call: ProviderCall, provider: ResolvedProvider): Pr
     },
     call.timeoutMs ?? 120_000,
     provider.label,
-  )) as { content?: Array<{ type?: string; text?: string }> };
+  ));
 
   const text = (json.content ?? [])
     .filter((block) => block.type === 'text' || typeof block.text === 'string')
@@ -271,11 +310,16 @@ async function callAnthropic(call: ProviderCall, provider: ResolvedProvider): Pr
   return text;
 }
 
-async function callOpenAI(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
+/**
+ * @param {ProviderCall} call
+ * @param {ResolvedProvider} provider
+ * @returns {Promise<string>}
+ */
+async function callOpenAI(call, provider) {
   // OpenAI's own newer models reject `max_tokens`; almost every compatible clone rejects
   // `max_completion_tokens`. The catalogue row says which one this endpoint accepts.
   const tokens = { [provider.tokenParam]: call.maxTokens ?? 8192 };
-  const json = (await post(
+  const json = /** @type {{ choices?: Array<{ message?: { content?: string } }> }} */ (await post(
     `${provider.baseUrl}/chat/completions`,
     {
       method: 'POST',
@@ -291,16 +335,21 @@ async function callOpenAI(call: ProviderCall, provider: ResolvedProvider): Promi
     },
     call.timeoutMs ?? 120_000,
     provider.label,
-  )) as { choices?: Array<{ message?: { content?: string } }> };
+  ));
 
   const text = json.choices?.[0]?.message?.content ?? '';
   if (!text) throw new Error(`${provider.label} returned no message content.`);
   return text;
 }
 
-async function callGemini(call: ProviderCall, provider: ResolvedProvider): Promise<string> {
+/**
+ * @param {ProviderCall} call
+ * @param {ResolvedProvider} provider
+ * @returns {Promise<string>}
+ */
+async function callGemini(call, provider) {
   const model = encodeURIComponent(call.model);
-  const json = (await post(
+  const json = /** @type {{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }} */ (await post(
     `${provider.baseUrl}/models/${model}:generateContent`,
     {
       method: 'POST',
@@ -313,7 +362,7 @@ async function callGemini(call: ProviderCall, provider: ResolvedProvider): Promi
     },
     call.timeoutMs ?? 120_000,
     provider.label,
-  )) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  ));
 
   const text = (json.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('');
   if (!text) throw new Error(`${provider.label} returned no candidate content.`);

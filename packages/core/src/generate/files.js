@@ -2,10 +2,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomic } from '../shared/fs.js';
 import { ERRORS } from '../shared/errors.js';
-import type { AiBot } from '../shared/bots.js';
 import { findBot } from '../shared/bots.js';
 import { routeToTwinUrlPath } from '../shared/routes.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
+
+/** @import { AiBot } from '../shared/bots.js' */
 
 /**
  * robots.txt, llms.txt and sitemap.xml (§6).
@@ -36,51 +37,53 @@ const MARKER_LINE = new RegExp(`^(?:# |<!-- )${GENERATED_MARKER} \\(`, 'm');
 /** RFC 9309's product token, plus digits and dots, which real crawler tokens use. */
 const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
 
-export type SiteFileName = 'robots.txt' | 'llms.txt' | 'sitemap.xml';
-export type SiteFileStatus = 'written' | 'unchanged' | 'proposed' | 'failed';
+/** @typedef {'robots.txt' | 'llms.txt' | 'sitemap.xml'} SiteFileName */
+/** @typedef {'written' | 'unchanged' | 'proposed' | 'failed'} SiteFileStatus */
 
-export interface SitePage {
-  route: string;
-  /** Absolute URL of the human page. */
-  url: string;
-  title: string;
-  description?: string;
-  tokens?: number;
-  lastUpdated?: string;
-}
+/**
+ * @typedef {object} SitePage
+ * @property {string} route
+ * @property {string} url Absolute URL of the human page.
+ * @property {string} title
+ * @property {string} [description]
+ * @property {number} [tokens]
+ * @property {string} [lastUpdated]
+ */
 
-export interface SiteFileResult {
-  name: SiteFileName;
-  /** Absolute path actually written, which is the `.opengeo-proposed` path when status is proposed. */
-  path: string;
-  status: SiteFileStatus;
-  /** Populated for `proposed` and `failed`, using the shared §13 copy. */
-  message?: string;
-}
+/**
+ * @typedef {object} SiteFileResult
+ * @property {SiteFileName} name
+ * @property {string} path Absolute path actually written, which is the `.opengeo-proposed` path when
+ *   status is proposed.
+ * @property {SiteFileStatus} status
+ * @property {string} [message] Populated for `proposed` and `failed`, using the shared §13 copy.
+ */
 
-export interface SiteFilesOptions {
-  site: string;
-  publicDir: string;
-  pages: SitePage[];
-  /** Bot names from config.bots.blocked. Empty means block nobody, which is the default (§7). */
-  blocked?: readonly string[];
-  /**
-   * The catalogue those names resolve against, so a project's own crawler gets its declared
-   * robots.txt token rather than being written out verbatim. Defaults to the shipped list.
-   */
-  bots?: readonly AiBot[];
-  /** Site name for the llms.txt H1. Defaults to the hostname. */
-  siteName?: string;
-  /** One-line summary for the llms.txt blockquote. */
-  siteDescription?: string;
-  force?: boolean;
-  /** Skip one or more files entirely. */
-  only?: readonly SiteFileName[];
-}
+/**
+ * @typedef {object} SiteFilesOptions
+ * @property {string} site
+ * @property {string} publicDir
+ * @property {SitePage[]} pages
+ * @property {readonly string[]} [blocked] Bot names from config.bots.blocked. Empty means block
+ *   nobody, which is the default (§7).
+ * @property {readonly AiBot[]} [bots] The catalogue those names resolve against, so a project's own
+ *   crawler gets its declared robots.txt token rather than being written out verbatim. Defaults to
+ *   the shipped list.
+ * @property {string} [siteName] Site name for the llms.txt H1. Defaults to the hostname.
+ * @property {string} [siteDescription] One-line summary for the llms.txt blockquote.
+ * @property {boolean} [force]
+ * @property {readonly SiteFileName[]} [only] Skip one or more files entirely.
+ */
 
-export function writeSiteFiles(options: SiteFilesOptions): SiteFileResult[] {
-  const wanted: SiteFileName[] = options.only ? [...options.only] : ['robots.txt', 'llms.txt', 'sitemap.xml'];
-  const contents: Record<SiteFileName, string> = {
+/**
+ * @param {SiteFilesOptions} options
+ * @returns {SiteFileResult[]}
+ */
+export function writeSiteFiles(options) {
+  /** @type {SiteFileName[]} */
+  const wanted = options.only ? [...options.only] : ['robots.txt', 'llms.txt', 'sitemap.xml'];
+  /** @type {Record<SiteFileName, string>} */
+  const contents = {
     'robots.txt': renderRobotsTxt(options),
     'llms.txt': renderLlmsTxt(options),
     'sitemap.xml': renderSitemapXml(options),
@@ -94,8 +97,14 @@ export function writeSiteFiles(options: SiteFilesOptions): SiteFileResult[] {
  * The marker check is a line match rather than a hash, so a user can hand-edit a file OpenGEO
  * wrote (add a Crawl-delay, say) and still have it recognised as ours on the next run. Deleting the
  * marker line is the way to say "hands off from now on".
+ *
+ * @param {string} path
+ * @param {SiteFileName} name
+ * @param {string} contents
+ * @param {boolean} force
+ * @returns {SiteFileResult}
  */
-export function writeGuarded(path: string, name: SiteFileName, contents: string, force: boolean): SiteFileResult {
+export function writeGuarded(path, name, contents, force) {
   try {
     const existing = existsSync(path) ? readFileSync(path, 'utf8') : undefined;
     const owned = existing === undefined || MARKER_LINE.test(existing);
@@ -124,8 +133,14 @@ export function writeGuarded(path: string, name: SiteFileName, contents: string,
  * the caller decides that. What happens next does not: a file that is not ours is left exactly as
  * it is and the new version goes beside it as `<name>.opengeo-proposed`, unless `--force` says
  * otherwise.
+ *
+ * @param {string} path
+ * @param {string} contents
+ * @param {boolean} owned
+ * @param {boolean} force
+ * @returns {{ path: string; proposed: boolean }}
  */
-export function writeOrPropose(path: string, contents: string, owned: boolean, force: boolean): { path: string; proposed: boolean } {
+export function writeOrPropose(path, contents, owned, force) {
   if (!owned && !force) {
     const proposedPath = `${path}${PROPOSED_SUFFIX}`;
     writeFileAtomic(proposedPath, contents);
@@ -138,8 +153,11 @@ export function writeOrPropose(path: string, contents: string, owned: boolean, f
 /**
  * The generation timestamp changes on every run, so comparing raw text would report every file as
  * changed forever. Dropping the stamped lines before comparing is what makes "unchanged" honest.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-function stripTimestamps(text: string): string {
+function stripTimestamps(text) {
   return text.replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, '').trim();
 }
 
@@ -149,10 +167,14 @@ function stripTimestamps(text: string): string {
  * representation is not robots.txt's business.
  *
  * Everything is allowed unless the user explicitly listed it. An unknown bot is never blocked (§16).
+ *
+ * @param {SiteFilesOptions} options
+ * @returns {string}
  */
-export function renderRobotsTxt(options: SiteFilesOptions): string {
+export function renderRobotsTxt(options) {
   const site = new URL(options.site);
-  const lines: string[] = [
+  /** @type {string[]} */
+  const lines = [
     `# ${GENERATED_MARKER} (${AEO_SPEC_VERSION}) on ${new Date().toISOString()}`,
     `# Edit freely: OpenGEO only rewrites this file while the line above is present.`,
     ``,
@@ -192,13 +214,17 @@ export function renderRobotsTxt(options: SiteFilesOptions): string {
  *
  * Each entry points at the markdown twin rather than the HTML page, since the whole point is to
  * hand an agent the cheap, clean representation.
+ *
+ * @param {SiteFilesOptions} options
+ * @returns {string}
  */
-export function renderLlmsTxt(options: SiteFilesOptions): string {
+export function renderLlmsTxt(options) {
   const site = new URL(options.site);
   const name = options.siteName ?? site.hostname;
   const pages = [...options.pages].sort(byRoute);
 
-  const lines: string[] = [`# ${name}`, ``];
+  /** @type {string[]} */
+  const lines = [`# ${name}`, ``];
   if (options.siteDescription) lines.push(`> ${options.siteDescription}`, ``);
   lines.push(
     `Every link below is a Markdown version of the corresponding page, generated from the page`,
@@ -224,8 +250,11 @@ export function renderLlmsTxt(options: SiteFilesOptions): string {
  * The twins are deliberately absent: they carry `X-Robots-Tag: noindex` (§7), so advertising them
  * to a classic search crawler would be asking for the same content to be indexed twice under two
  * URLs, which is exactly the duplicate-content problem the rewrite-not-redirect design avoids.
+ *
+ * @param {SiteFilesOptions} options
+ * @returns {string}
  */
-export function renderSitemapXml(options: SiteFilesOptions): string {
+export function renderSitemapXml(options) {
   const pages = [...options.pages].sort(byRoute);
   const entries = pages.map((page) => {
     const lastmod = page.lastUpdated ? `\n    <lastmod>${escapeXml(page.lastUpdated)}</lastmod>` : '';
@@ -242,21 +271,38 @@ export function renderSitemapXml(options: SiteFilesOptions): string {
   ].join('\n');
 }
 
-function byRoute(a: SitePage, b: SitePage): number {
+/**
+ * @param {SitePage} a
+ * @param {SitePage} b
+ * @returns {number}
+ */
+function byRoute(a, b) {
   if (a.route === '/') return -1;
   if (b.route === '/') return 1;
   return a.route.localeCompare(b.route);
 }
 
-function collapse(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function collapse(text) {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-function escapeBrackets(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeBrackets(text) {
   return collapse(text).replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 }
 
-function escapeXml(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeXml(text) {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

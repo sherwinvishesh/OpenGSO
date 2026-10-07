@@ -69,29 +69,36 @@ const MAIN_SELECTORS = [
   '.content',
 ];
 
-export interface ExtractedPage {
-  title: string;
-  description?: string;
-  markdown: string;
-  wordCount: number;
-  /** Which selector supplied the content, so users can debug a bad extraction. */
-  contentRoot: string;
-  warnings: string[];
-  /** Raw JSON-LD blocks found in the document, reused by test's schema check. */
-  jsonLd: unknown[];
-}
+/**
+ * @typedef {object} ExtractedPage
+ * @property {string} title
+ * @property {string} [description]
+ * @property {string} markdown
+ * @property {number} wordCount
+ * @property {string} contentRoot Which selector supplied the content, so users can debug a bad
+ *   extraction.
+ * @property {string[]} warnings
+ * @property {unknown[]} jsonLd Raw JSON-LD blocks found in the document, reused by test's schema
+ *   check.
+ */
 
-export interface ExtractOptions {
-  /** Absolute URL of the page, used to resolve relative links and images. */
-  url: string;
-  /** Below this, the page gets an explicit low-content warning (§17 CSR ceiling). */
-  minWords?: number;
-}
+/**
+ * @typedef {object} ExtractOptions
+ * @property {string} url Absolute URL of the page, used to resolve relative links and images.
+ * @property {number} [minWords] Below this, the page gets an explicit low-content warning (§17 CSR
+ *   ceiling).
+ */
 
-export function extractPage(html: string, options: ExtractOptions): ExtractedPage {
+/**
+ * @param {string} html
+ * @param {ExtractOptions} options
+ * @returns {ExtractedPage}
+ */
+export function extractPage(html, options) {
   const dom = new JSDOM(html, { url: options.url });
   const doc = dom.window.document;
-  const warnings: string[] = [];
+  /** @type {string[]} */
+  const warnings = [];
   const jsonLd = readJsonLd(doc);
   for (const error of jsonLd.errors) {
     warnings.push(`A JSON-LD block on this page does not parse and was ignored: ${error}`);
@@ -129,7 +136,11 @@ export function extractPage(html: string, options: ExtractOptions): ExtractedPag
   return { title, description, markdown, wordCount, contentRoot: selector, warnings, jsonLd: jsonLd.blocks };
 }
 
-function pickContentRoot(doc: Document): { root: Element; selector: string } {
+/**
+ * @param {Document} doc
+ * @returns {{ root: Element; selector: string }}
+ */
+function pickContentRoot(doc) {
   for (const selector of MAIN_SELECTORS) {
     const found = doc.querySelector(selector);
     // A short-but-real page is still a page: only skip a landmark that is essentially empty, which
@@ -139,11 +150,20 @@ function pickContentRoot(doc: Document): { root: Element; selector: string } {
   return { root: doc.body ?? doc.documentElement, selector: 'body' };
 }
 
-function textLength(el: Element): number {
+/**
+ * @param {Element} el
+ * @returns {number}
+ */
+function textLength(el) {
   return (el.textContent ?? '').replace(/\s+/g, ' ').trim().length;
 }
 
-function pickTitle(doc: Document, root: Element): string {
+/**
+ * @param {Document} doc
+ * @param {Element} root
+ * @returns {string}
+ */
+function pickTitle(doc, root) {
   const h1 = root.querySelector('h1');
   if (h1?.textContent?.trim()) return clean(h1.textContent);
   const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
@@ -153,7 +173,11 @@ function pickTitle(doc: Document, root: Element): string {
   return 'Untitled';
 }
 
-function pickDescription(doc: Document): string | undefined {
+/**
+ * @param {Document} doc
+ * @returns {string | undefined}
+ */
+function pickDescription(doc) {
   const meta =
     doc.querySelector('meta[name="description"]')?.getAttribute('content') ??
     doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
@@ -161,15 +185,22 @@ function pickDescription(doc: Document): string | undefined {
   return value ? clean(value) : undefined;
 }
 
-export interface JsonLdScan {
-  /** Blocks that actually parsed. A broken block is reported, never passed on as if it were data. */
-  blocks: unknown[];
-  errors: string[];
-}
+/**
+ * @typedef {object} JsonLdScan
+ * @property {unknown[]} blocks Blocks that actually parsed. A broken block is reported, never passed
+ *   on as if it were data.
+ * @property {string[]} errors
+ */
 
-export function readJsonLd(doc: Document): JsonLdScan {
-  const blocks: unknown[] = [];
-  const errors: string[] = [];
+/**
+ * @param {Document} doc
+ * @returns {JsonLdScan}
+ */
+export function readJsonLd(doc) {
+  /** @type {unknown[]} */
+  const blocks = [];
+  /** @type {string[]} */
+  const errors = [];
   for (const node of Array.from(doc.querySelectorAll('script[type="application/ld+json"]'))) {
     const raw = node.textContent?.trim();
     if (!raw) continue;
@@ -182,13 +213,21 @@ export function readJsonLd(doc: Document): JsonLdScan {
   return { blocks, errors };
 }
 
-interface RenderContext {
-  baseUrl: string;
-}
+/**
+ * @typedef {object} RenderContext
+ * @property {string} baseUrl
+ */
 
-/** Render an element's children into a list of block-level markdown chunks. */
-function renderChildren(parent: Element, ctx: RenderContext): string[] {
-  const blocks: string[] = [];
+/**
+ * Render an element's children into a list of block-level markdown chunks.
+ *
+ * @param {Element} parent
+ * @param {RenderContext} ctx
+ * @returns {string[]}
+ */
+function renderChildren(parent, ctx) {
+  /** @type {string[]} */
+  const blocks = [];
   let inlineBuffer = '';
 
   const flush = () => {
@@ -203,7 +242,7 @@ function renderChildren(parent: Element, ctx: RenderContext): string[] {
       continue;
     }
     if (child.nodeType !== ELEMENT_NODE) continue;
-    const el = child as Element;
+    const el = /** @type {Element} */ (child);
     if (isInline(el.tagName.toLowerCase())) {
       inlineBuffer += renderInline(el, ctx);
       continue;
@@ -221,11 +260,20 @@ const INLINE_TAGS = new Set([
   'var', 'wbr', 'label',
 ]);
 
-function isInline(tag: string): boolean {
+/**
+ * @param {string} tag
+ * @returns {boolean}
+ */
+function isInline(tag) {
   return INLINE_TAGS.has(tag);
 }
 
-function renderBlock(el: Element, ctx: RenderContext): string[] {
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string[]}
+ */
+function renderBlock(el, ctx) {
   const tag = el.tagName.toLowerCase();
 
   switch (tag) {
@@ -272,7 +320,11 @@ function renderBlock(el: Element, ctx: RenderContext): string[] {
   }
 }
 
-function renderPre(el: Element): string {
+/**
+ * @param {Element} el
+ * @returns {string}
+ */
+function renderPre(el) {
   const code = el.querySelector('code');
   const source = code ?? el;
   const language = detectLanguage(source) ?? detectLanguage(el) ?? '';
@@ -281,18 +333,29 @@ function renderPre(el: Element): string {
   return `${fence}${language}\n${text}\n${fence}`;
 }
 
-function detectLanguage(el: Element): string | undefined {
+/**
+ * @param {Element} el
+ * @returns {string | undefined}
+ */
+function detectLanguage(el) {
   const className = el.getAttribute('class') ?? '';
   const match = /(?:^|\s)(?:language|lang)-([a-z0-9+#-]+)/i.exec(className);
   return match?.[1]?.toLowerCase();
 }
 
-function renderList(el: Element, ctx: RenderContext, depth: number): string {
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @param {number} depth
+ * @returns {string}
+ */
+function renderList(el, ctx, depth) {
   const ordered = el.tagName.toLowerCase() === 'ol';
   const startAttr = Number(el.getAttribute('start') ?? '1');
   const start = Number.isFinite(startAttr) ? startAttr : 1;
   const indent = '  '.repeat(depth);
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   let index = start;
 
   for (const child of Array.from(el.children)) {
@@ -300,15 +363,17 @@ function renderList(el: Element, ctx: RenderContext, depth: number): string {
     const marker = ordered ? `${index}. ` : '- ';
     index += 1;
 
-    const nested: string[] = [];
-    const inlineParts: string[] = [];
+    /** @type {string[]} */
+    const nested = [];
+    /** @type {string[]} */
+    const inlineParts = [];
     for (const node of Array.from(child.childNodes)) {
       if (node.nodeType === TEXT_NODE) {
         inlineParts.push(escapeText(node.textContent ?? ''));
         continue;
       }
       if (node.nodeType !== ELEMENT_NODE) continue;
-      const sub = node as Element;
+      const sub = /** @type {Element} */ (node);
       const subTag = sub.tagName.toLowerCase();
       if (subTag === 'ul' || subTag === 'ol') {
         nested.push(renderList(sub, ctx, depth + 1));
@@ -327,13 +392,24 @@ function renderList(el: Element, ctx: RenderContext, depth: number): string {
   return lines.join('\n');
 }
 
-function indentBlock(text: string, depth: number): string {
+/**
+ * @param {string} text
+ * @param {number} depth
+ * @returns {string}
+ */
+function indentBlock(text, depth) {
   const indent = '  '.repeat(depth);
   return text.split('\n').map((line) => (line ? `${indent}${line}` : line)).join('\n');
 }
 
-function renderDefinitionList(el: Element, ctx: RenderContext): string {
-  const lines: string[] = [];
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string}
+ */
+function renderDefinitionList(el, ctx) {
+  /** @type {string[]} */
+  const lines = [];
   for (const child of Array.from(el.children)) {
     const tag = child.tagName.toLowerCase();
     const text = collapse(renderInlineChildren(child, ctx));
@@ -344,8 +420,14 @@ function renderDefinitionList(el: Element, ctx: RenderContext): string {
   return lines.join('\n');
 }
 
-function renderTable(el: Element, ctx: RenderContext): string {
-  const rows: string[][] = [];
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string}
+ */
+function renderTable(el, ctx) {
+  /** @type {string[][]} */
+  const rows = [];
   for (const tr of Array.from(el.querySelectorAll('tr'))) {
     const cells = Array.from(tr.children)
       .filter((cell) => ['td', 'th'].includes(cell.tagName.toLowerCase()))
@@ -356,24 +438,30 @@ function renderTable(el: Element, ctx: RenderContext): string {
 
   const hasHeader = Boolean(el.querySelector('thead th, thead td, tr > th'));
   const width = Math.max(...rows.map((r) => r.length));
-  const pad = (row: string[]) => {
+  /** @param {string[]} row */
+  const pad = (row) => {
     const filled = [...row];
     while (filled.length < width) filled.push('');
     return `| ${filled.join(' | ')} |`;
   };
 
-  const header = hasHeader ? rows[0]! : Array.from({ length: width }, () => '');
+  const header = hasHeader ? rows[0] : Array.from({ length: width }, () => '');
   const body = hasHeader ? rows.slice(1) : rows;
   const separator = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
   return [pad(header), separator, ...body.map(pad)].join('\n');
 }
 
-function renderInlineChildren(el: Element, ctx: RenderContext): string {
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string}
+ */
+function renderInlineChildren(el, ctx) {
   let out = '';
   for (const node of Array.from(el.childNodes)) {
     if (node.nodeType === TEXT_NODE) out += escapeText(node.textContent ?? '');
     else if (node.nodeType === ELEMENT_NODE) {
-      const child = node as Element;
+      const child = /** @type {Element} */ (node);
       out += isInline(child.tagName.toLowerCase())
         ? renderInline(child, ctx)
         : renderBlock(child, ctx).join(' ');
@@ -382,7 +470,12 @@ function renderInlineChildren(el: Element, ctx: RenderContext): string {
   return out;
 }
 
-function renderInline(el: Element, ctx: RenderContext): string {
+/**
+ * @param {Element} el
+ * @param {RenderContext} ctx
+ * @returns {string}
+ */
+function renderInline(el, ctx) {
   const tag = el.tagName.toLowerCase();
   switch (tag) {
     case 'br':
@@ -433,7 +526,12 @@ function renderInline(el: Element, ctx: RenderContext): string {
   }
 }
 
-function absolute(href: string | null, baseUrl: string): string | undefined {
+/**
+ * @param {string | null} href
+ * @param {string} baseUrl
+ * @returns {string | undefined}
+ */
+function absolute(href, baseUrl) {
   if (!href) return undefined;
   const trimmed = href.trim();
   if (!trimmed || trimmed.startsWith('#')) return undefined;
@@ -449,8 +547,11 @@ function absolute(href: string | null, baseUrl: string): string | undefined {
 /**
  * Escape only what would actually change the meaning of the rendered markdown. Over-escaping makes
  * the twin harder for a human to read and inflates the token count for no benefit.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-function escapeText(text: string): string {
+function escapeText(text) {
   return text
     .replace(/([\\`*_[\]])/g, '\\$1')
     // Only a `<` that could open a tag, a comment or an autolink. "2 < 3" means what it says.
@@ -458,10 +559,18 @@ function escapeText(text: string): string {
     .replace(/^(\s*)([-+#>])/gm, '$1\\$2');
 }
 
-function collapse(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function collapse(text) {
   return text.replace(/[ \t]*\n[ \t]*/g, '\n').replace(/[ \t]{2,}/g, ' ').trim();
 }
 
-function clean(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function clean(text) {
   return text.replace(/\s+/g, ' ').trim();
 }

@@ -11,43 +11,46 @@
  * the tool.
  */
 
-export type FactKind = 'date' | 'currency' | 'percent' | 'number';
+/** @typedef {'date' | 'currency' | 'percent' | 'number'} FactKind */
 
-export interface FactToken {
-  /** As it appeared in the text. */
-  value: string;
-  /** Comparison form: case-folded, separators removed, dates reduced to yyyy-mm-dd where possible. */
-  canonical: string;
-  kind: FactKind;
-}
+/**
+ * @typedef {object} FactToken
+ * @property {string} value As it appeared in the text.
+ * @property {string} canonical Comparison form: case-folded, separators removed, dates reduced to
+ *   yyyy-mm-dd where possible.
+ * @property {FactKind} kind
+ */
 
-export interface FidelityIssue {
-  code: 'missing-fact' | 'dropped-occurrences' | 'too-short' | 'missing-heading' | 'empty-output';
-  severity: 'error' | 'warning';
-  message: string;
-}
+/**
+ * @typedef {object} FidelityIssue
+ * @property {'missing-fact' | 'dropped-occurrences' | 'too-short' | 'missing-heading' | 'empty-output'} code
+ * @property {'error' | 'warning'} severity
+ * @property {string} message
+ */
 
-export interface FidelityReport {
-  /** False when any error-severity issue fired, which means: discard the candidate. */
-  ok: boolean;
-  issues: FidelityIssue[];
-  errors: string[];
-  warnings: string[];
-  sourceFacts: FactToken[];
-  /** Distinct facts present in the source but absent from the candidate. */
-  missing: FactToken[];
-}
+/**
+ * @typedef {object} FidelityReport
+ * @property {boolean} ok False when any error-severity issue fired, which means: discard the
+ *   candidate.
+ * @property {FidelityIssue[]} issues
+ * @property {string[]} errors
+ * @property {string[]} warnings
+ * @property {FactToken[]} sourceFacts
+ * @property {FactToken[]} missing Distinct facts present in the source but absent from the candidate.
+ */
 
-export interface FidelityOptions {
-  /** Candidate must keep at least this share of the source's word count. */
-  minWordRatio?: number;
-  /** Candidate must keep at least this share of total fact occurrences (catches dropped tables). */
-  minFactOccurrenceRatio?: number;
-  /** How many missing facts to name in the warning before saying "and N more". */
-  maxReported?: number;
-}
+/**
+ * @typedef {object} FidelityOptions
+ * @property {number} [minWordRatio] Candidate must keep at least this share of the source's word
+ *   count.
+ * @property {number} [minFactOccurrenceRatio] Candidate must keep at least this share of total fact
+ *   occurrences (catches dropped tables).
+ * @property {number} [maxReported] How many missing facts to name in the warning before saying "and
+ *   N more".
+ */
 
-const MONTH_NAMES: Record<string, number> = {
+/** @type {Record<string, number>} */
+const MONTH_NAMES = {
   january: 1, jan: 1,
   february: 2, feb: 2,
   march: 3, mar: 3,
@@ -72,8 +75,10 @@ const CURRENCY_CODES = 'USD|EUR|GBP|JPY|CAD|AUD|CHF|SEK|NOK|DKK|ISK|INR|CNY|NZD|
  * Ordered alternation: the first pattern that matches at a position wins, so `$12,500` is one
  * currency fact rather than the number `12,500` with a stray dollar sign, and `3 March 2024` is one
  * date rather than the numbers 3 and 2024.
+ *
+ * @type {Array<{ kind: FactKind; source: string }>}
  */
-const FACT_PATTERNS: Array<{ kind: FactKind; source: string }> = [
+const FACT_PATTERNS = [
   { kind: 'date', source: String.raw`\d{4}-\d{2}-\d{2}` },
   { kind: 'date', source: String.raw`\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}` },
   { kind: 'date', source: String.raw`\d{1,2}(?:st|nd|rd|th)?\s+(?:${MONTH_ALTERNATION})\.?,?\s+\d{4}` },
@@ -91,8 +96,11 @@ const FACT_REGEX = new RegExp(FACT_PATTERNS.map((p) => `(${p.source})`).join('|'
 /**
  * Markdown noise removed before scanning, so `**$12,500**` and `$12,500` produce the same fact and a
  * bolded price isn't reported as lost.
+ *
+ * @param {string} markdown
+ * @returns {string}
  */
-export function normalizeForFacts(markdown: string): string {
+export function normalizeForFacts(markdown) {
   return markdown
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/`/g, ' '))
     .replace(/[*_~`>#|]/g, ' ')
@@ -100,22 +108,33 @@ export function normalizeForFacts(markdown: string): string {
     .replace(/\s+/g, ' ');
 }
 
-export function extractFacts(markdown: string): FactToken[] {
+/**
+ * @param {string} markdown
+ * @returns {FactToken[]}
+ */
+export function extractFacts(markdown) {
   const text = normalizeForFacts(markdown);
-  const out: FactToken[] = [];
+  /** @type {FactToken[]} */
+  const out = [];
   FACT_REGEX.lastIndex = 0;
-  let match: RegExpExecArray | null;
+  /** @type {RegExpExecArray | null} */
+  let match;
   while ((match = FACT_REGEX.exec(text)) !== null) {
     const groupIndex = match.slice(1).findIndex((group) => group !== undefined);
     if (groupIndex < 0) continue;
-    const kind = FACT_PATTERNS[groupIndex]!.kind;
+    const kind = FACT_PATTERNS[groupIndex].kind;
     const value = match[0].trim();
     out.push({ value, canonical: canonicalize(value, kind), kind });
   }
   return out;
 }
 
-export function canonicalize(value: string, kind: FactKind): string {
+/**
+ * @param {string} value
+ * @param {FactKind} kind
+ * @returns {string}
+ */
+export function canonicalize(value, kind) {
   const flat = value.toLowerCase().replace(/\s+/g, ' ').trim();
   if (kind === 'date') {
     const iso = canonicalDate(flat);
@@ -131,37 +150,55 @@ export function canonicalize(value: string, kind: FactKind): string {
  * `3 March 2024`, `March 3, 2024` and `2024-03-03` are the same day, so they canonicalize the same
  * way. Purely numeric forms like `03/04/2024` stay raw: day-first and month-first are genuinely
  * ambiguous, and guessing wrong here would hide a real alteration.
+ *
+ * @param {string} value
+ * @returns {string | undefined}
  */
-function canonicalDate(value: string): string | undefined {
+function canonicalDate(value) {
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
   const dayFirst = new RegExp(String.raw`^(\d{1,2})(?:st|nd|rd|th)?\s+(${MONTH_ALTERNATION})\.?,?\s+(\d{4})$`).exec(value);
-  if (dayFirst) return formatIso(Number(dayFirst[3]), MONTH_NAMES[dayFirst[2]!]!, Number(dayFirst[1]));
+  if (dayFirst) return formatIso(Number(dayFirst[3]), MONTH_NAMES[dayFirst[2]], Number(dayFirst[1]));
 
   const monthFirst = new RegExp(String.raw`^(${MONTH_ALTERNATION})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$`).exec(value);
-  if (monthFirst) return formatIso(Number(monthFirst[3]), MONTH_NAMES[monthFirst[1]!]!, Number(monthFirst[2]));
+  if (monthFirst) return formatIso(Number(monthFirst[3]), MONTH_NAMES[monthFirst[1]], Number(monthFirst[2]));
 
   const monthYear = new RegExp(String.raw`^(${MONTH_ALTERNATION})\.?\s+(\d{4})$`).exec(value);
-  if (monthYear) return `${monthYear[2]}-${String(MONTH_NAMES[monthYear[1]!]!).padStart(2, '0')}`;
+  if (monthYear) return `${monthYear[2]}-${String(MONTH_NAMES[monthYear[1]]).padStart(2, '0')}`;
 
   return undefined;
 }
 
-function formatIso(year: number, month: number, day: number): string {
+/**
+ * @param {number} year
+ * @param {number} month
+ * @param {number} day
+ * @returns {string}
+ */
+function formatIso(year, month, day) {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
-export function extractHeadings(markdown: string): string[] {
-  const out: string[] = [];
+/**
+ * @param {string} markdown
+ * @returns {string[]}
+ */
+export function extractHeadings(markdown) {
+  /** @type {string[]} */
+  const out = [];
   for (const line of markdown.split('\n')) {
     const match = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(line);
-    if (match) out.push(match[2]!.trim().replace(/[*_`]/g, '').toLowerCase());
+    if (match) out.push(match[2].trim().replace(/[*_`]/g, '').toLowerCase());
   }
   return out;
 }
 
-function wordCount(text: string): number {
+/**
+ * @param {string} text
+ * @returns {number}
+ */
+function wordCount(text) {
   return text.split(/\s+/).filter(Boolean).length;
 }
 
@@ -169,15 +206,22 @@ function wordCount(text: string): number {
  * Compare an AI-rewritten page against the algorithmic extraction of the same page.
  *
  * `source` is the algorithmic markdown (ground truth), `candidate` is what the model returned.
+ *
+ * @param {string} source
+ * @param {string} candidate
+ * @param {FidelityOptions} [options]
+ * @returns {FidelityReport}
  */
-export function verifyFidelity(source: string, candidate: string, options: FidelityOptions = {}): FidelityReport {
+export function verifyFidelity(source, candidate, options = {}) {
   const minWordRatio = options.minWordRatio ?? 0.6;
   const minFactOccurrenceRatio = options.minFactOccurrenceRatio ?? 0.8;
   const maxReported = options.maxReported ?? 5;
 
-  const issues: FidelityIssue[] = [];
+  /** @type {FidelityIssue[]} */
+  const issues = [];
   const sourceFacts = extractFacts(source);
-  const missing: FactToken[] = [];
+  /** @type {FactToken[]} */
+  const missing = [];
 
   if (candidate.trim().length === 0) {
     issues.push({ code: 'empty-output', severity: 'error', message: 'The model returned an empty document.' });
@@ -185,13 +229,16 @@ export function verifyFidelity(source: string, candidate: string, options: Fidel
   }
 
   const candidateFacts = extractFacts(candidate);
-  const candidateCounts = new Map<string, number>();
+  /** @type {Map<string, number>} */
+  const candidateCounts = new Map();
   for (const fact of candidateFacts) {
     candidateCounts.set(fact.canonical, (candidateCounts.get(fact.canonical) ?? 0) + 1);
   }
 
-  const sourceCounts = new Map<string, FactToken>();
-  const sourceTotals = new Map<string, number>();
+  /** @type {Map<string, FactToken>} */
+  const sourceCounts = new Map();
+  /** @type {Map<string, number>} */
+  const sourceTotals = new Map();
   for (const fact of sourceFacts) {
     if (!sourceCounts.has(fact.canonical)) sourceCounts.set(fact.canonical, fact);
     sourceTotals.set(fact.canonical, (sourceTotals.get(fact.canonical) ?? 0) + 1);
@@ -250,7 +297,13 @@ export function verifyFidelity(source: string, candidate: string, options: Fidel
   return finish(issues, sourceFacts, missing);
 }
 
-function finish(issues: FidelityIssue[], sourceFacts: FactToken[], missing: FactToken[]): FidelityReport {
+/**
+ * @param {FidelityIssue[]} issues
+ * @param {FactToken[]} sourceFacts
+ * @param {FactToken[]} missing
+ * @returns {FidelityReport}
+ */
+function finish(issues, sourceFacts, missing) {
   const errors = issues.filter((i) => i.severity === 'error').map((i) => i.message);
   const warnings = issues.filter((i) => i.severity === 'warning').map((i) => i.message);
   return { ok: errors.length === 0, issues, errors, warnings, sourceFacts, missing };

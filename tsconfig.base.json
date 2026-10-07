@@ -30,7 +30,7 @@
         "./packages/core/src/shared/index.js"
       ],
       "@opengeo/core/generate": [
-        "./packages/core/src/generate/index.ts"
+        "./packages/core/src/generate/index.js"
       ],
       "@opengeo/core/test": [
         "./packages/core/src/test/index.ts"

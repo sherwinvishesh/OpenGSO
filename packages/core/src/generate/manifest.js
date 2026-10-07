@@ -18,43 +18,46 @@ import { AEO_SPEC_VERSION } from '../shared/version.js';
 export const MANIFEST_FILENAME = 'manifest.json';
 export const MANIFEST_VERSION = 1;
 
-export type GenerationTier = 'free' | 'ai' | 'manual';
+/** @typedef {'free' | 'ai' | 'manual'} GenerationTier */
 
-export interface ManifestEntry {
-  route: string;
-  url: string;
-  title: string;
-  /** Path relative to the public directory, e.g. `md/resume.md`. */
-  file: string;
-  tokens: number;
-  wordCount: number;
-  /**
-   * Hash of the *extracted content* this twin came from, not of the raw HTML.
-   *
-   * Raw HTML is the obvious thing to hash and the wrong one. Every framework stamps a build id,
-   * a script hash or a nonce into its markup, so a rebuild with no content change would produce a
-   * fresh hash, invalidate the whole cache, and make test's drift check cry wolf on every deploy.
-   * Hashing what a reader actually receives means the hash changes exactly when the page changes.
-   *
-   * Absent for a hand-written twin that declares no `source_hash`: there is no honest value to put
-   * here, and inventing one would make the drift check report a page as verified when it isn't.
-   */
-  sourceHash?: string;
-  lastUpdated: string;
-  tier: GenerationTier;
-  /** Carried so a fully-cached rerun can still write llms.txt without re-extracting every page. */
-  description?: string;
-}
+/**
+ * @typedef {object} ManifestEntry
+ * @property {string} route
+ * @property {string} url
+ * @property {string} title
+ * @property {string} file Path relative to the public directory, e.g. `md/resume.md`.
+ * @property {number} tokens
+ * @property {number} wordCount
+ * @property {string} [sourceHash] Hash of the *extracted content* this twin came from, not of the raw
+ *   HTML.
+ *
+ *   Raw HTML is the obvious thing to hash and the wrong one. Every framework stamps a build id,
+ *   a script hash or a nonce into its markup, so a rebuild with no content change would produce a
+ *   fresh hash, invalidate the whole cache, and make test's drift check cry wolf on every deploy.
+ *   Hashing what a reader actually receives means the hash changes exactly when the page changes.
+ *
+ *   Absent for a hand-written twin that declares no `source_hash`: there is no honest value to put
+ *   here, and inventing one would make the drift check report a page as verified when it isn't.
+ * @property {string} lastUpdated
+ * @property {GenerationTier} tier
+ * @property {string} [description] Carried so a fully-cached rerun can still write llms.txt without
+ *   re-extracting every page.
+ */
 
-export interface Manifest {
-  version: number;
-  specVersion: string;
-  site: string;
-  generatedAt: string;
-  pages: Record<string, ManifestEntry>;
-}
+/**
+ * @typedef {object} Manifest
+ * @property {number} version
+ * @property {string} specVersion
+ * @property {string} site
+ * @property {string} generatedAt
+ * @property {Record<string, ManifestEntry>} pages
+ */
 
-export function emptyManifest(site: string): Manifest {
+/**
+ * @param {string} site
+ * @returns {Manifest}
+ */
+export function emptyManifest(site) {
   return {
     version: MANIFEST_VERSION,
     specVersion: AEO_SPEC_VERSION,
@@ -64,11 +67,20 @@ export function emptyManifest(site: string): Manifest {
   };
 }
 
-export function manifestPath(internalDir: string): string {
+/**
+ * @param {string} internalDir
+ * @returns {string}
+ */
+export function manifestPath(internalDir) {
   return join(internalDir, MANIFEST_FILENAME);
 }
 
-export function readManifest(internalDir: string, site = ''): Manifest {
+/**
+ * @param {string} internalDir
+ * @param {string} [site]
+ * @returns {Manifest}
+ */
+export function readManifest(internalDir, site = '') {
   return readManifestChecked(internalDir, site).manifest;
 }
 
@@ -78,13 +90,18 @@ export function readManifest(internalDir: string, site = ''): Manifest {
  * An empty manifest is the right thing to carry on with, and the wrong thing to carry on with in
  * silence: it means every page is regenerated and nothing a failed fetch would have kept is kept.
  * A missing file is a first run and not a problem.
+ *
+ * @param {string} internalDir
+ * @param {string} [site]
+ * @returns {{ manifest: Manifest; problem?: string }}
  */
-export function readManifestChecked(internalDir: string, site = ''): { manifest: Manifest; problem?: string } {
+export function readManifestChecked(internalDir, site = '') {
   const path = manifestPath(internalDir);
   if (!existsSync(path)) return { manifest: emptyManifest(site) };
-  let parsed: Manifest;
+  /** @type {Manifest} */
+  let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, 'utf8')) as Manifest;
+    parsed = /** @type {Manifest} */ (JSON.parse(readFileSync(path, 'utf8')));
   } catch (error) {
     return { manifest: emptyManifest(site), problem: ERRORS.manifestUnreadable(path, error instanceof Error ? error.message : String(error)) };
   }
@@ -95,7 +112,12 @@ export function readManifestChecked(internalDir: string, site = ''): { manifest:
   return { manifest: parsed };
 }
 
-export function writeManifest(internalDir: string, manifest: Manifest): string {
+/**
+ * @param {string} internalDir
+ * @param {Manifest} manifest
+ * @returns {string}
+ */
+export function writeManifest(internalDir, manifest) {
   const path = manifestPath(internalDir);
   writeFileAtomic(path, `${JSON.stringify(manifest, null, 2)}\n`);
   return path;

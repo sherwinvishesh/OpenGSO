@@ -1,14 +1,17 @@
 import { resolveBots } from '../shared/bots.js';
-import type { LoadedConfig } from '../shared/config.js';
 import { publicDirPath } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { normalizeRoute } from '../shared/routes.js';
-import type { CrawlProgress, CrawlResult } from './crawl.js';
 import { crawlSite } from './crawl.js';
-import type { SiteFileResult, SitePage } from './files.js';
 import { writeSiteFiles } from './files.js';
-import type { EnhanceInput, EnhanceOutput, GenerateProgress, GenerateResult } from './generate.js';
 import { generatePages } from './generate.js';
+
+/**
+ * @import { LoadedConfig } from '../shared/config.js'
+ * @import { CrawlProgress, CrawlResult } from './crawl.js'
+ * @import { SiteFileResult, SitePage } from './files.js'
+ * @import { EnhanceInput, EnhanceOutput, GenerateProgress, GenerateResult } from './generate.js'
+ */
 
 /**
  * One crawl, three outputs (§6).
@@ -22,53 +25,63 @@ import { generatePages } from './generate.js';
  * second implementation of the pipeline (§8).
  */
 
-export type SiteProgress =
-  | { phase: 'crawl'; crawl: CrawlProgress }
-  | { phase: 'generate'; generate: GenerateProgress }
-  | { phase: 'files' };
+/**
+ * @typedef {{ phase: 'crawl'; crawl: CrawlProgress }
+ *   | { phase: 'generate'; generate: GenerateProgress }
+ *   | { phase: 'files' }} SiteProgress
+ */
 
-export interface GenerateSiteOptions {
-  /** The URL the user typed. Its origin is the site; its path is where the crawl starts. */
-  target: string;
-  loaded: LoadedConfig;
-  tier?: 'free' | 'ai';
-  force?: boolean;
-  /** Generate only the target URL, no crawl. Keeps every other page in the manifest untouched. */
-  single?: boolean;
-  maxPages?: number;
-  maxDepth?: number;
-  timeoutMs?: number;
-  /** Skip robots.txt / llms.txt / sitemap.xml entirely. */
-  skipSiteFiles?: boolean;
-  siteName?: string;
-  siteDescription?: string;
-  enhance?: (input: EnhanceInput) => Promise<EnhanceOutput>;
-  onProgress?: (event: SiteProgress) => void;
-}
+/**
+ * @typedef {object} GenerateSiteOptions
+ * @property {string} target The URL the user typed. Its origin is the site; its path is where the
+ *   crawl starts.
+ * @property {LoadedConfig} loaded
+ * @property {'free' | 'ai'} [tier]
+ * @property {boolean} [force]
+ * @property {boolean} [single] Generate only the target URL, no crawl. Keeps every other page in the
+ *   manifest untouched.
+ * @property {number} [maxPages]
+ * @property {number} [maxDepth]
+ * @property {number} [timeoutMs]
+ * @property {boolean} [skipSiteFiles] Skip robots.txt / llms.txt / sitemap.xml entirely.
+ * @property {string} [siteName]
+ * @property {string} [siteDescription]
+ * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} [enhance]
+ * @property {(event: SiteProgress) => void} [onProgress]
+ */
 
-export interface GenerateSiteResult {
-  /** Origin every route is resolved against. */
-  site: string;
-  target: string;
-  single: boolean;
-  crawl?: CrawlResult;
-  generate: GenerateResult;
-  files: SiteFileResult[];
-  warnings: string[];
-  durationMs: number;
-}
+/**
+ * @typedef {object} GenerateSiteResult
+ * @property {string} site Origin every route is resolved against.
+ * @property {string} target
+ * @property {boolean} single
+ * @property {CrawlResult} [crawl]
+ * @property {GenerateResult} generate
+ * @property {SiteFileResult[]} files
+ * @property {string[]} warnings
+ * @property {number} durationMs
+ */
 
-export async function generateSite(options: GenerateSiteOptions): Promise<GenerateSiteResult> {
+/**
+ * @param {GenerateSiteOptions} options
+ * @returns {Promise<GenerateSiteResult>}
+ */
+export async function generateSite(options) {
   const started = Date.now();
   const target = new URL(options.target);
   const site = target.origin;
   const config = options.loaded.config;
-  const warnings: string[] = [];
+  /** @type {string[]} */
+  const warnings = [];
 
-  let crawl: CrawlResult | undefined;
-  let routes: string[];
-  let carryForward: readonly string[] | 'all' = [];
-  const sources = new Map<string, string>();
+  /** @type {CrawlResult | undefined} */
+  let crawl;
+  /** @type {string[]} */
+  let routes;
+  /** @type {readonly string[] | 'all'} */
+  let carryForward = [];
+  /** @type {Map<string, string>} */
+  const sources = new Map();
 
   if (options.single) {
     routes = [normalizeRoute(target.pathname)];
@@ -114,12 +127,14 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
     onProgress: (event) => options.onProgress?.({ phase: 'generate', generate: event }),
   });
 
-  let files: SiteFileResult[] = [];
+  /** @type {SiteFileResult[]} */
+  let files = [];
   if (!options.skipSiteFiles) {
     options.onProgress?.({ phase: 'files' });
     // Driven off the manifest rather than this run's page list, so a single-page rerun and a
     // fully-cached rerun both still describe the whole site.
-    const pages: SitePage[] = Object.values(generate.manifest.pages).map((entry) => ({
+    /** @type {SitePage[]} */
+    const pages = Object.values(generate.manifest.pages).map((entry) => ({
       route: entry.route,
       url: entry.url,
       title: entry.title,

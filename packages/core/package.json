@@ -8,7 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./shared": "./src/shared/index.js",
-    "./generate": "./src/generate/index.ts",
+    "./generate": "./src/generate/index.js",
     "./test": "./src/test/index.ts",
     "./prod": "./src/prod/index.js",
     "./prod/next": "./src/prod/adapters/next.js",

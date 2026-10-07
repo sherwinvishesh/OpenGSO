@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import type { LoadedConfig } from '../shared/config.js';
 import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
@@ -10,105 +9,107 @@ import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
-import type { GenerationTier, Manifest, ManifestEntry } from './manifest.js';
 import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js';
 
-export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'proposed' | 'failed';
+/**
+ * @import { LoadedConfig } from '../shared/config.js'
+ * @import { GenerationTier, Manifest, ManifestEntry } from './manifest.js'
+ */
 
-export interface GeneratePageResult {
-  route: string;
-  url: string;
-  status: PageStatus;
-  title?: string;
-  description?: string;
-  tier?: GenerationTier;
-  file?: string;
-  tokens?: number;
-  wordCount?: number;
-  warnings: string[];
-  reason?: string;
-}
+/** @typedef {'written' | 'cached' | 'skipped-manual' | 'proposed' | 'failed'} PageStatus */
 
-export interface GenerateProgress {
-  route: string;
-  index: number;
-  total: number;
-  phase: 'fetch' | 'extract' | 'ai' | 'write';
-}
+/**
+ * @typedef {object} GeneratePageResult
+ * @property {string} route
+ * @property {string} url
+ * @property {PageStatus} status
+ * @property {string} [title]
+ * @property {string} [description]
+ * @property {GenerationTier} [tier]
+ * @property {string} [file]
+ * @property {number} [tokens]
+ * @property {number} [wordCount]
+ * @property {string[]} warnings
+ * @property {string} [reason]
+ */
 
-export interface GenerateOptions {
-  /** Base site URL. Every route is resolved against this. */
-  site: string;
-  /** Routes to generate. Phase-2 callers pass the crawl result; a single-page run passes one. */
-  routes: string[];
-  loaded: LoadedConfig;
-  tier?: 'free' | 'ai';
-  force?: boolean;
-  /**
-   * Keep manifest entries for routes this run didn't touch.
-   *
-   * A whole-site run wants the default (false): the crawl is authoritative, so a page that has been
-   * deleted should disappear from the manifest and stop being served. A page the crawl tried and
-   * failed to fetch is not deleted, and is handled by `carryForward` instead. A single-page run wants true,
-   * otherwise regenerating one route would quietly drop every other page from the manifest and prod
-   * would stop answering for them at the next boot.
-   */
-  merge?: boolean;
-  /**
-   * Routes this run could not fetch, whose previous manifest entries are kept as they were.
-   *
-   * "The crawl is authoritative" only holds for the pages it actually reached. A 503 is not a
-   * deletion, and prod serves from the manifest, so dropping the entry would un-serve a twin that
-   * is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
-   * for a run that reached nothing and so learned nothing about which pages still exist.
-   */
-  carryForward?: readonly string[] | 'all';
-  onProgress?: (event: GenerateProgress) => void;
-  /**
-   * HTML already fetched by the crawl, keyed by route. Route discovery has to download every page
-   * to find its links, so re-downloading them here would double the request count against the
-   * user's own dev server for no gain. A route missing from the map is fetched normally.
-   */
-  sources?: ReadonlyMap<string, string>;
-  /**
-   * Optional AI enhancer. Injected rather than imported so the free tier never reaches provider
-   * code, and so tests can drive the fidelity guard with a fake provider.
-   */
-  enhance?: (input: EnhanceInput) => Promise<EnhanceOutput>;
-}
+/**
+ * @typedef {object} GenerateProgress
+ * @property {string} route
+ * @property {number} index
+ * @property {number} total
+ * @property {'fetch' | 'extract' | 'ai' | 'write'} phase
+ */
 
-export interface EnhanceInput {
-  url: string;
-  title: string;
-  html: string;
-  algorithmicMarkdown: string;
-}
+/**
+ * @typedef {object} GenerateOptions
+ * @property {string} site Base site URL. Every route is resolved against this.
+ * @property {string[]} routes Routes to generate. Phase-2 callers pass the crawl result; a
+ *   single-page run passes one.
+ * @property {LoadedConfig} loaded
+ * @property {'free' | 'ai'} [tier]
+ * @property {boolean} [force]
+ * @property {boolean} [merge] Keep manifest entries for routes this run didn't touch.
+ *
+ *   A whole-site run wants the default (false): the crawl is authoritative, so a page that has been
+ *   deleted should disappear from the manifest and stop being served. A page the crawl tried and
+ *   failed to fetch is not deleted, and is handled by `carryForward` instead. A single-page run wants true,
+ *   otherwise regenerating one route would quietly drop every other page from the manifest and prod
+ *   would stop answering for them at the next boot.
+ * @property {readonly string[] | 'all'} [carryForward] Routes this run could not fetch, whose
+ *   previous manifest entries are kept as they were.
+ *
+ *   "The crawl is authoritative" only holds for the pages it actually reached. A 503 is not a
+ *   deletion, and prod serves from the manifest, so dropping the entry would un-serve a twin that
+ *   is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
+ *   for a run that reached nothing and so learned nothing about which pages still exist.
+ * @property {(event: GenerateProgress) => void} [onProgress]
+ * @property {ReadonlyMap<string, string>} [sources] HTML already fetched by the crawl, keyed by
+ *   route. Route discovery has to download every page to find its links, so re-downloading them
+ *   here would double the request count against the user's own dev server for no gain. A route
+ *   missing from the map is fetched normally.
+ * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} [enhance] Optional AI enhancer.
+ *   Injected rather than imported so the free tier never reaches provider code, and so tests can
+ *   drive the fidelity guard with a fake provider.
+ */
 
-export interface EnhanceOutput {
-  markdown: string;
-  warnings: string[];
-  /** True when the fidelity guard rejected the AI output and the algorithmic one was kept. */
-  fellBack: boolean;
-}
+/**
+ * @typedef {object} EnhanceInput
+ * @property {string} url
+ * @property {string} title
+ * @property {string} html
+ * @property {string} algorithmicMarkdown
+ */
 
-export interface GenerateResult {
-  site: string;
-  pages: GeneratePageResult[];
-  manifest: Manifest;
-  manifestPath: string;
-  publicDir: string;
-  /** Problems with the run as a whole rather than with one page. */
-  warnings: string[];
-  durationMs: number;
-}
+/**
+ * @typedef {object} EnhanceOutput
+ * @property {string} markdown
+ * @property {string[]} warnings
+ * @property {boolean} fellBack True when the fidelity guard rejected the AI output and the
+ *   algorithmic one was kept.
+ */
+
+/**
+ * @typedef {object} GenerateResult
+ * @property {string} site
+ * @property {GeneratePageResult[]} pages
+ * @property {Manifest} manifest
+ * @property {string} manifestPath
+ * @property {string} publicDir
+ * @property {string[]} warnings Problems with the run as a whole rather than with one page.
+ * @property {number} durationMs
+ */
 
 /**
  * Generate markdown twins for a set of routes (§6).
  *
  * Build-time only, never per visitor request: everything here writes static files to disk, so a
  * real visitor only ever receives a file that already exists.
+ *
+ * @param {GenerateOptions} options
+ * @returns {Promise<GenerateResult>}
  */
-export async function generatePages(options: GenerateOptions): Promise<GenerateResult> {
+export async function generatePages(options) {
   const started = Date.now();
   const { loaded, routes, site, tier = 'free', force = false, onProgress, enhance } = options;
   const publicDir = publicDirPath(loaded);
@@ -117,7 +118,8 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
   const { manifest: previous, problem } = readManifestChecked(internalDir, site);
   const manifest = emptyManifest(site);
   if (options.merge) manifest.pages = { ...previous.pages };
-  const pages: GeneratePageResult[] = [];
+  /** @type {GeneratePageResult[]} */
+  const pages = [];
 
   const unique = dedupeRoutes(routes);
   let index = 0;
@@ -221,7 +223,8 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
 
         let markdown = extracted.markdown;
         const warnings = [...extracted.warnings];
-        let appliedTier: GenerationTier = 'free';
+        /** @type {GenerationTier} */
+        let appliedTier = 'free';
 
         if (tier === 'ai' && enhance) {
           onProgress?.({ route, index, total: unique.length, phase: 'ai' });
@@ -321,7 +324,11 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
   };
 }
 
-function isOpenGeoTwin(data: Record<string, unknown>): boolean {
+/**
+ * @param {Record<string, unknown>} data
+ * @returns {boolean}
+ */
+function isOpenGeoTwin(data) {
   return data.generated_by === 'opengeo-free' || data.generated_by === 'opengeo-ai';
 }
 
@@ -331,14 +338,21 @@ function isOpenGeoTwin(data: Record<string, unknown>): boolean {
  * `sourceHash` is carried through only when the author put one there. A hand-written twin usually
  * has none, and a made-up hash would make test's drift check pass a page nobody has verified; with
  * the field absent the check falls back to comparing facts, which is the honest answer.
+ *
+ * @param {string} route
+ * @param {string} url
+ * @param {string} relPath
+ * @param {Record<string, unknown>} data
+ * @param {string} contents
+ * @returns {ManifestEntry}
  */
 function manualEntry(
-  route: string,
-  url: string,
-  relPath: string,
-  data: Record<string, unknown>,
-  contents: string,
-): ManifestEntry {
+  route,
+  url,
+  relPath,
+  data,
+  contents,
+) {
   const body = parseFrontmatter(contents).body;
   return {
     route,
@@ -353,9 +367,15 @@ function manualEntry(
   };
 }
 
-export function dedupeRoutes(routes: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
+/**
+ * @param {string[]} routes
+ * @returns {string[]}
+ */
+export function dedupeRoutes(routes) {
+  /** @type {Set<string>} */
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
   for (const raw of routes) {
     const route = normalizeRoute(raw);
     if (seen.has(route)) continue;
@@ -365,7 +385,13 @@ export function dedupeRoutes(routes: string[]): string[] {
   return out.sort((a, b) => (a === '/' ? -1 : b === '/' ? 1 : a.localeCompare(b)));
 }
 
-/** Convenience for reporting: the URL an agent would fetch for a given route. */
-export function twinUrlFor(site: string, route: string): string {
+/**
+ * Convenience for reporting: the URL an agent would fetch for a given route.
+ *
+ * @param {string} site
+ * @param {string} route
+ * @returns {string}
+ */
+export function twinUrlFor(site, route) {
   return new URL(routeToTwinUrlPath(route), site).toString();
 }

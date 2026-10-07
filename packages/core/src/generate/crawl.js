@@ -29,53 +29,59 @@ const NON_PAGE_EXTENSIONS = new Set([
 /** Framework-internal paths. Crawling these is always noise, never content. */
 const INTERNAL_PREFIXES = ['/_next/', '/_nuxt/', '/_astro/', '/_vercel/', '/cdn-cgi/', '/__nextjs'];
 
-export interface CrawlOptions {
-  /** Origin + optional base path. Every discovered link must share this origin. */
-  site: string;
-  /** Where to start. Defaults to the site's own path. */
-  startRoutes?: readonly string[];
-  /** Routes the crawl can't reach on its own (§17's escape hatch). Always fetched, never skipped. */
-  extraRoutes?: readonly string[];
-  maxPages?: number;
-  maxDepth?: number;
-  /** Path prefixes to skip, from opengeo.config.json. */
-  exclude?: readonly string[];
-  timeoutMs?: number;
-  onProgress?: (event: CrawlProgress) => void;
-}
+/**
+ * @typedef {object} CrawlOptions
+ * @property {string} site Origin + optional base path. Every discovered link must share this origin.
+ * @property {readonly string[]} [startRoutes] Where to start. Defaults to the site's own path.
+ * @property {readonly string[]} [extraRoutes] Routes the crawl can't reach on its own (§17's escape
+ *   hatch). Always fetched, never skipped.
+ * @property {number} [maxPages]
+ * @property {number} [maxDepth]
+ * @property {readonly string[]} [exclude] Path prefixes to skip, from opengeo.config.json.
+ * @property {number} [timeoutMs]
+ * @property {(event: CrawlProgress) => void} [onProgress]
+ */
 
-export interface CrawlProgress {
-  route: string;
-  depth: number;
-  found: number;
-  visited: number;
-}
+/**
+ * @typedef {object} CrawlProgress
+ * @property {string} route
+ * @property {number} depth
+ * @property {number} found
+ * @property {number} visited
+ */
 
-export interface CrawlPage {
-  route: string;
-  url: string;
-  depth: number;
-  html: string;
-  status: number;
-  contentType: string;
-}
+/**
+ * @typedef {object} CrawlPage
+ * @property {string} route
+ * @property {string} url
+ * @property {number} depth
+ * @property {string} html
+ * @property {number} status
+ * @property {string} contentType
+ */
 
-export interface CrawlFailure {
-  route: string;
-  url: string;
-  reason: string;
-}
+/**
+ * @typedef {object} CrawlFailure
+ * @property {string} route
+ * @property {string} url
+ * @property {string} reason
+ */
 
-export interface CrawlResult {
-  site: string;
-  origin: string;
-  pages: CrawlPage[];
-  failures: CrawlFailure[];
-  /** Hit a cap? Say so out loud rather than quietly returning a partial site. */
-  warnings: string[];
-}
+/**
+ * @typedef {object} CrawlResult
+ * @property {string} site
+ * @property {string} origin
+ * @property {CrawlPage[]} pages
+ * @property {CrawlFailure[]} failures
+ * @property {string[]} warnings Hit a cap? Say so out loud rather than quietly returning a partial
+ *   site.
+ */
 
-export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
+/**
+ * @param {CrawlOptions} options
+ * @returns {Promise<CrawlResult>}
+ */
+export async function crawlSite(options) {
   const base = new URL(options.site);
   const origin = base.origin;
   const maxPages = options.maxPages ?? 200;
@@ -86,13 +92,23 @@ export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
   const startRoutes = (options.startRoutes?.length ? options.startRoutes : [base.pathname]).map(normalizeRoute);
   const extraRoutes = (options.extraRoutes ?? []).map(normalizeRoute);
 
-  const queued = new Set<string>();
-  const queue: Array<{ route: string; depth: number }> = [];
-  const pages: CrawlPage[] = [];
-  const failures: CrawlFailure[] = [];
-  const warnings: string[] = [];
+  /** @type {Set<string>} */
+  const queued = new Set();
+  /** @type {Array<{ route: string; depth: number }>} */
+  const queue = [];
+  /** @type {CrawlPage[]} */
+  const pages = [];
+  /** @type {CrawlFailure[]} */
+  const failures = [];
+  /** @type {string[]} */
+  const warnings = [];
 
-  const enqueue = (route: string, depth: number): void => {
+  /**
+   * @param {string} route
+   * @param {number} depth
+   * @returns {void}
+   */
+  const enqueue = (route, depth) => {
     if (queued.has(route)) return;
     queued.add(route);
     queue.push({ route, depth });
@@ -170,8 +186,13 @@ export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
   return { site: options.site, origin, pages, failures, warnings };
 }
 
-/** No content type is taken as HTML, as it always was here; any other type has to say so. */
-function servesHtml(headers: Headers): boolean {
+/**
+ * No content type is taken as HTML, as it always was here; any other type has to say so.
+ *
+ * @param {Headers} headers
+ * @returns {boolean}
+ */
+function servesHtml(headers) {
   const type = headers.get('content-type');
   return !type || type.toLowerCase().includes('html');
 }
@@ -181,10 +202,15 @@ function servesHtml(headers: Headers): boolean {
  *
  * Scripts are not executed (§17): this sees the links that were in the HTML the server sent, which
  * is exactly the set an AI crawler sees.
+ *
+ * @param {string} html
+ * @param {string} pageUrl
+ * @returns {URL[]}
  */
-export function extractLinks(html: string, pageUrl: string): URL[] {
+export function extractLinks(html, pageUrl) {
   const dom = new JSDOM(html, { url: pageUrl });
-  const out: URL[] = [];
+  /** @type {URL[]} */
+  const out = [];
   for (const anchor of Array.from(dom.window.document.querySelectorAll('a[href]'))) {
     const href = anchor.getAttribute('href');
     if (!href) continue;
@@ -207,8 +233,13 @@ export function extractLinks(html: string, pageUrl: string): URL[] {
  * Query strings are dropped rather than treated as distinct routes: `?page=2` and `?utm_source=x`
  * are the two common cases, and generating a separate twin for every query variant of the same page
  * is how a crawl explodes.
+ *
+ * @param {URL} link
+ * @param {string} origin
+ * @param {readonly string[]} [exclude]
+ * @returns {boolean}
  */
-export function isCrawlable(link: URL, origin: string, exclude: readonly string[] = []): boolean {
+export function isCrawlable(link, origin, exclude = []) {
   if (link.origin !== origin) return false;
   if (link.protocol !== 'http:' && link.protocol !== 'https:') return false;
 
