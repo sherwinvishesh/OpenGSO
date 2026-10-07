@@ -1,5 +1,5 @@
 import { AI_BOTS, botUserAgent, findBot } from '../shared/bots.js';
-import { BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, isMarkdownResponse, probe } from '../shared/http.js';
+import { BROWSER_ACCEPT, BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, isMarkdownResponse, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
 import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
@@ -52,7 +52,6 @@ import { summarizeRobots } from './startup.js';
  *   tests so the probe matrix can be exercised without a live server.
  */
 
-const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 const MARKDOWN_ACCEPT = 'text/markdown,text/plain;q=0.9';
 
 /**

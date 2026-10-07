@@ -45,6 +45,9 @@ export const MAX_PROBE_BYTES = 8 * 1024 * 1024;
 export const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
 
+/** What a browser sends for a page load, so a probe meant to look like a person looks like one. */
+export const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+
 export const OPENGEO_UA = 'OpenGEO/1.0 (+https://github.com/sherwinvishesh/OpenGEO)';
 
 /**

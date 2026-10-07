@@ -1,5 +1,5 @@
 import { botUserAgent, routingProbeBot } from '../shared/bots.js';
-import { BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA, probe } from '../shared/http.js';
+import { BROWSER_ACCEPT, BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
 import { fetchChildSitemaps } from './discover.js';
@@ -73,7 +73,7 @@ export async function gatherEvidence(target, options = {}) {
   const origin = target.origin;
 
   const html = await probe(target.toString(), {
-    headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+    headers: { 'User-Agent': BROWSER_UA, Accept: BROWSER_ACCEPT },
     timeoutMs,
   });
 
