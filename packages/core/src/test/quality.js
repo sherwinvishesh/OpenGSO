@@ -1,11 +1,11 @@
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
-import { callProvider, stripCodeFence } from '../generate/ai.js';
+import { callProvider, stripCodeFence } from '../shared/provider-call.js';
 
 /**
  * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
- * @import { ProviderFn } from '../generate/ai.js'
+ * @import { ProviderFn } from '../shared/provider-call.js'
  * @import { DiscoveredTwin } from './discover.js'
  */
 

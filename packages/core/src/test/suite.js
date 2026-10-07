@@ -7,7 +7,7 @@ import { testUrl } from './run.js';
 /**
  * @import { AiBot } from '../shared/bots.js'
  * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
- * @import { ProviderFn } from '../generate/ai.js'
+ * @import { ProviderFn } from '../shared/provider-call.js'
  * @import { DiscoveryResult } from './discover.js'
  * @import { ContentReview } from './quality.js'
  * @import { TestResult } from './run.js'
