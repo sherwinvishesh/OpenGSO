@@ -77,6 +77,17 @@ export async function runCli(options) {
     });
     if (code >= 0) return code;
   }
+  // `opengeo help test` is how a lot of people ask for `opengeo test --help`, and answering it with
+  // the global page makes them go looking for the flags all over again.
+  if (argv[0] === 'help' && argv.length > 1) {
+    const { command } = matchCommand(argv.slice(1));
+    if (!command) {
+      process.stderr.write(`${unknownCommand(argv.slice(1).join(' '), available)}\n`);
+      return EXIT_USAGE;
+    }
+    process.stdout.write(renderCommandHelp(command));
+    return 0;
+  }
   if (argv.length === 0 || argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') {
     process.stdout.write(renderHelp(options.packageName, options.version, available));
     return 0;
@@ -177,6 +188,7 @@ function renderHelp(packageName, version, available) {
   lines.push('');
   lines.push(c.bold('Help topics'));
   lines.push(`  opengeo help providers   ${c.gray('every AI tool OpenGEO can use, and how to add your own')}`);
+  lines.push(`  opengeo help <command>   ${c.gray('the options for one command, same as <command> --help')}`);
   lines.push('');
   return lines.join('\n');
 }

@@ -231,6 +231,28 @@ describe('exit codes', () => {
   });
 });
 
+describe('opengeo help <command>', () => {
+  /** @param {string[]} argv */
+  const cli = (argv) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv });
+
+  it('prints the same page as <command> --help', async () => {
+    const asked = await capture(() => cli(['test', '--help']));
+    for (const argv of [['help', 'test'], ['help', 'prod', 'test'], ['help', 'setup']]) {
+      const { code, stdout } = await capture(() => cli(argv));
+      expect(code, argv.join(' ')).toBe(0);
+      expect(stdout, argv.join(' ')).not.toContain('Exit codes');
+    }
+    expect((await capture(() => cli(['help', 'test']))).stdout).toBe(asked.stdout);
+    expect((await capture(() => cli(['help', 'prod', 'test']))).stdout).toContain('opengeo prod test');
+  });
+
+  it('says so when there is no such command to explain', async () => {
+    const { code, stderr } = await capture(() => cli(['help', 'tset']));
+    expect(code).toBe(2);
+    expect(stderr).toContain('Unknown command: `opengeo tset`');
+  });
+});
+
 describe('colour, on a terminal, for output that is not going to it', () => {
   const ESC = String.fromCharCode(27);
   const saved = { ...process.env };
