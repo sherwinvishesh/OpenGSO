@@ -85,11 +85,16 @@ export const AI_BOTS = [
 export const ROUTABLE_BOTS = AI_BOTS.filter((b) => b.uaPatterns.length > 0);
 
 /**
- * Default markdown-routing list: every routable bot. Narrowing is the user's choice, not ours.
+ * Default markdown-routing list: every routable bot except the search-index crawlers.
+ *
+ * Every markdown response carries `X-Robots-Tag: noindex`, which keeps the twin out of search
+ * indexes. Handing that response to Bingbot at the canonical URL would tell it to drop the page
+ * itself, so a crawler whose job is building a search index gets the HTML unless the project routes
+ * it on purpose. It can still ask for markdown with an Accept header.
  *
  * @type {readonly string[]}
  */
-export const DEFAULT_MARKDOWN_ROUTING = ROUTABLE_BOTS.map((b) => b.name);
+export const DEFAULT_MARKDOWN_ROUTING = ROUTABLE_BOTS.filter((b) => b.kind !== 'search').map((b) => b.name);
 
 /**
  * A crawler the user added themselves, as it appears in `bots.custom` in opengeo.config.json.

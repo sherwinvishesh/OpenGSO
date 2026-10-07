@@ -216,8 +216,8 @@ describe('lever 1 - markdown routing', () => {
   });
 
   it('honours --bot', async () => {
-    const result = await verifyProd(site, { bot: 'PerplexityBot' });
-    expect(result.bot).toBe('PerplexityBot');
+    const result = await verifyProd(site, { bot: 'Perplexity-User' });
+    expect(result.bot).toBe('Perplexity-User');
     expect(probeById(result.probes, 'routed-bot').verdict).toBe('pass');
   });
 });

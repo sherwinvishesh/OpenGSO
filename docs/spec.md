@@ -64,6 +64,12 @@ Returns markdown at the original URL, without an Accept header, for agents on th
 `bots.markdownRouting` list. This is a courtesy for agents that do not send an Accept header, not a
 replacement for negotiation.
 
+OpenGEO's default list is every crawler it can recognise by User-Agent **except** the ones whose
+job is a search index (Bingbot, Applebot, OAI-SearchBot, Claude-SearchBot, PerplexityBot and the
+others marked `search` in the bot list). A markdown response carries `X-Robots-Tag: noindex`, and at
+the canonical URL that would tell a search engine to drop the page itself. Those crawlers get the
+HTML unless a site routes them on purpose, and can still ask for markdown with an Accept header.
+
 ### Rewrite, never redirect
 
 Both paths **rewrite**: same URL, same status code, different body. Neither issues a 3xx.

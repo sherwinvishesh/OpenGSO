@@ -188,7 +188,7 @@ describe('custom crawlers', () => {
 });
 
 describe('config', () => {
-  it('defaults to routing every routable bot and blocking none', () => {
+  it('defaults to routing every routable bot except search crawlers, and blocking none', () => {
     const config = defaultConfig();
     expect(config.bots.blocked).toEqual([]);
     expect(config.bots.markdownRouting.length).toBeGreaterThan(10);

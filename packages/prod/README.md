@@ -67,7 +67,7 @@ import { createProdHandler, createFsStore } from 'opengeo-prod';
 
 const handle = createProdHandler({
   store: createFsStore({ root: process.cwd(), publicDir: 'public', internalDir: '.opengeo' }),
-  markdownRouting: ['ClaudeBot', 'GPTBot', 'PerplexityBot'],
+  markdownRouting: ['ClaudeBot', 'GPTBot', 'Perplexity-User'],
 });
 
 // In your request pipeline:

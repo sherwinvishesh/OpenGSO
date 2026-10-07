@@ -1,6 +1,14 @@
 import { createServer } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEFAULT_MARKDOWN_ROUTING, HEADERS, MARKDOWN_CONTENT_TYPE, createMemoryStore, handleRequest } from '@opengeo/core/prod';
+import {
+  AI_BOTS,
+  DEFAULT_MARKDOWN_ROUTING,
+  HEADERS,
+  MARKDOWN_CONTENT_TYPE,
+  createMemoryStore,
+  handleRequest,
+} from '@opengeo/core/prod';
+import { defaultConfig } from '@opengeo/core/shared';
 /** @import { Server, IncomingMessage, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 
@@ -95,6 +103,42 @@ describe('406 is only for routes prod can actually answer', () => {
   it('serves the twin as before', async () => {
     const response = await fetch(`${site}/resume`, { headers: { accept: 'text/markdown' } });
     expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
+  });
+});
+
+/**
+ * Every markdown response carries `X-Robots-Tag: noindex`, which is right for the twin and wrong for
+ * a search engine's index of the canonical URL. A crawler whose job is building a search index must
+ * get the HTML by default, or the default routing quietly de-indexes the page it was asked to help.
+ */
+describe('search-index crawlers get the HTML page by default', () => {
+  const BINGBOT = 'Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)';
+  const GPTBOT = 'Mozilla/5.0 AppleWebKit/537.36 (compatible; GPTBot/1.2; +https://openai.com/gptbot)';
+
+  it('leaves every search crawler off the default routing list', () => {
+    for (const bot of AI_BOTS.filter((b) => b.kind === 'search')) {
+      expect(DEFAULT_MARKDOWN_ROUTING, bot.name).not.toContain(bot.name);
+    }
+    expect(DEFAULT_MARKDOWN_ROUTING).toContain('GPTBot');
+    expect(DEFAULT_MARKDOWN_ROUTING).toContain('ChatGPT-User');
+    expect(defaultConfig().bots.markdownRouting).toEqual([...DEFAULT_MARKDOWN_ROUTING]);
+  });
+
+  it('answers Bingbot at the canonical URL with the indexable HTML, not noindex markdown', async () => {
+    const response = await fetch(`${site}/resume`, { headers: { 'user-agent': BINGBOT, accept: '*/*' } });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(response.headers.get(HEADERS.robotsTag)).toBeNull();
+  });
+
+  it('still routes a training crawler to markdown', async () => {
+    const response = await fetch(`${site}/resume`, { headers: { 'user-agent': GPTBOT, accept: '*/*' } });
+    expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
+  });
+
+  it('still lets a search crawler ask for markdown explicitly', async () => {
+    const response = await fetch(`${site}/resume`, { headers: { 'user-agent': BINGBOT, accept: 'text/markdown' } });
     expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
   });
 });
