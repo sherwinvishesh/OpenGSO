@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { extractLinks, isCrawlable } from '@opengeo/core/generate';
+import { dedupeRoutes, extractLinks, isCrawlable } from '@opengeo/core/generate';
 import { renderLlmsTxt, renderRobotsTxt, renderSitemapXml, writeSiteFiles, GENERATED_MARKER } from '@opengeo/core/generate';
 /** @import { AiBot } from '@opengeo/core/shared' */
 /** @import { SitePage } from '@opengeo/core/generate' */
@@ -130,6 +130,25 @@ describe('renderLlmsTxt', () => {
     const about = text.indexOf(`(${ORIGIN}/about.md)`);
     expect(home).toBeGreaterThan(-1);
     expect(about).toBeGreaterThan(home);
+  });
+});
+
+describe('route order in the generated files', () => {
+  // Locale collation puts "/a" before "/B" and ignores punctuation on some machines and not others.
+  // Code-unit order is the same everywhere, so a committed file does not churn between laptops.
+  const routes = ['/b', '/B', '/a', '/_x', '/-y', '/'];
+  const expected = ['/', '/-y', '/B', '/_x', '/a', '/b'];
+
+  it('sorts llms.txt and sitemap.xml by code unit, home first', () => {
+    const pages = routes.map((route) => ({ route, url: `${ORIGIN}${route}`, title: route }));
+    const xml = renderSitemapXml(options({ pages }));
+    expect([...xml.matchAll(/<loc>https:\/\/example\.com([^<]*)<\/loc>/g)].map((m) => m[1])).toEqual(expected);
+    const text = renderLlmsTxt(options({ pages }));
+    expect([...text.matchAll(/^- \[([^\]]*)\]/gm)].map((m) => m[1])).toEqual(expected);
+  });
+
+  it('sorts the routes generate visits the same way', () => {
+    expect(dedupeRoutes(routes)).toEqual(expected);
   });
 });
 

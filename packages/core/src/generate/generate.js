@@ -444,7 +444,8 @@ export function dedupeRoutes(routes) {
     seen.add(route);
     out.push(route);
   }
-  return out.sort((a, b) => (a === '/' ? -1 : b === '/' ? 1 : a.localeCompare(b)));
+  // Code-unit order rather than localeCompare, whose result depends on the machine's locale.
+  return out.sort((a, b) => (a === '/' ? -1 : b === '/' ? 1 : a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**

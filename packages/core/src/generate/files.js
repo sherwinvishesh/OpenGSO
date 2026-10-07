@@ -275,7 +275,9 @@ export function renderSitemapXml(options) {
 function byRoute(a, b) {
   if (a.route === '/') return -1;
   if (b.route === '/') return 1;
-  return a.route.localeCompare(b.route);
+  // Code-unit order, not localeCompare: collation depends on the machine's ICU data and locale, and
+  // these files are committed, so the order must not change between two people's laptops.
+  return a.route < b.route ? -1 : a.route > b.route ? 1 : 0;
 }
 
 /**
