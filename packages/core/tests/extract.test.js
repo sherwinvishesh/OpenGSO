@@ -187,6 +187,17 @@ describe('extraction keeps the page shape intact', () => {
     const { markdown } = extractPage(html, { url: 'https://example.com/' });
     expect(markdown).not.toContain('newsletter');
   });
+
+  it('indents a nested list under an ordered item by the width of its marker', () => {
+    const html = page(`<main><h1>Steps</h1>
+      <ol><li>First<ol><li>Inner</li></ol></li><li>Second<p>More</p></li></ol>
+      <ol start="10"><li>Ten<ul><li>Bullet<ol><li>Deep</li></ol></li></ul></li></ol>
+      <p>${words}</p></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    // CommonMark only nests a block under "1. " when it is indented at least three columns.
+    expect(markdown).toContain('1. First\n   1. Inner\n2. Second\n   More');
+    expect(markdown).toContain('10. Ten\n    - Bullet\n      1. Deep');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {

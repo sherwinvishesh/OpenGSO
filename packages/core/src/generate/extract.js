@@ -374,7 +374,7 @@ function renderBlock(el, ctx) {
     }
     case 'ul':
     case 'ol':
-      return [renderList(el, ctx, 0)];
+      return [renderList(el, ctx, '')];
     case 'dl':
       return [renderDefinitionList(el, ctx)];
     case 'table':
@@ -415,14 +415,14 @@ function detectLanguage(el) {
 /**
  * @param {Element} el
  * @param {RenderContext} ctx
- * @param {number} depth
+ * @param {string} indent Where this list's markers start. CommonMark nests a block under an item
+ *   only when it starts past the item's marker, which is three columns for "1. " and two for "- ".
  * @returns {string}
  */
-function renderList(el, ctx, depth) {
+function renderList(el, ctx, indent) {
   const ordered = el.tagName.toLowerCase() === 'ol';
   const startAttr = Number(el.getAttribute('start') ?? '1');
   const start = Number.isFinite(startAttr) ? startAttr : 1;
-  const indent = '  '.repeat(depth);
   /** @type {string[]} */
   const lines = [];
   let index = start;
@@ -430,6 +430,7 @@ function renderList(el, ctx, depth) {
   for (const child of Array.from(el.children)) {
     if (child.tagName.toLowerCase() !== 'li') continue;
     const marker = ordered ? `${index}. ` : '- ';
+    const childIndent = indent + ' '.repeat(marker.length);
     index += 1;
 
     /** @type {string[]} */
@@ -445,12 +446,12 @@ function renderList(el, ctx, depth) {
       const sub = /** @type {Element} */ (node);
       const subTag = sub.tagName.toLowerCase();
       if (subTag === 'ul' || subTag === 'ol') {
-        nested.push(renderList(sub, ctx, depth + 1));
+        nested.push(renderList(sub, ctx, childIndent));
       } else if (isInline(subTag) && !isBlockLink(sub)) {
         inlineParts.push(renderInline(sub, ctx));
       } else {
         const rendered = renderBlock(sub, ctx).join('\n\n');
-        if (rendered) nested.push(indentBlock(rendered, depth + 1));
+        if (rendered) nested.push(indentBlock(rendered, childIndent));
       }
     }
 
@@ -463,11 +464,10 @@ function renderList(el, ctx, depth) {
 
 /**
  * @param {string} text
- * @param {number} depth
+ * @param {string} indent
  * @returns {string}
  */
-function indentBlock(text, depth) {
-  const indent = '  '.repeat(depth);
+function indentBlock(text, indent) {
   return text.split('\n').map((line) => (line ? `${indent}${line}` : line)).join('\n');
 }
 
