@@ -34,12 +34,17 @@ Which package ships which command is the `COMMAND_PACKAGES` table in
 
 | Directory | What it holds |
 | --- | --- |
-| `shared/` | Everything more than one pillar needs: config loading, the bot catalogue, routes and twin paths, HTTP fetching, the provider catalogue, `.env` handling, the spec version and header names, and every user-facing error string (`errors.js`). |
-| `test/` | The test pillar: discovery, the 22 checks, scoring, the report, run history, and the AI content pass, which is reported separately and never touches the score. |
+| `shared/` | Everything more than one pillar needs: config loading, the bot catalogue, routes and twin paths, HTTP fetching, the provider catalogue, `.env` handling, the spec version and header names, run history (`history.js`), the CI gate (`ci.js`), the provider call both AI passes make (`provider-call.js`), the drawing primitives the terminal report and the home screen share (`render/`: paint, theme, meters), and every user-facing error string (`errors.js`). |
+| `test/` | The test pillar: discovery, the 22 checks (`checks-site.js`, `checks-twin.js`, `cascade.js`, `drift.js`), scoring, the report and its JSON form, and the AI content pass, which is reported separately and never touches the score. |
 | `generate/` | The generate pillar: crawl, extract (jsdom as a parser only, never running scripts), the optional AI rewrite and its fidelity check, and the writers for twins, `robots.txt`, `llms.txt`, `sitemap.xml` and the manifest. |
 | `prod/` | The runtime middleware and `prod test`. The library half has no dependencies; `adapters/next.js` is the Next.js wrapper; `edge.js` is the subset with no `node:` imports. |
 | `server/` | The dashboard's local HTTP server and JSON API, started by `opengeo start`. |
-| `cli/` | Argument parsing, every command (`cli/commands/`), the onboarding flow, and the full-screen home screen. `cli/tui/` is the zero-dependency terminal toolkit it is drawn with. |
+| `cli/` | Argument parsing, every command (`cli/commands/`), the onboarding flow, and the full-screen home screen. `cli/tui/` is the zero-dependency terminal toolkit it is drawn with (screen, keys, widgets, interaction), on top of `shared/render/`. |
+
+Pillars depend on `shared/` and not on each other, with two deliberate exceptions: `test/` reads
+`prod/headers.js` (the dependency-free code that builds and parses OpenGEO's headers, so the test reads them the way prod writes them) and reuses generate's extractor,
+frontmatter parser and fidelity check, so a test grades a twin by the same rules that wrote it.
+There are no import cycles.
 
 ## How the pillars connect
 
@@ -60,7 +65,7 @@ Which package ships which command is the `COMMAND_PACKAGES` table in
 ## The dashboard
 
 `opengeo start` runs `server/server.js` and serves `packages/opengeo/web/`, which is plain HTML, CSS
-and JavaScript with no build step. The web code calls the JSON API in `server/api.js`, which runs
+and JavaScript with no build step. The web code calls the JSON API, routed in `server/api.js` with one `api-*.js` module per area, which runs
 the same core functions the CLI does. The server's security model is in
 [SECURITY.md](../SECURITY.md).
 

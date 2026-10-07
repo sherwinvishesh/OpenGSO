@@ -392,8 +392,7 @@ describe('the READMEs', () => {
   });
 
   it('call the Next.js Vary limitation the partial B7 actually returns', () => {
-    const runner = read('packages/core/src/test/runner.js');
-    const earned = runner.match(/partial\('B7', (\d+)/)?.[1];
+    const earned = checkSources().match(/partial\('B7', (\d+)/)?.[1];
     const weight = CHECKS.find((check) => check.id === 'B7')?.weight;
     expect(earned).toBeDefined();
     for (const file of ['README.md', 'packages/testing/README.md', 'packages/prod/README.md', 'examples/nextjs-demo/README.md']) {
