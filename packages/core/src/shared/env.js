@@ -205,23 +205,39 @@ export function writeEnvVars(root, vars) {
   if (problem) throw new Error(problem);
   const path = join(root, ENV_FILENAME);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
-  let lines = existing ? existing.replace(/\n+$/, '').split('\n') : [];
+  const eol = lineEnding(existing);
+  let lines = existing ? existing.replace(/(\r?\n)+$/, '').split(/\r?\n/) : [];
   for (const [key, value] of Object.entries(vars)) {
     /** @param {string} line */
     const matches = (line) => assignment(line)?.key === key;
+    const index = lines.findIndex(matches);
     if (value === undefined) {
       lines = lines.filter((line) => !matches(line));
       continue;
     }
-    const index = lines.findIndex(matches);
     // A line the user wrote with export keeps it, so the file still works when sourced.
-    if (index >= 0) lines[index] = `${assignment(lines[index])?.exported ? 'export ' : ''}${key}=${value}`;
-    else lines.push(`${key}=${value}`);
+    const line = `${index >= 0 && assignment(lines[index])?.exported ? 'export ' : ''}${key}=${value}`;
+    // Every later copy goes. The last assignment is the one a reader keeps, so updating only the
+    // first copy of a duplicated key left the old value in force.
+    lines = lines.filter((existingLine, i) => i === index || !matches(existingLine));
+    if (index >= 0) lines[index] = line;
+    else lines.push(line);
   }
-  const output = `${lines.join('\n').replace(/\n+$/, '')}\n`;
+  const output = `${lines.join(eol).replace(/(\r?\n)+$/, '')}${eol}`;
   // The mode only applies when the file is created. An existing .env keeps whatever its owner chose.
   writeFileAtomic(path, output, { mode: 0o600 });
   return path;
+}
+
+/**
+ * The line ending a file already uses, so a line OpenGEO adds does not leave it with two. A file
+ * written on Windows keeps CRLF; anything else, including a new file, gets LF.
+ *
+ * @param {string} text
+ * @returns {'\r\n' | '\n'}
+ */
+function lineEnding(text) {
+  return text.includes('\r\n') ? '\r\n' : '\n';
 }
 
 /**
@@ -260,8 +276,9 @@ export function ensureEnvGitignored(root) {
     .map((l) => l.trim())
     .some((l) => l === '.env' || l === '/.env' || l === '.env*' || l === '*.env');
   if (present) return { path, added: false, alreadyPresent: true };
-  const prefix = existing && !existing.endsWith('\n') ? '\n' : '';
-  appendFileSync(path, `${prefix}\n# Added by OpenGEO - never commit your API key\n.env\n`, 'utf8');
+  const eol = lineEnding(existing);
+  const prefix = existing && !existing.endsWith('\n') ? eol : '';
+  appendFileSync(path, `${prefix}${eol}# Added by OpenGEO - never commit your API key${eol}.env${eol}`, 'utf8');
   return { path, added: true, alreadyPresent: false };
 }
 

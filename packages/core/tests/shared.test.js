@@ -323,6 +323,25 @@ describe('API key handling (§11)', () => {
     });
   });
 
+  it('collapses a duplicated variable, so the value just written is the one that is read', () => {
+    const root = temp();
+    writeFileSync(join(root, '.env'), 'OPENGEO_MODEL=a\nOTHER=1\nOPENGEO_MODEL=b\n', 'utf8');
+    writeEnvVars(root, { OPENGEO_MODEL: 'c' });
+    const written = readFileSync(join(root, '.env'), 'utf8');
+    expect(written).toBe('OPENGEO_MODEL=c\nOTHER=1\n');
+    expect(parseEnv(written).OPENGEO_MODEL).toBe('c');
+  });
+
+  it('keeps the line endings a .env already uses', () => {
+    const root = temp();
+    writeFileSync(join(root, '.env'), '# mine\r\nOPENGEO_MODEL=a\r\nOTHER=1\r\n', 'utf8');
+    writeEnvVars(root, { OPENGEO_MODEL: 'b', OPENGEO_PROVIDER: 'openai' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\r\nOPENGEO_MODEL=b\r\nOTHER=1\r\nOPENGEO_PROVIDER=openai\r\n');
+    writeFileSync(join(root, '.gitignore'), 'node_modules\r\n', 'utf8');
+    ensureEnvGitignored(root);
+    expect(readFileSync(join(root, '.gitignore'), 'utf8')).not.toMatch(/[^\r]\n/);
+  });
+
   it('updates an exported variable in place instead of adding a second one', () => {
     const root = temp();
     writeFileSync(join(root, '.env'), 'export OPENGEO_PROVIDER=openai\n', 'utf8');
