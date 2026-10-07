@@ -22,7 +22,7 @@
  *    80/100, which is the honest answer. They are well built and an agent can read them; what they
  *    do not have is the markdown layer, and that is exactly the 20 points they are missing.
  *
- * A scale where every good site scores 38 tells the user nothing. `tests/score.test.ts` pins both
+ * A scale where every good site scores 38 tells the user nothing. `tests/test-pillar.test.js` pins both
  * properties so a future weight edit cannot quietly break the calibration.
  */
 

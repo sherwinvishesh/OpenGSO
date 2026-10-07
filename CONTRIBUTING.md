@@ -61,7 +61,7 @@ dashboard ships. `npm uninstall -g opengeo` removes it.
 ## Tests
 
 Vitest, weighted heavily toward `packages/core`, because a bug there hits all five packages at
-once. `packages/core/tests/docs.test.ts` asserts that every factual table in `docs/` still matches
+once. `packages/core/tests/docs.test.js` asserts that every factual table in `docs/` still matches
 the code, so a check whose weight changes fails the docs test until the doc is updated too.
 
 Tests import core two ways and both are wanted. Relative imports (`../src/...`) reach internals that

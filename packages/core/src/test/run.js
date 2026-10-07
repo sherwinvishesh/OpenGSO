@@ -16,7 +16,7 @@ import { scoreChecks } from './score.js';
 /**
  * One structural run: fetch the evidence once, score it, and hand back everything that was seen.
  *
- * Kept out of `index.ts` so that module can be a pure barrel. `suite.ts` calls this, and `index.ts`
+ * Kept out of `index.js` so that module can be a pure barrel. `suite.js` calls this, and `index.js`
  * re-exports both, which is the only arrangement where nothing in `test/` imports its own barrel.
  */
 

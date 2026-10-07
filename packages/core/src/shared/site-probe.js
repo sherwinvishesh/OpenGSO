@@ -19,7 +19,7 @@ import { HEADERS } from './version.js';
  * setup flow that fails on a diagnostic is worse than one that never ran it.
  *
  * It lives in `shared/` rather than beside the setup flow because both doors onto setup need it and
- * neither owns it: the terminal reads it through `cli/setup-preview.ts`, and the dashboard reads it
+ * neither owns it: the terminal reads it through `cli/setup-preview.js`, and the dashboard reads it
  * over `POST /api/preview`. Nothing here knows about either. The rendering is somebody else's job.
  */
 

@@ -106,7 +106,7 @@ function resolveAdvertised(html, target) {
   } catch {
     return {};
   }
-  // The same rule discover.ts applies to llms.txt and sitemap links.
+  // The same rule discover.js applies to llms.txt and sitemap links.
   const sameSite = (url.protocol === 'http:' || url.protocol === 'https:') && url.origin === target.origin;
   return sameSite ? { advertisedTwinUrl: url.toString() } : { foreignTwinUrl: advertised };
 }

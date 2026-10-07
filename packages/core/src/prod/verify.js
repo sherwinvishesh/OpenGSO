@@ -206,7 +206,7 @@ export function resolveBot(name, bots = AI_BOTS) {
 function botUserAgent(bot, bots = AI_BOTS) {
   const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
   if (identifyBot(ua, bots)?.name === bot.name) return ua;
-  // Defensive: a bot whose UA token is not its own name. None today, but bots.ts is the
+  // Defensive: a bot whose UA token is not its own name. None today, but bots.js is the
   // community-contribution surface, and a probe that silently fails to impersonate anyone would
   // report a routing failure that does not exist.
   return `Mozilla/5.0 (compatible; ${bot.uaPatterns[0]}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;

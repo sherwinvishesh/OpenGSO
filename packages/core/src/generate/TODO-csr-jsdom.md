@@ -4,10 +4,10 @@ Status: **not built.** This is step 8 of §18, which puts it last on purpose.
 
 ## The boundary, stated exactly
 
-`extract.ts` constructs `new JSDOM(html, { url })`. jsdom's default is `runScripts: undefined`,
+`extract.js` constructs `new JSDOM(html, { url })`. jsdom's default is `runScripts: undefined`,
 which means **no script on the page ever executes**. jsdom is used here as a spec-compliant HTML
-parser and nothing more. The same is true of `crawl.ts`, which discovers routes from `<a href>` in
-the parsed-but-not-executed DOM, and of `test/runner.ts`.
+parser and nothing more. The same is true of `crawl.js`, which discovers routes from `<a href>` in
+the parsed-but-not-executed DOM, and of `test/runner.js`.
 
 So for a purely client-rendered page, OpenGEO today sees `<div id="root"></div>` and says so:
 
@@ -63,7 +63,7 @@ accurate score, an accurate warning, and no broken twin.
   the CLI help text and not only in docs.
 - A settle strategy based on a mutation quiet period, with a hard ceiling, and the ceiling reported
   in the warning when it is hit.
-- The fidelity verifier (`fidelity.ts`) pointed at the executed DOM as well, since a half-hydrated
+- The fidelity verifier (`fidelity.js`) pointed at the executed DOM as well, since a half-hydrated
   page losing facts is exactly the failure this pass must catch.
 - Real-world validation against several third-party SPAs before any README claims SPA support.
   §17 asks for this by name: "Needs real-world validation, not assumed to fully solve

@@ -24,7 +24,7 @@ const CSI = `${ESC}[`;
 /**
  * What the terminal can show.
  *
- * Read fresh on every call rather than cached at import time, for the same reason `log.ts` does it:
+ * Read fresh on every call rather than cached at import time, for the same reason `log.js` does it:
  * the test suite sets and unsets these variables between cases, and a value captured when the module
  * was first loaded would make half of those tests describe a terminal nobody is looking at.
  *

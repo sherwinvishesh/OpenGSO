@@ -81,13 +81,13 @@ export class SetupAbort extends Error {}
  *   is testable without a terminal.
  * @property {(url: string) => Promise<SitePreview | undefined>} [preview] Fetches the site URL as it is
  *   entered, so the answer can be checked while it is still cheap to change. Injected rather than
- *   imported, because configure.ts should not decide on every caller's behalf that setup makes a
+ *   imported, because configure.js should not decide on every caller's behalf that setup makes a
  *   network request: the CLI passes `previewSite`, tests pass a stub, and a caller that wants four
  *   silent questions passes nothing and gets exactly what it always got.
  * @property {(result: SetupResult, write: (text: string) => void) => Promise<void>} [finish] Runs after
  *   the config is saved, to end setup on a real number instead of three commands to go and try.
  *   Injected for the same reason and one more: `test` pulls in jsdom and the AI providers, and
- *   configure.ts is imported by packages that ship neither.
+ *   configure.js is imported by packages that ship neither.
  */
 
 /**

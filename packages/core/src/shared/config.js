@@ -77,7 +77,7 @@ export function defaultConfig(site = 'http://localhost:3000') {
     generate: { tier: 'free', minWords: 40 },
     bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
     // Written out rather than read from the catalogue, for the bundling reason above. It is not
-    // free-floating: providers.test.ts asserts it still matches providerInfo('anthropic').
+    // free-floating: providers.test.js asserts it still matches providerInfo('anthropic').
     ai: { provider: 'anthropic', model: 'claude-sonnet-5' },
   };
 }

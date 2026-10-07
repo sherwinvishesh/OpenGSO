@@ -153,7 +153,7 @@ const LOCKED_ON_LIVE_URL = {
 /**
  * Every check the cascade can take out of the denominator.
  *
- * The report prices this list as one block, and docs.test.ts adds up their weights to check the
+ * The report prices this list as one block, and docs.test.js adds up their weights to check the
  * number written in docs/checks.md is the number the code would actually produce.
  *
  * @type {readonly string[]}

@@ -4,7 +4,7 @@
  * OpenGEO is bring-your-own-key, and "your key" turned out to mean a lot of different things: a
  * Claude key, an OpenAI key, a Grok key, a Groq key, a company gateway, or a model running on the
  * user's own laptop. Rather than a switch statement that grows a branch per vendor, every provider
- * is a row in this table, and the wire code in generate/ai.ts speaks the three API shapes those
+ * is a row in this table, and the wire code in generate/ai.js speaks the three API shapes those
  * rows point at.
  *
  * That is also what makes "add your own" a supported feature rather than a fork: the `custom`

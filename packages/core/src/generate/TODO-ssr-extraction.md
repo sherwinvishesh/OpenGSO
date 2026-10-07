@@ -4,7 +4,7 @@ Status: **not built.** This is step 5 of §18, deliberately left for a later pas
 
 ## What works today
 
-`extract.ts` is already framework-agnostic in the sense that matters: it reads the raw HTML
+`extract.js` is already framework-agnostic in the sense that matters: it reads the raw HTML
 response, so any page whose content is server-rendered comes out as usable Markdown without a
 per-framework adapter. That is enough for step 1 of §18 (MDX and file-based-routing frameworks,
 Next.js and Astro), which is what `examples/nextjs-demo` exercises end to end.

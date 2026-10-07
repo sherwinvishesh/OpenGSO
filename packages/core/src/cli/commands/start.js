@@ -141,7 +141,7 @@ function findWebRoot() {
   const candidates = [
     join(here, 'web'),
     join(here, '..', 'web'),
-    // Running from source (vitest, tsx): packages/core/src/cli/commands -> packages/opengeo/dist/web
+    // From source (vitest or plain node): packages/core/src/cli/commands -> packages/opengeo/dist/web
     join(here, '..', '..', '..', '..', 'opengeo', 'dist', 'web'),
   ];
   return candidates.find((candidate) => existsSync(join(candidate, 'index.html'))) ?? candidates[0];
