@@ -1,5 +1,5 @@
 import { AI_BOTS, botUserAgent, findBot } from '../shared/bots.js';
-import { BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, probe } from '../shared/http.js';
+import { BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, isMarkdownResponse, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
 import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
@@ -188,7 +188,7 @@ function judgeRoutedBot(bot, ua, result, url) {
   const blocked = judgeBlocked(result, `${bot.name} was`);
   if (blocked) return { ...base, ...blocked };
 
-  if (isMarkdown(result)) {
+  if (isMarkdownResponse(result)) {
     return {
       ...base,
       verdict: 'pass',
@@ -240,7 +240,7 @@ function judgeUnknownBot(result, url) {
         'opengeo-prod has no blocking code path, so this is a CDN, WAF or host rule. Every AI product launched since the bot list was last updated looks exactly like this request.',
     };
   }
-  if (isMarkdown(result)) {
+  if (isMarkdownResponse(result)) {
     return {
       ...base,
       verdict: 'warn',
@@ -282,7 +282,7 @@ function judgeAcceptMarkdown(result, url) {
   const unreachable = judgeUnreachable(result);
   if (unreachable) return { ...base, ...unreachable };
 
-  if (isMarkdown(result)) {
+  if (isMarkdownResponse(result)) {
     if (result.redirected) {
       return {
         ...base,
@@ -332,7 +332,7 @@ function judgeBrowser(result, url) {
   const unreachable = judgeUnreachable(result);
   if (unreachable) return { ...base, ...unreachable };
 
-  if (isMarkdown(result)) {
+  if (isMarkdownResponse(result)) {
     return {
       ...base,
       verdict: 'fail',
@@ -545,14 +545,6 @@ function collectHeaders(result) {
     if (value) out[name] = value;
   }
   return out;
-}
-
-/**
- * @param {ProbeResult} result
- * @returns {boolean}
- */
-function isMarkdown(result) {
-  return (result.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown');
 }
 
 /**

@@ -143,6 +143,17 @@ async function discard(response) {
 }
 
 /**
+ * Whether a probe came back as Markdown, by its Content-Type. A substring test on purpose: the
+ * parameters after the type (charset, variant) vary by server and none of them change the answer.
+ *
+ * @param {ProbeResult} result
+ * @returns {boolean}
+ */
+export function isMarkdownResponse(result) {
+  return (result.headers.get('content-type') ?? '').toLowerCase().includes('text/markdown');
+}
+
+/**
  * @param {string} value
  * @returns {URL | undefined}
  */

@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
-import { HOSTILE_ACCEPT, parseUrl } from '../shared/http.js';
+import { HOSTILE_ACCEPT, isMarkdownResponse, parseUrl } from '../shared/http.js';
 import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
 import { varyIncludesAccept } from '../prod/headers.js';
 import { extractPage } from '../generate/extract.js';
@@ -592,15 +592,6 @@ function checkHttps(e) {
 }
 
 // ---- Category B ------------------------------------------------------------------------------
-
-/**
- * @param {ProbeResult} response
- * @returns {boolean}
- */
-function isMarkdownResponse(response) {
-  const contentType = response.headers.get(HEADERS.contentType) ?? '';
-  return contentType.toLowerCase().includes('text/markdown');
-}
 
 /**
  * @param {Evidence} e
