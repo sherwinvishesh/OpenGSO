@@ -301,10 +301,10 @@ async function post(url, init, timeoutMs, label, apiKey) {
       throw new Error(ERRORS.providerRedirected(label, response.status, response.headers.get('location')));
     }
     const body = await response.text();
+    // A gateway that echoes the request back would otherwise put the key in a message that is
+    // printed, kept as a generate warning and sent to the dashboard. Both refusals below quote it.
+    const shown = apiKey ? body.split(apiKey).join('[redacted]') : body;
     if (!response.ok) {
-      // A gateway that echoes the request back would otherwise put the key in a message that is
-      // printed, kept as a generate warning and sent to the dashboard.
-      const shown = apiKey ? body.split(apiKey).join('[redacted]') : body;
       // The status rides along so a caller with many calls queued can tell a refused key from one bad document.
       throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, shown)), { status: response.status });
     }
@@ -315,9 +315,9 @@ async function post(url, init, timeoutMs, label, apiKey) {
     try {
       json = JSON.parse(body);
     } catch {
-      throw new Error(ERRORS.providerNotJson(label, body));
+      throw new Error(ERRORS.providerNotJson(label, shown));
     }
-    if (typeof json !== 'object' || json === null) throw new Error(ERRORS.providerNotJson(label, body));
+    if (typeof json !== 'object' || json === null) throw new Error(ERRORS.providerNotJson(label, shown));
     return json;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
