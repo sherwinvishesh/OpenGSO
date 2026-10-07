@@ -162,8 +162,12 @@ export function commandUnavailable(command, installedPackage) {
  * @returns {string}
  */
 export function unknownCommand(command, available) {
+  // `prod` is the only word that starts a command without being one, so it gets named outright
+  // rather than left for the reader to find in the list below.
+  const prod = command.split(' ')[0] === 'prod' ? [`\`opengeo prod\` has one command under it: opengeo prod test <url>`] : [];
   return [
     `Unknown command: \`opengeo ${command}\`.`,
+    ...prod,
     ``,
     available.length > 0
       ? `This install can run: ${available.map((c) => `opengeo ${c}`).join(', ')}.`

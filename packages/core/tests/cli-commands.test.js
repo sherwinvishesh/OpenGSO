@@ -253,6 +253,25 @@ describe('opengeo help <command>', () => {
   });
 });
 
+describe('opengeo prod without test', () => {
+  it('points at prod test, the one command under it', async () => {
+    for (const argv of [['prod'], ['prod', site], ['help', 'prod']]) {
+      const { code, stderr } = await capture(() =>
+        runCli({ packageName: 'opengeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv }),
+      );
+      expect(code, argv.join(' ')).toBe(2);
+      expect(stderr, argv.join(' ')).toContain('opengeo prod test <url>');
+    }
+  });
+
+  it('says nothing about prod for any other unknown command', async () => {
+    const { stderr } = await capture(() =>
+      runCli({ packageName: 'opengeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv: ['tset'] }),
+    );
+    expect(stderr).not.toContain('<url>');
+  });
+});
+
 describe('colour, on a terminal, for output that is not going to it', () => {
   const ESC = String.fromCharCode(27);
   const saved = { ...process.env };
