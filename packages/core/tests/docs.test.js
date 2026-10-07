@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -20,6 +20,7 @@ import { PROVIDERS } from '../src/shared/providers.js';
 import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../src/shared/version.js';
 import { NOT_ACCEPTABLE_BODY } from '../src/prod/headers.js';
 import { routeToTwinUrlPath } from '../src/shared/routes.js';
+import { COMMAND_PACKAGES } from '../src/shared/errors.js';
 
 /**
  * Documentation that describes behaviour is documentation that can be wrong. These tests are the
@@ -253,5 +254,144 @@ describe('`opengeo prod test`', () => {
 
   it('says the same in the opengeo-prod README', () => {
     expect(read('packages/prod/README.md')).toContain(`${capitalized(COUNT_WORDS[probes.size])} probes,`);
+  });
+});
+
+/**
+ * READMEs and the contributor guide state facts too, and nothing else reads them. Each test below
+ * exists because the fact it checks once drifted.
+ */
+describe('the READMEs', () => {
+  const READMES = ['README.md', ...['testing', 'generate', 'prod', 'cli', 'opengeo'].map((dir) => `packages/${dir}/README.md`)];
+  const docFiles = readdirSync(join(repoRoot, 'docs')).filter((file) => file.endsWith('.md'));
+  const proseFiles = [...READMES, 'CONTRIBUTING.md', 'examples/nextjs-demo/README.md', ...docFiles.map((file) => `docs/${file}`)];
+
+  it('state the category weight totals of opengeo-testing correctly', () => {
+    /** @param {string} category */
+    const total = (category) => CHECKS.filter((c) => c.category === category).reduce((sum, c) => sum + c.weight, 0);
+    const doc = read('packages/testing/README.md');
+    expect(doc).toContain(`**Category A, discoverability (weights totalling ${total('A')}).**`);
+    expect(doc).toContain(`**Category B, implementation (weights totalling ${total('B')}).**`);
+  });
+
+  it('list every group the test report can print', () => {
+    // The check groups are the headings in `renderReport` and `renderLocked`. The discovery
+    // section further down the file is not a group of checks.
+    const source = read('packages/core/src/test/report.js');
+    const report = ['export function renderReport(', 'function renderLocked(']
+      .map((signature) => (source.split(signature)[1] ?? '').split('\n}\n')[0])
+      .join('\n');
+    const groups = [...report.matchAll(/heading\(`([A-Z][^`(]*?) \(\$\{/g)].map(([, name]) => name);
+    expect(new Set(groups).size).toBeGreaterThanOrEqual(6);
+    const output = (read('packages/testing/README.md').split('## Output')[1] ?? '').split('\n## ')[0];
+    for (const group of groups) expect(output, `the Output section never names "${group}"`).toContain(`\n${group} `);
+  });
+
+  it('call the Next.js Vary limitation the partial B7 actually returns', () => {
+    const runner = read('packages/core/src/test/runner.js');
+    const earned = runner.match(/partial\('B7', (\d+)/)?.[1];
+    const weight = CHECKS.find((check) => check.id === 'B7')?.weight;
+    expect(earned).toBeDefined();
+    for (const file of ['README.md', 'packages/testing/README.md', 'packages/prod/README.md', 'examples/nextjs-demo/README.md']) {
+      expect(read(file), `${file} does not give B7 as ${earned} of ${weight}`).toContain(`${earned} of ${weight}`);
+    }
+    expect(read('docs/spec.md')).toContain(`check B7 earns ${earned} of its ${weight}`);
+    for (const file of proseFiles) {
+      expect(read(file), `${file} calls the Vary limitation a failure`).not.toMatch(/genuine failure|B7 fails/);
+    }
+  });
+
+  it('give the demo the number of pages it has', () => {
+    /** @param {string} dir @returns {number} */
+    const pages = (dir) =>
+      readdirSync(join(repoRoot, dir), { withFileTypes: true }).reduce(
+        (count, entry) =>
+          count + (entry.isDirectory() ? pages(`${dir}/${entry.name}`) : entry.name === 'page.tsx' ? 1 : 0),
+        0,
+      );
+    expect(read('examples/nextjs-demo/README.md')).toContain(`A ${COUNT_WORDS[pages('examples/nextjs-demo/app')]}-page`);
+  });
+
+  it('only import names the prod entries really export', async () => {
+    const modules = {
+      'opengeo-prod': await import('../src/prod/index.js'),
+      'opengeo-prod/next': await import('../src/prod/adapters/next.js'),
+      'opengeo-prod/edge': await import('../src/prod/edge.js'),
+    };
+    /** @type {Record<string, keyof typeof modules>} */
+    const sameAs = {
+      'opengeo-prod': 'opengeo-prod',
+      'opengeo-prod/next': 'opengeo-prod/next',
+      'opengeo-prod/edge': 'opengeo-prod/edge',
+      'opengeo/prod': 'opengeo-prod',
+      'opengeo/prod/next': 'opengeo-prod/next',
+      'opengeo/prod/edge': 'opengeo-prod/edge',
+    };
+    let seen = 0;
+    for (const file of proseFiles) {
+      for (const [, names, specifier] of read(file).matchAll(/(?:import|export)\s*\{([^}]+)\}\s*from\s*'([^']+)'/g)) {
+        const entry = sameAs[specifier];
+        if (!entry) continue;
+        for (const name of names.split(',').map((n) => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
+          seen += 1;
+          expect(Object.keys(modules[entry]), `${file} imports ${name} from ${specifier}`).toContain(name);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(5);
+  });
+
+  it('name every entry opengeo-prod and opengeo publish', () => {
+    for (const dir of ['prod', 'opengeo']) {
+      const pkg = JSON.parse(read(`packages/${dir}/package.json`));
+      const doc = read(`packages/${dir}/README.md`);
+      for (const subpath of Object.keys(pkg.exports)) {
+        const specifier = subpath === '.' ? pkg.name : `${pkg.name}/${subpath.slice(2)}`;
+        expect(doc, `packages/${dir}/README.md never mentions ${specifier}`).toContain(`\`${specifier}`);
+      }
+    }
+  });
+
+  it('do not claim the opengeo-prod tarball has no AI provider code at all', () => {
+    // True of the library a server imports, which check:bundles enforces. The tarball's CLI carries
+    // the provider catalogue so `opengeo help providers` can print it.
+    for (const file of proseFiles) expect(read(file)).not.toContain('no AI provider code at all');
+  });
+
+  it('link every document in docs/ from the root README', () => {
+    for (const file of docFiles) {
+      expect(read('README.md'), `README.md does not link docs/${file}`).toContain(`(docs/${file})`);
+    }
+  });
+});
+
+describe('CONTRIBUTING.md', () => {
+  const doc = read('CONTRIBUTING.md');
+
+  it('lists the commands each package ships in its layout table', () => {
+    for (const [, name, ships] of doc.matchAll(/^packages\/\w+\s+(opengeo-\w+)\s+(.+)$/gm)) {
+      const commands = Object.entries(COMMAND_PACKAGES)
+        .filter(([, packages]) => packages.includes(name))
+        .map(([command]) => command);
+      expect(ships.split(' + ').filter((part) => part !== 'middleware').sort(), name).toEqual(commands.sort());
+    }
+  });
+});
+
+describe('the verify steps', () => {
+  const scripts = JSON.parse(read('package.json')).scripts;
+  const CHECKS_TO_RUN = ['typecheck', 'test', 'build', 'check:bundles', 'check:packages'];
+
+  it('are the same five real scripts in the README and the contributor guide', () => {
+    for (const [file, heading] of [['README.md', '## Working on it'], ['CONTRIBUTING.md', '## The loop']]) {
+      const block = (read(file).split(heading)[1] ?? '').split('```bash')[1]?.split('```')[0] ?? '';
+      const named = [...block.matchAll(/npm (?:run )?([\w:]+)/g)].map(([, script]) => script).filter((s) => s !== 'install');
+      expect(named, `${file} ${heading}`).toEqual(CHECKS_TO_RUN);
+      for (const script of named) expect(scripts[script], `${file} runs \`npm run ${script}\`, which does not exist`).toBeDefined();
+    }
+  });
+
+  it('typecheck covers the dashboard, so neither guide needs a second tsc line', () => {
+    expect(scripts.typecheck).toContain('packages/opengeo/web/tsconfig.json');
   });
 });

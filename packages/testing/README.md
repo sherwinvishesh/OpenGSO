@@ -63,11 +63,11 @@ The exit code always comes from the structural checks. A model's opinion never f
 [full catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md) explains every
 one of them, including what to change when it fails.
 
-**Category A, discoverability (50 points).** Applies to any site. `robots.txt`, `llms.txt`,
+**Category A, discoverability (weights totalling 57).** Applies to any site. `robots.txt`, `llms.txt`,
 `sitemap.xml`, JSON-LD, whether real content survives with JavaScript disabled, TTFB, `noai` tags,
 HTTPS and HSTS.
 
-**Category B, implementation (70 points).** Probes the markdown-twin contract: is the twin
+**Category B, implementation (weights totalling 65).** Probes the markdown-twin contract: is the twin
 reachable, is the content type exact, does `Accept: text/markdown` actually get markdown, does an AI
 User-Agent, does `Vary` include `Accept`, is the twin `noindex`, is the HTML page still untouched,
 and has the twin drifted from the live page.
@@ -96,8 +96,13 @@ thing that audits it. A markdown twin is a cache, and this is what tells you the
 ```
 Failed - required        the things that stop agents working
 Failed - recommended     the things that make them work better
+Partly there             half done: earns part of its weight, with the arithmetic shown
+Locked                   could not be measured because B1 failed, priced as one line
 Passed                   everything that is already right
+Not applicable           cannot apply to this target, such as HSTS on localhost
 ```
+
+Only the groups that have something in them are printed.
 
 Every row carries the check id, what it verifies, and the specific reason for that verdict,
 including the header value actually observed. Never a generic string.

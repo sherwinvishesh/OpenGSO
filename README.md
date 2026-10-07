@@ -91,8 +91,10 @@ if you ask one for something it does not ship, it tells you which package to ins
 | [`opengeo-prod`](packages/prod/README.md) | the middleware, plus `prod test` | this is the one that runs on your server |
 
 `opengeo-prod` is the package that ends up in a production dependency, so it has **zero
-dependencies**, no jsdom, and no AI provider code at all. It reads files that `generate` already
-wrote, and does a map lookup per request. `npm run check:bundles` asserts that on every build.
+dependencies** and its library, the part your server imports, has no jsdom and no AI provider code.
+It reads files that `generate` already wrote, and does a map lookup per request.
+`npm run check:bundles` asserts that on every build. The `opengeo prod test` command in the same
+tarball carries the provider catalogue so its help can list it, and never calls a provider.
 
 ## How the three pillars fit together
 
@@ -168,8 +170,8 @@ follow a change and what to do about it.
 - **SSR output without semantic landmarks.** Frameworks that ship no `<main>` or `<article>` fall back
   to the whole body. See [`TODO-ssr-extraction.md`](packages/core/src/generate/TODO-ssr-extraction.md).
 - **`Vary: Accept` on Next.js App Router.** Next does not let middleware add `Vary` to a response it
-  did not create, so an HTML response from an App Router page can lack it. Check B7 reports this
-  honestly rather than papering over it.
+  did not create, so an HTML response from an App Router page can lack it. Check B7 scores this as
+  a partial, 2 of 4, rather than papering over it.
 - **CDN behaviour is documented, not claimed.** `Vary: Accept` is set on every response; how a given
   CDN honours it across hosts has not been tested.
 

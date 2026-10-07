@@ -1,6 +1,6 @@
 # nextjs-demo
 
-A four-page Next.js 16 site used to drive the whole OpenGEO loop for real: generate the markdown
+A three-page Next.js 16 site used to drive the whole OpenGEO loop for real: generate the markdown
 twins, serve them from `opengeo-prod`, and score the result with `opengeo test`.
 
 The pages carry deliberately specific facts (`3 March 2024`, `$12,500`, `42%`, `21,400 EUR`) so the

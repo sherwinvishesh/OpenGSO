@@ -7,16 +7,16 @@ packages/core        @opengeo/core, private, never published. Every pillar lives
 packages/testing     opengeo-testing    test
 packages/generate    opengeo-generate   generate
 packages/prod        opengeo-prod       middleware + prod test
-packages/cli         opengeo-cli        test + generate + prod test + setup
+packages/cli         opengeo-cli        test + generate + prod test + settings
 packages/opengeo     opengeo            all of the above + the dashboard
 examples/nextjs-demo the app the whole pipeline is exercised against
-docs/                checks.md (the 22 checks) and spec.md (the wire format)
+docs/                the user and contributor docs, listed in the README
 ```
 
 **A note on `§` references.** Comments and docs across this repo cite section numbers, like
 `§7` or `§16`. They point into the original product spec, which is not distributed with the repo.
 You do not need it: the decisions those sections drove are all described where they are cited, and
-the two documents in `docs/` cover the parts a contributor actually has to match.
+the documents in `docs/` cover the parts a contributor actually has to match.
 
 `@opengeo/core` is private and its `exports` map points at its source files. Each published package
 bundles core with tsup (`noExternal: [/@opengeo\/core/]`), so core is never an install-time

@@ -100,16 +100,36 @@ for the full flag list and the config file format.
 
 ## The middleware
 
-`opengeo` also exports the runtime, so a project that installs this one package needs nothing else:
+`opengeo` also exports the runtime, so a project that installs this one package needs nothing else.
+Each entry is the same code as the matching `opengeo-prod` one:
+
+| Import | Same as | What it is |
+| --- | --- | --- |
+| `opengeo/prod` | `opengeo-prod` | the handler, the stores, and the startup log |
+| `opengeo/prod/next` | `opengeo-prod/next` | the Next.js adapter, for the Node middleware runtime |
+| `opengeo/prod/edge` | `opengeo-prod/edge` | the handler without anything that reads the disk |
 
 ```ts
 // middleware.ts
-export { middleware, config } from 'opengeo/prod/next';
+import { NextResponse } from 'next/server';
+import { applyPassthroughHeaders, createNextMiddleware } from 'opengeo/prod/next';
+
+const opengeo = createNextMiddleware({ root: process.cwd() });
+
+export function middleware(request: Request) {
+  const { response, headers } = opengeo(request);
+  if (response) return response;
+  const next = NextResponse.next();
+  applyPassthroughHeaders(next, headers);
+  return next;
+}
+
+export const config = { runtime: 'nodejs', matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
 ```
 
 See
 [opengeo-prod](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/prod/README.md)
-for the framework-agnostic handler and the header contract.
+for the framework-agnostic handler, the edge recipe and the header contract.
 
 ## Where your API key lives
 

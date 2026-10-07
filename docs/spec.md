@@ -137,8 +137,8 @@ carry `Cache-Control: private`. Adding `User-Agent` to `Vary` instead would spli
 entry per browser build for every visitor, to fix a problem only crawlers have.
 
 **Known limitation.** The Next.js App Router appends its own values to `Vary` on HTML responses and
-offers no supported way to stop it. OpenGEO reports this as a genuine failure rather than
-special-casing it, and the markdown responses carry a clean `Vary: Accept`. Behaviour behind a
+offers no supported way to stop it. OpenGEO scores this as a partial (check B7 earns 2 of its 4)
+rather than special-casing it, and the markdown responses carry a clean `Vary: Accept`. Behaviour behind a
 cross-host CDN is documented as untested, not claimed.
 
 ## 406 Not Acceptable
