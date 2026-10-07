@@ -75,7 +75,8 @@ const decision = handle({ url, method, headers });
 ```
 
 A decision is one of: serve this markdown with these headers, return a 406, or pass through with
-these headers added to whatever you were going to send.
+these headers added to whatever you were going to send. A 406 is only ever returned on a route that
+has a twin; an API route asking for JSON passes through untouched.
 
 ### Crawlers OpenGEO does not ship with
 

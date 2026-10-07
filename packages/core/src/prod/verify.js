@@ -419,7 +419,8 @@ function judgeNotAcceptable(result, url) {
     ...base,
     verdict: 'fail',
     reason: `Answered ${result.status} instead of 406 to \`Accept: ${HOSTILE_ACCEPT}\`.`,
-    detail: 'Something upstream is answering before the middleware sees the request.',
+    detail:
+      'prod only sends 406 on a route that has a twin, so either there is no twin for this route yet (run `opengeo generate <url>`), or something upstream is answering before the middleware sees the request.',
   };
 }
 

@@ -127,7 +127,7 @@ cross-host CDN is documented as untested, not claimed.
 
 ## 406 Not Acceptable
 
-When the Accept header excludes both HTML and markdown:
+When the Accept header excludes both HTML and markdown on a route that has a twin:
 
 ```
 HTTP/1.1 406 Not Acceptable
@@ -143,6 +143,12 @@ Your Accept header asked for neither.
 
 A 200 carrying the wrong content type is worse than a 406, because the client has no way to tell it
 went wrong.
+
+The 406 applies only to routes with a twin, because those are the only URLs where the two formats
+are known to be the whole story. Every other request passes through to the application untouched,
+whatever it asks for: `GET /api/users` with `Accept: application/json`, an event stream with
+`Accept: text/event-stream` and a feed with `Accept: application/rss+xml` are the application's to
+answer, not the middleware's.
 
 ## The two bot levers are separate
 

@@ -75,7 +75,11 @@ export function handleRequest(request, ctx) {
     return { type: 'passthrough', headers: {}, classification };
   }
 
-  if (classification.serve === 'not-acceptable') {
+  const doc = ctx.store.get(classification.route);
+
+  // Only a route with a twin is prod's to refuse. Everywhere else the application owns the URL, and
+  // an API asking for JSON or an event stream asking for text/event-stream is none of our business.
+  if (classification.serve === 'not-acceptable' && doc) {
     return {
       type: 'not-acceptable',
       classification,
@@ -85,8 +89,6 @@ export function handleRequest(request, ctx) {
       }),
     };
   }
-
-  const doc = ctx.store.get(classification.route);
 
   if (classification.serve === 'markdown' && doc) {
     return {
