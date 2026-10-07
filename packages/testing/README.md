@@ -181,8 +181,9 @@ Bringing your own endpoint takes three lines of config. See
 Some things cannot be fixed, and this tool says so rather than quietly passing them.
 
 The Next.js App Router appends its own values to `Vary` on HTML responses, replacing `Vary: Accept`,
-with no supported way to prevent it. On a Next site, **B7 fails**, and the reason line prints the
-exact `Vary` string Next produced. Special-casing it would make the tool useless for auditing
+with no supported way to prevent it. On a Next site, **B7 is a partial, 2 of 4**: the markdown side
+has the header and the HTML side does not, and the reason line prints the exact `Vary` string Next
+produced. Special-casing it would make the tool useless for auditing
 anything.
 
 Behaviour behind a cross-host CDN is documented as untested rather than claimed.

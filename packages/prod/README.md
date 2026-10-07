@@ -53,9 +53,9 @@ Next's app-page runtime calls `res.setHeader('vary', ...)` while rendering, whic
 
 Markdown responses are unaffected and carry a clean `Vary: Accept`.
 
-`opengeo test` reports this as a real B7 failure rather than special-casing it, and `opengeo prod
-test` reports it as a warning that names the exact `Vary` string Next produced. Verified against
-Next 16.3.4.
+`opengeo test` scores this as a B7 partial, 2 of 4, rather than special-casing it, and `opengeo
+prod test` reports it as a warning that names the exact `Vary` string Next produced. Verified against
+Next 16.3.4 and 16.3.8.
 
 ## Any other Node server
 

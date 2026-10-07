@@ -19,7 +19,7 @@ import { createFsStore } from '../store.js';
  *
  * Known upstream limitation: Next's app-page runtime calls `res.setHeader('vary', ...)` while
  * rendering, which replaces the `Vary: Accept` this adapter hands back for the HTML response.
- * Markdown responses are unaffected. Verified on 16.3.4; see examples/nextjs-demo/README.md.
+ * Markdown responses are unaffected. Verified on 16.3.4 and 16.3.8; see examples/nextjs-demo/README.md.
  */
 
 export interface NextAdapterOptions {

@@ -50,14 +50,15 @@ the exported function to `proxy` if you only target 16.
 
 ## Known limitation: `Vary: Accept` on Next's App Router
 
-`opengeo test` reports B7 as failing here, and it is telling the truth. Next's app-page runtime
+`opengeo test` scores B7 as a partial here, 2 of 4, and it is telling the truth. Next's app-page runtime
 calls `res.setHeader('vary', 'rsc, next-router-state-tree, ...')` while rendering, which replaces
 anything middleware or `next.config.js` `headers()` set earlier. The markdown response is unaffected
 (it is a `Response` object OpenGEO returns directly, and it carries `Vary: Accept` correctly), but
 the HTML response loses it.
 
 Verified against Next 16.3.4 in both `next dev` and `next start`, from middleware and from
-`headers()`. Route handlers keep the header; only app pages drop it.
+`headers()`, and re-checked from middleware on 16.3.8 in both. Route handlers keep the header; only
+app pages drop it.
 
 Until that changes upstream, add `Vary: Accept` to the HTML response at your CDN or reverse proxy.
 OpenGEO does not monkey-patch `http.ServerResponse` to work around it.
