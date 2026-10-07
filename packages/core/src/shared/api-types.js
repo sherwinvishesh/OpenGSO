@@ -9,15 +9,26 @@
  *
  * The modules that produce these values re-export each name as a typedef, so the server side
  * keeps importing them from where they are made.
- *
- * @import { CheckResult } from '../test/checks.js'
- * @import { Score } from '../test/score.js'
- * @import { Framework } from '../test/framework.js'
- * @import { AiBot, CustomBotInput } from './bots.js'
- * @import { AiProvider, ProviderApi, ProviderAuth, ProviderInfo } from './providers.js'
  */
 
 export {};
+
+// -- from the Node-free modules they are made in ------------------------------------------------
+
+// Aliases rather than `@import`, which would keep each name private to this file. The dashboard
+// needs them too, and this is the one module it is allowed to read.
+
+/**
+ * @typedef {import('../test/checks.js').CheckResult} CheckResult
+ * @typedef {import('../test/score.js').Score} Score
+ * @typedef {import('../test/framework.js').Framework} Framework
+ * @typedef {import('./bots.js').AiBot} AiBot
+ * @typedef {import('./bots.js').CustomBotInput} CustomBotInput
+ * @typedef {import('./providers.js').AiProvider} AiProvider
+ * @typedef {import('./providers.js').ProviderApi} ProviderApi
+ * @typedef {import('./providers.js').ProviderAuth} ProviderAuth
+ * @typedef {import('./providers.js').ProviderInfo} ProviderInfo
+ */
 
 // -- config --------------------------------------------------------------------------------------
 
