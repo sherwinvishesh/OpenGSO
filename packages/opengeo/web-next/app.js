@@ -4,6 +4,7 @@ import { abortAll } from './runs.js';
 import { createBotsView } from './views/bots.js';
 import { createGenerateView } from './views/generate.js';
 import { createProdView } from './views/prod.js';
+import { createSettingsView } from './views/settings.js';
 import { createTestView } from './views/test.js';
 import { banner, button, card, el, empty, fill, pageHead, setLabel, setText } from './ui.js';
 
@@ -32,19 +33,13 @@ const TABS = [
 const THEME_KEY = 'opengeo.theme';
 const SHORTCUTS_KEY = 'opengeo.shortcuts';
 
-/**
- * @param {string} title
- * @returns {(ctx: Ctx) => View}
- */
-const notYet = (title) => () => ({ node: el('div', {}, pageHead(title), empty('Not ported yet')), update() {} });
-
 /** @type {Record<Tab, (ctx: Ctx) => View>} */
 const SCREENS = {
   test: createTestView,
   generate: createGenerateView,
   prod: createProdView,
   bots: createBotsView,
-  settings: notYet('Settings'),
+  settings: createSettingsView,
 };
 
 /** @type {(ctx: Ctx, onDone: (firstTest?: TestResponse) => void) => View} */
