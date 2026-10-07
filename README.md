@@ -123,6 +123,9 @@ the job can run.
 - [docs/providers.md](docs/providers.md) - every AI provider OpenGEO ships with, the environment
   variables it already understands, and how to add your own AI tool.
 - [CONTRIBUTING.md](CONTRIBUTING.md) - the dev loop, the test layout, and how to add a bot.
+- [SECURITY.md](SECURITY.md) - the dashboard's threat model, where the API key goes, and how to
+  report a vulnerability privately.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - the Contributor Covenant 2.1.
 
 ## Repo layout
 
