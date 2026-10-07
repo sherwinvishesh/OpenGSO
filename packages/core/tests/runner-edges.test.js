@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { parseRobots, robotsAllows, summarizeRobots } from '@opengeo/core/prod';
+import { parseRobots, robotsAllows } from '../src/shared/robots.js';
+import { summarizeRobots } from '../src/prod/startup.js';
 import { discoverTwins, renderReport, scoreChecks, scoreGain, sitemapTwins, testUrl } from '@opengeo/core/test';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */

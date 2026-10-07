@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { docsUrl, groupChecks, points, slug } from '../web/components/checks.js';
+import { checkList, docsUrl, groupChecks, points, slug } from '../web/components/checks.js';
 import { lockedShare, pointsLine, scoreColour, sparklinePoints } from '../web/components/score.js';
 import { useDocument } from '../web/ui.js';
 import {
@@ -61,7 +61,7 @@ function score(over = {}) {
     possible: 100,
     counts: { pass: 2, partial: 1, fail: 1, locked: 2, na: 1 },
     lost: [],
-    locked: { count: 2, points: 9, unlockedBy: ['B1'] },
+    locked: { count: 2, points: 9, gain: 9, unlockedBy: ['B1'] },
     ...over,
   };
 }
@@ -215,10 +215,18 @@ describe('test view helpers', () => {
 
   it('prices a check in the fewest characters', () => {
     expect(points(check({ status: 'fail', weight: 5 }))).toBe('-5');
+    // A priced fail reads in score points, the headline's unit, not in its weight.
+    expect(points(check({ status: 'fail', weight: 5, price: 7 }))).toBe('-7');
     expect(points(check({ status: 'partial', earned: 2, weight: 4 }))).toBe('2/4');
     expect(points(check({ status: 'locked', weight: 6 }))).toBe('6');
     expect(points(check({ status: 'na' }))).toBe('n/a');
     expect(points(check({ status: 'pass', weight: 3 }))).toBe('3');
+  });
+
+  it('prices the locked group in score points and labels the per-check figures as weights', () => {
+    const list = checkList(CHECKS, score({ locked: { count: 2, points: 9, gain: 12, unlockedBy: ['B1'] } }));
+    expect(list.querySelector('.locked-points')?.textContent).toBe('up to +12 points');
+    expect(list.querySelector('.locked-prices')?.getAttribute('title')).toBe('Check weights');
   });
 
   it('links a check to its heading in docs/checks.md', () => {
@@ -244,15 +252,15 @@ describe('test view helpers', () => {
     expect(scoreColour(87, { good: 90, fair: 60 })).toBe('var(--warn)');
     expect(scoreColour(87, { good: 85, fair: 60 })).toBe('var(--ok)');
     expect(scoreColour(10, { good: 85, fair: 60 })).toBe('var(--danger)');
-    expect(lockedShare(score({ possible: 54, locked: { count: 13, points: 46, unlockedBy: ['B1'] } }))).toBeCloseTo(0.46);
-    expect(lockedShare(score({ possible: 0, locked: { count: 0, points: 0, unlockedBy: [] } }))).toBe(0);
+    expect(lockedShare(score({ possible: 54, locked: { count: 13, points: 46, gain: 46, unlockedBy: ['B1'] } }))).toBeCloseTo(0.46);
+    expect(lockedShare(score({ possible: 0, locked: { count: 0, points: 0, gain: 0, unlockedBy: [] } }))).toBe(0);
   });
 
   it('writes the points line the way the terminal does', () => {
     expect(pointsLine(score(), { name: 'Next.js' })).toBe(
       '80 of 100 applicable points, with 1 check excluded because it does not apply here, and 9 more waiting behind B1 · Next.js detected',
     );
-    expect(pointsLine(score({ counts: { pass: 1, partial: 0, fail: 0, locked: 0, na: 2 }, locked: { count: 0, points: 0, unlockedBy: [] } }))).toBe(
+    expect(pointsLine(score({ counts: { pass: 1, partial: 0, fail: 0, locked: 0, na: 2 }, locked: { count: 0, points: 0, gain: 0, unlockedBy: [] } }))).toBe(
       '80 of 100 applicable points, with 2 checks excluded because they do not apply here',
     );
   });

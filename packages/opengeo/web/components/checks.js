@@ -118,7 +118,8 @@ let lockedIds = 0;
 function lockedGroup(checks, score) {
   if (checks.length === 0) return null;
 
-  const waiting = score?.locked.points ?? checks.reduce((total, check) => total + check.weight, 0);
+  // In score points, like every other price on the page. The per-check figures below are weights.
+  const waiting = score?.locked.gain;
   const blockers = score?.locked.unlockedBy ?? [];
   const blocker = blockers[0] ?? checks[0]?.lockedBy;
 
@@ -150,7 +151,7 @@ function lockedGroup(checks, score) {
         el(
           'div',
           { className: 'locked-head' },
-          el('b', { className: 'locked-points', text: `${waiting} points` }),
+          waiting === undefined ? null : el('b', { className: 'locked-points', text: `up to +${waiting} points` }),
           el('span', { className: 'muted', text: `waiting behind ${blockers.join(' and ') || 'one fix'}` }),
         ),
         blocker === 'B1'
@@ -168,7 +169,7 @@ function lockedGroup(checks, score) {
           : null,
         el(
           'div',
-          { className: 'locked-prices' },
+          { className: 'locked-prices', attrs: { title: 'Check weights' } },
           checks.map((check) => el('span', { className: 'locked-price' }, el('b', { text: check.id }), ` ${check.weight}`)),
         ),
         toggle,
@@ -220,13 +221,14 @@ function checkRow(check) {
 }
 
 /**
- * What the check is doing to the score, in the fewest characters that stay honest.
+ * What the check is doing to the score, in the fewest characters that stay honest. A fail is in
+ * score points, the headline's unit; a partial's earned/weight is the check's own arithmetic.
  *
- * @param {Pick<CheckResult, 'status' | 'weight' | 'earned'>} check
+ * @param {Pick<CheckResult, 'status' | 'weight' | 'earned' | 'price'>} check
  * @returns {string}
  */
 export function points(check) {
-  if (check.status === 'fail') return `-${check.weight}`;
+  if (check.status === 'fail') return `-${check.price ?? check.weight}`;
   if (check.status === 'partial') return `${check.earned}/${check.weight}`;
   if (check.status === 'locked') return `${check.weight}`;
   if (check.status === 'na') return 'n/a';
