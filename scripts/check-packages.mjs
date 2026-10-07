@@ -17,10 +17,12 @@
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const requireFrom = createRequire(import.meta.url);
 const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
 /** Files the `opengeo` tarball must carry, and files it must not. */
 const DASHBOARD = { present: ['web/index.html', 'web/app.js', 'web/styles.css'], absent: ['web/tsconfig.json'] };
@@ -70,6 +72,13 @@ for (const dir of PACKAGES) {
   const exportsMap = exportTargets(pkg.exports);
   for (const subpath of exportsMap.keys()) {
     const specifier = subpath === '.' ? label : `${label}/${subpath.replace(/^\.\//, '')}`;
+    // A resolver that does not match `import` (require, or a tool asking with no conditions) falls
+    // through to `default`. Without one, the subpath does not exist for it at all.
+    try {
+      requireFrom.resolve(specifier);
+    } catch (error) {
+      failures.push(`${label}: \`${specifier}\` has no \`default\` condition, so a non-import resolver cannot find it: ${error instanceof Error ? error.message : String(error)}`);
+    }
     try {
       const loaded = await import(specifier);
       if (Object.keys(loaded).length === 0) failures.push(`${label}: \`import '${specifier}'\` loaded, but exports nothing`);

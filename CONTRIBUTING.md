@@ -69,7 +69,8 @@ build writes to `packages/*/.bundle-meta/`, and scans the `dist/` text too. Run 
 never instead of it.
 
 `check:packages` checks what a user installs: every package's bin answers `--version`, every entry
-in its `exports` imports by name, and `npm pack --dry-run` lists every file the manifest points at
+in its `exports` imports by name and also resolves for a resolver that does not ask for `import`
+(which is what each subpath's `default` condition is for; there is no CommonJS build), and `npm pack --dry-run` lists every file the manifest points at
 (and the dashboard, for `opengeo`) and nothing from `src/` or `tests/`. CI also builds the
 Next.js example, which is the integration test for `opengeo-prod/next`.
 
