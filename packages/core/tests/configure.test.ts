@@ -8,6 +8,7 @@ import { createPrompter, type ChoiceOption, type Prompter } from '../src/cli/pro
 import { ROUTABLE_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
+import { DEFAULT_MODELS } from '../src/shared/providers.js';
 
 /**
  * §11 is the reason this file exists. The guarantee is not "we tell people to gitignore .env", it
@@ -529,6 +530,34 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       expect(result.createdConfig).toBe(true);
       expect(savedConfig().site).toBe('http://localhost:5000');
+    });
+
+    it('says whose key it found when it is not the configured provider\'s', async () => {
+      writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic' } }), 'utf8');
+      writeFileSync(join(root, ENV_FILENAME), 'OPENAI_API_KEY=sk-test-not-a-real-key\n', 'utf8');
+      const prompter = scripted({});
+
+      await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      const row = prompter.offered.find((label) => label.startsWith('AI provider')) ?? '';
+      expect(row).toContain('anthropic');
+      expect(row).toContain('only key is for openai');
+      expect(row).not.toContain('sk-test');
+    });
+
+    it("offers the new provider's default model, not the one configured for the old provider", async () => {
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5' } }),
+        'utf8',
+      );
+      // The model question is left unanswered, so whatever it offered as the default is what is saved.
+      const prompter = scripted({ choose: ['provider', 'openai'], secret: 'sk-test-not-a-real-key' });
+
+      await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      const saved = JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')) as { ai: { provider: string; model: string } };
+      expect(saved.ai).toMatchObject({ provider: 'openai', model: DEFAULT_MODELS.openai });
     });
   });
 

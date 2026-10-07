@@ -320,7 +320,9 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
     return undefined;
   }
 
-  const model = await prompter.ask('  Model', endpoint.model || config.ai.model || info.defaultModel);
+  // The configured model is only a sensible default when it belongs to the provider just picked.
+  const sameProvider = config.ai.provider === providerChoice;
+  const model = await prompter.ask('  Model', endpoint.model || (sameProvider ? config.ai.model : undefined) || info.defaultModel);
   // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
   const vars: Record<string, string | undefined> = {
     [PROVIDER_VAR]: providerChoice,
@@ -573,7 +575,12 @@ function menuLabel(choice: Exclude<SettingKey, 'done'>): string {
 function menuOptions(config: OpenGeoConfig, keyProvider: string | undefined): Array<{ value: SettingKey; label: string; note?: string }> {
   const label = (name: string, value: string) => `${name.padEnd(20)}${c.gray(value)}`;
   const model = config.ai.model ? ` ${config.ai.model}` : '';
-  const key = keyProvider ? `key in ${ENV_FILENAME}` : 'no key configured';
+  // A key for another provider is never sent to this one, so calling it "the key" would be wrong.
+  const key = !keyProvider
+    ? 'no key configured'
+    : keyProvider === config.ai.provider
+      ? `key in ${ENV_FILENAME}`
+      : `only key is for ${keyProvider}`;
   return [
     { value: 'site', label: label('Site URL', config.site) },
     { value: 'webroot', label: label('Web root', config.publicDir) },
