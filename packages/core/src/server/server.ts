@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
+import { ERRORS } from '../shared/errors.js';
 import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
 
 /**
@@ -61,13 +62,24 @@ const HEARTBEAT_MS = 15_000;
 
 export async function startServer(options: StartOptions): Promise<RunningServer> {
   const host = options.host ?? '127.0.0.1';
+  // The real port is only known once listening, and `--port 0` is legal. Nothing is served before
+  // `listen` resolves, so the handler never reads the placeholder.
+  const bound = { host, port: options.port };
   const server = createServer((request, response) => {
+    const denial = hostDenial(request.headers.host, bound);
+    if (denial) {
+      const api = (request.url ?? '').startsWith('/api/');
+      return api
+        ? send(response, 403, 'application/json; charset=utf-8', JSON.stringify({ error: denial }))
+        : send(response, 403, 'text/plain; charset=utf-8', denial);
+    }
     handle(request, response, options, host).catch((error) => {
       send(response, 500, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
     });
   });
 
   const port = await listen(server, options.port, host);
+  bound.port = port;
   const url = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
   return {
     url,
@@ -169,6 +181,36 @@ async function streamApi(
  */
 export function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/** Every name that reaches this machine's loopback interface without asking DNS. */
+const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+
+/** Binding addresses that mean "every interface". They are not a name anybody can be addressed by. */
+const WILDCARD_BINDS = new Set(['0.0.0.0', '[::]']);
+
+/**
+ * The gate in front of everything, API and static alike.
+ *
+ * `crossOriginDenial` alone cannot stop DNS rebinding: the attacker's page loads from
+ * `evil.example`, the name is then re-pointed at 127.0.0.1, and from that moment its requests carry
+ * `Host: evil.example` and a matching `Origin`. Same-origin by every rule the browser knows. The one
+ * thing the attacker cannot choose is the name this server was started on, so the Host header has to
+ * be one of those, on this port, or nothing is answered.
+ */
+export function hostDenial(hostHeader: string | undefined, bound: { host: string; port: number }): string | undefined {
+  if (!hostHeader) return ERRORS.hostRefused(undefined);
+  let parsed: URL;
+  try {
+    parsed = new URL(`http://${hostHeader}`);
+  } catch {
+    return ERRORS.hostRefused(hostHeader);
+  }
+  const boundName = bound.host.includes(':') ? `[${bound.host}]` : bound.host;
+  const nameOk = LOOPBACK_NAMES.has(parsed.hostname) || (!WILDCARD_BINDS.has(boundName) && parsed.hostname === boundName);
+  // `URL` drops the default port, so a server on 80 is addressed with an empty one.
+  const portOk = (parsed.port || '80') === String(bound.port);
+  return nameOk && portOk ? undefined : ERRORS.hostRefused(hostHeader);
 }
 
 /**

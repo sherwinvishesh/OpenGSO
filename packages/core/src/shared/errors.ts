@@ -218,6 +218,15 @@ export const ERRORS = {
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
     ].join('\n'),
 
+  hostRefused: (host: string | undefined) =>
+    [
+      `Refused: this dashboard only answers to the address it was started on, and the request was`,
+      `addressed to ${host === undefined ? 'no host at all' : `"${host}"`}.`,
+      ``,
+      `Open the URL that \`opengeo start\` printed. A page reaching this server under any other name`,
+      `is how a website tries to talk to a local server through DNS rebinding.`,
+    ].join('\n'),
+
   providerFailed: (provider: string, status: number, body: string) =>
     [
       `The ${provider} API returned ${status}.`,

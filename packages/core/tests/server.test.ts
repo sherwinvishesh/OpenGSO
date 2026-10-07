@@ -1,9 +1,17 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateFrame, handleApi, readGeneratedFile, testFrame, type StateResponse } from '../src/server/api.js';
-import { crossOriginDenial, resolveStaticPath, sseFrame } from '../src/server/server.js';
+import {
+  crossOriginDenial,
+  hostDenial,
+  resolveStaticPath,
+  sseFrame,
+  startServer,
+  type RunningServer,
+} from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME, defaultConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
@@ -64,6 +72,64 @@ describe('same-origin enforcement', () => {
 
   it('refuses an unparseable Origin rather than guessing what was meant', () => {
     expect(crossOriginDenial({ headers: { host: '127.0.0.1:4321', origin: 'not a url' } })).toBeDefined();
+  });
+});
+
+/** A raw request, because `fetch` will not let a caller choose the Host header. */
+function rawRequest(port: number, path: string, headers: Record<string, string>): Promise<number> {
+  return new Promise((resolveStatus, rejectStatus) => {
+    const request = httpRequest({ host: '127.0.0.1', port, path, headers, setHost: false }, (response) => {
+      response.resume();
+      resolveStatus(response.statusCode ?? 0);
+    });
+    request.on('error', rejectStatus);
+    request.end();
+  });
+}
+
+describe('the Host gate, against DNS rebinding', () => {
+  let running: RunningServer;
+  let port: number;
+
+  beforeEach(async () => {
+    const webRoot = join(root, 'web');
+    mkdirSync(webRoot);
+    writeFileSync(join(webRoot, 'index.html'), '<!doctype html><title>dash</title>');
+    running = await startServer({ ...OPTIONS, root, port: 0, webRoot });
+    port = running.port;
+  });
+
+  afterEach(async () => {
+    await running.close();
+  });
+
+  it('answers the loopback names it is actually reachable by', async () => {
+    expect(await rawRequest(port, '/api/state', { host: `127.0.0.1:${port}` })).toBe(200);
+    expect(await rawRequest(port, '/api/state', { host: `localhost:${port}` })).toBe(200);
+    expect(await rawRequest(port, '/', { host: `localhost:${port}` })).toBe(200);
+  });
+
+  it('refuses a rebound name even when the Origin agrees with it, which is the whole attack', async () => {
+    const forged = { host: `evil.example:${port}`, origin: `http://evil.example:${port}` };
+    expect(await rawRequest(port, '/api/state', forged)).toBe(403);
+    expect(await rawRequest(port, '/api/key', forged)).toBe(403);
+    expect(await rawRequest(port, '/', forged)).toBe(403);
+  });
+
+  it('refuses the right name on the wrong port, a missing Host and one that does not parse', async () => {
+    expect(await rawRequest(port, '/api/state', { host: `127.0.0.1:${port + 1}` })).toBe(403);
+    expect(await rawRequest(port, '/api/state', { host: '[' })).toBe(403);
+    // Node's own parser answers this one with a 400 before the handler runs. Refused either way.
+    expect(await rawRequest(port, '/api/state', {})).toBe(400);
+    expect(hostDenial(undefined, { host: '127.0.0.1', port })).toBeDefined();
+  });
+});
+
+describe('the Host gate, as a function', () => {
+  it('accepts an explicit --host name and refuses a wildcard bind as a name', () => {
+    expect(hostDenial('my-laptop.local:4321', { host: 'my-laptop.local', port: 4321 })).toBeUndefined();
+    expect(hostDenial('[::1]:4321', { host: '127.0.0.1', port: 4321 })).toBeUndefined();
+    expect(hostDenial('0.0.0.0:4321', { host: '0.0.0.0', port: 4321 })).toBeDefined();
   });
 });
 
