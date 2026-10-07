@@ -92,6 +92,8 @@ import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson 
  *   An endpoint that takes minutes has to be able to say so while it is still working, and the two
  *   that do already accept an `onProgress` from the CLI. This is the same callback, one hop further
  *   out, so the dashboard watches exactly what the terminal watches.
+ * @property {AbortSignal} [signal] Aborted by the transport when the browser that asked goes away,
+ *   so a closed tab stops the crawl and the paid calls instead of finishing for nobody.
  */
 
 /**
@@ -137,10 +139,10 @@ export async function handleApi(request, options) {
     // script that wants one JSON object and a browser that wants narration run the same code.
     case 'POST /api/test':
     case 'POST /api/test/stream':
-      return await runTest(request.body, options);
+      return await exclusive('test', options.root, () => runTest(request.body, options));
     case 'POST /api/generate':
     case 'POST /api/generate/stream':
-      return await runGenerate(request.body, options);
+      return await exclusive('generate', options.root, () => runGenerate(request.body, options));
     case 'POST /api/prod-test':
       return await runProdTest(request.body, options);
     case 'POST /api/key':
@@ -149,6 +151,31 @@ export async function handleApi(request, options) {
       return readFileRoute(request.body, options);
     default:
       return { status: 404, body: { error: `No such endpoint: ${route}` } };
+  }
+}
+
+/** The runs in flight, as `kind:root`. */
+const running = new Set();
+
+/**
+ * One run of each kind per project at a time.
+ *
+ * Two generates would race each other for the manifest, and two tests pay for the same content
+ * review twice. A second tab, or a double click before the button disables, used to start both.
+ *
+ * @param {'test' | 'generate'} kind
+ * @param {string} root
+ * @param {() => Promise<ApiResponse>} run
+ * @returns {Promise<ApiResponse>}
+ */
+async function exclusive(kind, root, run) {
+  const key = `${kind}:${root}`;
+  if (running.has(key)) return { status: 409, body: { error: ERRORS.runInProgress(kind) } };
+  running.add(key);
+  try {
+    return await run();
+  } finally {
+    running.delete(key);
   }
 }
 
@@ -351,6 +378,7 @@ async function runTest(body, options) {
     ai,
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,
+    signal: options.signal,
     onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event)) : undefined,
   });
   recordRun(internalDir, result);
@@ -495,6 +523,7 @@ async function runGenerate(body, options) {
     maxDepth: input.maxDepth,
     skipSiteFiles: input.skipSiteFiles,
     enhance,
+    signal: options.signal,
     onProgress: options.onProgress ? (event) => options.onProgress?.(generateFrame(event)) : undefined,
   });
 

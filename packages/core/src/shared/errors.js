@@ -359,6 +359,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `Paste it again without the trailing newline.`,
     ].join('\n'),
 
+  /** @param {'test' | 'generate'} kind */
+  runInProgress: (kind) =>
+    `A ${kind} is already running for this project. Wait for it to finish, or close the tab that started it, which stops it.`,
+
   jsonRequired: () =>
     `The dashboard API only accepts a POST sent as Content-Type: application/json. That is what keeps a form on another site from posting here.`,
 

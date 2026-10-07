@@ -312,6 +312,24 @@ describe('reviewContent', () => {
     });
     expect(seen).toEqual([1, 2]);
   });
+
+  it('stops making paid calls once the run is abandoned', async () => {
+    const model = fakeModel();
+    const controller = new AbortController();
+    const many = Array.from({ length: 6 }, (_, i) => twin(`https://x.example/${i}.md`, MD_HOME));
+    await expect(
+      reviewContent(many, {
+        provider: 'anthropic',
+        apiKey: 'k',
+        call: model.fn,
+        env: {},
+        concurrency: 1,
+        signal: controller.signal,
+        onProgress: () => controller.abort(),
+      }),
+    ).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
+    expect(model.calls).toHaveLength(1);
+  });
 });
 
 // -- the sequencer -----------------------------------------------------------------------------
@@ -352,6 +370,36 @@ describe('runTestSuite', () => {
     // The structural report exists before the paid pass starts, and the CLI prints it there.
     expect(phases.indexOf('structure-done')).toBeLessThan(phases.indexOf('discover'));
     expect(phases).toContain('review');
+  });
+
+  it('throws an abandoned run rather than reporting it as a content error', async () => {
+    const controller = new AbortController();
+    const run = runTestSuite(`${site}/`, {
+      mode: 'full',
+      ai: ai(),
+      env: {},
+      signal: controller.signal,
+      onProgress: (event) => {
+        if (event.phase === 'review') controller.abort();
+      },
+    });
+    await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
+  });
+
+  it('never starts the paid pass once the run is abandoned during the checks', async () => {
+    const model = fakeModel();
+    const controller = new AbortController();
+    const run = runTestSuite(`${site}/`, {
+      mode: 'full',
+      ai: { provider: 'anthropic', apiKey: 'k', call: model.fn },
+      env: {},
+      signal: controller.signal,
+      onProgress: (event) => {
+        if (event.phase === 'structure-done') controller.abort();
+      },
+    });
+    await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
+    expect(model.calls).toHaveLength(0);
   });
 
   it('notes a missing key in full mode and refuses in content mode', async () => {

@@ -392,6 +392,47 @@ describe('generateSite', () => {
     }
   });
 
+  it('stops part way when abandoned, and keeps every twin the manifest already vouched for', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    await generateSite({ target: site, loaded, force: true });
+    const controller = new AbortController();
+    /** @type {string[]} */
+    const written = [];
+    const run = generateSite({
+      target: site,
+      loaded,
+      force: true,
+      signal: controller.signal,
+      onProgress: (event) => {
+        if (event.phase !== 'generate' || event.generate.phase !== 'write') return;
+        written.push(event.generate.route);
+        controller.abort();
+      },
+    });
+    await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
+    expect(written).toHaveLength(1);
+    // prod serves from the manifest, so a run nobody is watching any more must not shrink it.
+    expect(Object.keys(readManifest(join(loaded.root, '.opengeo'), site).pages).sort()).toEqual(['/', '/about', '/resume']);
+  });
+
+  it('writes nothing when abandoned during the crawl', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    const controller = new AbortController();
+    const run = generateSite({
+      target: site,
+      loaded,
+      signal: controller.signal,
+      onProgress: (event) => {
+        if (event.phase === 'crawl') controller.abort();
+      },
+    });
+    await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
+    expect(existsSync(join(loaded.root, '.opengeo', 'manifest.json'))).toBe(false);
+    expect(existsSync(join(loaded.root, 'public'))).toBe(false);
+  });
+
   it('leaves the site files alone when asked for twins only', async () => {
     const { generateSite } = await import('@opengeo/core/generate');
     const loaded = project();

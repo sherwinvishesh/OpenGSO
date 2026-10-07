@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -98,6 +98,7 @@ describe('static files', () => {
   it('never lets a browser keep a stale copy of the page', async () => {
     expect((await hit('/')).headers.get('cache-control')).toBe('no-store');
   });
+
 });
 
 describe('headers on every kind of response', () => {
@@ -248,5 +249,89 @@ describe('a streamed run, frame by frame', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/json; charset=utf-8');
     expect(/** @type {{ score: { value: number } }} */ (await response.json()).score.value).toEqual(expect.any(Number));
+  });
+});
+
+describe('a run nobody is watching', () => {
+  /** @type {Server} */
+  let site;
+  /** @type {string} */
+  let siteUrl;
+  /** @type {string[]} */
+  let requested;
+  /** @type {() => void} */
+  let release;
+  /** @type {Promise<void>} */
+  let held;
+
+  beforeEach(async () => {
+    requested = [];
+    /** @type {() => void} */
+    let reached = () => {};
+    held = new Promise((resolveHeld) => {
+      reached = resolveHeld;
+    });
+    /** @type {Promise<void>} */
+    const released = new Promise((resolveRelease) => {
+      release = () => resolveRelease(undefined);
+    });
+    site = createServer(async (request, response) => {
+      requested.push(request.url ?? '');
+      // `/a` hangs until the test lets it go, so the run is reliably mid-crawl when the client leaves.
+      if (request.url === '/a') {
+        reached();
+        await released;
+      }
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(
+        `<!doctype html><html lang="en"><head><title>${request.url}</title></head><body><main><h1>Page</h1><p>Words enough to be a page.</p><a href="/a">a</a><a href="/b">b</a><a href="/c">c</a></main></body></html>`,
+      );
+    });
+    await new Promise((resolveListen) => site.listen(0, '127.0.0.1', () => resolveListen(undefined)));
+    const address = site.address();
+    siteUrl = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}/`;
+  });
+
+  afterEach(async () => {
+    release();
+    site.closeAllConnections();
+    await new Promise((resolveClose) => site.close(() => resolveClose(undefined)));
+  });
+
+  /** Waits until no generate is running, without starting one: a bad URL is refused either way. */
+  async function settled() {
+    for (let i = 0; i < 100; i += 1) {
+      if ((await hit('/api/generate', postJson({ url: 'not-a-url' }))).status !== 409) return;
+      await new Promise((wait) => setTimeout(wait, 20));
+    }
+    throw new Error('The run never finished.');
+  }
+
+  it('stops crawling and writes nothing once the browser goes away', async () => {
+    const controller = new AbortController();
+    const response = await hit('/api/generate/stream', { ...postJson({ url: siteUrl }), signal: controller.signal });
+    expect(response.status).toBe(200);
+    await held;
+    controller.abort();
+    // Long enough for the socket close to reach the server before `/a` answers.
+    await new Promise((wait) => setTimeout(wait, 100));
+    release();
+    await settled();
+    await new Promise((wait) => setTimeout(wait, 100));
+
+    expect(requested).not.toContain('/b');
+    expect(existsSync(join(root, '.opengeo', 'manifest.json'))).toBe(false);
+  });
+
+  it('refuses a second run of the same kind while the first is going, and allows one after', async () => {
+    const first = hit('/api/generate/stream', postJson({ url: siteUrl }));
+    await held;
+    const second = await hit('/api/generate', postJson({ url: siteUrl }));
+    expect(second.status).toBe(409);
+    expect(/** @type {{ error: string }} */ (await second.json()).error).toMatch(/already running/i);
+
+    release();
+    await (await first).text();
+    expect((await hit('/api/generate', postJson({ url: 'not-a-url' }))).status).toBe(400);
   });
 });

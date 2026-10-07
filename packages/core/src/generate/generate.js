@@ -54,6 +54,8 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
  *   is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
  *   for a run that reached nothing and so learned nothing about which pages still exist.
  * @property {(event: GenerateProgress) => void} [onProgress]
+ * @property {AbortSignal} [signal] Checked before each route. An abandoned run throws, after keeping
+ *   every previous manifest entry it did not get to, so stopping part way never un-serves a twin.
  * @property {ReadonlyMap<string, string>} [sources] HTML already fetched by the crawl, keyed by
  *   route. Route discovery has to download every page to find its links, so re-downloading them
  *   here would double the request count against the user's own dev server for no gain. A route
@@ -119,6 +121,9 @@ export async function generatePages(options) {
   let manifestPath = '';
   try {
     for (const route of unique) {
+      // Outside the per-route catch below, which would otherwise record the abort as one failed
+      // page and carry on to the next.
+      options.signal?.throwIfAborted();
       index += 1;
       const url = new URL(route, site).toString();
       // Each route is its own unit of work. A name the filesystem refuses, markup deep enough to
@@ -296,7 +301,8 @@ export async function generatePages(options) {
     }
   } finally {
     // Written whatever happened above, so a run that does stop part way keeps what it finished.
-    const carried = options.carryForward === 'all' ? Object.keys(previous.pages) : (options.carryForward ?? []);
+    const keepAll = options.carryForward === 'all' || options.signal?.aborted === true;
+    const carried = keepAll ? Object.keys(previous.pages) : (options.carryForward ?? []);
     for (const route of carried) {
       const entry = previous.pages[route];
       if (entry && !manifest.pages[route]) manifest.pages[route] = entry;

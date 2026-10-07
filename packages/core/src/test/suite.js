@@ -73,6 +73,8 @@ export function isTestMode(value) {
  * @property {number} [maxDocs] How many documents get reviewed. Every one is a paid call.
  * @property {number} [maxFetch] How many candidate URLs discovery will fetch before giving up on a huge sitemap.
  * @property {(event: SuiteProgress) => void} [onProgress]
+ * @property {AbortSignal} [signal] Aborted when the browser that asked for the run goes away. The
+ *   paid pass checks it before it starts and between batches, and an abandoned run throws.
  * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is testable.
  */
 
@@ -122,6 +124,7 @@ export async function runTestSuite(target, options) {
     return result;
   }
 
+  options.signal?.throwIfAborted();
   options.onProgress?.({ phase: 'discover' });
   const discovery = await discoverTwins(url, {
     timeoutMs: options.timeoutMs,
@@ -146,11 +149,15 @@ export async function runTestSuite(target, options) {
       timeoutMs: options.timeoutMs,
       maxDocuments: options.maxDocs,
       env: options.env,
+      signal: options.signal,
       onProgress: (done, total, reviewed) => options.onProgress?.({ phase: 'review', done, total, url: reviewed }),
     });
   } catch (error) {
     result.contentError = error instanceof Error ? error.message : String(error);
   }
+  // Nobody is waiting for a report on a run they abandoned, and it must not be recorded as one,
+  // including when the abort landed during the last batch and nothing was left to check it.
+  options.signal?.throwIfAborted();
   return result;
 }
 

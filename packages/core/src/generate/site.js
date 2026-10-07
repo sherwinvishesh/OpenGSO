@@ -48,6 +48,8 @@ import { generatePages } from './generate.js';
  * @property {string} [siteDescription]
  * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} [enhance]
  * @property {(event: SiteProgress) => void} [onProgress]
+ * @property {AbortSignal} [signal] Set by the dashboard, aborted when the browser that asked for the
+ *   run goes away. The crawl and each page check it, so a closed tab stops paying for AI calls.
  */
 
 /**
@@ -94,6 +96,7 @@ export async function generateSite(options) {
       maxDepth: options.maxDepth ?? config.crawl.maxDepth,
       exclude: config.crawl.exclude,
       timeoutMs: options.timeoutMs,
+      signal: options.signal,
       onProgress: (event) => options.onProgress?.({ phase: 'crawl', crawl: event }),
     });
     warnings.push(...crawl.warnings);
@@ -124,6 +127,7 @@ export async function generateSite(options) {
     carryForward,
     sources,
     enhance: options.enhance,
+    signal: options.signal,
     onProgress: (event) => options.onProgress?.({ phase: 'generate', generate: event }),
   });
 

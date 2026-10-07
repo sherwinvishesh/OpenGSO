@@ -261,6 +261,7 @@ export async function reviewQuality(input, options) {
  *   maxDocuments?: number; // Hard cap on how many documents are sent to the provider. Every one of them costs money.
  *   concurrency?: number; // How many reviews are in flight at once.
  *   onProgress?: (done: number, total: number, url: string) => void; // Called as each document finishes, so a long run can narrate itself.
+ *   signal?: AbortSignal; // Checked before each batch, so an abandoned run stops making paid calls.
  * }} ContentReviewOptions
  */
 
@@ -297,6 +298,7 @@ export async function reviewContent(twins, options) {
   let done = 0;
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
   for (let i = 0; i < reviewing.length; i += concurrency) {
+    options.signal?.throwIfAborted();
     await Promise.all(
       reviewing.slice(i, i + concurrency).map(async (twin, offset) => {
         const entry = /** @type {DocumentReview} */ (documents[i + offset]);

@@ -207,11 +207,15 @@ async function streamApi(request, response, api, options) {
   // reading rather than sitting on an empty body for as long as the first phase takes.
   response.write(': open\n\n');
 
-  // The run cannot be cancelled once started, so a browser that navigates away only stops us
-  // writing to a socket that is gone. Without this every frame after it throws EPIPE.
+  // The response, not the request: the body was read to the end before the run started, and a
+  // finished request has already emitted its `close`, so listening there never heard the browser
+  // leave. A closed tab stops writing to a dead socket and aborts the run itself, which is what
+  // stops it paying for AI calls nobody will read.
   let open = true;
-  request.on('close', () => {
+  const controller = new AbortController();
+  response.on('close', () => {
     open = false;
+    if (!response.writableFinished) controller.abort();
   });
   /**
    * @param {string} event
@@ -232,7 +236,7 @@ async function streamApi(request, response, api, options) {
   try {
     /** @param {ApiProgress} event */
     const onProgress = (event) => write('progress', event);
-    const result = await handleApi(api, { ...options, onProgress });
+    const result = await handleApi(api, { ...options, onProgress, signal: controller.signal });
     write('done', result);
   } catch (error) {
     write('done', { status: 500, body: { error: error instanceof Error ? error.message : String(error) } });

@@ -40,6 +40,9 @@ const INTERNAL_PREFIXES = ['/_next/', '/_nuxt/', '/_astro/', '/_vercel/', '/cdn-
  * @property {readonly string[]} [exclude] Path prefixes to skip, from opengeo.config.json.
  * @property {number} [timeoutMs]
  * @property {(event: CrawlProgress) => void} [onProgress]
+ * @property {AbortSignal} [signal] Checked before each page. An abandoned crawl throws rather than
+ *   returning the pages it reached, because a caller that treated those as the whole site would
+ *   drop every page it never got to.
  */
 
 /**
@@ -127,6 +130,7 @@ export async function crawlSite(options) {
   let cappedDepth = false;
 
   while (queue.length > 0) {
+    options.signal?.throwIfAborted();
     const next = queue.shift();
     if (!next) break;
     if (pages.length >= maxPages) {
