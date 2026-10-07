@@ -14,7 +14,7 @@ import {
   wrap,
 } from '../src/shared/render/paint.js';
 import { decode, readKeys, splitChunks } from '../src/cli/tui/keys.js';
-import { openScreen, restoreScreens } from '../src/cli/tui/screen.js';
+import { canUseTui, openScreen, restoreScreens } from '../src/cli/tui/screen.js';
 import { c } from '../src/shared/log.js';
 import { lockedMeter, meter, sparkline } from '../src/shared/render/meters.js';
 import { box, listView, textField } from '../src/cli/tui/widgets.js';
@@ -45,6 +45,28 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = { ...saved };
+});
+
+/**
+ * The full-screen gate and the AI gate have to agree on what CI is. `CI=false` is how a container
+ * that sets CI by default is told it is not one, and the AI tier already honoured that.
+ */
+describe('canUseTui and CI', () => {
+  const tty = /** @type {NodeJS.WriteStream & NodeJS.ReadStream} */ (/** @type {unknown} */ ({ isTTY: true }));
+
+  it('declines a full screen under CI', () => {
+    process.env.CI = 'true';
+    delete process.env.OPENGEO_NO_TUI;
+    expect(canUseTui({ input: tty, output: tty })).toBe(false);
+  });
+
+  it('reads CI=false and CI=0 as not CI', () => {
+    delete process.env.OPENGEO_NO_TUI;
+    for (const value of ['false', '0', 'False']) {
+      process.env.CI = value;
+      expect(canUseTui({ input: tty, output: tty })).toBe(true);
+    }
+  });
 });
 
 describe('colour depth', () => {

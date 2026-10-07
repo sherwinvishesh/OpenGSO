@@ -1,3 +1,4 @@
+import { isCI } from '../shared/ci.js';
 import { c } from '../shared/log.js';
 import { colourDepth, terminalWidth, truncate } from '../shared/render/paint.js';
 import { ink } from '../shared/render/theme.js';
@@ -59,7 +60,7 @@ const METER_WIDTH = 18;
  */
 export function canRedraw(output = process.stdout) {
   if (!output.isTTY) return false;
-  if (process.env.CI) return false;
+  if (isCI()) return false;
   if (process.env.OPENGEO_NO_TUI) return false;
   return colourDepth() > 0;
 }

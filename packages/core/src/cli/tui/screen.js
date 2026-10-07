@@ -1,3 +1,4 @@
+import { isCI } from '../../shared/ci.js';
 import { colourDepth } from '../../shared/render/paint.js';
 
 /**
@@ -58,7 +59,7 @@ export function canUseTui(options = {}) {
   const output = options.output ?? process.stdout;
   if (!input.isTTY || !output.isTTY) return false;
   if (process.env.OPENGEO_NO_TUI) return false;
-  if (process.env.CI) return false;
+  if (isCI()) return false;
   return colourDepth() > 0;
 }
 

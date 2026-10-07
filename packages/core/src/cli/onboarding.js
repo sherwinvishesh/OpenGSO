@@ -1,5 +1,6 @@
 import { internalDirPath } from '../shared/config.js';
 import { resolveBots } from '../shared/bots.js';
+import { isCI } from '../shared/ci.js';
 import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { recordRun } from '../shared/history.js';
@@ -52,7 +53,7 @@ export async function runOnboarding(options) {
   const output = options.output ?? process.stdout;
   // The list in the note above. `--yes` alone was checked, so a pipe or a CI job still had its site
   // probed, tested and recorded by a setup nobody was watching.
-  const interactive = !autoAccept && Boolean((options.input ?? process.stdin).isTTY && output.isTTY) && !process.env.CI;
+  const interactive = !autoAccept && Boolean((options.input ?? process.stdin).isTTY && output.isTTY) && !isCI();
   const stepper = interactive ? openStepper({ input: options.input, output: options.output, tag: options.tag }) : undefined;
   /** @type {Prompter} */
   const prompter = stepper?.prompter ?? createPrompter({ autoAccept, input: options.input, output: options.output });

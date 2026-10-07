@@ -79,6 +79,13 @@ describe('choosing a mode', () => {
     expect(canRedraw(fakeStream(true))).toBe(false);
   });
 
+  it('reads CI=false and CI=0 as not CI, the same way the AI gate does', () => {
+    for (const value of ['false', '0', 'FALSE', '']) {
+      process.env.CI = value;
+      expect(canRedraw(fakeStream(true))).toBe(true);
+    }
+  });
+
   it('does not redraw when colour is off, because NO_COLOR usually means "I am capturing this"', () => {
     delete process.env.FORCE_COLOR;
     process.env.NO_COLOR = '1';
