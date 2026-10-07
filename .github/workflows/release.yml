@@ -5,7 +5,10 @@
 # version is not already on the registry, so a push would have shipped all five packages to npm
 # before anyone had decided to.
 #
-# To go live: add the `push:` trigger back below, and make sure NPM_TOKEN is set in repo secrets.
+# To go live: add the `push:` trigger back below, make sure NPM_TOKEN is set in repo secrets, give
+# the `npm` environment required reviewers (Settings > Environments) so a publish waits for a
+# person, and make the repository public, because npm will not attach provenance to a package
+# built from a private one.
 #
 # on:
 #   push:
@@ -23,9 +26,14 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The approval gate. A job that names an environment waits for that environment's reviewers.
+    environment: npm
     permissions:
       contents: write
       pull-requests: write
+      # Lets npm sign a provenance statement tying each tarball to this workflow run.
+      id-token: write
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -33,10 +41,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Run tests
         run: npm test
@@ -54,3 +65,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
