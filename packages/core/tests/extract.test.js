@@ -198,6 +198,16 @@ describe('extraction keeps the page shape intact', () => {
     expect(markdown).toContain('1. First\n   1. Inner\n2. Second\n   More');
     expect(markdown).toContain('10. Ten\n    - Bullet\n      1. Deep');
   });
+
+  it('resolves relative links and images against <base href>, as a browser does', () => {
+    const html = page(
+      `<main><h1>Post</h1><p><a href="next">Next post</a> <img src="cover.png" alt="Cover"> ${words}</p></main>`,
+      '<base href="https://example.com/blog/">',
+    );
+    const { markdown } = extractPage(html, { url: 'https://example.com/blog/post/one' });
+    expect(markdown).toContain('[Next post](https://example.com/blog/next)');
+    expect(markdown).toContain('![Cover](https://example.com/blog/cover.png)');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {

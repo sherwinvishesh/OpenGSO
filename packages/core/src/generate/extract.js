@@ -121,7 +121,8 @@ export function extractPage(html, options) {
 
   const title = pickTitle(doc, root);
   const description = pickDescription(doc);
-  const blocks = renderChildren(root, { baseUrl: options.url });
+  // baseURI already folds in a <base href>, which a browser resolves every relative link against.
+  const blocks = renderChildren(root, { baseUrl: doc.baseURI || options.url });
   let markdown = blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 
   // The <h1> normally survives inside the content root; only prepend a heading when it didn't, so
