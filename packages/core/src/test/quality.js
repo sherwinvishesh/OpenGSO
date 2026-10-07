@@ -296,26 +296,35 @@ export async function reviewContent(twins, options) {
   }));
 
   let done = 0;
+  /** @type {number | undefined} */
+  let refused;
+  let sent = 0;
   const concurrency = options.concurrency ?? DEFAULT_CONCURRENCY;
-  for (let i = 0; i < reviewing.length; i += concurrency) {
+  for (let i = 0; i < reviewing.length && refused === undefined; i += concurrency) {
     options.signal?.throwIfAborted();
+    const batch = reviewing.slice(i, i + concurrency);
+    sent += batch.length;
     await Promise.all(
-      reviewing.slice(i, i + concurrency).map(async (twin, offset) => {
+      batch.map(async (twin, offset) => {
         const entry = /** @type {DocumentReview} */ (documents[i + offset]);
         try {
           entry.review = await reviewQuality({ url: twin.url, markdown: twin.markdown }, { ...options, model });
         } catch (error) {
           entry.error = error instanceof Error ? error.message : String(error);
+          const status = /** @type {{ status?: unknown }} */ (error)?.status;
+          if (status === 401 || status === 403) refused = status;
         }
         done += 1;
         options.onProgress?.(done, reviewing.length, twin.url);
       }),
     );
   }
+  for (const entry of documents.slice(sent)) entry.error = ERRORS.contentDocumentNotSent;
 
   return {
     provider: options.provider,
     model,
+    halted: refused === undefined ? undefined : ERRORS.contentReviewHalted(refused, reviewing.length - sent),
     documents,
     score: mean(documents.map((doc) => doc.review?.score).filter(/** @returns {value is number} */ (value) => typeof value === 'number')),
     areaScores: aggregateAreas(documents),

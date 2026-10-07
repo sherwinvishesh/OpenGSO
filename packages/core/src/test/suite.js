@@ -158,6 +158,13 @@ export async function runTestSuite(target, options) {
   // Nobody is waiting for a report on a run they abandoned, and it must not be recorded as one,
   // including when the abort landed during the last batch and nothing was left to check it.
   options.signal?.throwIfAborted();
+  // A review that produced nothing is a failed review, not an empty one, and in `content` mode it
+  // has to reach the exit code.
+  const documents = result.content?.documents ?? [];
+  if (result.content?.halted) result.contentError = result.content.halted;
+  else if (documents.length > 0 && documents.every((doc) => doc.error)) {
+    result.contentError = ERRORS.contentReviewAllFailed(documents.length);
+  }
   return result;
 }
 

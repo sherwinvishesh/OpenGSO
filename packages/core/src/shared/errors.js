@@ -277,6 +277,25 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `\`opengeo settings\` asks for all of it if you would rather answer questions.`,
     ].join('\n'),
 
+  /**
+   * The provider refused the key or the account on one document, so the rest were never sent:
+   * each would have failed the same way, and some providers bill or rate-limit refused calls.
+   *
+   * @param {number} status
+   * @param {number} notSent
+   */
+  contentReviewHalted: (status, notSent) =>
+    [
+      `The provider refused the request with ${status}, so the content review stopped and ${notSent} document${notSent === 1 ? ' was' : 's were'} not sent.`,
+      `That is almost always the API key or the account it belongs to. Check it with \`opengeo settings\` and run again.`,
+    ].join('\n'),
+
+  contentDocumentNotSent: 'Not sent: the provider refused an earlier document, so this one would have failed the same way.',
+
+  /** @param {number} count */
+  contentReviewAllFailed: (count) =>
+    `None of the ${count} document${count === 1 ? '' : 's'} could be reviewed. Each one's error is listed above; a wrong model name or a provider outage are the usual causes.`,
+
   /** @param {string} feature */
   ciBlocked: (feature) =>
     [

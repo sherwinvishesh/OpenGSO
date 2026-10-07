@@ -207,6 +207,7 @@ export {};
  * @property {AreaScore[]} areaScores Per-area means across every document that scored that area, weakest first.
  * @property {AggregatedRecommendation[]} recommendations Every recommendation, deduplicated across documents and ordered by priority.
  * @property {number} notReviewed Documents found but not reviewed because of `maxDocuments`.
+ * @property {string} [halted] Set when the provider refused the key (401 or 403) and the remaining documents were never sent.
  */
 
 /**

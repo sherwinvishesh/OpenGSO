@@ -263,7 +263,8 @@ async function post(url, init, timeoutMs, label) {
     }
     const body = await response.text();
     if (!response.ok) {
-      throw new Error(ERRORS.providerFailed(label, response.status, body));
+      // The status rides along so a caller with many calls queued can tell a refused key from one bad document.
+      throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, body)), { status: response.status });
     }
     return /** @type {unknown} */ (JSON.parse(body));
   } catch (error) {

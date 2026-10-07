@@ -293,6 +293,30 @@ describe('reviewContent', () => {
     expect(review.documents[1]?.review?.score).toBe(expectedScore(80));
   });
 
+  it('stops sending documents once the provider refuses the key', async () => {
+    // A real endpoint on loopback, so the status travels through the same wire code a live run uses.
+    let hits = 0;
+    const provider = createServer((req, res) => {
+      hits += 1;
+      req.resume();
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end('{"error":{"type":"authentication_error","message":"invalid x-api-key"}}');
+    });
+    await /** @type {Promise<void>} */ (new Promise((resolve) => provider.listen(0, '127.0.0.1', resolve)));
+    const baseUrl = `http://127.0.0.1:${/** @type {AddressInfo} */ (provider.address()).port}`;
+    try {
+      const ten = Array.from({ length: 10 }, (_, i) => twin(`https://x.example/${i}.md`, MD_HOME));
+      const review = await reviewContent(ten, { provider: 'anthropic', apiKey: 'wrong', overrides: { baseUrl }, env: {} });
+      // One batch went out before the answer came back, and nothing after it.
+      expect(hits).toBe(3);
+      expect(review.halted).toMatch(/401/);
+      expect(review.documents[0]?.error).toMatch(/401/);
+      expect(review.documents[9]?.error).toMatch(/not sent/i);
+    } finally {
+      await /** @type {Promise<void>} */ (new Promise((resolve) => provider.close(() => resolve())));
+    }
+  });
+
   it('refuses to run in CI, where a key must never be present', async () => {
     await expect(
       reviewContent(twins, { provider: 'anthropic', apiKey: 'k', call: fakeModel().fn, env: { CI: 'true' } }),
@@ -449,6 +473,16 @@ describe('suiteExitCode', () => {
 
   it('fails a content-only run that could not run at all', async () => {
     const result = await runTestSuite(`${site}/`, { mode: 'content', env: {} });
+    expect(suiteExitCode(result)).toBe(1);
+  });
+
+  it('fails a content-only run in which every document errored', async () => {
+    const call = async () => {
+      throw new Error('The Anthropic API returned 502.');
+    };
+    const result = await runTestSuite(`${site}/`, { mode: 'content', ai: { provider: 'anthropic', apiKey: 'k', call }, env: {} });
+    expect(result.content?.documents.every((doc) => doc.error)).toBe(true);
+    expect(result.contentError).toMatch(/None of the 2 documents/);
     expect(suiteExitCode(result)).toBe(1);
   });
 });
