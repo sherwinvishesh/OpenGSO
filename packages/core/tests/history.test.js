@@ -2,7 +2,6 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { CheckResult, ContentReview, Evidence, History, HistoryEntry, SuiteResult, TestMode, TestResult } from '@opengeo/core/test';
 import {
   HISTORY_LIMIT,
   deltaFor,
@@ -21,6 +20,7 @@ import {
   scoreTrend,
   writeHistory,
 } from '@opengeo/core/test';
+/** @import { CheckResult, ContentReview, Evidence, History, HistoryEntry, SuiteResult, TestMode, TestResult } from '@opengeo/core/test' */
 
 /**
  * The run history, which is a cache and must behave like one.
@@ -32,39 +32,52 @@ import {
  * rather than an exception, because a broken cache must never be able to stop a test from running.
  */
 
-const cleanups: Array<() => void> = [];
+/** @type {Array<() => void>} */
+const cleanups = [];
 
 afterEach(() => {
   while (cleanups.length > 0) cleanups.pop()?.();
 });
 
-function scratch(): string {
+/** @returns {string} */
+function scratch() {
   return mkdtempSync(join(tmpdir(), 'opengeo-history-'));
 }
 
 /** History never reads evidence, so an empty stand-in keeps these fixtures about scores. */
-const EVIDENCE = {} as Evidence;
+const EVIDENCE = /** @type {Evidence} */ ({});
 
-interface SuiteShape {
-  url?: string;
-  mode?: TestMode;
-  checks?: CheckResult[];
-  contentScore?: number;
-}
+/**
+ * @typedef {object} SuiteShape
+ * @property {string} [url]
+ * @property {TestMode} [mode]
+ * @property {CheckResult[]} [checks]
+ * @property {number} [contentScore]
+ */
 
-function suite(shape: SuiteShape = {}): SuiteResult {
+/**
+ * @param {SuiteShape} [shape]
+ * @returns {SuiteResult}
+ */
+function suite(shape = {}) {
   const url = shape.url ?? 'https://example.com/';
   const mode = shape.mode ?? 'structure';
   const checks = shape.checks ?? [pass('A1', 'robots.txt allows every AI agent.')];
-  const structure: TestResult = { url, twinUrl: `${url}index.md`, checks, score: scoreChecks(checks), evidence: EVIDENCE };
-  const result: SuiteResult = { mode, url, structure: mode === 'content' ? undefined : structure };
+  /** @type {TestResult} */
+  const structure = { url, twinUrl: `${url}index.md`, checks, score: scoreChecks(checks), evidence: EVIDENCE };
+  /** @type {SuiteResult} */
+  const result = { mode, url, structure: mode === 'content' ? undefined : structure };
   if (typeof shape.contentScore === 'number') {
-    result.content = { score: shape.contentScore } as ContentReview;
+    result.content = /** @type {ContentReview} */ ({ score: shape.contentScore });
   }
   return result;
 }
 
-function entry(overrides: Partial<HistoryEntry> = {}): HistoryEntry {
+/**
+ * @param {Partial<HistoryEntry>} [overrides]
+ * @returns {HistoryEntry}
+ */
+function entry(overrides = {}) {
   return { at: '2026-01-01T00:00:00.000Z', url: 'https://example.com/', mode: 'structure', score: 50, ...overrides };
 }
 
@@ -219,7 +232,8 @@ describe('recording a run', () => {
 
 describe('the delta between two runs', () => {
   it('compares against the previous run of the same URL', () => {
-    const history: History = {
+    /** @type {History} */
+    const history = {
       version: 1,
       entries: [entry({ score: 40, at: '2026-01-01T00:00:00.000Z' }), entry({ score: 62, at: '2026-01-02T00:00:00.000Z' })],
     };
@@ -231,19 +245,22 @@ describe('the delta between two runs', () => {
   });
 
   it('reports a drop as a negative number rather than hiding it', () => {
-    const history: History = { version: 1, entries: [entry({ score: 90 })] };
+    /** @type {History} */
+    const history = { version: 1, entries: [entry({ score: 90 })] };
 
     expect(deltaFor(history, entry({ score: 74 }))?.points).toBe(-16);
   });
 
   it('will not compare across URLs, because that difference is not an improvement', () => {
-    const history: History = { version: 1, entries: [entry({ url: 'http://localhost:3000/', score: 30 })] };
+    /** @type {History} */
+    const history = { version: 1, entries: [entry({ url: 'http://localhost:3000/', score: 30 })] };
 
     expect(deltaFor(history, entry({ url: 'https://example.com/', score: 95 }))).toBeUndefined();
   });
 
   it('skips runs of other URLs to find the right one to compare against', () => {
-    const history: History = {
+    /** @type {History} */
+    const history = {
       version: 1,
       entries: [entry({ score: 55 }), entry({ url: 'http://localhost:3000/', score: 12 })],
     };
@@ -253,8 +270,10 @@ describe('the delta between two runs', () => {
 
   it('gives the same answer whether the new entry has been appended or not', () => {
     const current = entry({ score: 85 });
-    const before: History = { version: 1, entries: [entry({ score: 62 })] };
-    const after: History = { version: 1, entries: [entry({ score: 62 }), current] };
+    /** @type {History} */
+    const before = { version: 1, entries: [entry({ score: 62 })] };
+    /** @type {History} */
+    const after = { version: 1, entries: [entry({ score: 62 }), current] };
 
     expect(deltaFor(after, current)?.points).toBe(deltaFor(before, current)?.points);
   });
@@ -265,7 +284,8 @@ describe('the delta between two runs', () => {
   });
 
   it('ignores entries that carry no structural score', () => {
-    const history: History = { version: 1, entries: [entry({ score: 44 }), entry({ score: undefined, mode: 'content' })] };
+    /** @type {History} */
+    const history = { version: 1, entries: [entry({ score: 44 }), entry({ score: undefined, mode: 'content' })] };
 
     expect(deltaFor(history, entry({ score: 50 }))?.previous.score).toBe(44);
   });
@@ -273,13 +293,15 @@ describe('the delta between two runs', () => {
 
 describe('the trend and the last score', () => {
   it('returns the scores oldest first, so a sparkline reads left to right', () => {
-    const history: History = { version: 1, entries: [entry({ score: 20 }), entry({ score: 55 }), entry({ score: 91 })] };
+    /** @type {History} */
+    const history = { version: 1, entries: [entry({ score: 20 }), entry({ score: 55 }), entry({ score: 91 })] };
 
     expect(scoreTrend(history)).toEqual([20, 55, 91]);
   });
 
   it('filters to one URL when asked', () => {
-    const history: History = {
+    /** @type {History} */
+    const history = {
       version: 1,
       entries: [entry({ score: 20 }), entry({ url: 'http://localhost:3000/', score: 99 }), entry({ score: 55 })],
     };
@@ -289,7 +311,8 @@ describe('the trend and the last score', () => {
   });
 
   it('keeps the most recent runs when there are more than the limit', () => {
-    const history: History = { version: 1, entries: Array.from({ length: 30 }, (_, index) => entry({ score: index })) };
+    /** @type {History} */
+    const history = { version: 1, entries: Array.from({ length: 30 }, (_, index) => entry({ score: index })) };
 
     expect(scoreTrend(history, undefined, 12)).toHaveLength(12);
     expect(scoreTrend(history, undefined, 12).at(-1)).toBe(29);
@@ -297,7 +320,8 @@ describe('the trend and the last score', () => {
   });
 
   it('finds the last run that actually scored, past any content-only ones', () => {
-    const history: History = {
+    /** @type {History} */
+    const history = {
       version: 1,
       entries: [entry({ score: 81 }), entry({ score: undefined, mode: 'content' }), entry({ score: undefined, mode: 'content' })],
     };
@@ -309,7 +333,8 @@ describe('the trend and the last score', () => {
 
 describe('relative age', () => {
   const now = new Date('2026-03-01T12:00:00.000Z');
-  const ago = (ms: number) => relativeAge(new Date(now.getTime() - ms).toISOString(), now);
+  /** @param {number} ms */
+  const ago = (ms) => relativeAge(new Date(now.getTime() - ms).toISOString(), now);
 
   it('says "just now" under a minute', () => {
     expect(ago(0)).toBe('just now');

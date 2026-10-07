@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { CheckResult, TestResult } from '@opengeo/core/test';
 import {
   buildFixPrompt,
   CHECKS,
@@ -14,25 +13,32 @@ import {
   scoreChecks,
   scoreFindings,
 } from '@opengeo/core/test';
-import type { ProviderCall } from '@opengeo/core/generate';
+/** @import { CheckResult, TestResult } from '@opengeo/core/test' */
+/** @import { ProviderCall } from '@opengeo/core/generate' */
 
 /**
  * Framework detection, the fix prompt, and the quality layer. The three of them share one property
  * worth guarding: none of them may change the 0-100 score, and none may name a competitor.
  */
 
-function resultWith(checks: CheckResult[], overrides: Partial<TestResult> = {}): TestResult {
+/**
+ * @param {CheckResult[]} checks
+ * @param {Partial<TestResult>} [overrides]
+ * @returns {TestResult}
+ */
+function resultWith(checks, overrides = {}) {
   return {
     url: 'https://example.com/resume',
     twinUrl: 'https://example.com/resume.md',
     checks,
     score: scoreChecks(checks),
-    evidence: {} as TestResult['evidence'],
+    evidence: /** @type {TestResult['evidence']} */ ({}),
     ...overrides,
   };
 }
 
-const FAILURE: CheckResult = {
+/** @type {CheckResult} */
+const FAILURE = {
   id: 'B9',
   category: 'B',
   importance: 'required',
@@ -44,10 +50,12 @@ const FAILURE: CheckResult = {
   detail: 'Response was 200 with an HTML body.',
 };
 
-const PASS: CheckResult = { ...FAILURE, id: 'B13', status: 'pass', reason: 'Fine.', detail: undefined };
+/** @type {CheckResult} */
+const PASS = { ...FAILURE, id: 'B13', status: 'pass', reason: 'Fine.', detail: undefined };
 
 describe('framework detection', () => {
-  const cases: Array<[string, string, string]> = [
+  /** @type {Array<[string, string, string]>} */
+  const cases = [
     ['Next.js', '<html><body><script src="/_next/static/chunks/main.js"></script></body></html>', 'Next.js'],
     ['Nuxt', '<html><body><script src="/_nuxt/entry.js"></script><script id="__NUXT_DATA__">[]</script></body></html>', 'Nuxt'],
     ['Astro', '<html><head><meta name="generator" content="Astro v4.5.0"></head><body><script src="/x.js"></script></body></html>', 'Astro'],
@@ -133,7 +141,8 @@ describe('the fix prompt', () => {
   });
 
   it('carries a partial as work in progress, with what is left and what it is worth', () => {
-    const partial: CheckResult = {
+    /** @type {CheckResult} */
+    const partial = {
       ...FAILURE,
       id: 'B7',
       weight: 4,
@@ -154,18 +163,21 @@ describe('the fix prompt', () => {
   });
 
   it('does not say nothing failed when checks are only partly working', () => {
-    const partial: CheckResult = { ...FAILURE, status: 'partial', earned: 4, fix: 'Finish it.' };
+    /** @type {CheckResult} */
+    const partial = { ...FAILURE, status: 'partial', earned: 4, fix: 'Finish it.' };
     const prompt = buildFixPrompt(resultWith([partial]));
     expect(prompt).not.toContain('Nothing failed');
     expect(prompt).toContain('What I need from you');
   });
 
   it('collapses locked checks into one blocked section instead of a dozen fixes', () => {
-    const locked: CheckResult[] = [
+    /** @type {CheckResult[]} */
+    const locked = [
       { ...FAILURE, id: 'B2', weight: 5, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Content-Type', detail: undefined },
       { ...FAILURE, id: 'B4', weight: 3, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Tokens header', detail: undefined },
     ];
-    const blocker: CheckResult = { ...FAILURE, id: 'B1', weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
+    /** @type {CheckResult} */
+    const blocker = { ...FAILURE, id: 'B1', weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
     const prompt = buildFixPrompt(resultWith([blocker, ...locked]));
     expect(prompt).toContain('## Blocked behind B1 (2 checks, 8 points)');
     expect(prompt).toContain('- B2 (5 pts)');
@@ -215,12 +227,21 @@ describe('the fix prompt', () => {
 describe('the content review, and its own 0-100', () => {
   const input = { url: 'https://example.com/resume.md', markdown: '# Resume\n\nShipped 4 projects in 2024.' };
 
-  function mock(reply: string): (call: ProviderCall) => Promise<string> {
+  /**
+   * @param {string} reply
+   * @returns {(call: ProviderCall) => Promise<string>}
+   */
+  function mock(reply) {
     return async () => reply;
   }
 
-  /** A full reply in the shape the prompt asks for, with every area scored. */
-  function fullReply(scores: Partial<Record<string, number>> = {}): string {
+  /**
+   * A full reply in the shape the prompt asks for, with every area scored.
+   *
+   * @param {Partial<Record<string, number>>} [scores]
+   * @returns {string}
+   */
+  function fullReply(scores = {}) {
     return JSON.stringify({
       summary: 'A short resume page.',
       findings: QUALITY_AREAS.map((area) => ({ area: area.label, score: scores[area.label] ?? 80, note: `${area.label} is fine.` })),
@@ -251,8 +272,8 @@ describe('the content review, and its own 0-100', () => {
     const strongWhereItCounts = parseQuality(fullReply({ Answerability: 100, Keywords: 0 }), 'anthropic', 'm').score;
     const strongWhereItDoesNot = parseQuality(fullReply({ Answerability: 0, Keywords: 100 }), 'anthropic', 'm').score;
 
-    expect(strongWhereItCounts!).toBeGreaterThan(strongWhereItDoesNot!);
-    expect(strongWhereItCounts! - strongWhereItDoesNot!).toBe(QUALITY_AREAS[0].weight - QUALITY_AREAS[4].weight);
+    expect(/** @type {number} */ (strongWhereItCounts)).toBeGreaterThan(/** @type {number} */ (strongWhereItDoesNot));
+    expect(/** @type {number} */ (strongWhereItCounts) - /** @type {number} */ (strongWhereItDoesNot)).toBe(QUALITY_AREAS[0].weight - QUALITY_AREAS[4].weight);
   });
 
   it('adds the area weights up to exactly 100, so a score is a share of a real total', () => {
@@ -301,7 +322,8 @@ describe('the content review, and its own 0-100', () => {
   });
 
   it('sends the document, and only the document, to the provider', async () => {
-    let seen: ProviderCall | undefined;
+    /** @type {ProviderCall | undefined} */
+    let seen;
     await reviewQuality(input, {
       provider: 'openai',
       apiKey: 'test-key',
@@ -355,7 +377,7 @@ describe('the content review, and its own 0-100', () => {
 
   it('refuses an unknown provider by name', async () => {
     await expect(
-      reviewQuality(input, { provider: 'notreal' as never, apiKey: 'k', env: {}, call: mock('{}') }),
+      reviewQuality(input, { provider: /** @type {never} */ ('notreal'), apiKey: 'k', env: {}, call: mock('{}') }),
     ).rejects.toThrow(/notreal/);
   });
 });

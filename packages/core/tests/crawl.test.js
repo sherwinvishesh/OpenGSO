@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extractLinks, isCrawlable } from '@opengeo/core/generate';
 import { renderLlmsTxt, renderRobotsTxt, renderSitemapXml, writeSiteFiles, GENERATED_MARKER } from '@opengeo/core/generate';
-import type { AiBot } from '@opengeo/core/shared';
-import type { SitePage } from '@opengeo/core/generate';
+/** @import { AiBot } from '@opengeo/core/shared' */
+/** @import { SitePage } from '@opengeo/core/generate' */
 
 const ORIGIN = 'https://example.com';
 
@@ -32,7 +32,11 @@ describe('extractLinks', () => {
 });
 
 describe('isCrawlable', () => {
-  const crawlable = (href: string, exclude: string[] = []) => isCrawlable(new URL(href, ORIGIN), ORIGIN, exclude);
+  /**
+   * @param {string} href
+   * @param {string[]} [exclude]
+   */
+  const crawlable = (href, exclude = []) => isCrawlable(new URL(href, ORIGIN), ORIGIN, exclude);
 
   it('keeps same-origin page links', () => {
     expect(crawlable('/about')).toBe(true);
@@ -62,12 +66,14 @@ describe('isCrawlable', () => {
   });
 });
 
-const PAGES: SitePage[] = [
+/** @type {SitePage[]} */
+const PAGES = [
   { route: '/about', url: `${ORIGIN}/about`, title: 'About', description: 'Who we are', lastUpdated: '2026-01-02T03:04:05.000Z' },
   { route: '/', url: `${ORIGIN}/`, title: 'Home', description: 'A demo site', lastUpdated: '2026-01-02T03:04:05.000Z' },
 ];
 
-const options = (overrides: Partial<Parameters<typeof renderRobotsTxt>[0]> = {}) => ({
+/** @param {Partial<Parameters<typeof renderRobotsTxt>[0]>} [overrides] */
+const options = (overrides = {}) => ({
   site: ORIGIN,
   publicDir: '/tmp/nowhere',
   pages: PAGES,
@@ -108,7 +114,8 @@ describe('renderRobotsTxt', () => {
   });
 
   it('checks the token a custom crawler declares, not only the name', () => {
-    const bots: AiBot[] = [{ name: 'Ours', vendor: 'Us', uaPatterns: ['Ours'], robotsToken: 'Ours\nDisallow: /', kind: 'training', custom: true }];
+    /** @type {AiBot[]} */
+    const bots = [{ name: 'Ours', vendor: 'Us', uaPatterns: ['Ours'], robotsToken: 'Ours\nDisallow: /', kind: 'training', custom: true }];
     const text = renderRobotsTxt(options({ blocked: ['Ours'], bots }));
     expect(text.split('\n').filter((line) => line.startsWith('Disallow'))).toEqual([]);
   });
@@ -231,7 +238,8 @@ describe('writeSiteFiles', () => {
  * caps actually stopping.
  */
 describe('crawlSite', () => {
-  const PAGES_HTML: Record<string, string> = {
+  /** @type {Record<string, string>} */
+  const PAGES_HTML = {
     '/': `<html><body><main><h1>Home</h1><a href="/about">About</a><a href="/about/">About again</a>
       <a href="/deep/one">Deep</a><a href="https://elsewhere.example/x">Off-site</a>
       <a href="/logo.png">Logo</a></main></body></html>`,
@@ -244,7 +252,12 @@ describe('crawlSite', () => {
     '/admin': `<html><body><main><h1>Admin</h1></main></body></html>`,
   };
 
-  async function withServer<T>(run: (base: string) => Promise<T>): Promise<T> {
+  /**
+   * @template T
+   * @param {(base: string) => Promise<T>} run
+   * @returns {Promise<T>}
+   */
+  async function withServer(run) {
     const { createServer } = await import('node:http');
     const server = createServer((req, res) => {
       const path = new URL(req.url ?? '/', 'http://localhost').pathname.replace(/(.)\/$/, '$1');
@@ -259,13 +272,13 @@ describe('crawlSite', () => {
       }
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(html);
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
     const address = server.address();
     const port = typeof address === 'object' && address ? address.port : 0;
     try {
       return await run(`http://127.0.0.1:${port}`);
     } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await /** @type {Promise<void>} */ (new Promise((resolve) => server.close(() => resolve())));
     }
   }
 

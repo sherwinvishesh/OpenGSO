@@ -31,8 +31,8 @@ import {
   writeEnvVars,
   unknownCommand,
 } from '@opengeo/core/shared';
-import type { CommandName } from '@opengeo/core/shared';
 import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@opengeo/core/generate';
+/** @import { CommandName } from '@opengeo/core/shared' */
 
 const temp = () => mkdtempSync(join(tmpdir(), 'opengeo-test-'));
 
@@ -133,11 +133,11 @@ describe('custom crawlers', () => {
 
   it('refuses an entry with no name at all', () => {
     expect(normalizeCustomBot({ name: '   ' })).toBeUndefined();
-    expect(normalizeCustomBot(undefined as never)).toBeUndefined();
+    expect(normalizeCustomBot(/** @type {never} */ (undefined))).toBeUndefined();
   });
 
   it('falls back to assistant rather than trusting a kind it does not recognise', () => {
-    expect(normalizeCustomBot({ name: 'AcmeBot', kind: 'sentient' as never })?.kind).toBe('assistant');
+    expect(normalizeCustomBot({ name: 'AcmeBot', kind: /** @type {never} */ ('sentient') })?.kind).toBe('assistant');
   });
 
   it('appends custom crawlers to the shipped list without disturbing it', () => {
@@ -192,7 +192,7 @@ describe('config', () => {
   });
 
   it('merges a partial file over the defaults section by section', () => {
-    const merged = mergeConfig(defaultConfig(), { crawl: { maxPages: 5 } as never });
+    const merged = mergeConfig(defaultConfig(), { crawl: /** @type {never} */ ({ maxPages: 5 }) });
     expect(merged.crawl.maxPages).toBe(5);
     expect(merged.crawl.maxDepth).toBe(4);
   });
@@ -291,7 +291,7 @@ describe('error copy (§13)', () => {
    * the wording, so the next command added to the table cannot reintroduce it.
    */
   it('never suggests a package that does not ship the command', () => {
-    for (const command of Object.keys(COMMAND_PACKAGES) as CommandName[]) {
+    for (const command of /** @type {CommandName[]} */ (Object.keys(COMMAND_PACKAGES))) {
       const message = commandUnavailable(command, 'opengeo-prod');
       const suggested = [...message.matchAll(/npm install -D (\S+)/g)].map((match) => match[1]);
       expect(suggested.length).toBeGreaterThan(0);

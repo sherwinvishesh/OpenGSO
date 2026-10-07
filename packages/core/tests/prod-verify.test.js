@@ -1,10 +1,8 @@
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { ProdProbe } from '@opengeo/core/prod';
 import {
   DEFAULT_MARKDOWN_ROUTING,
   HEADERS,
@@ -19,6 +17,9 @@ import {
   resolveBot,
   verifyProd,
 } from '@opengeo/core/prod';
+/** @import { Server } from 'node:http' */
+/** @import { AddressInfo } from 'node:net' */
+/** @import { ProdProbe } from '@opengeo/core/prod' */
 
 /**
  * `prod test` is verified against a real HTTP server whose responses come from `handleRequest`
@@ -51,17 +52,22 @@ const store = createMemoryStore([
   },
 ]);
 
-let server: Server;
-let site: string;
+/** @type {Server} */
+let server;
+/** @type {string} */
+let site;
 
 // Deployment knobs, reset before every test.
 let prodEnabled = true;
-let robotsBody: string | null = ROBOTS_OPEN;
+/** @type {string | null} */
+let robotsBody = ROBOTS_OPEN;
 let blockUnknownBots = false;
 let stripVary = false;
 /** Set to whatever a framework or CDN actually put in Vary, replacing what prod asked for. */
-let varyOverride: string | null = null;
-let routing: string[] = [...DEFAULT_MARKDOWN_ROUTING];
+/** @type {string | null} */
+let varyOverride = null;
+/** @type {string[]} */
+let routing = [...DEFAULT_MARKDOWN_ROUTING];
 
 beforeEach(() => {
   prodEnabled = true;
@@ -107,13 +113,14 @@ beforeAll(async () => {
         {
           url,
           method: req.method,
-          headers: { get: (name: string) => (req.headers[name.toLowerCase()] as string | undefined) ?? null },
+          headers: { get: (name) => /** @type {string | undefined} */ (req.headers[name.toLowerCase()]) ?? null },
         },
         { store, markdownRouting: routing },
       );
 
       if (decision.type === 'passthrough') {
-        const headers: Record<string, string> = {
+        /** @type {Record<string, string>} */
+        const headers = {
           'content-type': 'text/html; charset=utf-8',
           ...decision.headers,
         };
@@ -131,15 +138,20 @@ beforeAll(async () => {
     })();
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  site = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
+  site = `http://127.0.0.1:${/** @type {AddressInfo} */ (server.address()).port}`;
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await /** @type {Promise<void>} */ (new Promise((resolve) => server.close(() => resolve())));
 });
 
-function probeById(probes: readonly ProdProbe[], id: string): ProdProbe {
+/**
+ * @param {readonly ProdProbe[]} probes
+ * @param {string} id
+ * @returns {ProdProbe}
+ */
+function probeById(probes, id) {
   const found = probes.find((p) => p.id === id);
   if (!found) throw new Error(`no probe ${id}`);
   return found;
@@ -344,7 +356,10 @@ describe('output', () => {
 });
 
 describe('startup logging (§7)', () => {
-  function project(): string {
+  /**
+   * @returns {string}
+   */
+  function project() {
     const root = mkdtempSync(join(tmpdir(), 'opengeo-startup-'));
     mkdirSync(join(root, 'public'), { recursive: true });
     return root;
@@ -373,8 +388,10 @@ describe('startup logging (§7)', () => {
 
   it('logs once per process and never again', () => {
     const root = project();
-    const lines: string[] = [];
-    const logger = (line: string) => lines.push(line);
+    /** @type {string[]} */
+    const lines = [];
+    /** @param {string} line */
+    const logger = (line) => lines.push(line);
 
     const first = logStartupStatus({ root, store, logger });
     expect(first).toBeDefined();
@@ -386,9 +403,10 @@ describe('startup logging (§7)', () => {
   });
 
   it('serving requests never writes to the log', () => {
-    const written: string[] = [];
+    /** @type {string[]} */
+    const written = [];
     const original = console.log;
-    console.log = (...args: unknown[]) => written.push(args.join(' '));
+    console.log = /** @param {...unknown} args */ (...args) => written.push(args.join(' '));
     try {
       for (let i = 0; i < 50; i += 1) {
         handleRequest(

@@ -4,11 +4,12 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runSetup, SetupAbort, setupMode } from '../src/cli/configure.js';
-import { createPrompter, type ChoiceOption, type Prompter } from '../src/cli/prompt.js';
+import { createPrompter } from '../src/cli/prompt.js';
 import { ROUTABLE_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
 import { DEFAULT_MODELS } from '../src/shared/providers.js';
+/** @import { ChoiceOption, Prompter } from '../src/cli/prompt.js' */
 
 /**
  * §11 is the reason this file exists. The guarantee is not "we tell people to gitignore .env", it
@@ -20,36 +21,54 @@ import { DEFAULT_MODELS } from '../src/shared/providers.js';
  * runs it in `first-run` mode, `opengeo settings` in `settings` mode.
  */
 
-interface Script {
-  /** Answers for `ask`, in order. An empty entry means "take the default". */
-  ask?: string[];
-  /** Answers for `choose`, in order, by value. */
-  choose?: string[];
-  /** Runs inside every `choose`, so a test can watch the disk between two menu selections. */
-  onChoose?: (question: string) => void;
-  /** Answers for `confirm`, in order. Anything past the end falls back to the prompt's default. */
-  confirm?: boolean[];
-  secret?: string;
-  /** Observed from inside the secret prompt, so it sees the world as it was before the key. */
-  onSecret?: () => void;
-}
+/**
+ * @typedef {object} Script
+ * @property {string[]} [ask] Answers for `ask`, in order. An empty entry means "take the default".
+ * @property {string[]} [choose] Answers for `choose`, in order, by value.
+ * @property {(question: string) => void} [onChoose] Runs inside every `choose`, so a test can watch
+ *   the disk between two menu selections.
+ * @property {boolean[]} [confirm] Answers for `confirm`, in order. Anything past the end falls back
+ *   to the prompt's default.
+ * @property {string} [secret]
+ * @property {() => void} [onSecret] Observed from inside the secret prompt, so it sees the world as
+ *   it was before the key.
+ */
 
-function scripted(script: Script): Prompter & { asked: string[]; offered: string[] } {
+/**
+ * @param {Script} script
+ * @returns {Prompter & { asked: string[]; offered: string[] }}
+ */
+function scripted(script) {
   const asks = [...(script.ask ?? [])];
   const chooses = [...(script.choose ?? [])];
   const confirms = [...(script.confirm ?? [])];
-  const asked: string[] = [];
-  /** Every label the flow put on screen. The menu is a list of labels, so this is how it is read. */
-  const offered: string[] = [];
+  /** @type {string[]} */
+  const asked = [];
+  /**
+   * Every label the flow put on screen. The menu is a list of labels, so this is how it is read.
+   *
+   * @type {string[]}
+   */
+  const offered = [];
   return {
     asked,
     offered,
-    async ask(question: string, fallback = '') {
+    /**
+     * @param {string} question
+     * @param {string} [fallback]
+     */
+    async ask(question, fallback = '') {
       asked.push(question.trim());
       const next = asks.shift();
       return next === undefined || next === '' ? fallback : next;
     },
-    async choose<T extends string>(question: string, options: ChoiceOption<T>[], fallback: T) {
+    /**
+     * @template {string} T
+     * @param {string} question
+     * @param {ChoiceOption<T>[]} options
+     * @param {T} fallback
+     */
+    async choose(question, options, fallback) {
       asked.push(question.trim());
       offered.push(...options.map((option) => option.label));
       script.onChoose?.(question.trim());
@@ -59,12 +78,17 @@ function scripted(script: Script): Prompter & { asked: string[]; offered: string
       if (!match) throw new Error(`scripted choice "${next}" is not one of: ${options.map((o) => o.value).join(', ')}`);
       return match.value;
     },
-    async secret(question: string) {
+    /** @param {string} question */
+    async secret(question) {
       asked.push(question.trim());
       script.onSecret?.();
       return script.secret ?? '';
     },
-    async confirm(question: string, fallback: boolean) {
+    /**
+     * @param {string} question
+     * @param {boolean} fallback
+     */
+    async confirm(question, fallback) {
       asked.push(question.trim());
       const next = confirms.shift();
       return next === undefined ? fallback : next;
@@ -74,7 +98,8 @@ function scripted(script: Script): Prompter & { asked: string[]; offered: string
 }
 
 describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
-  let root: string;
+  /** @type {string} */
+  let root;
   const silent = () => {};
 
   beforeEach(() => {
@@ -131,7 +156,8 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
   describe('the key never leaks (§11)', () => {
     it('puts .env in .gitignore before it asks for the key, not after', async () => {
-      let gitignoreAtSecretTime: string | undefined;
+      /** @type {string | undefined} */
+      let gitignoreAtSecretTime;
       const prompter = scripted({
         ask: ['http://localhost:3000'],
         choose: ['all', 'anthropic'],
@@ -378,8 +404,12 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
   });
 
   describe('settings mode: the menu (§12)', () => {
-    /** A configured project, so settings mode has something to edit. */
-    function configured(): void {
+    /**
+     * A configured project, so settings mode has something to edit.
+     *
+     * @returns {void}
+     */
+    function configured() {
       writeFileSync(
         join(root, CONFIG_FILENAME),
         JSON.stringify({
@@ -391,7 +421,10 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       );
     }
 
-    function savedConfig(): { site: string; publicDir: string; bots: { blocked: string[] } } {
+    /**
+     * @returns {{ site: string; publicDir: string; bots: { blocked: string[] } }}
+     */
+    function savedConfig() {
       return JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8'));
     }
 
@@ -437,7 +470,8 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
     it('writes each edit to disk as it is made, not in one lump at the end', async () => {
       configured();
-      const seen: string[] = [];
+      /** @type {string[]} */
+      const seen = [];
       const prompter = scripted({
         choose: ['site', 'webroot'],
         ask: ['http://localhost:4000', 'dist'],
@@ -556,7 +590,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       await runSetup({ root, prompter, mode: 'settings', out: silent });
 
-      const saved = JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')) as { ai: { provider: string; model: string } };
+      const saved = /** @type {{ ai: { provider: string; model: string } }} */ (JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')));
       expect(saved.ai).toMatchObject({ provider: 'openai', model: DEFAULT_MODELS.openai });
     });
   });
@@ -659,7 +693,8 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 });
 
 describe('when the input stream ends mid-flow', () => {
-  let root: string;
+  /** @type {string} */
+  let root;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'opengeo-setup-eof-'));
@@ -669,8 +704,12 @@ describe('when the input stream ends mid-flow', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** A prompter backed by a stream that ends immediately, which is what Ctrl-D looks like. */
-  function endedPrompter(): Prompter {
+  /**
+   * A prompter backed by a stream that ends immediately, which is what Ctrl-D looks like.
+   *
+   * @returns {Prompter}
+   */
+  function endedPrompter() {
     const input = new PassThrough();
     const output = new PassThrough();
     output.resume();
@@ -686,7 +725,7 @@ describe('when the input stream ends mid-flow', () => {
 
     const answer = await Promise.race([
       prompter.ask('Site URL', 'http://localhost:3000'),
-      new Promise<string>((_, reject) => setTimeout(() => reject(new Error('ask() hung on EOF')), 1000)),
+      /** @type {Promise<string>} */ (new Promise((_, reject) => setTimeout(() => reject(new Error('ask() hung on EOF')), 1000))),
     ]);
     prompter.close();
 
@@ -710,7 +749,7 @@ describe('the prompter', () => {
     const input = new PassThrough();
     const output = new PassThrough();
     let written = '';
-    output.on('data', (chunk: Buffer) => (written += chunk.toString()));
+    output.on('data', /** @param {Buffer} chunk */ (chunk) => (written += chunk.toString()));
 
     const prompter = createPrompter({ input, output });
     const pending = prompter.secret('key:');
@@ -744,7 +783,8 @@ describe('the prompter', () => {
  * most - a caller that passes none of them gets the flat four questions, unchanged.
  */
 describe('what setup works out for itself', () => {
-  let root: string;
+  /** @type {string} */
+  let root;
   const silent = () => {};
 
   beforeEach(() => {
@@ -755,16 +795,27 @@ describe('what setup works out for itself', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** Records `stage()` and `settle()` the way the full-screen stepper consumes them. */
-  function staged(script: Script): Prompter & { stages: Array<[string, number, number]>; settled: number; pauses: number } {
+  /**
+   * Records `stage()` and `settle()` the way the full-screen stepper consumes them.
+   *
+   * @param {Script} script
+   * @returns {Prompter & { stages: Array<[string, number, number]>; settled: number; pauses: number }}
+   */
+  function staged(script) {
     const base = scripted(script);
-    const stages: Array<[string, number, number]> = [];
+    /** @type {Array<[string, number, number]>} */
+    const stages = [];
     const recorder = {
       ...base,
       stages,
       settled: 0,
       pauses: 0,
-      stage: (label: string, index: number, total: number) => void stages.push([label, index, total]),
+      /**
+       * @param {string} label
+       * @param {number} index
+       * @param {number} total
+       */
+      stage: (label, index, total) => void stages.push([label, index, total]),
       settle: () => {
         recorder.settled += 1;
       },
@@ -775,7 +826,7 @@ describe('what setup works out for itself', () => {
     return recorder;
   }
 
-  const answers = { ask: ['http://localhost:3000'], choose: ['all', 'skip'] } satisfies Script;
+  const answers = /** @satisfies {Script} */ ({ ask: ['http://localhost:3000'], choose: ['all', 'skip'] });
 
   it('tells the prompter which of the four steps it is on, in order', async () => {
     const prompter = staged(answers);
@@ -850,7 +901,8 @@ describe('what setup works out for itself', () => {
   });
 
   it('probes the URL once it parses, and prints what came back', async () => {
-    const probed: string[] = [];
+    /** @type {string[]} */
+    const probed = [];
     let transcript = '';
 
     await runSetup({
@@ -869,7 +921,8 @@ describe('what setup works out for itself', () => {
   });
 
   it('does not probe a URL it is about to reject', async () => {
-    const probed: string[] = [];
+    /** @type {string[]} */
+    const probed = [];
 
     await runSetup({
       root,
@@ -936,7 +989,8 @@ describe('what setup works out for itself', () => {
   });
 
   it('is handed the finished result, so the closing test runs against what was saved', async () => {
-    let seen: string | undefined;
+    /** @type {string | undefined} */
+    let seen;
 
     await runSetup({
       root,

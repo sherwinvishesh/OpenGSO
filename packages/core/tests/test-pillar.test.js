@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { ProbeResult } from '@opengeo/core/shared';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
 import { liveContentHash } from './helpers/live-hash.js';
-import type { Evidence } from '@opengeo/core/test';
 import { CHECKS, renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
+/** @import { ProbeResult } from '@opengeo/core/shared' */
+/** @import { Evidence } from '@opengeo/core/test' */
 
 /**
  * The whole checklist is driven from synthetic evidence, so these tests exercise the real check
  * logic with no network and no timing flakiness.
  */
 
-function probe(overrides: Partial<ProbeResult> = {}): ProbeResult {
+/**
+ * @param {Partial<ProbeResult>} [overrides]
+ * @returns {ProbeResult}
+ */
+function probe(overrides = {}) {
   return {
     url: 'https://example.com/resume',
     ok: true,
@@ -45,7 +49,10 @@ long stretch owning the build system and the release process for a codebase of r
 thousand lines. Before that, three years on an internal analytics product used by every team in the
 company, where the work was mostly about making slow queries fast and making failures legible.`;
 
-function goodEvidence(): Evidence {
+/**
+ * @returns {Evidence}
+ */
+function goodEvidence() {
   const target = new URL('https://example.com/resume');
   return {
     target,
@@ -89,8 +96,10 @@ function goodEvidence(): Evidence {
 /**
  * A site that never installed OpenGEO: real HTML, no `.md` layer anywhere. This is what the whole
  * web looks like today, so it is the case the scale has to get right.
+ *
+ * @returns {Evidence}
  */
-function noTwinEvidence(): Evidence {
+function noTwinEvidence() {
   const evidence = goodEvidence();
   // A real site's HTML headers: HTTPS is a solved problem, the two AEO headers are not there.
   const html = new Headers({
@@ -110,8 +119,10 @@ function noTwinEvidence(): Evidence {
  * The profile anthropic.com and openai.com actually have, as of this writing: robots.txt open to
  * AI crawlers, a real sitemap, the content server-rendered into the HTML, a fast first byte, no
  * opt-out tag, HTTPS with HSTS - and none of llms.txt, JSON-LD, or a markdown twin.
+ *
+ * @returns {Evidence}
  */
-function unadoptedSiteEvidence(): Evidence {
+function unadoptedSiteEvidence() {
   const evidence = noTwinEvidence();
   evidence.llms = probe({ url: 'https://example.com/llms.txt', ok: false, status: 404, body: '' });
   evidence.html = probe({
@@ -121,7 +132,8 @@ function unadoptedSiteEvidence(): Evidence {
   return evidence;
 }
 
-function byId(evidence: Evidence) {
+/** @param {Evidence} evidence */
+function byId(evidence) {
   return new Map(runChecks(evidence).map((check) => [check.id, check]));
 }
 
@@ -389,7 +401,8 @@ describe('B7 parses Vary as a token list', () => {
   // The twin keeps its own `Vary: Accept` in this fixture, so a header that does not parse as
   // Accept on the HTML side leaves exactly one of the two responses correct: a partial, which is
   // also the permanent state of a Next.js App Router deployment.
-  const cases: Array<[string, 'pass' | 'partial']> = [
+  /** @type {Array<[string, 'pass' | 'partial']>} */
+  const cases = [
     ['Accept', 'pass'],
     ['accept', 'pass'],
     ['Accept, Accept-Encoding', 'pass'],
@@ -485,12 +498,16 @@ describe('B14 staleness and drift', () => {
 });
 
 describe('the score stays honest when most of the checklist cannot apply', () => {
-  /** Synthetic checks, so the weighting can be reasoned about without the whole catalogue. */
-  function synthetic(spec: Array<[string, 'pass' | 'fail' | 'na', number]>) {
+  /**
+   * Synthetic checks, so the weighting can be reasoned about without the whole catalogue.
+   *
+   * @param {Array<[string, 'pass' | 'fail' | 'na', number]>} spec
+   */
+  function synthetic(spec) {
     return spec.map(([id, status, weight]) => ({
       id,
-      category: 'A' as const,
-      importance: 'required' as const,
+      category: /** @type {const} */ ('A'),
+      importance: /** @type {const} */ ('required'),
       weight,
       title: id,
       status,

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { ProbeResult } from '@opengeo/core/shared';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
-import type { CheckResult, Evidence } from '@opengeo/core/test';
 import { checkDefinition, partial, ramp, runChecks, scoreChecks } from '@opengeo/core/test';
 import { liveContentHash } from './helpers/live-hash.js';
+/** @import { ProbeResult } from '@opengeo/core/shared' */
+/** @import { CheckResult, Evidence } from '@opengeo/core/test' */
 
 /**
  * Partial credit, band by band.
@@ -37,7 +37,11 @@ long stretch owning the build system and the release process for a codebase of r
 thousand lines. Before that, three years on an internal analytics product used by every team in the
 company, where the work was mostly about making slow queries fast and making failures legible.`;
 
-function probe(overrides: Partial<ProbeResult> = {}): ProbeResult {
+/**
+ * @param {Partial<ProbeResult>} [overrides]
+ * @returns {ProbeResult}
+ */
+function probe(overrides = {}) {
   return {
     url: 'https://example.com/resume',
     ok: true,
@@ -52,8 +56,12 @@ function probe(overrides: Partial<ProbeResult> = {}): ProbeResult {
   };
 }
 
-/** A site with everything right, so each test can break exactly one thing and read the band. */
-function perfect(): Evidence {
+/**
+ * A site with everything right, so each test can break exactly one thing and read the band.
+ *
+ * @returns {Evidence}
+ */
+function perfect() {
   const target = new URL('https://example.com/resume');
   return {
     target,
@@ -95,14 +103,25 @@ function perfect(): Evidence {
   };
 }
 
-function check(evidence: Evidence, id: string): CheckResult {
+/**
+ * @param {Evidence} evidence
+ * @param {string} id
+ * @returns {CheckResult}
+ */
+function check(evidence, id) {
   const found = runChecks(evidence).find((result) => result.id === id);
   if (!found) throw new Error(`No result for ${id}`);
   return found;
 }
 
-/** Every band asserts the same four things, so the assertions are written once. */
-function expectBand(result: CheckResult, earned: number): void {
+/**
+ * Every band asserts the same four things, so the assertions are written once.
+ *
+ * @param {CheckResult} result
+ * @param {number} earned
+ * @returns {void}
+ */
+function expectBand(result, earned) {
   expect(`${result.id} ${result.status}`).toBe(`${result.id} partial`);
   expect(result.earned).toBe(earned);
   expect(result.earned).toBeGreaterThan(0);
@@ -190,7 +209,8 @@ describe('category A bands', () => {
 
   it('A5 ramps with how much of the page is actually in the raw HTML', () => {
     const evidence = perfect();
-    const words = (count: number) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
+    /** @param {number} count */
+    const words = (count) => Array.from({ length: count }, (_, index) => `word${index}`).join(' ');
     // Thirty words: half way between the fifteen-word floor and the sixty-word target.
     evidence.html = probe({ body: `<!doctype html><html><body><main><h1>T</h1><p>${words(30)}</p></main></body></html>` });
     const middling = check(evidence, 'A5');
@@ -215,7 +235,8 @@ describe('category A bands', () => {
   });
 
   it('A6 is full marks under 400ms, nothing over 1500ms, and a slide between', () => {
-    const at = (ttfbMs: number) => {
+    /** @param {number} ttfbMs */
+    const at = (ttfbMs) => {
       const evidence = perfect();
       evidence.html = probe({ ...evidence.html, ttfbMs });
       return check(evidence, 'A6');
@@ -314,7 +335,10 @@ describe('category B bands', () => {
 });
 
 describe('locked checks', () => {
-  function noTwin(): Evidence {
+  /**
+   * @returns {Evidence}
+   */
+  function noTwin() {
     const evidence = perfect();
     const headers = new Headers({ 'content-type': 'text/html; charset=utf-8', 'strict-transport-security': 'max-age=63072000' });
     evidence.twin = probe({ ok: false, status: 404, body: '<!doctype html><html><body>404</body></html>' });

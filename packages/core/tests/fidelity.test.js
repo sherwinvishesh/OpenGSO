@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalize, extractFacts, verifyFidelity } from '@opengeo/core/generate';
 import { createAiEnhancer, stripCodeFence } from '@opengeo/core/generate';
-import type { ProviderCall } from '@opengeo/core/generate';
+/** @import { ProviderCall } from '@opengeo/core/generate' */
 
 /**
  * The fidelity guard is the only thing standing between "the prompt says not to change facts" and
@@ -139,7 +139,8 @@ describe('createAiEnhancer', () => {
     algorithmicMarkdown: SOURCE,
   };
 
-  const enhancerWith = (call: (c: ProviderCall) => Promise<string>) =>
+  /** @param {(c: ProviderCall) => Promise<string>} call */
+  const enhancerWith = (call) =>
     createAiEnhancer({ provider: 'anthropic', apiKey: 'test-key', call, env: {} });
 
   it('keeps a faithful rewrite', async () => {
@@ -168,7 +169,8 @@ describe('createAiEnhancer', () => {
   });
 
   it('sends the fidelity instructions and the extraction to the provider', async () => {
-    let seen: ProviderCall | undefined;
+    /** @type {ProviderCall | undefined} */
+    let seen;
     const enhance = enhancerWith(async (call) => {
       seen = call;
       return SOURCE;
@@ -189,7 +191,7 @@ describe('createAiEnhancer', () => {
   it('rejects an unknown provider by name', () => {
     expect(() =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      createAiEnhancer({ provider: 'bedrock' as any, apiKey: 'k', call: async () => '', env: {} }),
+      createAiEnhancer({ provider: /** @type {any} */ ('bedrock'), apiKey: 'k', call: async () => '', env: {} }),
     ).toThrow(/bedrock/);
   });
 });

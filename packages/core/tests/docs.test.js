@@ -26,7 +26,11 @@ import { routeToTwinUrlPath } from '../src/shared/routes.js';
  */
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
+/**
+ * @param {string} relative
+ * @returns {string}
+ */
+const read = (relative) => readFileSync(join(repoRoot, relative), 'utf8');
 
 describe('docs/checks.md', () => {
   const doc = read('docs/checks.md');
@@ -57,7 +61,8 @@ describe('docs/checks.md', () => {
   });
 
   it('has a weight table that adds up to the real totals', () => {
-    const sum = (predicate: (c: (typeof CHECKS)[number]) => boolean) =>
+    /** @param {(c: (typeof CHECKS)[number]) => boolean} predicate */
+    const sum = (predicate) =>
       CHECKS.filter(predicate).reduce((total, c) => total + c.weight, 0);
     const a = { required: sum((c) => c.category === 'A' && c.importance === 'required'), recommended: sum((c) => c.category === 'A' && c.importance === 'recommended') };
     const b = { required: sum((c) => c.category === 'B' && c.importance === 'required'), recommended: sum((c) => c.category === 'B' && c.importance === 'recommended') };
@@ -71,14 +76,18 @@ describe('docs/checks.md', () => {
     expect(doc).toContain(`runs ${CHECKS.length} checks against a live URL`);
   });
 
-  /** The prose under `### B7 - ...`, up to the next check heading. */
-  const section = (id: string): string => (doc.split(`### ${id} - `)[1] ?? '').split('\n### ')[0];
+  /**
+   * The prose under `### B7 - ...`, up to the next check heading.
+   * @param {string} id
+   * @returns {string}
+   */
+  const section = (id) => (doc.split(`### ${id} - `)[1] ?? '').split('\n### ')[0];
 
   it('names a partial band for every check that can award one', () => {
     // Derived from the source rather than from a list kept here, because a list kept here is a
     // second place to forget. Any `partial('B6', ...)` in the runner has to have a documented band.
     const runner = read('packages/core/src/test/runner.js');
-    const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id!));
+    const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id));
     expect(graded.size).toBeGreaterThan(0);
     for (const id of graded) {
       expect(section(id), `${id} can return partial and docs/checks.md does not say what that earns`).toContain('**Partial');
@@ -97,7 +106,8 @@ describe('docs/checks.md', () => {
   });
 
   it('prices the locked block with the weights the cascade actually removes', () => {
-    const weightOf = (id: string) => CHECKS.find((check) => check.id === id)?.weight ?? 0;
+    /** @param {string} id */
+    const weightOf = (id) => CHECKS.find((check) => check.id === id)?.weight ?? 0;
     const points = TWIN_LOCKED_IDS.reduce((total, id) => total + weightOf(id), 0);
     expect(doc).toContain(`Locked (${TWIN_LOCKED_IDS.length})`);
     expect(doc).toContain(`${points} points waiting behind B1`);
@@ -108,7 +118,7 @@ describe('docs/checks.md', () => {
   it('never invents a check id that does not exist', () => {
     const ids = new Set(CHECKS.map((c) => c.id));
     for (const [, id] of doc.matchAll(/^### ([AB]\d+) - /gm)) {
-      expect(ids.has(id!), `docs/checks.md documents "${id}", which is not a real check`).toBe(true);
+      expect(ids.has(id), `docs/checks.md documents "${id}", which is not a real check`).toBe(true);
     }
   });
 });
@@ -139,7 +149,7 @@ describe('docs/spec.md', () => {
     const rows = [...doc.matchAll(/^\| `(\/[^`]*)` \| `([^`]+)`/gm)];
     expect(rows.length).toBeGreaterThan(3);
     for (const [, route, twin] of rows) {
-      expect(routeToTwinUrlPath(route!), `spec.md maps ${route} to ${twin}`).toBe(twin);
+      expect(routeToTwinUrlPath(route), `spec.md maps ${route} to ${twin}`).toBe(twin);
     }
   });
 });

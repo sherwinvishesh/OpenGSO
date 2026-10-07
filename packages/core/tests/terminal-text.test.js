@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { terminalSafe, terminalText } from '@opengeo/core/shared';
-import type { ContentReview } from '@opengeo/core/test';
 import { renderContentReport } from '@opengeo/core/test';
+/** @import { ContentReview } from '@opengeo/core/test' */
 
 /**
  * Remote text on the terminal.
@@ -16,8 +16,13 @@ const ESC = '\u001b';
 const BEL = '\u0007';
 const HOSTILE = `fine${ESC}]0;pwned${BEL}${ESC}]52;c;ZWNobyBoaQ==${BEL}${ESC}[2K\r${ESC}[8mhidden\u009b31m‮evil`;
 
-/** Anything that would make a terminal do something rather than print something. */
-function hasControl(text: string): boolean {
+/**
+ * Anything that would make a terminal do something rather than print something.
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+function hasControl(text) {
   // Our own colour codes are ESC [ digits m. Everything else from ESC is remote.
   const withoutOurColours = text.replace(/\u001b\[[0-9;]*m/g, '');
   return /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩]/.test(withoutOurColours);
@@ -51,7 +56,8 @@ describe('terminalSafe', () => {
 
 describe('the content report', () => {
   it('prints what a model said without letting it drive the terminal', () => {
-    const review: ContentReview = {
+    /** @type {ContentReview} */
+    const review = {
       provider: 'anthropic',
       model: 'm',
       documents: [
@@ -67,10 +73,10 @@ describe('the content report', () => {
       recommendations: [],
       notReviewed: 0,
     };
-    const text = renderContentReport(review, {
+    const text = renderContentReport(review, /** @type {Parameters<typeof renderContentReport>[1]} */ (/** @type {unknown} */ ({
       twins: [],
       rejected: [{ url: 'https://example.com/c', reason: HOSTILE }],
-    } as unknown as Parameters<typeof renderContentReport>[1]);
+    })));
     expect(hasControl(text)).toBe(false);
     expect(text).toContain('evil');
   });

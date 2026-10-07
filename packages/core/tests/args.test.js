@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseArgs } from '@opengeo/core/cli';
 
-const SPEC = { booleans: ['json', 'force'], strings: ['project', 'tier'], alias: { p: 'project' } } as const;
+const SPEC = /** @type {const} */ ({ booleans: ['json', 'force'], strings: ['project', 'tier'], alias: { p: 'project' } });
 
 describe('parseArgs', () => {
   it('separates positionals from options', () => {

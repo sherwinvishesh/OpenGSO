@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { openStepper, stepRail } from '../src/cli/stepper.js';
 import { pause } from '../src/cli/tui/interact.js';
-import type { Key, KeyReader } from '../src/cli/tui/keys.js';
 import { glyphs, stripAnsi } from '../src/cli/tui/paint.js';
-import type { Screen } from '../src/cli/tui/screen.js';
+/** @import { Key, KeyReader } from '../src/cli/tui/keys.js' */
+/** @import { Screen } from '../src/cli/tui/screen.js' */
 
 /**
  * The frame setup is drawn inside, tested without a terminal.
@@ -14,7 +14,8 @@ import type { Screen } from '../src/cli/tui/screen.js';
  */
 
 describe('stepRail', () => {
-  const rail = (index: number, total = 4) => stripAnsi(stepRail('Your site', index, total, 80)[0] ?? '');
+  /** @param {number} index */
+  const rail = (index, total = 4) => stripAnsi(stepRail('Your site', index, total, 80)[0] ?? '');
 
   it('says where you are in words as well as dots', () => {
     expect(rail(2)).toContain('Step 2 of 4');
@@ -41,7 +42,8 @@ describe('stepRail', () => {
  * stepper for a pipe, `opengeo settings < answers.txt` hangs on a screen nobody can see.
  */
 describe('openStepper', () => {
-  const stream = (isTTY: boolean) => ({ isTTY, write: () => true, on: () => {}, off: () => {} }) as unknown as NodeJS.WriteStream & NodeJS.ReadStream;
+  /** @param {boolean} isTTY */
+  const stream = (isTTY) => /** @type {NodeJS.WriteStream & NodeJS.ReadStream} */ (/** @type {unknown} */ ({ isTTY, write: () => true, on: () => {}, off: () => {} }));
 
   it('declines a pipe on either end', () => {
     expect(openStepper({ input: stream(false), output: stream(true) })).toBeUndefined();
@@ -69,12 +71,17 @@ describe('openStepper', () => {
  */
 describe('pause', () => {
   const fakeScreen = () => {
-    const frames: string[][] = [];
-    const screen = { paint: (lines: string[]) => void frames.push(lines), close: () => {}, size: () => ({ columns: 80, rows: 24 }) };
-    return { screen: screen as unknown as Screen, frames };
+    /** @type {string[][]} */
+    const frames = [];
+    const screen = { paint: (/** @type {string[]} */ lines) => void frames.push(lines), close: () => {}, size: () => ({ columns: 80, rows: 24 }) };
+    return { screen: /** @type {Screen} */ (/** @type {unknown} */ (screen)), frames };
   };
-  const fakeKeys = (names: Key['name'][]): KeyReader =>
-    ({ next: async () => ({ name: names.shift() ?? 'enter', value: '' }), close: () => {} }) as unknown as KeyReader;
+  /**
+   * @param {Key['name'][]} names
+   * @returns {KeyReader}
+   */
+  const fakeKeys = (names) =>
+    /** @type {KeyReader} */ (/** @type {unknown} */ ({ next: async () => ({ name: names.shift() ?? 'enter', value: '' }), close: () => {} }));
 
   it('draws the header it was handed and waits', async () => {
     const { screen, frames } = fakeScreen();
@@ -87,7 +94,7 @@ describe('pause', () => {
   });
 
   it('carries on for any key a person could plausibly press', async () => {
-    for (const key of ['enter', 'space', 'char', 'down'] as Key['name'][]) {
+    for (const key of /** @type {Key['name'][]} */ (['enter', 'space', 'char', 'down'])) {
       const { screen } = fakeScreen();
       expect(await pause(screen, fakeKeys([key]), { header: [] }), key).toBe(true);
     }
@@ -101,7 +108,7 @@ describe('pause', () => {
   });
 
   it('still lets Ctrl-C out, because a screen with no answer on it is a bad place to trap somebody', async () => {
-    for (const key of ['ctrl-c', 'ctrl-d'] as Key['name'][]) {
+    for (const key of /** @type {Key['name'][]} */ (['ctrl-c', 'ctrl-d'])) {
       const { screen } = fakeScreen();
       expect(await pause(screen, fakeKeys([key]), { header: [] }), key).toBe(false);
     }

@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,3 +38,14 @@ describe('every entry file runs from source with plain node', () => {
   }
 });
 
+describe('no TypeScript source is tracked', () => {
+  it('outside the dashboard and the examples', () => {
+    const tracked = execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.mts', '*.cts'], { cwd: repo, encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean)
+      // The dashboard is rewritten in plain JavaScript separately, and examples/ stays TypeScript
+      // on purpose: it shows a TypeScript user what wiring OpenGEO into their app looks like.
+      .filter((path) => !path.startsWith('packages/opengeo/web/') && !path.startsWith('examples/'));
+    expect(tracked).toEqual([]);
+  });
+});

@@ -30,12 +30,17 @@ const store = createMemoryStore([
   },
 ]);
 
-function request(path: string, headers: Record<string, string> = {}, method = 'GET') {
+/**
+ * @param {string} path
+ * @param {Record<string, string>} [headers]
+ * @param {string} [method]
+ */
+function request(path, headers = {}, method = 'GET') {
   const lower = new Map(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
   return {
     url: `http://localhost:3000${path}`,
     method,
-    headers: { get: (name: string) => lower.get(name.toLowerCase()) ?? null },
+    headers: { get: /** @param {string} name */ (name) => lower.get(name.toLowerCase()) ?? null },
   };
 }
 
@@ -276,7 +281,7 @@ describe('prod has no blocking code path', () => {
     for (const bot of AI_BOTS) {
       for (const pattern of bot.uaPatterns) {
         const ua = `Mozilla/5.0 (compatible; ${pattern}/1.0; +https://example.com/bot)`;
-        for (const routing of [DEFAULT_MARKDOWN_ROUTING, [] as string[]]) {
+        for (const routing of [DEFAULT_MARKDOWN_ROUTING, /** @type {string[]} */ ([])]) {
           for (const path of ['/resume', '/resume.md', '/unknown-page']) {
             const decision = handleRequest(request(path, { 'user-agent': ua, accept: BROWSER_ACCEPT }), {
               store,
@@ -304,7 +309,7 @@ describe('prod has no blocking code path', () => {
     // `bots.blocked` is a generate-side setting. Smuggling it into the runtime context must change
     // nothing, because nothing here reads it - the type does not have the field and neither does
     // the code. If prod ever grows a blocking branch, this is where it shows up.
-    const withBlocklist = { store, markdownRouting: DEFAULT_MARKDOWN_ROUTING, blocked: ['GPTBot'] } as never;
+    const withBlocklist = /** @type {never} */ ({ store, markdownRouting: DEFAULT_MARKDOWN_ROUTING, blocked: ['GPTBot'] });
     const decision = handleRequest(request('/resume', { 'user-agent': GPTBOT }), withBlocklist);
     expect(decision.type).toBe('markdown');
     if (decision.type !== 'markdown') return;

@@ -12,26 +12,37 @@ import { stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
 
 const ESC = String.fromCharCode(27);
 
-/** The most recent frame drawn, with the escapes taken out: what the eye would actually see. */
-function lastFrame(text: string): string[] {
+/**
+ * The most recent frame drawn, with the escapes taken out: what the eye would actually see.
+ * @param {string} text
+ * @returns {string[]}
+ */
+function lastFrame(text) {
   return stripAnsi(text).split('\n').filter((line) => line.trim().length > 0);
 }
 
-/** A writable that records what was written and can claim to be a terminal, or not. */
-function fakeStream(isTTY: boolean, columns = 80): NodeJS.WriteStream & { text: () => string; chunks: string[] } {
-  const chunks: string[] = [];
+/**
+ * A writable that records what was written and can claim to be a terminal, or not.
+ * @param {boolean} isTTY
+ * @param {number} [columns]
+ * @returns {NodeJS.WriteStream & { text: () => string; chunks: string[] }}
+ */
+function fakeStream(isTTY, columns = 80) {
+  /** @type {string[]} */
+  const chunks = [];
   const stream = {
     isTTY,
     columns,
     rows: 24,
-    write(chunk: string) {
+    /** @param {string} chunk */
+    write(chunk) {
       chunks.push(chunk);
       return true;
     },
     chunks,
     text: () => chunks.join(''),
   };
-  return stream as unknown as NodeJS.WriteStream & { text: () => string; chunks: string[] };
+  return /** @type {NodeJS.WriteStream & { text: () => string; chunks: string[] }} */ (/** @type {unknown} */ (stream));
 }
 
 const ENV = { ...process.env };
@@ -226,7 +237,7 @@ describe('the frame itself', () => {
     const progress = createProgress({ output: out });
     progress.phase('Crawling');
     progress.step(2, 8, '/a');
-    const rendered = out.text().split('\n').at(-2)!;
+    const rendered = /** @type {string} */ (out.text().split('\n').at(-2));
     expect(progressLineWidth(rendered)).toBe(visibleWidth(rendered));
     expect(progressLineWidth(rendered)).toBeLessThan(rendered.length);
     progress.done();
@@ -238,7 +249,7 @@ describe('the frame itself', () => {
     progress.phase('X');
     progress.step(0, 10, '');
     // At zero the meter is all empty cells, so counting them counts the whole bar.
-    const line = lastFrame(out.text()).at(-1)!;
+    const line = /** @type {string} */ (lastFrame(out.text()).at(-1));
     expect([...line].filter((glyph) => glyph === '░').length).toBe(PROGRESS_METER_WIDTH);
     progress.done();
   });

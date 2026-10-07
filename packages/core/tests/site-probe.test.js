@@ -3,10 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { previewLines } from '../src/cli/setup-preview.js';
-import { detectWebRoot, previewSite, type SitePreview } from '../src/shared/site-probe.js';
+import { detectWebRoot, previewSite } from '../src/shared/site-probe.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
-import { BROWSER_UA, type ProbeOptions, type ProbeResult } from '../src/shared/http.js';
+import { BROWSER_UA } from '../src/shared/http.js';
 import { HEADERS } from '../src/shared/version.js';
+/** @import { SitePreview } from '../src/shared/site-probe.js' */
+/** @import { ProbeOptions, ProbeResult } from '../src/shared/http.js' */
 
 /**
  * The two questions setup answers for itself, and the sentences it says about the answers.
@@ -15,18 +17,28 @@ import { HEADERS } from '../src/shared/version.js';
  * a setup diagnostic that could only be tested against a live server would never be tested.
  */
 
-interface Reply {
-  status?: number;
-  headers?: Record<string, string>;
-  body?: string;
-  error?: string;
-  ttfbMs?: number;
-}
+/**
+ * @typedef {object} Reply
+ * @property {number} [status]
+ * @property {Record<string, string>} [headers]
+ * @property {string} [body]
+ * @property {string} [error]
+ * @property {number} [ttfbMs]
+ */
 
-/** A `probe` that answers from a map of URL to reply, and records how it was called. */
-function fakeProbe(replies: Record<string, Reply>) {
-  const calls: Array<{ url: string; options: ProbeOptions }> = [];
-  const fetchPage = async (url: string, options: ProbeOptions = {}): Promise<ProbeResult> => {
+/**
+ * A `probe` that answers from a map of URL to reply, and records how it was called.
+ * @param {Record<string, Reply>} replies
+ */
+function fakeProbe(replies) {
+  /** @type {Array<{ url: string; options: ProbeOptions }>} */
+  const calls = [];
+  /**
+   * @param {string} url
+   * @param {ProbeOptions} [options]
+   * @returns {Promise<ProbeResult>}
+   */
+  const fetchPage = async (url, options = {}) => {
     calls.push({ url, options });
     const reply = replies[url] ?? { status: 404 };
     const status = reply.status ?? 200;
@@ -111,7 +123,8 @@ describe('previewSite', () => {
   });
 
   it('names the framework from the markup when there is no header', async () => {
-    const cases: Array<[string, string]> = [
+    /** @type {Array<[string, string]>} */
+    const cases = [
       ['Next.js', '<script id="__NEXT_DATA__">{}</script>'],
       ['Nuxt', '<script>window.__NUXT__={}</script>'],
       ['SvelteKit', '<link href="/_app/immutable/x.js">'],
@@ -172,7 +185,8 @@ describe('previewSite', () => {
 });
 
 describe('previewLines', () => {
-  const say = (preview: SitePreview) => previewLines(preview).map(stripAnsi).join('\n');
+  /** @param {SitePreview} preview */
+  const say = (preview) => previewLines(preview).map(stripAnsi).join('\n');
 
   it('says setup carries on when the site is unreachable', () => {
     const text = say({ url: SITE, ok: false, status: 0, ttfbMs: 0, error: 'ECONNREFUSED' });
@@ -216,7 +230,8 @@ describe('previewLines', () => {
 });
 
 describe('detectWebRoot', () => {
-  let root: string;
+  /** @type {string} */
+  let root;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'opengeo-webroot-'));
@@ -226,7 +241,8 @@ describe('detectWebRoot', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  const pkg = (deps: Record<string, string>) => writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: deps }), 'utf8');
+  /** @param {Record<string, string>} deps */
+  const pkg = (deps) => writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: deps }), 'utf8');
 
   it('reads the convention off the framework in package.json', () => {
     pkg({ next: '15.0.0' });
@@ -236,7 +252,7 @@ describe('detectWebRoot', () => {
   });
 
   it('knows the frameworks that serve static/ rather than public/', () => {
-    for (const [dep, dir] of [['gatsby', 'static'], ['@sveltejs/kit', 'static'], ['@docusaurus/core', 'static'], ['nuxt', 'public']] as const) {
+    for (const [dep, dir] of /** @type {const} */ ([['gatsby', 'static'], ['@sveltejs/kit', 'static'], ['@docusaurus/core', 'static'], ['nuxt', 'public']])) {
       pkg({ [dep]: '1.0.0' });
       expect(detectWebRoot(root).dir, dep).toBe(dir);
     }

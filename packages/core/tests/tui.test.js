@@ -181,8 +181,8 @@ describe('listView', () => {
       ],
       1,
     ).map(stripAnsi);
-    expect(rows[0]!.trim().startsWith('Test')).toBe(true);
-    expect(rows[1]!.trim().startsWith('▸')).toBe(true);
+    expect(rows[0].trim().startsWith('Test')).toBe(true);
+    expect(rows[1].trim().startsWith('▸')).toBe(true);
   });
 
   it('lines the notes up whatever the label lengths are', () => {
@@ -193,7 +193,7 @@ describe('listView', () => {
       ],
       0,
     ).map(stripAnsi);
-    expect(rows[0]!.indexOf('score')).toBe(rows[1]!.indexOf('probe'));
+    expect(rows[0].indexOf('score')).toBe(rows[1].indexOf('probe'));
   });
 });
 

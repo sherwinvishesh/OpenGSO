@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { CommandHandler } from '@opengeo/core/cli';
-import type { CommandName } from '@opengeo/core/shared';
-import type { HomeStatus } from '../src/cli/home.js';
 import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
 import { createPrompter } from '../src/cli/prompt.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
+/** @import { CommandHandler } from '@opengeo/core/cli' */
+/** @import { CommandName } from '@opengeo/core/shared' */
+/** @import { HomeStatus } from '../src/cli/home.js' */
 
 /**
  * The home screen, read as text.
@@ -22,9 +22,14 @@ import { stripAnsi } from '../src/cli/tui/paint.js';
  * The provider's name and the file it lives in are the most that may be shown.
  */
 
-const roots: string[] = [];
+/** @type {string[]} */
+const roots = [];
 
-function project(files: Record<string, string> = {}): string {
+/**
+ * @param {Record<string, string>} [files]
+ * @returns {string}
+ */
+function project(files = {}) {
   const root = mkdtempSync(join(tmpdir(), 'opengeo-home-'));
   roots.push(root);
   for (const [path, content] of Object.entries(files)) {
@@ -37,8 +42,13 @@ function project(files: Record<string, string> = {}): string {
 
 const CONFIG = JSON.stringify({ site: 'https://example.com', webRoot: 'public' });
 
-function manifest(pages: number, generatedAt = new Date().toISOString()): string {
-  const entries: Record<string, unknown> = {};
+/**
+ * @param {number} pages
+ * @returns {string}
+ */
+function manifest(pages, generatedAt = new Date().toISOString()) {
+  /** @type {Record<string, unknown>} */
+  const entries = {};
   for (let index = 0; index < pages; index += 1) {
     entries[`/page-${index}`] = {
       route: `/page-${index}`,
@@ -53,15 +63,21 @@ function manifest(pages: number, generatedAt = new Date().toISOString()): string
   return JSON.stringify({ version: 1, specVersion: '0.1', site: 'https://example.com', generatedAt, pages: entries });
 }
 
-function history(entries: Array<Record<string, unknown>>): string {
+/**
+ * @param {Array<Record<string, unknown>>} entries
+ * @returns {string}
+ */
+function history(entries) {
   return JSON.stringify({ version: 1, entries });
 }
 
 const NOW = new Date().toISOString();
 const HOUR_AGO = new Date(Date.now() - 3_600_000).toISOString();
 
-const noop: CommandHandler = async () => 0;
-const ALL: Partial<Record<CommandName, CommandHandler>> = {
+/** @type {CommandHandler} */
+const noop = async () => 0;
+/** @type {Partial<Record<CommandName, CommandHandler>>} */
+const ALL = {
   test: noop,
   generate: noop,
   'prod test': noop,
@@ -69,7 +85,8 @@ const ALL: Partial<Record<CommandName, CommandHandler>> = {
   start: noop,
 };
 
-const text = (lines: string[]) => stripAnsi(lines.join('\n'));
+/** @param {string[]} lines */
+const text = (lines) => stripAnsi(lines.join('\n'));
 
 afterEach(() => {
   roots.length = 0;
@@ -138,7 +155,11 @@ describe('reading a project', () => {
 });
 
 describe('the status rows', () => {
-  const configured = (over: Partial<HomeStatus> = {}): HomeStatus => ({
+  /**
+   * @param {Partial<HomeStatus>} [over]
+   * @returns {HomeStatus}
+   */
+  const configured = (over = {}) => ({
     project: 'demo',
     root: '/tmp/demo',
     configured: true,
@@ -199,7 +220,8 @@ describe('the status rows', () => {
 });
 
 describe('the header box', () => {
-  const status: HomeStatus = {
+  /** @type {HomeStatus} */
+  const status = {
     project: 'nextjs-demo',
     root: '/tmp/nextjs-demo',
     configured: true,
@@ -219,7 +241,7 @@ describe('the header box', () => {
   it('is a closed box at every width it will be drawn at', () => {
     for (const width of [40, 60, 80, 120, 200]) {
       const lines = homeHeader(status, 'opengeo 0.1.0', width).map(stripAnsi);
-      const drawn = lines[0]!.length;
+      const drawn = lines[0].length;
       expect(drawn).toBeLessThanOrEqual(Math.min(width, 96));
       for (const line of lines) expect(line.length).toBe(drawn);
     }
@@ -231,8 +253,10 @@ describe('the header box', () => {
 });
 
 describe('the menu', () => {
-  const configured: HomeStatus = { project: 'demo', root: '/tmp/demo', configured: true, twins: 0 };
-  const fresh: HomeStatus = { project: 'demo', root: '/tmp/demo', configured: false, twins: 0 };
+  /** @type {HomeStatus} */
+  const configured = { project: 'demo', root: '/tmp/demo', configured: true, twins: 0 };
+  /** @type {HomeStatus} */
+  const fresh = { project: 'demo', root: '/tmp/demo', configured: false, twins: 0 };
 
   it('offers every command a full install ships', () => {
     const values = homeEntries(ALL, configured).map((entry) => entry.value);
@@ -298,27 +322,32 @@ describe('the flat menu, for terminals that cannot do any of this', () => {
  */
 describe('the flat menu hands stdin to the command it runs', () => {
   function terminal() {
-    const input = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => input }) as unknown as NodeJS.ReadStream;
-    const output = Object.assign(new PassThrough(), { isTTY: false, columns: 100 }) as unknown as NodeJS.WriteStream;
+    const input = /** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => input })));
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: false, columns: 100 })));
     let seen = '';
-    output.on('data', (chunk: Buffer) => {
+    output.on('data', (/** @type {Buffer} */ chunk) => {
       seen += chunk.toString();
     });
     const shown = () => stripAnsi(seen);
-    const count = (needle: string) => shown().split(needle).length - 1;
-    const waitFor = async (needle: string, times = 1) => {
+    /** @param {string} needle */
+    const count = (needle) => shown().split(needle).length - 1;
+    /** @param {string} needle */
+    const waitFor = async (needle, times = 1) => {
       for (let tries = 0; count(needle) < times; tries += 1) {
         if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)} x${times}:\n${shown()}`);
         await new Promise((done) => setTimeout(done, 5));
       }
     };
-    const numberOf = (label: string) => new RegExp(`(\\d+)\\) ${label}`).exec(shown())?.[1] ?? '';
+    /** @param {string} label */
+    const numberOf = (label) => new RegExp(`(\\d+)\\) ${label}`).exec(shown())?.[1] ?? '';
     return { input, output, shown, waitFor, numberOf };
   }
 
-  async function drive(answer: string) {
+  /** @param {string} answer */
+  async function drive(answer) {
     const term = terminal();
-    const settings: CommandHandler = async () => {
+    /** @type {CommandHandler} */
+    const settings = async () => {
       const prompter = createPrompter({ input: term.input, output: term.output });
       await prompter.secret('API key:');
       prompter.close();

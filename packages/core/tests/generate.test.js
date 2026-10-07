@@ -1,25 +1,30 @@
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createServer } from 'node:http';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultConfig, type LoadedConfig } from '@opengeo/core/shared';
+import { defaultConfig } from '@opengeo/core/shared';
 import { generatePages, parseFrontmatter, readManifest, withFrontmatter } from '@opengeo/core/generate';
+/** @import { Server } from 'node:http' */
+/** @import { AddressInfo } from 'node:net' */
+/** @import { LoadedConfig } from '@opengeo/core/shared' */
 
 /**
  * Generate is exercised against a real HTTP server rather than a stubbed fetch: it is a
  * fetch-parse-write pipeline, and stubbing the fetch would test almost none of it.
  */
 
-const PAGES: Record<string, string> = {
+/** @type {Record<string, string>} */
+const PAGES = {
   '/': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><p>A small site used by the OpenGEO test suite. It links to the other two pages so the crawl has something real to follow.</p><a href="/about">About</a><a href="/resume">Resume</a></main></body></html>',
   '/about': '<!doctype html><html><head><title>About</title></head><body><main><h1>About</h1><p>Founded in 2019, three people, one office, and a stubbornly small dependency list that has stayed under ten packages for six years.</p></main></body></html>',
   '/resume': '<!doctype html><html><head><title>Resume</title></head><body><main><h1>Resume</h1><p>Shipped 4 projects in 2024. Contract signed 3 March 2024 for $12,500. Response times improved 42% year over year.</p></main></body></html>',
 };
 
-let server: Server;
-let site: string;
+/** @type {Server} */
+let server;
+/** @type {string} */
+let site;
 
 /**
  * Stands in for the build-id, nonce and chunk-hash noise every framework injects. Changing it
@@ -28,8 +33,12 @@ let site: string;
 let buildId = 'build-1';
 
 /** Paths that answer 503 for now, as a page does while its server restarts. */
-const down = new Set<string>();
-function wrapper(html: string): string {
+const down = /** @type {Set<string>} */ (new Set());
+/**
+ * @param {string} html
+ * @returns {string}
+ */
+function wrapper(html) {
   return html.replace('<body>', `<body><script src="/_next/static/${buildId}/main.js"></script>`);
 }
 
@@ -49,15 +58,18 @@ beforeAll(async () => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(body);
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  site = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
+  site = `http://127.0.0.1:${/** @type {AddressInfo} */ (server.address()).port}`;
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve())));
+  await /** @type {Promise<void>} */ (new Promise((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))));
 });
 
-function project(): LoadedConfig {
+/**
+ * @returns {LoadedConfig}
+ */
+function project() {
   const root = mkdtempSync(join(tmpdir(), 'opengeo-gen-'));
   return { config: defaultConfig(site), root, exists: true };
 }
@@ -76,7 +88,7 @@ describe('generatePages', () => {
     expect(parsed.data.generated_by).toBe('opengeo-free');
     expect(parsed.data.url).toBe(`${site}/resume`);
     expect(typeof parsed.data.tokens).toBe('number');
-    expect(parsed.data.tokens as number).toBeGreaterThan(0);
+    expect(/** @type {number} */ (parsed.data.tokens)).toBeGreaterThan(0);
     expect(String(parsed.data.last_updated)).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(parsed.body).toContain('$12,500');
   });
@@ -169,7 +181,8 @@ describe('generatePages', () => {
 
   it('reports progress per route, per phase', async () => {
     const loaded = project();
-    const phases: string[] = [];
+    /** @type {string[]} */
+    const phases = [];
     await generatePages({ site, routes: ['/resume'], loaded, onProgress: (e) => phases.push(e.phase) });
     expect(phases).toEqual(['fetch', 'extract', 'write']);
   });
@@ -219,7 +232,7 @@ describe('one bad page cannot take the run down with it', () => {
       loaded,
       site,
       routes: ['/about', longRoute, '/resume'],
-      sources: new Map([[longRoute, PAGES['/about']!]]),
+      sources: new Map([[longRoute, PAGES['/about']]]),
     });
     const status = Object.fromEntries(result.pages.map((page) => [page.route, page.status]));
     expect(status).toEqual({ '/about': 'written', [longRoute]: 'failed', '/resume': 'written' });
@@ -283,7 +296,8 @@ describe('generateSite', () => {
   it('does not fetch a page twice: the crawl HTML is reused by the generator', async () => {
     const { generateSite } = await import('@opengeo/core/generate');
     const loaded = project();
-    const phases: string[] = [];
+    /** @type {string[]} */
+    const phases = [];
     await generateSite({
       target: site,
       loaded,

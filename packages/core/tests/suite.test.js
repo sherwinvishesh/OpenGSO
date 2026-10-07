@@ -1,7 +1,5 @@
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createServer } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { ProviderCall } from '@opengeo/core/generate';
 import {
   discoverTwins,
   markdownLinksIn,
@@ -10,9 +8,12 @@ import {
   sitemapTwins,
   suiteExitCode,
   suiteJson,
-  type SuiteProgress,
 } from '@opengeo/core/test';
 import { resolveMode } from '@opengeo/core/cli/commands/test';
+/** @import { Server } from 'node:http' */
+/** @import { AddressInfo } from 'node:net' */
+/** @import { ProviderCall } from '@opengeo/core/generate' */
+/** @import { SuiteProgress, TestResult } from '@opengeo/core/test' */
 
 /**
  * The two halves of a test run, and the sequencer that decides which of them happen.
@@ -32,8 +33,10 @@ let serveSitemap = true;
 /** A route that answers `.md` with an HTML shell: the most common false positive discovery has. */
 let htmlAtMd = false;
 
-let server: Server;
-let site: string;
+/** @type {Server} */
+let server;
+/** @type {string} */
+let site;
 
 beforeEach(() => {
   serveLlms = true;
@@ -44,7 +47,12 @@ beforeEach(() => {
 beforeAll(async () => {
   server = createServer((req, res) => {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
-    const send = (status: number, type: string, body: string) => {
+    /**
+     * @param {number} status
+     * @param {string} type
+     * @param {string} body
+     */
+    const send = (status, type, body) => {
       res.writeHead(status, { 'content-type': type });
       res.end(body);
     };
@@ -70,18 +78,19 @@ beforeAll(async () => {
     }
     return send(200, 'text/html', '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1></main></body></html>');
   });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  site = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
+  site = `http://127.0.0.1:${/** @type {AddressInfo} */ (server.address()).port}`;
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  await /** @type {Promise<void>} */ (new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))));
 });
 
 // -- flags to modes --------------------------------------------------------------------------
 
 describe('resolveMode', () => {
-  const args = (...set: string[]) => ({ bool: (name: string) => set.includes(name) });
+  /** @param {...string} set */
+  const args = (...set) => ({ bool: (/** @type {string} */ name) => set.includes(name) });
 
   it('runs both halves by default', () => {
     expect(resolveMode(args())).toBe('full');
@@ -100,7 +109,7 @@ describe('resolveMode', () => {
   it('refuses the contradiction rather than picking a winner', () => {
     const answer = resolveMode(args('structure', 'content'));
     expect(typeof answer).not.toBe('string');
-    expect((answer as { error: string }).error).toMatch(/Pick one/);
+    expect(/** @type {{ error: string }} */ (answer).error).toMatch(/Pick one/);
   });
 
   it('does not read -q as a mode of its own', () => {
@@ -175,10 +184,14 @@ describe('the two parsers discovery leans on', () => {
  * `scores` keys are URL fragments, so a test can make one document weak and another strong. Only
  * two of the five areas are scored, which is on purpose: the score has to come out right when the
  * model answers part of the question, and every real reply eventually will.
+ *
+ * @param {Record<string, number>} [scores]
  */
-function fakeModel(scores: Record<string, number> = {}) {
-  const calls: ProviderCall[] = [];
-  const fn = async (call: ProviderCall) => {
+function fakeModel(scores = {}) {
+  /** @type {ProviderCall[]} */
+  const calls = [];
+  /** @param {ProviderCall} call */
+  const fn = async (call) => {
     calls.push(call);
     const url = /https?:\/\/\S+/.exec(call.prompt)?.[0] ?? '';
     const score = Object.entries(scores).find(([key]) => url.includes(key))?.[1] ?? 80;
@@ -196,15 +209,24 @@ function fakeModel(scores: Record<string, number> = {}) {
   return { calls, fn };
 }
 
-/** What `fakeModel` scores a document, given its Definition score. Definition 20, Keywords 10. */
-function expectedScore(definition: number): number {
+/**
+ * What `fakeModel` scores a document, given its Definition score. Definition 20, Keywords 10.
+ *
+ * @param {number} definition
+ * @returns {number}
+ */
+function expectedScore(definition) {
   return Math.round((definition * 20 + 40 * 10) / 30);
 }
 
-const twin = (url: string, markdown: string) => ({
+/**
+ * @param {string} url
+ * @param {string} markdown
+ */
+const twin = (url, markdown) => ({
   url,
   pageUrl: url.replace(/\.md$/, ''),
-  source: 'llms.txt' as const,
+  source: /** @type {const} */ ('llms.txt'),
   markdown,
   bytes: markdown.length,
   words: markdown.split(/\s+/).length,
@@ -258,7 +280,8 @@ describe('reviewContent', () => {
 
   it('keeps one failed document from losing the others', async () => {
     let first = true;
-    const call = async (request: ProviderCall) => {
+    /** @param {ProviderCall} request */
+    const call = async (request) => {
       if (first) {
         first = false;
         throw new Error('502 from the provider');
@@ -277,7 +300,8 @@ describe('reviewContent', () => {
   });
 
   it('reports progress per document', async () => {
-    const seen: number[] = [];
+    /** @type {number[]} */
+    const seen = [];
     await reviewContent(twins, {
       provider: 'anthropic',
       apiKey: 'k',
@@ -293,7 +317,7 @@ describe('reviewContent', () => {
 // -- the sequencer -----------------------------------------------------------------------------
 
 describe('runTestSuite', () => {
-  const ai = () => ({ provider: 'anthropic' as const, apiKey: 'k', call: fakeModel().fn });
+  const ai = () => ({ provider: /** @type {const} */ ('anthropic'), apiKey: 'k', call: fakeModel().fn });
 
   it('structure mode runs the checks and never touches a model', async () => {
     const model = fakeModel();
@@ -315,7 +339,8 @@ describe('runTestSuite', () => {
   });
 
   it('full mode runs the checks first and reviews what they found', async () => {
-    const phases: SuiteProgress['phase'][] = [];
+    /** @type {SuiteProgress['phase'][]} */
+    const phases = [];
     const result = await runTestSuite(`${site}/`, {
       mode: 'full',
       ai: ai(),
@@ -363,7 +388,7 @@ describe('runTestSuite', () => {
 describe('suiteExitCode', () => {
   it('lets the structural checks decide whenever there were any', async () => {
     const result = await runTestSuite(`${site}/`, { mode: 'full', env: {} });
-    expect(suiteExitCode(result)).toBe(result.structure!.score.counts.fail === 0 ? 0 : 1);
+    expect(suiteExitCode(result)).toBe(/** @type {TestResult} */ (result.structure).score.counts.fail === 0 ? 0 : 1);
   });
 
   it('never fails a build over the content score', async () => {
@@ -371,7 +396,7 @@ describe('suiteExitCode', () => {
     // Every document scored as badly as the model can score it, and the exit code still comes from
     // the checks alone. The two numbers never meet, and this is where that is enforced.
     expect(result.content?.score).toBe(expectedScore(0));
-    expect(suiteExitCode(result)).toBe(result.structure!.score.counts.fail === 0 ? 0 : 1);
+    expect(suiteExitCode(result)).toBe(/** @type {TestResult} */ (result.structure).score.counts.fail === 0 ? 0 : 1);
   });
 
   it('fails a content-only run that could not run at all', async () => {
@@ -387,7 +412,7 @@ describe('suiteJson', () => {
       ai: { provider: 'anthropic', apiKey: 'k', call: fakeModel().fn },
       env: {},
     });
-    const json = JSON.parse(suiteJson(result)) as Record<string, unknown>;
+    const json = /** @type {Record<string, unknown>} */ (JSON.parse(suiteJson(result)));
     expect(json.mode).toBe('full');
     expect(json).toHaveProperty('score');
     expect(json).toHaveProperty('content');

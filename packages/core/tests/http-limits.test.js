@@ -1,8 +1,9 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
 import { callProvider, crawlSite } from '@opengeo/core/generate';
 import { MAX_PROBE_BYTES, probe } from '@opengeo/core/shared';
 import { gatherEvidence, testEvidence } from '@opengeo/core/test';
+/** @import { IncomingMessage, ServerResponse } from 'node:http' */
 
 /**
  * What a remote server is allowed to make OpenGEO do.
@@ -12,24 +13,37 @@ import { gatherEvidence, testEvidence } from '@opengeo/core/test';
  * somewhere else with a redirect.
  */
 
-async function serve(handler: (req: IncomingMessage, res: ServerResponse) => void): Promise<{ base: string; close: () => Promise<void> }> {
+/**
+ * @param {(req: IncomingMessage, res: ServerResponse) => void} handler
+ * @returns {Promise<{ base: string; close: () => Promise<void> }>}
+ */
+async function serve(handler) {
   const server = createServer(handler);
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : 0;
   return {
     base: `http://127.0.0.1:${port}`,
     close: () =>
-      new Promise<void>((resolve) => {
-        server.closeAllConnections();
-        server.close(() => resolve());
-      }),
+      /** @type {Promise<void>} */ (
+        new Promise((resolve) => {
+          server.closeAllConnections();
+          server.close(() => resolve());
+        })
+      ),
   };
 }
 
-/** A body that is as long as the client keeps reading, in 64 KiB chunks. */
-function endless(type: string) {
-  return (_req: IncomingMessage, res: ServerResponse) => {
+/**
+ * A body that is as long as the client keeps reading, in 64 KiB chunks.
+ * @param {string} type
+ */
+function endless(type) {
+  /**
+   * @param {IncomingMessage} _req
+   * @param {ServerResponse} res
+   */
+  return (_req, res) => {
     res.writeHead(200, { 'content-type': type });
     const chunk = Buffer.alloc(64 * 1024, 'a');
     let sent = 0;
@@ -113,9 +127,10 @@ describe('the crawler', () => {
 
 describe('a provider call', () => {
   it('does not follow a redirect, so the key never reaches the second host', async () => {
-    const reached: Array<string | undefined> = [];
+    /** @type {Array<string | undefined>} */
+    const reached = [];
     const elsewhere = await serve((req, res) => {
-      reached.push(req.headers['x-api-key'] as string | undefined);
+      reached.push(/** @type {string | undefined} */ (req.headers['x-api-key']));
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }));
     });
     const gateway = await serve((_req, res) => res.writeHead(307, { location: `${elsewhere.base}/v1/messages` }).end());
@@ -139,16 +154,24 @@ describe('a provider call', () => {
 });
 
 describe('the twin a page advertises', () => {
-  /** A page whose Link header points its markdown twin wherever the test says. */
-  function advertising(link: string) {
-    return (_req: IncomingMessage, res: ServerResponse) => {
+  /**
+   * A page whose Link header points its markdown twin wherever the test says.
+   * @param {string} link
+   */
+  function advertising(link) {
+    /**
+     * @param {IncomingMessage} _req
+     * @param {ServerResponse} res
+     */
+    return (_req, res) => {
       res.writeHead(200, { 'content-type': 'text/html', link: `<${link}>; rel="alternate"; type="text/markdown"` });
       res.end('<html><body><main><h1>Hi</h1><p>Words.</p></main></body></html>');
     };
   }
 
   it('is not fetched from another origin', async () => {
-    const hits: string[] = [];
+    /** @type {string[]} */
+    const hits = [];
     const elsewhere = await serve((req, res) => {
       hits.push(req.url ?? '');
       res.writeHead(200, { 'content-type': 'text/markdown' }).end('# Not yours');

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { extractPage } from '@opengeo/core/generate';
 
-const page = (body: string, head = '') => `<!doctype html><html><head><title>Test page</title>${head}</head><body>${body}</body></html>`;
+/**
+ * @param {string} body
+ * @param {string} [head]
+ */
+const page = (body, head = '') => `<!doctype html><html><head><title>Test page</title>${head}</head><body>${body}</body></html>`;
 
 describe('extractPage', () => {
   it('prefers <main> over the surrounding chrome', () => {
@@ -105,10 +109,14 @@ describe('extractPage', () => {
 });
 
 describe('page text cannot forge markdown in the twin', () => {
-  /** Where every link and image in a markdown string points, ignoring anything escaped. */
-  function destinations(markdown: string): string[] {
+  /**
+   * Where every link and image in a markdown string points, ignoring anything escaped.
+   * @param {string} markdown
+   * @returns {string[]}
+   */
+  function destinations(markdown) {
     const unescaped = markdown.replace(/\\./g, '');
-    return [...unescaped.matchAll(/\]\(([^)\s]*)\)/g)].map((match) => match[1]!);
+    return [...unescaped.matchAll(/\]\(([^)\s]*)\)/g)].map((match) => match[1]);
   }
 
   it('escapes image alt text, so it cannot close the image and open a link', () => {

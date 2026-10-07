@@ -16,9 +16,9 @@ import {
   resolveAiCall,
   resolveProvider,
 } from '@opengeo/core/shared';
-import type { OpenGeoConfig } from '@opengeo/core/shared';
 import { createAiEnhancer } from '@opengeo/core/generate';
-import type { ProviderCall } from '@opengeo/core/generate';
+/** @import { OpenGeoConfig } from '@opengeo/core/shared' */
+/** @import { ProviderCall } from '@opengeo/core/generate' */
 
 /**
  * The provider catalogue, and the two things that make it more than a list: `resolveProvider`,
@@ -77,13 +77,13 @@ describe('the catalogue', () => {
     expect(isAiProvider('xai')).toBe(true);
     expect(isAiProvider('XAI')).toBe(false);
     expect(isAiProvider('llama-cpp')).toBe(false);
-    expect(() => providerInfo('nope' as never)).toThrow(/Unknown AI provider/);
+    expect(() => providerInfo(/** @type {never} */ ('nope'))).toThrow(/Unknown AI provider/);
   });
 });
 
 describe("the config default, which cannot import the catalogue", () => {
   // defaultConfig() writes the provider and model out as literals on purpose: shared/config.js is
-  // in `opengeo-prod`'s import graph, and a value import from providers.ts would bundle twelve
+  // in `opengeo-prod`'s import graph, and a value import from providers.js would bundle twelve
   // endpoints and twelve key variable names into the one package that must contain no AI code.
   // check:bundles catches that at build time; these two catch the other half, a catalogue edit
   // that silently leaves the default behind.
@@ -126,15 +126,18 @@ describe('resolveProvider', () => {
 });
 
 describe('the ai block of a config merge', () => {
-  const ai: OpenGeoConfig['ai'] = {
+  /** @type {OpenGeoConfig['ai']} */
+  const ai = {
     provider: 'custom',
     model: 'local-1',
     baseUrl: 'https://gateway.corp.example/v1',
     api: 'openai',
     auth: 'bearer',
   };
-  const base: OpenGeoConfig = { ...defaultConfig(), ai };
-  const merge = (patch: Partial<OpenGeoConfig['ai']>) => mergeConfig(base, { ai: patch }).ai;
+  /** @type {OpenGeoConfig} */
+  const base = { ...defaultConfig(), ai };
+  /** @param {Partial<OpenGeoConfig['ai']>} patch */
+  const merge = (patch) => mergeConfig(base, { ai: patch }).ai;
 
   it('drops the old endpoint when the provider changes', () => {
     const merged = merge({ provider: 'anthropic' });
@@ -165,12 +168,17 @@ describe('the ai block of a config merge', () => {
 });
 
 describe('the wire code', () => {
-  /** Captures the request an enhancer would have made, and answers with a fixed body. */
-  function recorder(reply: string) {
-    const calls: ProviderCall[] = [];
+  /**
+   * Captures the request an enhancer would have made, and answers with a fixed body.
+   * @param {string} reply
+   */
+  function recorder(reply) {
+    /** @type {ProviderCall[]} */
+    const calls = [];
     return {
       calls,
-      fn: async (call: ProviderCall) => {
+      /** @param {ProviderCall} call */
+      fn: async (call) => {
         calls.push(call);
         return reply;
       },
@@ -201,7 +209,7 @@ describe('the wire code', () => {
   });
 
   it('refuses a provider that does not exist', () => {
-    expect(() => createAiEnhancer({ provider: 'grok' as never, apiKey: 'k', env: {} })).toThrow(/grok/);
+    expect(() => createAiEnhancer({ provider: /** @type {never} */ ('grok'), apiKey: 'k', env: {} })).toThrow(/grok/);
   });
 });
 
@@ -213,8 +221,10 @@ describe('resolveAiCall', () => {
   // Every variable the resolver reads, cleared so a key exported on the machine running the tests
   // cannot decide an outcome. Restored afterwards.
   const NAMES = [...PROVIDERS.flatMap((provider) => provider.envVars), 'OPENGEO_API_KEY', 'OPENGEO_PROVIDER', 'OPENGEO_MODEL', 'OPENGEO_BASE_URL'];
-  const saved: Record<string, string | undefined> = {};
-  let root: string;
+  /** @type {Record<string, string | undefined>} */
+  const saved = {};
+  /** @type {string} */
+  let root;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'opengeo-ai-call-'));
@@ -232,12 +242,18 @@ describe('resolveAiCall', () => {
     }
   });
 
-  const env = (lines: string[]) => writeFileSync(join(root, '.env'), `${lines.join('\n')}\n`);
-  const config = (ai: Partial<OpenGeoConfig['ai']> = {}): OpenGeoConfig => ({
+  /** @param {string[]} lines */
+  const env = (lines) => writeFileSync(join(root, '.env'), `${lines.join('\n')}\n`);
+  /**
+   * @param {Partial<OpenGeoConfig['ai']>} [ai]
+   * @returns {OpenGeoConfig}
+   */
+  const config = (ai = {}) => ({
     ...defaultConfig(),
     ai: { ...defaultConfig().ai, ...ai },
   });
-  const call = (result: ReturnType<typeof resolveAiCall>) => {
+  /** @param {ReturnType<typeof resolveAiCall>} result */
+  const call = (result) => {
     if (!('call' in result)) throw new Error(`expected a call, got ${JSON.stringify(result)}`);
     return result.call;
   };
@@ -246,7 +262,7 @@ describe('resolveAiCall', () => {
     env(['OPENAI_API_KEY=sk-openai-only']);
     const result = resolveAiCall(root, config(), { provider: 'anthropic' });
     expect('error' in result).toBe(true);
-    const message = (result as { error: string }).error;
+    const message = /** @type {{ error: string }} */ (result).error;
     expect(message).toContain('anthropic');
     expect(message).toContain('openai');
     expect(message).toContain('ANTHROPIC_API_KEY');

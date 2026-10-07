@@ -3,7 +3,7 @@ import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { generateFrame, handleApi, readGeneratedFile, testFrame, type StateResponse } from '../src/server/api.js';
+import { generateFrame, handleApi, readGeneratedFile, testFrame } from '../src/server/api.js';
 import {
   crossOriginDenial,
   errorReply,
@@ -13,12 +13,13 @@ import {
   resolveStaticPath,
   sseFrame,
   startServer,
-  type RunningServer,
 } from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
-import type { Evidence, TestResult } from '../src/test/index.js';
+/** @import { StateResponse } from '../src/server/api.js' */
+/** @import { RunningServer } from '../src/server/server.js' */
+/** @import { Evidence, TestResult } from '../src/test/index.js' */
 
 /**
  * The dashboard server is the only part of OpenGEO that listens on a socket, which makes it the
@@ -35,7 +36,8 @@ import type { Evidence, TestResult } from '../src/test/index.js';
 const OPTIONS = { version: '0.0.0-test', packageName: 'opengeo' };
 const KEY = 'sk-test-not-a-real-key';
 
-let root: string;
+/** @type {string} */
+let root;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'opengeo-server-'));
@@ -45,11 +47,16 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-function post(path: string, body: unknown) {
+/**
+ * @param {string} path
+ * @param {unknown} body
+ */
+function post(path, body) {
   return handleApi({ method: 'POST', path, body }, { ...OPTIONS, root });
 }
 
-function get(path: string) {
+/** @param {string} path */
+function get(path) {
   return handleApi({ method: 'GET', path, body: undefined }, { ...OPTIONS, root });
 }
 
@@ -78,16 +85,25 @@ describe('same-origin enforcement', () => {
   });
 });
 
-/** A raw request, because `fetch` will not let a caller choose the Host header. */
-async function rawRequest(port: number, path: string, headers: Record<string, string>): Promise<number> {
+/**
+ * A raw request, because `fetch` will not let a caller choose the Host header.
+ *
+ * @param {number} port
+ * @param {string} path
+ * @param {Record<string, string>} headers
+ * @returns {Promise<number>}
+ */
+async function rawRequest(port, path, headers) {
   return (await rawResponse(port, path, headers)).status;
 }
 
-function rawResponse(
-  port: number,
-  path: string,
-  headers: Record<string, string>,
-): Promise<{ status: number; headers: Record<string, string | string[] | undefined> }> {
+/**
+ * @param {number} port
+ * @param {string} path
+ * @param {Record<string, string>} headers
+ * @returns {Promise<{ status: number; headers: Record<string, string | string[] | undefined> }>}
+ */
+function rawResponse(port, path, headers) {
   return new Promise((resolveResponse, rejectResponse) => {
     const request = httpRequest({ host: '127.0.0.1', port, path, headers, setHost: false }, (response) => {
       response.resume();
@@ -99,8 +115,10 @@ function rawResponse(
 }
 
 describe('the Host gate, against DNS rebinding', () => {
-  let running: RunningServer;
-  let port: number;
+  /** @type {RunningServer} */
+  let running;
+  /** @type {number} */
+  let port;
 
   beforeEach(async () => {
     const webRoot = join(root, 'web');
@@ -150,9 +168,12 @@ describe('the Host gate, as a function', () => {
  * the same gate without asking this machine's firewall to open a port to the network for a test.
  */
 describe('the launch token, for a bind the network can reach', () => {
-  let running: RunningServer;
-  let port: number;
-  let host: { host: string };
+  /** @type {RunningServer} */
+  let running;
+  /** @type {number} */
+  let port;
+  /** @type {{ host: string }} */
+  let host;
 
   beforeEach(async () => {
     const webRoot = join(root, 'web');
@@ -185,7 +206,7 @@ describe('the launch token, for a bind the network can reach', () => {
     expect(cookie).toContain('HttpOnly');
     expect(cookie).toContain('SameSite=Strict');
 
-    const pair = cookie.split(';')[0]!;
+    const pair = cookie.split(';')[0];
     expect(await rawRequest(port, '/', { ...host, cookie: pair })).toBe(200);
     expect(await rawRequest(port, '/api/state', { ...host, cookie: `other=1; ${pair}` })).toBe(200);
   });
@@ -217,7 +238,8 @@ describe('which binds get a token', () => {
 });
 
 describe('static paths', () => {
-  let webRoot: string;
+  /** @type {string} */
+  let webRoot;
 
   beforeEach(() => {
     webRoot = join(root, 'web');
@@ -250,7 +272,7 @@ describe('the API', () => {
   it('reports state without a config file, using defaults', async () => {
     const response = await get('/api/state');
     expect(response.status).toBe(200);
-    const state = response.body as StateResponse;
+    const state = /** @type {StateResponse} */ (response.body);
     expect(state.configExists).toBe(false);
     expect(state.config.site).toBe(defaultConfig().site);
     expect(state.key.present).toBe(false);
@@ -259,13 +281,13 @@ describe('the API', () => {
 
   it('serves the bot list the config UI is built from', async () => {
     const response = await get('/api/bots');
-    expect((response.body as { bots: unknown[] }).bots).toHaveLength(AI_BOTS.length);
+    expect(/** @type {{ bots: unknown[] }} */ (response.body).bots).toHaveLength(AI_BOTS.length);
   });
 
   it('404s an endpoint that does not exist, naming what was asked for', async () => {
     const response = await get('/api/nope');
     expect(response.status).toBe(404);
-    expect(String((response.body as { error: string }).error)).toContain('GET /api/nope');
+    expect(String(/** @type {{ error: string }} */ (response.body).error)).toContain('GET /api/nope');
   });
 
   it('writes a config patch and merges it into the defaults', async () => {
@@ -294,7 +316,7 @@ describe('custom crawlers through the API', () => {
 
   it('shows a configured crawler beside the shipped ones, so the table is not quietly incomplete', async () => {
     await post('/api/config', { bots: { custom: [acme] } });
-    const bots = (await get('/api/bots')).body as { bots: { name: string; custom?: boolean }[] };
+    const bots = /** @type {{ bots: { name: string; custom?: boolean }[] }} */ ((await get('/api/bots')).body);
     expect(bots.bots).toHaveLength(AI_BOTS.length + 1);
     expect(bots.bots.at(-1)).toMatchObject({ name: 'AcmeBot', custom: true });
   });
@@ -317,7 +339,7 @@ describe('custom crawlers through the API', () => {
 
     const clash = await post('/api/config', { bots: { custom: [{ name: 'GPTBot' }] } });
     expect(clash.status).toBe(400);
-    expect(String((clash.body as { error: string }).error)).toContain('already one of the crawlers');
+    expect(String(/** @type {{ error: string }} */ (clash.body).error)).toContain('already one of the crawlers');
 
     expect((await post('/api/config', { bots: { custom: 'AcmeBot' } })).status).toBe(400);
     // Refused whole: nothing on the path wrote a partial config on the way to the error.
@@ -361,7 +383,7 @@ describe('the key never leaks through the API (§11)', () => {
 
   it('never returns the key from state, only that one exists', async () => {
     await post('/api/key', { provider: 'anthropic', apiKey: KEY });
-    const state = (await get('/api/state')).body as StateResponse;
+    const state = /** @type {StateResponse} */ ((await get('/api/state')).body);
     expect(state.key.present).toBe(true);
     expect(state.key.provider).toBe('anthropic');
     expect(JSON.stringify(state)).not.toContain(KEY);
@@ -436,7 +458,7 @@ describe('reading generated files', () => {
 
   it('reads a file inside the public directory', async () => {
     const response = await post('/api/file', { path: 'md/index.md' });
-    expect((response.body as { content: string }).content).toBe('# Hello');
+    expect(/** @type {{ content: string }} */ (response.body).content).toBe('# Hello');
   });
 
   it('refuses a path that escapes the public directory', () => {
@@ -499,7 +521,8 @@ describe('a config patch is checked before it is saved', () => {
 });
 
 describe('what the browser is told', () => {
-  let running: RunningServer;
+  /** @type {RunningServer} */
+  let running;
 
   beforeEach(async () => {
     const webRoot = join(root, 'web');
@@ -516,7 +539,7 @@ describe('what the browser is told', () => {
   it('names a broken config file as the problem, so the dashboard can say so', async () => {
     writeFileSync(join(root, CONFIG_FILENAME), '{"site":');
     const response = await fetch(`${running.url}/api/state`);
-    const body = (await response.json()) as { error: string; configBroken?: boolean };
+    const body = /** @type {{ error: string; configBroken?: boolean }} */ (await response.json());
     expect(response.status).toBe(500);
     expect(body.configBroken).toBe(true);
     expect(body.error).toContain(CONFIG_FILENAME);
@@ -614,13 +637,13 @@ describe('the streaming endpoints', () => {
     // not exist rather than that the URL it typed is not a URL.
     const response = await post('/api/test/stream', { url: 'not-a-url' });
     expect(response.status).toBe(400);
-    expect(String((response.body as { error: string }).error)).not.toContain('No such endpoint');
+    expect(String(/** @type {{ error: string }} */ (response.body).error)).not.toContain('No such endpoint');
   });
 
   it('sends a generate run down the same handler as the plain path', async () => {
     const response = await post('/api/generate/stream', { url: 'not-a-url' });
     expect(response.status).toBe(400);
-    expect(String((response.body as { error: string }).error)).not.toContain('No such endpoint');
+    expect(String(/** @type {{ error: string }} */ (response.body).error)).not.toContain('No such endpoint');
   });
 
   it('formats one frame as an event line, a data line and the blank line that ends it', () => {
@@ -661,7 +684,7 @@ describe('the streaming endpoints', () => {
   });
 
   it('passes a review phase through as it is, since there is nothing in it a browser cannot read', () => {
-    const event = { phase: 'review', done: 2, total: 5, url: 'https://example.com/a.md' } as const;
+    const event = /** @type {const} */ ({ phase: 'review', done: 2, total: 5, url: 'https://example.com/a.md' });
     expect(testFrame(event)).toEqual(event);
   });
 
@@ -690,13 +713,15 @@ describe('the streaming endpoints', () => {
  * A finished structural run, with the evidence filled in only far enough to be recognisable in a
  * frame that should not contain it. The checks are empty because none of these tests score
  * anything: what is under test is which fields cross the wire.
+ *
+ * @returns {TestResult}
  */
-function structuralResult(): TestResult {
-  const evidence = {
+function structuralResult() {
+  const evidence = /** @type {Evidence} */ (/** @type {unknown} */ ({
     target: new URL('https://example.com/resume'),
     origin: 'https://example.com',
     html: { body: '<html>a page</html>', headers: new Headers({ 'user-agent': 'probe' }) },
-  } as unknown as Evidence;
+  }));
   return {
     url: 'https://example.com/resume',
     twinUrl: 'https://example.com/resume.md',
