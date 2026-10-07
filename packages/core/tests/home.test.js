@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
 import { createPrompter } from '../src/cli/prompt.js';
-import { stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
+import { glyphs, stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
 /** @import { CommandHandler } from '@opengeo/core/cli' */
 /** @import { CommandName } from '@opengeo/core/shared' */
 /** @import { HomeStatus } from '../src/cli/home.js' */
@@ -474,7 +474,8 @@ describe('the full-screen menu after a command', () => {
     const boxWidth = () => {
       const top = stripAnsi(seen.slice(seen.lastIndexOf('\x1b[H')))
         .split('\n')
-        .find((line) => line.startsWith('\u256d'));
+        // The corner the painter is using: a Windows console without Windows Terminal gets ASCII.
+        .find((line) => line.startsWith(glyphs().topLeft));
       return visibleWidth(top ?? '');
     };
 
