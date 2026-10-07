@@ -61,7 +61,9 @@ public/
 ```
 
 Everything an agent reads lives under `public/`, so it deploys with your site and needs no build
-step. `.opengeo/manifest.json` holds the route table, token counts, content hashes and timestamps.
+step. Set `publicOrigin` in `opengeo.config.json` to the deployed address (`https://example.com`)
+and every absolute URL in those files names it rather than the dev server that was crawled. Without
+it, a run against `localhost` or `127.0.0.1` warns that the sitemap and twins point at this machine. `.opengeo/manifest.json` holds the route table, token counts, content hashes and timestamps.
 `opengeo-prod` loads it once at startup, which is how a request becomes a map lookup.
 
 A page that fails to fetch keeps the entry it had, so a 503 during a run never stops a twin being

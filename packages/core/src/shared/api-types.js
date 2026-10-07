@@ -36,6 +36,9 @@ export {};
  * @typedef {object} OpenGeoConfig
  * @property {string} site Base URL the project is generated/tested against. Also the default for a
  *   bare `opengeo test`.
+ * @property {string} [publicOrigin] Where the site is deployed, e.g. `https://example.com`. Every
+ *   absolute URL generate writes (sitemap, robots.txt, llms.txt, twin frontmatter and links) uses
+ *   it instead of the origin that was crawled, which is usually a dev server.
  * @property {string} publicDir Web root, relative to the project. Everything generate writes lands
  *   here (twins in `md/`).
  * @property {string} internalDir Bookkeeping that must NOT be web-served: the manifest and the

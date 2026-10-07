@@ -109,6 +109,17 @@ const isString = (value) => typeof value === 'string';
 /** @param {unknown} value */
 const isStringList = (value) => Array.isArray(value) && value.every(isString);
 /**
+ * An origin and nothing more: generate resolves every route against it, so a path here would be
+ * silently dropped rather than honoured.
+ *
+ * @param {unknown} value
+ */
+const isHttpOrigin = (value) => {
+  if (typeof value !== 'string' || !URL.canParse(value)) return false;
+  const url = new URL(value);
+  return (url.protocol === 'http:' || url.protocol === 'https:') && url.pathname === '/' && !url.search && !url.hash && !url.username;
+};
+/**
  * @param {number} min
  * @param {number} max
  * @returns {(value: unknown) => boolean}
@@ -128,6 +139,7 @@ const whole = (min, max) => (value) =>
  */
 const FIELD_RULES = [
   [undefined, 'site', 'a URL string', isString],
+  [undefined, 'publicOrigin', 'an http(s) origin like "https://example.com"', isHttpOrigin],
   [undefined, 'publicDir', 'a folder name', isString],
   [undefined, 'internalDir', 'a folder name', isString],
   [undefined, 'extraRoutes', 'a list of paths', isStringList],
@@ -271,6 +283,29 @@ function mergeAi(base, patch) {
  */
 export function providerOverridesOf(config) {
   return { baseUrl: config.ai.baseUrl, api: config.ai.api, auth: config.ai.auth, headers: config.ai.headers };
+}
+
+/**
+ * The origin generated URLs should name: `publicOrigin` when the project sets one, otherwise the
+ * origin that was crawled.
+ *
+ * @param {Pick<OpenGeoConfig, 'publicOrigin'>} config
+ * @param {string} crawled
+ * @returns {string}
+ */
+export function publicOriginOf(config, crawled) {
+  return new URL(config.publicOrigin ?? crawled).origin;
+}
+
+/**
+ * Whether a URL is on this machine, so nobody the generated files are for could follow it.
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isLoopbackUrl(url) {
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+  return host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '0.0.0.0' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
 /**

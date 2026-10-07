@@ -102,7 +102,8 @@ hand.
 
 ```jsonc
 {
-  "site": "https://example.com",
+  "site": "http://localhost:3000",
+  "publicOrigin": "https://example.com",  // where the site is deployed; optional, see below
   "publicDir": "public",          // where generated files go; a folder below the project root
   "internalDir": ".opengeo",      // bookkeeping, never web-served
   "extraRoutes": [],              // pages nothing links to
@@ -120,6 +121,13 @@ hand.
 Every command checks the file when it loads it and names the field that is wrong rather than failing
 later: lists have to be lists, `generate.tier` is `free` or `ai`, `crawl.maxPages` is a whole number
 from 1 to 100000, `crawl.maxDepth` from 0 to 100 and `generate.minWords` from 0 to 100000.
+
+`publicOrigin` is where the site lives once deployed, an origin and nothing more
+(`https://example.com`, no path). Generate still crawls the URL you give it, usually a dev server,
+but every absolute URL it writes uses `publicOrigin` instead: the sitemap, the `Sitemap:` line in
+`robots.txt`, `llms.txt`, each twin's `url` and the links inside it. Leave it out and those URLs
+name the origin that was crawled. If that is a loopback address, generate warns, because a sitemap
+pointing at `localhost` sends every crawler that reads it nowhere.
 
 The `ai` block takes four more optional fields when you point OpenGEO at a gateway or an endpoint it
 does not ship with: `baseUrl`, `api` (`openai`, `anthropic` or `gemini`), `auth` and `headers`. See

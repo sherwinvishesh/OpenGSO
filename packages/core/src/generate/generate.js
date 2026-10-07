@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { internalDirPath, publicDirPath } from '../shared/config.js';
+import { internalDirPath, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
@@ -109,6 +109,9 @@ export async function generatePages(options) {
   const { loaded, routes, site, tier = 'free', force = false, onProgress, enhance } = options;
   const publicDir = publicDirPath(loaded);
   const internalDir = internalDirPath(loaded);
+  // Pages are fetched from `site` and described as living at `origin`: the two differ whenever
+  // generate runs against a dev server for a site deployed somewhere else.
+  const origin = publicOriginOf(loaded.config, site);
 
   const { manifest: previous, problem } = readManifestChecked(internalDir, site);
   const manifest = emptyManifest(site);
@@ -134,7 +137,8 @@ export async function generatePages(options) {
       // page and carry on to the next.
       options.signal?.throwIfAborted();
       index += 1;
-      const url = new URL(route, site).toString();
+      const url = new URL(route, origin).toString();
+      const fetchUrl = new URL(route, site).toString();
       // Each route is its own unit of work. A name the filesystem refuses, markup deep enough to
       // overflow the extractor, or a provider hook that throws fails that page and nothing else: the
       // rest of the run, and any AI calls already paid for, still land in the manifest.
@@ -155,8 +159,8 @@ export async function generatePages(options) {
 
         if (html === undefined) {
           onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
-          const response = await probe(url, { timeoutMs: 20_000 });
-          const finalOrigin = new URL(response.finalUrl || url).origin;
+          const response = await probe(fetchUrl, { timeoutMs: 20_000 });
+          const finalOrigin = new URL(response.finalUrl || fetchUrl).origin;
           const offSite = finalOrigin !== new URL(site).origin;
           if (offSite || !response.ok || !response.body || response.truncated) {
             pages.push({
@@ -219,7 +223,8 @@ export async function generatePages(options) {
         const sourceHash = contentHash(extracted.markdown);
 
         const prior = previous.pages[route];
-        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && tierSatisfied(prior, tier)) {
+        // The url check is for a changed publicOrigin: same content, but a twin naming the old origin.
+        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && prior.url === url && tierSatisfied(prior, tier)) {
           pages.push({
             route,
             url,

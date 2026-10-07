@@ -1,5 +1,5 @@
 import { resolveBots } from '../shared/bots.js';
-import { publicDirPath } from '../shared/config.js';
+import { isLoopbackUrl, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { normalizeRoute } from '../shared/routes.js';
 import { crawlSite } from './crawl.js';
@@ -75,6 +75,10 @@ export async function generateSite(options) {
   const config = options.loaded.config;
   /** @type {string[]} */
   const warnings = [];
+  // Every absolute URL generate writes names this origin, so a loopback one ships a sitemap and an
+  // llms.txt that point nobody anywhere. Said first, because the run otherwise looks like a success.
+  const origin = publicOriginOf(config, site);
+  if (isLoopbackUrl(origin)) warnings.push(ERRORS.loopbackPublicOrigin(origin));
 
   /** @type {CrawlResult | undefined} */
   let crawl;
@@ -148,7 +152,7 @@ export async function generateSite(options) {
     }));
 
     files = writeSiteFiles({
-      site,
+      site: origin,
       publicDir: publicDirPath(options.loaded),
       pages,
       blocked: config.bots.blocked,

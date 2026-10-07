@@ -510,6 +510,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   siteUnreachableKept:
     'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
 
+  /** @param {string} origin */
+  loopbackPublicOrigin: (origin) =>
+    `sitemap.xml, robots.txt, llms.txt and every twin point at ${origin}, which only this machine can reach. Deployed like this, they send crawlers and agents nowhere. Set "publicOrigin" in opengeo.config.json to where the site is deployed, e.g. "https://example.com", and run generate again.`,
+
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
 
