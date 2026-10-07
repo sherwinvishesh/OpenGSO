@@ -201,13 +201,22 @@ export function createAiEnhancer(options) {
  * Models often wrap a whole document in ```markdown despite being told not to. Unwrapping that is
  * not a fidelity concern, so it happens before the check rather than being counted against it.
  *
+ * A document that merely opens and closes with code blocks of its own looks the same from the
+ * outside, and unwrapping it deletes the first fence and the last and turns the prose between them
+ * into code. So a bare fence is taken as a wrapper only when nothing inside it is a fence, and a
+ * `markdown` fence only when the fences inside it pair up.
+ *
  * @param {string} text
  * @returns {string}
  */
 export function stripCodeFence(text) {
   const trimmed = text.trim();
-  const match = /^```(?:markdown|md)?\s*\n([\s\S]*?)\n?```$/.exec(trimmed);
-  return match ? match[1] : trimmed;
+  const match = /^```(markdown|md)?[^\S\n]*\n([\s\S]*?)\n?```$/.exec(trimmed);
+  if (!match) return trimmed;
+  const inner = match[2];
+  const innerFences = inner.split('\n').filter((line) => /^\s*(```|~~~)/.test(line)).length;
+  const wrapped = match[1] ? innerFences % 2 === 0 : innerFences === 0;
+  return wrapped ? inner : trimmed;
 }
 
 /**

@@ -129,6 +129,20 @@ describe('stripCodeFence', () => {
     const doc = '# Title\n\n```js\nconst a = 1;\n```\n\nAfter.';
     expect(stripCodeFence(doc)).toBe(doc);
   });
+
+  it('leaves a document that opens and closes with its own code blocks alone', () => {
+    const doc = '```\nnpm install opengeo\n```\n\nThen run it.\n\n```\nopengeo test\n```';
+    expect(stripCodeFence(doc)).toBe(doc);
+  });
+
+  it('unwraps a bare fence around a document with no code of its own', () => {
+    expect(stripCodeFence('```\n# Title\n\nBody.\n```')).toBe('# Title\n\nBody.');
+  });
+
+  it('unwraps a markdown fence around a document that has code blocks inside', () => {
+    const inner = '# Title\n\n```js\nconst a = 1;\n```\n\nAfter.';
+    expect(stripCodeFence(`\`\`\`markdown\n${inner}\n\`\`\``)).toBe(inner);
+  });
 });
 
 describe('createAiEnhancer', () => {
