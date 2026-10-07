@@ -50,6 +50,26 @@ function assignment(rawLine) {
 }
 
 /**
+ * The value as dotenv readers see it. A quoted value ends at its closing quote, so a `#` inside it
+ * is kept and a comment after it is not. An unquoted value ends where a `#` follows whitespace: the
+ * docs show `OPENGEO_BASE_URL=https://... # optional`, and the comment used to land in the URL. A
+ * `#` with no space before it is kept, so a key that happens to contain one still reads whole.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function unquote(raw) {
+  const quote = raw[0];
+  if (quote === '"' || quote === "'") {
+    const close = raw.indexOf(quote, 1);
+    if (close > 0 && /^\s*(#.*)?$/.test(raw.slice(close + 1))) return raw.slice(1, close);
+    return raw.length > 1 && raw.endsWith(quote) ? raw.slice(1, -1) : raw;
+  }
+  if (raw.startsWith('#')) return '';
+  return raw.replace(/\s+#.*$/, '');
+}
+
+/**
  * @param {string} contents
  * @returns {Record<string, string>}
  */
@@ -60,14 +80,7 @@ export function parseEnv(contents) {
     const parsed = assignment(rawLine);
     if (!parsed) continue;
     const key = parsed.key;
-    let value = parsed.value;
-    if (
-      (value.startsWith('"') && value.endsWith('"') && value.length > 1) ||
-      (value.startsWith("'") && value.endsWith("'") && value.length > 1)
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
+    out[key] = unquote(parsed.value);
   }
   return out;
 }

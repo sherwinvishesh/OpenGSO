@@ -306,6 +306,23 @@ describe('API key handling (§11)', () => {
     });
   });
 
+  it('drops an inline comment, as docs/providers.md shows one', () => {
+    const contents = [
+      'OPENGEO_BASE_URL=https://gateway.example.com/v1    # optional',
+      'QUOTED="x y" # why',
+      'HASHED=sk-a#b',
+      'EMPTY= # nothing yet',
+      'INSIDE="has # inside"',
+    ].join('\n');
+    expect(parseEnv(contents)).toEqual({
+      OPENGEO_BASE_URL: 'https://gateway.example.com/v1',
+      QUOTED: 'x y',
+      HASHED: 'sk-a#b',
+      EMPTY: '',
+      INSIDE: 'has # inside',
+    });
+  });
+
   it('updates an exported variable in place instead of adding a second one', () => {
     const root = temp();
     writeFileSync(join(root, '.env'), 'export OPENGEO_PROVIDER=openai\n', 'utf8');
