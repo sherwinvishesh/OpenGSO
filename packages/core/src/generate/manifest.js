@@ -50,6 +50,9 @@ export const MANIFEST_VERSION = 1;
  *   tries again.
  * @property {string} [description] Carried so a fully-cached rerun can still write llms.txt without
  *   re-extracting every page.
+ * @property {string} [lastModified] The modification date the page declares about itself, which
+ *   sitemap.xml uses for `<lastmod>`. Unlike `lastUpdated` (when the twin was written), it is never
+ *   invented: absent when the page declares none.
  * @property {string} [canonical] The page's own `<link rel="canonical">`, which sitemap.xml lists in
  *   place of `url` when it is on the same site. Absent when the page declares none.
  */

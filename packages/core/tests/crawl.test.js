@@ -158,7 +158,20 @@ describe('renderSitemapXml', () => {
     expect(xml).toContain(`<loc>${ORIGIN}/</loc>`);
     expect(xml).toContain(`<loc>${ORIGIN}/about</loc>`);
     expect(xml).not.toContain('.md');
-    expect(xml).toContain('<lastmod>2026-01-02T03:04:05.000Z</lastmod>');
+  });
+
+  it('writes <lastmod> only from a date the page declares, never from when the twin was written', () => {
+    const xml = renderSitemapXml(
+      options({
+        pages: [
+          { route: '/', url: `${ORIGIN}/`, title: 'Home', lastUpdated: '2026-01-02T03:04:05.000Z' },
+          { route: '/post', url: `${ORIGIN}/post`, title: 'Post', lastUpdated: '2026-01-02T03:04:05.000Z', lastModified: '2024-05-06' },
+        ],
+      }),
+    );
+    expect(xml).not.toContain('2026-01-02');
+    expect(xml).toContain(`<loc>${ORIGIN}/post</loc>\n    <lastmod>2024-05-06</lastmod>`);
+    expect(xml.match(/<lastmod>/g)).toHaveLength(1);
   });
 
   it('lists the URL the page declares canonical, once, and only on this site', () => {

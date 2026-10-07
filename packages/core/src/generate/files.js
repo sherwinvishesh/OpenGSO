@@ -53,7 +53,8 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @property {string} title
  * @property {string} [description]
  * @property {number} [tokens]
- * @property {string} [lastUpdated]
+ * @property {string} [lastUpdated] When the twin was last written. Not a page date: never a <lastmod>.
+ * @property {string} [lastModified] The modification date the page itself declares.
  */
 
 /**
@@ -266,7 +267,7 @@ export function renderSitemapXml(options) {
     const loc = page.canonical && sameOrigin(page.canonical, origin) ? page.canonical : page.url;
     if (listed.has(loc)) continue;
     listed.add(loc);
-    const lastmod = page.lastUpdated ? `\n    <lastmod>${escapeXml(page.lastUpdated)}</lastmod>` : '';
+    const lastmod = page.lastModified ? `\n    <lastmod>${escapeXml(page.lastModified)}</lastmod>` : '';
     entries.push(`  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmod}\n  </url>`);
   }
 

@@ -103,6 +103,15 @@ describe('extractPage', () => {
     expect(extractPage(page(body), { url: 'https://example.com/blog' }).canonical).toBeUndefined();
   });
 
+  it('reads the modification date a page declares, and ignores one that is not a date', () => {
+    const body = '<main><p>Some content that is definitely long enough to count as real.</p></main>';
+    const at = (/** @type {string} */ head) => extractPage(page(body, head), { url: 'https://example.com/' }).lastModified;
+    expect(at('<meta property="article:modified_time" content="2024-05-06T07:08:09+02:00">')).toBe('2024-05-06T07:08:09+02:00');
+    expect(at('<script type="application/ld+json">{"@graph":[{"@type":"WebPage","dateModified":"2024-05-06"}]}</script>')).toBe('2024-05-06');
+    expect(at('<meta property="article:modified_time" content="last Tuesday">')).toBeUndefined();
+    expect(at('')).toBeUndefined();
+  });
+
   it('collects JSON-LD blocks without letting a broken one throw', () => {
     const html = page(
       '<main><p>Content long enough to be extracted by the algorithmic tier without warnings.</p></main>',

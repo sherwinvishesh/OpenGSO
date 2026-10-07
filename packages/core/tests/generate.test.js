@@ -460,6 +460,19 @@ describe('generateSite', () => {
     expect(xml).not.toContain(`<loc>${site}/blog</loc>`);
   });
 
+  it('dates sitemap entries by what the page declares, not by when generate ran', async () => {
+    const loaded = project();
+    const dated = PAGES['/about']?.replace('</head>', '<meta property="article:modified_time" content="2023-09-10"></head>') ?? '';
+    const result = await generatePages({ site, routes: ['/about', '/resume'], loaded, sources: new Map([['/about', dated]]) });
+    expect(result.manifest.pages['/about']?.lastModified).toBe('2023-09-10');
+    expect(result.manifest.pages['/resume']?.lastModified).toBeUndefined();
+
+    const { generateSite } = await import('@opengeo/core/generate');
+    await generateSite({ target: `${site}/resume`, loaded, single: true });
+    const xml = readFileSync(join(loaded.root, 'public', 'sitemap.xml'), 'utf8');
+    expect(xml.match(/<lastmod>[^<]*<\/lastmod>/g)).toEqual(['<lastmod>2023-09-10</lastmod>']);
+  });
+
   it('leaves the site files alone when asked for twins only', async () => {
     const { generateSite } = await import('@opengeo/core/generate');
     const loaded = project();

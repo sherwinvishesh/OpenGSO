@@ -246,7 +246,10 @@ export async function generatePages(options) {
             warnings: [],
             reason: prior.aiFallback && tier === 'ai' ? ERRORS.aiFallbackCached(prior.aiFallback) : 'Source unchanged since the last run.',
           });
-          manifest.pages[route] = prior;
+          // A declared date that moved on its own is not a reason to rewrite the twin or pay for an AI
+          // call, but the sitemap reads it from here, so it is kept current.
+          const { lastModified: _stale, ...rest } = prior;
+          manifest.pages[route] = extracted.lastModified ? { ...rest, lastModified: extracted.lastModified } : rest;
           continue;
         }
 
@@ -318,6 +321,7 @@ export async function generatePages(options) {
           ...(aiFallback ? { aiFallback } : {}),
           ...(extracted.description ? { description: extracted.description } : {}),
           ...(extracted.canonical ? { canonical: extracted.canonical } : {}),
+          ...(extracted.lastModified ? { lastModified: extracted.lastModified } : {}),
         };
         pages.push({
           route,

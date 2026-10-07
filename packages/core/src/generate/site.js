@@ -150,6 +150,7 @@ export async function generateSite(options) {
       description: entry.description,
       tokens: entry.tokens,
       lastUpdated: entry.lastUpdated,
+      lastModified: entry.lastModified,
     }));
 
     files = writeSiteFiles({

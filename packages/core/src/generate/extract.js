@@ -73,6 +73,8 @@ const MAIN_SELECTORS = [
  * @property {string} title
  * @property {string} [description]
  * @property {string} [canonical] Absolute URL from `<link rel="canonical">`, when the page declares one.
+ * @property {string} [lastModified] The modification date the page declares about itself, as written
+ *   (a W3C datetime), from its meta tags or its JSON-LD `dateModified`.
  * @property {string} markdown
  * @property {number} wordCount
  * @property {string} contentRoot Which selector supplied the content, so users can debug a bad
@@ -123,6 +125,7 @@ export function extractPage(html, options) {
   const title = pickTitle(doc, root);
   const description = pickDescription(doc);
   const canonical = pickCanonical(doc);
+  const lastModified = pickLastModified(doc, jsonLd.blocks);
   // baseURI already folds in a <base href>, which a browser resolves every relative link against.
   const blocks = renderChildren(root, { baseUrl: doc.baseURI || options.url });
   let markdown = blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -148,6 +151,7 @@ export function extractPage(html, options) {
     title,
     description,
     ...(canonical ? { canonical } : {}),
+    ...(lastModified ? { lastModified } : {}),
     markdown,
     wordCount,
     contentRoot: selector,
@@ -238,6 +242,55 @@ function pickCanonical(doc) {
   } catch {
     return undefined;
   }
+}
+
+const MODIFIED_META = [
+  'meta[property="article:modified_time"]',
+  'meta[property="og:updated_time"]',
+  'meta[itemprop="dateModified"]',
+  'meta[name="last-modified"]',
+];
+
+/** The W3C datetime profile sitemaps.org asks <lastmod> to use. */
+const W3C_DATETIME = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2}))?$/;
+
+/**
+ * Only a date the page states about itself. When the twin was written says nothing about when the
+ * page changed, and a sitemap that claims every page changed today teaches crawlers to ignore it.
+ *
+ * @param {Document} doc
+ * @param {unknown[]} jsonLd
+ * @returns {string | undefined}
+ */
+function pickLastModified(doc, jsonLd) {
+  for (const selector of MODIFIED_META) {
+    const value = doc.querySelector(selector)?.getAttribute('content')?.trim();
+    if (isW3cDate(value)) return value;
+  }
+  /** @type {unknown[]} */
+  const queue = [...jsonLd];
+  // Bounded, since a JSON-LD block is page input and can be any shape.
+  for (let seen = 0; queue.length > 0 && seen < 200; seen += 1) {
+    const node = queue.shift();
+    if (Array.isArray(node)) {
+      queue.push(...node);
+      continue;
+    }
+    if (!node || typeof node !== 'object') continue;
+    const record = /** @type {Record<string, unknown>} */ (node);
+    const value = typeof record.dateModified === 'string' ? record.dateModified.trim() : undefined;
+    if (isW3cDate(value)) return value;
+    if (record['@graph']) queue.push(record['@graph']);
+  }
+  return undefined;
+}
+
+/**
+ * @param {string | undefined} value
+ * @returns {value is string}
+ */
+function isW3cDate(value) {
+  return value !== undefined && W3C_DATETIME.test(value) && !Number.isNaN(Date.parse(value));
 }
 
 /**
