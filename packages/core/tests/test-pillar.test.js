@@ -203,13 +203,14 @@ describe('category A', () => {
     expect(byId(evidence).get('A3')?.status).toBe('fail');
   });
 
-  it('A4 fails on unparseable JSON-LD and names the parse error', () => {
+  it('A4 is partial on unparseable JSON-LD and names the parse error', () => {
     const evidence = goodEvidence();
     evidence.html = probe({ body: GOOD_HTML.replace('{"@context":"https://schema.org","@type":"Person","name":"A"}', '{oops'), headers: evidence.html.headers });
     const check = byId(evidence).get('A4');
     // A block that is there and broken is closer than no structured data at all, and the fix is
     // a different one, so the two are not the same result.
     expect(check?.status).toBe('partial');
+    expect(check?.earned).toBe(1);
     expect(check?.reason).toContain('does not parse');
   });
 

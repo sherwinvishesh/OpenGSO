@@ -13,7 +13,7 @@ import { resolveMode } from '@opengeo/core/cli/commands/test';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 /** @import { ProviderCall } from '@opengeo/core/generate' */
-/** @import { SuiteProgress, TestResult } from '@opengeo/core/test' */
+/** @import { SuiteProgress, SuiteResult, TestResult } from '@opengeo/core/test' */
 
 /**
  * The two halves of a test run, and the sequencer that decides which of them happen.
@@ -473,9 +473,27 @@ describe('runTestSuite', () => {
 });
 
 describe('suiteExitCode', () => {
+  /**
+   * The same result with the structural tally replaced, so the exit code can be held to a literal
+   * for a site that is clean and one that is not.
+   *
+   * @param {SuiteResult} result
+   * @param {TestResult['score']['counts']} counts
+   */
+  const withCounts = (result, counts) => {
+    const structure = /** @type {TestResult} */ (result.structure);
+    return { ...result, structure: { ...structure, score: { ...structure.score, counts } } };
+  };
+
   it('lets the structural checks decide whenever there were any', async () => {
+    // The fixture site has no twin routing and no robots.txt, so real checks fail on it.
     const result = await runTestSuite(`${site}/`, { mode: 'full', env: {} });
-    expect(suiteExitCode(result)).toBe(/** @type {TestResult} */ (result.structure).score.counts.fail === 0 ? 0 : 1);
+    expect(/** @type {TestResult} */ (result.structure).score.counts.fail).toBeGreaterThan(0);
+    expect(suiteExitCode(result)).toBe(1);
+
+    // Partials and locked lines are not failures: a site at 98/100 with B7 half done exits 0.
+    expect(suiteExitCode(withCounts(result, { pass: 18, partial: 2, fail: 0, locked: 0, na: 1 }))).toBe(0);
+    expect(suiteExitCode(withCounts(result, { pass: 5, partial: 3, fail: 1, locked: 12, na: 1 }))).toBe(1);
   });
 
   it('never fails a build over the content score', async () => {
@@ -483,7 +501,9 @@ describe('suiteExitCode', () => {
     // Every document scored as badly as the model can score it, and the exit code still comes from
     // the checks alone. The two numbers never meet, and this is where that is enforced.
     expect(result.content?.score).toBe(expectedScore(0));
-    expect(suiteExitCode(result)).toBe(/** @type {TestResult} */ (result.structure).score.counts.fail === 0 ? 0 : 1);
+    const clean = withCounts(result, { pass: 20, partial: 0, fail: 0, locked: 0, na: 1 });
+    expect(suiteExitCode(clean)).toBe(0);
+    expect(suiteExitCode({ ...clean, contentError: 'The provider refused the request with 401.' })).toBe(0);
   });
 
   it('fails a content-only run that could not run at all', async () => {
