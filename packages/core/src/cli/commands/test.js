@@ -60,7 +60,9 @@ export async function testCommand(ctx) {
   const target = resolveTarget(args, loaded, 'test');
   const bots = resolveBots(loaded.config.bots.custom);
   const markdownRouting = loaded.config.bots.markdownRouting;
-  const timeoutMs = args.num('timeout');
+  // Seconds on the command line, like generate and prod test; the pillar wants milliseconds.
+  const timeout = args.num('timeout');
+  const timeoutMs = timeout === undefined ? undefined : timeout * 1000;
 
   // --prompt replaces the report rather than appending to it: the whole output is meant to be
   // selected and pasted into a coding agent, so anything else in the buffer is in the way. It is
