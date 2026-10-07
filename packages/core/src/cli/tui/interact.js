@@ -39,13 +39,29 @@ export async function select(screen, keys, options) {
   const items = options.items;
   const first = items.findIndex((item) => !item.disabled);
   let index = clampToEnabled(items, options.selected ?? (first < 0 ? 0 : first), 1);
+  let top = 0;
 
   for (;;) {
+    // `paint` clips at rows - 1, so a list taller than what is left under the header scrolls
+    // instead, or the selected row and the hints can be cut off with nothing saying so.
+    const room = Math.max(3, screen.size().rows - 1 - options.header.length - 3);
+    const rows = listView(items, index);
+    if (rows.length > room) {
+      if (index < top) top = index;
+      if (index >= top + room) top = index - room + 1;
+      top = Math.min(Math.max(0, top), rows.length - room);
+    } else {
+      top = 0;
+    }
+    const visible = rows.slice(top, top + room);
+    const above = top;
+    const below = rows.length - top - visible.length;
     screen.paint([
       ...options.header,
-      '',
-      ...listView(items, index),
-      '',
+      // The two blank lines around the list carry the scroll markers, so scrolling costs no rows.
+      above > 0 ? `  ${ink.faint(`${above} more above`)}` : '',
+      ...visible,
+      below > 0 ? `  ${ink.faint(`${below} more below`)}` : '',
       keyHints(options.hints ?? [['up/down', 'move'], ['enter', 'select'], ['q', 'quit']]),
     ]);
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { select } from '../src/cli/tui/interact.js';
+import { stripAnsi } from '../src/cli/tui/paint.js';
 /** @import { Key, KeyReader } from '../src/cli/tui/keys.js' */
 /** @import { Screen } from '../src/cli/tui/screen.js' */
 
@@ -63,5 +64,42 @@ describe('select', () => {
   it('does not pick a row by a number the list never shows', async () => {
     const { screen } = fakeScreen();
     expect(await select(screen, fakeKeys(['3']), { header: [], items })).toBeUndefined();
+  });
+});
+
+describe('select on a short terminal', () => {
+  // The provider picker: a ten-line header over thirteen rows, on an 80x24 terminal.
+  const header = Array.from({ length: 10 }, (_, line) => `header ${line}`);
+  const many = Array.from({ length: 13 }, (_, row) => ({ value: row, label: `Row ${row}` }));
+  /** @param {string[]} frame */
+  const plain = (frame) => frame.map((line) => stripAnsi(line));
+
+  it('scrolls to keep the selected row and the key hints on screen', async () => {
+    const { screen, frames } = fakeScreen({ rows: 24 });
+    await select(screen, fakeKeys(['end']), { header, items: many });
+    const frame = plain(frames[frames.length - 1] ?? []);
+
+    // `paint` shows rows - 1 lines, so anything past that is never seen.
+    expect(frame.length).toBeLessThanOrEqual(23);
+    expect(frame.join('\n')).toContain('Row 12');
+    expect(frame.join('\n')).toContain('more above');
+    expect(frame[frame.length - 1]).toContain('enter');
+  });
+
+  it('starts at the top and says how much is below', async () => {
+    const { screen, frames } = fakeScreen({ rows: 24 });
+    await select(screen, fakeKeys([]), { header, items: many });
+    const frame = plain(frames[0] ?? []);
+    expect(frame.length).toBeLessThanOrEqual(23);
+    expect(frame.join('\n')).toContain('Row 0');
+    expect(frame.join('\n')).toContain('more below');
+  });
+
+  it('draws a list that fits exactly as before, with no scroll markers', async () => {
+    const { screen, frames } = fakeScreen({ rows: 40 });
+    await select(screen, fakeKeys([]), { header, items: many });
+    const frame = plain(frames[0] ?? []).join('\n');
+    expect(frame).toContain('Row 12');
+    expect(frame).not.toContain('more');
   });
 });
