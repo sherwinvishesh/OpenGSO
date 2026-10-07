@@ -62,6 +62,8 @@ jobs:
       - run: npm run build
       - run: npm run check:bundles
       - run: npm run check:packages
+      # The only check that reads the published .d.ts the way a user's TypeScript does.
+      - run: npm run example:build
 
   release:
     name: Release
