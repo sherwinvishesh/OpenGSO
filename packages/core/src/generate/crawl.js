@@ -193,14 +193,10 @@ export async function crawlSite(options) {
   }
 
   if (cappedPages) {
-    warnings.push(
-      `Stopped at the ${maxPages}-page cap (every request counts, failed ones too) with ${queue.length} route${queue.length === 1 ? '' : 's'} still queued. Raise crawl.maxPages in opengeo.config.json to go further.`,
-    );
+    warnings.push(ERRORS.crawlPageCap(maxPages, queue.length));
   }
   if (cappedDepth) {
-    warnings.push(
-      `Stopped following links at depth ${maxDepth}. Raise crawl.maxDepth in opengeo.config.json, or list the deeper routes in extraRoutes.`,
-    );
+    warnings.push(ERRORS.crawlDepthCap(maxDepth));
   }
 
   return { site: options.site, origin, pages, failures, warnings, capped: cappedPages || cappedDepth };

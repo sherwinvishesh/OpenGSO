@@ -367,6 +367,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   startRedirectedOffSite: (site, finalOrigin) =>
     `The start URL on ${site} redirects to ${finalOrigin}, so nothing was crawled. If that is the site's real address, run generate against ${finalOrigin} instead.`,
 
+  /**
+   * @param {number} maxPages
+   * @param {number} queued
+   */
+  crawlPageCap: (maxPages, queued) =>
+    `Stopped at the ${maxPages}-page cap (every request counts, failed ones too) with ${queued} route${queued === 1 ? '' : 's'} still queued. Raise crawl.maxPages in opengeo.config.json to go further.`,
+
+  /** @param {number} maxDepth */
+  crawlDepthCap: (maxDepth) =>
+    `Stopped following links at depth ${maxDepth}. Raise crawl.maxDepth in opengeo.config.json, or list the deeper routes in extraRoutes.`,
+
   /** @param {string} feature */
   noApiKey: (feature) =>
     [

@@ -373,6 +373,8 @@ describe('crawlSite', () => {
       const result = await crawlSite({ site: base, maxPages: 2 });
       expect(result.pages).toHaveLength(2);
       expect(result.warnings.join(' ')).toContain('maxPages');
+      const { ERRORS } = await import('../src/shared/errors.js');
+      expect(result.warnings.some((w) => w.startsWith(ERRORS.crawlPageCap(2, 1).split(' with ')[0]))).toBe(true);
     });
   });
 
@@ -406,6 +408,8 @@ describe('crawlSite', () => {
       expect(result.pages.map((p) => p.route)).toContain('/about');
       expect(result.pages.map((p) => p.route)).not.toContain('/team');
       expect(result.warnings.join(' ')).toContain('maxDepth');
+      const { ERRORS } = await import('../src/shared/errors.js');
+      expect(result.warnings).toContain(ERRORS.crawlDepthCap(1));
     });
   });
 
