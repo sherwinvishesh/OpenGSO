@@ -32,6 +32,8 @@ import { DEFAULT_MODELS } from '../src/shared/providers.js';
  * @property {string} [secret]
  * @property {() => void} [onSecret] Observed from inside the secret prompt, so it sees the world as
  *   it was before the key.
+ * @property {(question: string) => boolean} [escape] Esc on the prompt it returns true for, which the
+ *   full-screen prompter reports by throwing.
  */
 
 /**
@@ -50,6 +52,10 @@ function scripted(script) {
    * @type {string[]}
    */
   const offered = [];
+  /** @param {string} question */
+  const pressedEscape = (question) => {
+    if (script.escape?.(question.trim())) throw new SetupAbort('Setup was cancelled. Nothing was written.');
+  };
   return {
     asked,
     offered,
@@ -59,6 +65,7 @@ function scripted(script) {
      */
     async ask(question, fallback = '') {
       asked.push(question.trim());
+      pressedEscape(question);
       const next = asks.shift();
       return next === undefined || next === '' ? fallback : next;
     },
@@ -72,6 +79,7 @@ function scripted(script) {
       asked.push(question.trim());
       offered.push(...options.map((option) => option.label));
       script.onChoose?.(question.trim());
+      pressedEscape(question);
       const next = chooses.shift();
       if (next === undefined) return fallback;
       const match = options.find((option) => option.value === next);
@@ -82,6 +90,7 @@ function scripted(script) {
     async secret(question) {
       asked.push(question.trim());
       script.onSecret?.();
+      pressedEscape(question);
       return script.secret ?? '';
     },
     /**
@@ -175,6 +184,22 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(gitignoreAtSecretTime).toContain('.env');
       // And nothing had been written yet at that point.
       expect(existsSync(join(root, ENV_FILENAME))).toBe(true);
+    });
+
+    it('says .gitignore was changed when the key question is cancelled after it was', async () => {
+      const prompter = scripted({
+        ask: ['http://localhost:3000'],
+        choose: ['all', 'anthropic'],
+        escape: (question) => question.includes('API key'),
+      });
+
+      const error = await runSetup({ root, prompter, out: silent }).catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(SetupAbort);
+      expect(readFileSync(join(root, '.gitignore'), 'utf8')).toContain('.env');
+      expect(error.message).not.toContain('Nothing was written');
+      expect(error.message).toContain('.gitignore');
+      expect(existsSync(join(root, CONFIG_FILENAME))).toBe(false);
     });
 
     it('writes the key to .env and never to the committed config', async () => {
@@ -511,6 +536,38 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       // No tutorial, and no dashboard pitch: this project already works.
       expect(transcript).not.toContain('Next');
       expect(result.config.site).toBe('http://localhost:3000');
+    });
+
+    it('treats Esc on the menu as Done, because every edit was saved as it was made', async () => {
+      configured();
+      let menus = 0;
+      const prompter = scripted({
+        choose: ['site'],
+        ask: ['http://localhost:4000'],
+        escape: (question) => question.includes('Settings') && ++menus === 2,
+      });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      expect(result.config.site).toBe('http://localhost:4000');
+      expect(savedConfig().site).toBe('http://localhost:4000');
+    });
+
+    it('does not claim nothing was written when an earlier edit was already saved', async () => {
+      configured();
+      let sites = 0;
+      const prompter = scripted({
+        choose: ['site', 'site'],
+        ask: ['http://localhost:4000'],
+        escape: (question) => question.startsWith('Site URL') && ++sites === 2,
+      });
+
+      const error = await runSetup({ root, prompter, mode: 'settings', out: silent }).catch((caught) => caught);
+
+      expect(error).toBeInstanceOf(SetupAbort);
+      expect(error.message).not.toContain('Nothing was written');
+      expect(error.message).toContain(CONFIG_FILENAME);
+      expect(savedConfig().site).toBe('http://localhost:4000');
     });
 
     it('edits the block list, which is the one setting a first run never offers', async () => {

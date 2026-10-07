@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { resolveBots, resolveRoutableBots } from '../shared/bots.js';
 import { CONFIG_FILENAME, defaultConfig, loadConfig, projectDirProblem, saveConfig } from '../shared/config.js';
+import { ERRORS } from '../shared/errors.js';
 import { PROVIDERS, providerInfo } from '../shared/providers.js';
 import {
   BASE_URL_VAR,
@@ -72,6 +73,19 @@ export function setupMode(root) {
 export class SetupAbort extends Error {}
 
 /**
+ * The prompter that reports a cancel cannot know what this run had already written, so its "Nothing
+ * was written." is corrected here, where that is known.
+ *
+ * @param {unknown} error
+ * @param {string[]} written
+ * @returns {unknown}
+ */
+function abortAfterWrites(error, written) {
+  if (!(error instanceof SetupAbort) || written.length === 0) return error;
+  return new SetupAbort(`${error.message.replace(/\s*Nothing was written\.$/, '')} ${ERRORS.stoppedAfterWriting(written)}`);
+}
+
+/**
  * @typedef {object} SetupOptions
  * @property {string} root
  * @property {Prompter} prompter
@@ -137,6 +151,7 @@ function writeIntro(write) {
  *   a recommendation.
  * @property {boolean} hasConfig
  * @property {SetupOptions['preview']} [preview]
+ * @property {string[]} written Files this run has already changed, so a cancel can say so.
  */
 
 /**
@@ -350,6 +365,7 @@ async function askProvider(ctx, config) {
 
   // The gitignore line goes in before the key does. Never the other way round.
   const gitignore = ensureEnvGitignored(root);
+  if (!gitignore.alreadyPresent && !ctx.written.includes('.gitignore')) ctx.written.push('.gitignore');
   write(
     `\n  ${gitignore.alreadyPresent ? c.gray(`${ENV_FILENAME} is already in .gitignore.`) : c.green(`Added ${ENV_FILENAME} to .gitignore.`)}\n`,
   );
@@ -434,7 +450,7 @@ export async function runSetup(options) {
   const hasConfig = existing.exists && existing.root === root;
   const base = hasConfig ? existing.config : defaultConfig();
   /** @type {StepContext} */
-  const ctx = { root, prompter, write, settings: false, hasConfig, preview: options.preview };
+  const ctx = { root, prompter, write, settings: false, hasConfig, preview: options.preview, written: [] };
 
   /**
    * One step announced two ways, and never both at once.
@@ -489,7 +505,10 @@ export async function runSetup(options) {
   write(`\n${c.gray('Everything that matters works without one: the structural 0-100 test, the whole free')}\n`);
   write(`${c.gray('generate tier, and opengeo-prod. A key only unlocks `generate --tier ai` and')}\n`);
   write(`${c.gray('`test --content`, and it is only ever sent to the provider you pick below.')}\n\n`);
-  const provider = await askProvider(ctx, base);
+  // The only step that writes before the config is saved: .gitignore goes in ahead of the key.
+  const provider = await askProvider(ctx, base).catch((error) => {
+    throw abortAfterWrites(error, ctx.written);
+  });
 
   // The last question is answered, so the screen goes back to whoever had it. Everything below this
   // line is output rather than interaction, and belongs in scrollback.
@@ -562,7 +581,7 @@ export async function runSettings(options) {
   const hasConfig = existing.exists && existing.root === root;
   const before = hasConfig ? existing.config : defaultConfig();
   /** @type {StepContext} */
-  const ctx = { root, prompter, write, settings: true, hasConfig, preview: options.preview };
+  const ctx = { root, prompter, write, settings: true, hasConfig, preview: options.preview, written: [] };
 
   /** @type {OpenGeoConfig} */
   let config = { ...before, bots: { ...before.bots }, ai: { ...before.ai } };
@@ -583,39 +602,54 @@ export async function runSettings(options) {
 
   for (;;) {
     const found = readCredentials(root);
-    const choice = await prompter.choose(`\n${c.bold('  Settings')}`, menuOptions(config, found?.provider), /** @type {SettingKey} */ ('done'));
+    /** @type {SettingKey} */
+    let choice;
+    try {
+      choice = await prompter.choose(`\n${c.bold('  Settings')}`, menuOptions(config, found?.provider), /** @type {SettingKey} */ ('done'));
+    } catch (error) {
+      // Every edit was saved as it was made, so leaving the menu is Done whichever key does it.
+      if (error instanceof SetupAbort) break;
+      throw error;
+    }
     if (choice === 'done') break;
 
     write('\n');
     // Zero steps, so a prompter that draws a rail draws the label alone: settings is a menu you
     // return to, not a sequence you are partway through. The name tracks whatever is being edited.
     prompter.stage?.(menuLabel(choice), 0, 0);
-    if (choice === 'site') {
-      config = { ...config, site: await askSiteUrl(ctx, config.site) };
-    } else if (choice === 'webroot') {
-      config = { ...config, publicDir: await askWebRoot(ctx, config.publicDir) };
-    } else if (choice === 'routing') {
-      write(`  ${c.gray('This chooses a format, never access. Agents not on the list see your normal site.')}\n\n`);
-      const routing = await askRouting(ctx, config);
-      addedBots.push(...routing.addedBots);
-      config = {
-        ...config,
-        bots: { ...config.bots, markdownRouting: routing.markdownRouting, custom: [...config.bots.custom, ...routing.addedBots] },
-      };
-    } else if (choice === 'blocked') {
-      write(`  ${c.gray('A separate lever from routing. It is advisory, and only ever reaches robots.txt.')}\n\n`);
-      config = { ...config, bots: { ...config.bots, blocked: await askBlocked(ctx, config) } };
-    } else {
-      write(`  ${c.gray('Only `generate --tier ai` and `test --content` need this. Everything else works without a key.')}\n\n`);
-      const provider = await askProvider(ctx, config);
-      if (provider) {
-        config = { ...config, ai: provider.ai };
-        keyWritten = provider.keyWritten;
+    try {
+      if (choice === 'site') {
+        config = { ...config, site: await askSiteUrl(ctx, config.site) };
+      } else if (choice === 'webroot') {
+        config = { ...config, publicDir: await askWebRoot(ctx, config.publicDir) };
+      } else if (choice === 'routing') {
+        write(`  ${c.gray('This chooses a format, never access. Agents not on the list see your normal site.')}\n\n`);
+        const routing = await askRouting(ctx, config);
+        addedBots.push(...routing.addedBots);
+        config = {
+          ...config,
+          bots: { ...config.bots, markdownRouting: routing.markdownRouting, custom: [...config.bots.custom, ...routing.addedBots] },
+        };
+      } else if (choice === 'blocked') {
+        write(`  ${c.gray('A separate lever from routing. It is advisory, and only ever reaches robots.txt.')}\n\n`);
+        config = { ...config, bots: { ...config.bots, blocked: await askBlocked(ctx, config) } };
+      } else {
+        write(`  ${c.gray('Only `generate --tier ai` and `test --content` need this. Everything else works without a key.')}\n\n`);
+        const provider = await askProvider(ctx, config);
+        if (provider) {
+          config = { ...config, ai: provider.ai };
+          keyWritten = provider.keyWritten;
+          if (!ctx.written.includes(ENV_FILENAME)) ctx.written.push(ENV_FILENAME);
+        }
       }
+    } catch (error) {
+      throw abortAfterWrites(error, ctx.written);
     }
 
     configPath = saveConfig(root, config);
     saved = true;
+    const savedAs = relative(root, configPath) || CONFIG_FILENAME;
+    if (!ctx.written.includes(savedAs)) ctx.written.push(savedAs);
     // Back to the menu, and the confirmation is the first thing on that frame rather than the last
     // thing on the one being replaced, which is a frame nobody ever sees.
     prompter.stage?.('Settings', 0, 0);

@@ -528,6 +528,13 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   pageTooLarge: (maxBytes) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
 
   /**
+   * Takes the place of "Nothing was written." when setup or settings stops after it already had.
+   *
+   * @param {string[]} files
+   */
+  stoppedAfterWriting: (files) => `Already written before that, and left as it is: ${files.join(', ')}.`,
+
+  /**
    * @param {string} provider
    * @param {number} status
    * @param {string} body
