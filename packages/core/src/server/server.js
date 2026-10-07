@@ -151,7 +151,15 @@ export async function startServer(options) {
  * @returns {Promise<void>}
  */
 async function handle(request, response, options, host) {
-  const url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
+  /** @type {URL} */
+  let url;
+  try {
+    url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
+  } catch {
+    // An absolute-form target such as `http://x:99999/` passes the Host check and then fails here.
+    // Not `URL.parse`, which Node 20 does not have.
+    return send(response, 400, 'text/plain; charset=utf-8', ERRORS.badRequestTarget());
+  }
 
   if (url.pathname.startsWith('/api/')) {
     // Any page on the internet can POST to a localhost port. This server can write an API key to
@@ -177,6 +185,11 @@ async function handle(request, response, options, host) {
     return send(response, result.status, 'application/json; charset=utf-8', JSON.stringify(result.body));
   }
 
+  const method = request.method ?? 'GET';
+  if (method !== 'GET' && method !== 'HEAD') {
+    response.setHeader('Allow', 'GET, HEAD');
+    return send(response, 405, 'text/plain; charset=utf-8', ERRORS.staticMethod(method));
+  }
   serveStatic(url.pathname, response, options.webRoot);
 }
 
@@ -451,8 +464,10 @@ function serveStatic(pathname, response, webRoot) {
   if (!file) return send(response, 404, 'text/plain; charset=utf-8', 'Not found');
 
   const type = MIME[extname(file).toLowerCase()] ?? 'application/octet-stream';
-  // The dashboard reads live project state, so a cached index.html would show a stale project.
-  send(response, 200, type, readFileSync(file), file.endsWith('.html') ? 'no-store' : undefined);
+  // The dashboard reads live project state, so a cached index.html would show a stale project. The
+  // modules keep the same names from one release to the next, so they are revalidated every time:
+  // otherwise an upgrade could run last version's app.js against this version's screens.
+  send(response, 200, type, readFileSync(file), file.endsWith('.html') ? 'no-store' : 'no-cache');
 }
 
 /**

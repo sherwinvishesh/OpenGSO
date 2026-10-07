@@ -359,6 +359,11 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `Paste it again without the trailing newline.`,
     ].join('\n'),
 
+  badRequestTarget: () => 'That request asked for a path the dashboard could not read.',
+
+  /** @param {string} method */
+  staticMethod: (method) => `${method} is not something the dashboard's pages answer. They are only read, with GET or HEAD.`,
+
   keyMissing: () => 'No key was provided, so nothing was written.',
 
   /** @param {string} provider */

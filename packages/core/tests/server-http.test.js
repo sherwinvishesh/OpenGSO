@@ -99,6 +99,42 @@ describe('static files', () => {
     expect((await hit('/')).headers.get('cache-control')).toBe('no-store');
   });
 
+  /**
+   * The modules are served as they sit on disk, under the same names in every release. A browser
+   * that kept last version's `app.js` would run it against this version's `views/test.js`.
+   */
+  it('makes the browser revalidate every module and stylesheet', async () => {
+    for (const path of ['/app.js', '/views/test.js', '/styles.css']) {
+      expect((await hit(path)).headers.get('cache-control'), path).toBe('no-cache');
+    }
+  });
+
+  it('answers only GET and HEAD, and says which', async () => {
+    const head = await hit('/app.js', { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe('');
+    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
+      const response = await hit('/index.html', { method });
+      expect(response.status, method).toBe(405);
+      expect(response.headers.get('allow'), method).toBe('GET, HEAD');
+      expect(await response.text(), method).not.toContain('<title>dash</title>');
+    }
+  });
+
+  /** fetch normalises the request line, so this has to go over a raw socket to say what it says. */
+  it('answers a request line it cannot parse with a 400, not a crash', async () => {
+    const { connect } = await import('node:net');
+    const statusLine = await new Promise((resolveLine, rejectLine) => {
+      const socket = connect(running.port, '127.0.0.1', () =>
+        socket.write(`GET http://x:99999/ HTTP/1.1\r\nHost: 127.0.0.1:${running.port}\r\nConnection: close\r\n\r\n`),
+      );
+      let received = '';
+      socket.on('data', (chunk) => (received += chunk));
+      socket.on('end', () => resolveLine(received.split('\r\n')[0]));
+      socket.on('error', rejectLine);
+    });
+    expect(statusLine).toBe('HTTP/1.1 400 Bad Request');
+  });
 });
 
 describe('headers on every kind of response', () => {
