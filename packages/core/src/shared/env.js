@@ -290,7 +290,18 @@ export function ensureEnvGitignored(root) {
  * @returns {boolean}
  */
 export function isCI(env = process.env) {
-  return Boolean(
-    env.CI || env.CONTINUOUS_INTEGRATION || env.GITHUB_ACTIONS || env.GITLAB_CI || env.CIRCLECI || env.BUILDKITE,
-  );
+  return [env.CI, env.CONTINUOUS_INTEGRATION, env.GITHUB_ACTIONS, env.GITLAB_CI, env.CIRCLECI, env.BUILDKITE].some(isSet);
+}
+
+/**
+ * `CI=false` and `CI=0` are how people switch CI detection off, for a local run of a CI script or
+ * a container that sets it by default. Reading any non-empty string as true refused the AI tier
+ * there.
+ *
+ * @param {string | undefined} value
+ * @returns {boolean}
+ */
+function isSet(value) {
+  const normal = value?.trim().toLowerCase();
+  return Boolean(normal) && normal !== 'false' && normal !== '0';
 }

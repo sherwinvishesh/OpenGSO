@@ -356,6 +356,12 @@ describe('API key handling (§11)', () => {
     expect(isCI({ GITHUB_ACTIONS: 'true' })).toBe(true);
     expect(isCI({})).toBe(false);
   });
+
+  it('does not take CI=false for CI', () => {
+    for (const value of ['false', 'FALSE', '0', '']) expect(isCI({ CI: value })).toBe(false);
+    expect(isCI({ CI: '1' })).toBe(true);
+    expect(isCI({ CI: 'false', GITHUB_ACTIONS: 'true' })).toBe(true);
+  });
 });
 
 describe('error copy (§13)', () => {
