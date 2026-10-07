@@ -51,19 +51,38 @@ export function defaultConfig(site = 'http://localhost:3000') {
  */
 
 /**
- * Walk up from `startDir` looking for opengeo.config.json, stopping at the filesystem root.
+ * Walk up from `startDir` looking for opengeo.config.json, but never past the project.
+ *
+ * The project ends at the repository root (the nearest directory holding `.git`), so a workspace
+ * package in a monorepo still finds the config beside the root `package.json`. Outside a repository,
+ * as on a server that was deployed without `.git`, it ends at the nearest `package.json`. With
+ * neither, only `startDir` itself is checked. Walking all the way to `/` meant a stray config in a
+ * home directory or a parent checkout silently became this project's config.
  *
  * @param {string} [startDir]
  * @returns {string | undefined}
  */
 export function findConfigFile(startDir = process.cwd()) {
-  let dir = resolve(startDir);
-  for (;;) {
+  const start = resolve(startDir);
+  const boundary = findUp(start, '.git') ?? findUp(start, 'package.json') ?? start;
+  for (let dir = start; ; dir = dirname(dir)) {
     const candidate = join(dir, CONFIG_FILENAME);
     if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) return undefined;
-    dir = parent;
+    if (dir === boundary || dirname(dir) === dir) return undefined;
+  }
+}
+
+/**
+ * The nearest directory at or above `start` that holds `name`.
+ *
+ * @param {string} start
+ * @param {string} name
+ * @returns {string | undefined}
+ */
+function findUp(start, name) {
+  for (let dir = start; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, name))) return dir;
+    if (dirname(dir) === dir) return undefined;
   }
 }
 

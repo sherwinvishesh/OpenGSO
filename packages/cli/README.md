@@ -100,6 +100,12 @@ runs this.
 `opengeo.config.json` at your project root. `opengeo settings` writes it; you can also edit it by
 hand.
 
+Run from a subdirectory, OpenGEO looks for the file in the current directory and then upward, but
+never past the project. Inside a git repository the project ends at the repository root, so a
+workspace package in a monorepo finds the config at the top. Outside one it ends at the nearest
+`package.json`, and with neither only the current directory is checked. Pass `--project <dir>` to
+point at a project explicitly.
+
 ```jsonc
 {
   "site": "http://localhost:3000",

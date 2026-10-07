@@ -1,6 +1,6 @@
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   AI_BOTS,
@@ -12,6 +12,7 @@ import {
   defaultConfig,
   ensureEnvGitignored,
   estimateTokens,
+  findConfigFile,
   isCI,
   loadConfig,
   mergeConfig,
@@ -215,6 +216,48 @@ describe('config', () => {
     const loaded = loadConfig('/');
     expect(loaded.exists).toBe(false);
     expect(loaded.config.site).toBe('http://localhost:3000');
+  });
+});
+
+describe('where the config search stops', () => {
+  /**
+   * A directory tree under a fresh temp dir. Paths ending in `/` are directories.
+   *
+   * @param {string[]} paths
+   */
+  function tree(paths) {
+    const root = temp();
+    for (const path of paths) {
+      if (path.endsWith('/')) mkdirSync(join(root, path), { recursive: true });
+      else {
+        mkdirSync(dirname(join(root, path)), { recursive: true });
+        writeFileSync(join(root, path), path.endsWith('.json') ? '{}' : '');
+      }
+    }
+    return root;
+  }
+
+  it('finds the config at the repository root from a workspace package inside it', () => {
+    const root = tree(['repo/.git/', 'repo/opengeo.config.json', 'repo/packages/web/package.json', 'repo/packages/web/src/']);
+    expect(findConfigFile(join(root, 'repo/packages/web/src'))).toBe(join(root, 'repo/opengeo.config.json'));
+  });
+
+  it('does not cross the repository root into a stranger\'s config', () => {
+    const root = tree(['opengeo.config.json', 'repo/.git/', 'repo/src/']);
+    expect(findConfigFile(join(root, 'repo/src'))).toBeUndefined();
+  });
+
+  it('stops at the nearest package.json when there is no repository', () => {
+    const root = tree(['opengeo.config.json', 'app/package.json', 'app/src/']);
+    expect(findConfigFile(join(root, 'app/src'))).toBeUndefined();
+    writeFileSync(join(root, 'app/opengeo.config.json'), '{}');
+    expect(findConfigFile(join(root, 'app/src'))).toBe(join(root, 'app/opengeo.config.json'));
+  });
+
+  it('looks only in the directory itself when nothing marks a project', () => {
+    const root = tree(['opengeo.config.json', 'downloads/']);
+    expect(findConfigFile(join(root, 'downloads'))).toBeUndefined();
+    expect(findConfigFile(root)).toBe(join(root, 'opengeo.config.json'));
   });
 });
 
