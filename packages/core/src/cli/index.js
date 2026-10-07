@@ -1,5 +1,5 @@
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
-import { c } from '../shared/log.js';
+import { c, cErr } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
 import { EXIT_USAGE, UsageError } from './args.js';
 import { runHome } from './home.js';
@@ -106,7 +106,7 @@ export async function runCli(options) {
   try {
     return await handler({ argv: rest, packageName: options.packageName, version: options.version });
   } catch (error) {
-    process.stderr.write(`${c.red('Error')} ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`${cErr.red('Error')} ${error instanceof Error ? error.message : String(error)}\n`);
     return error instanceof UsageError ? EXIT_USAGE : 1;
   }
 }

@@ -12,6 +12,8 @@
  * written in terms of it.
  */
 
+import { colourDepth } from '../../shared/log.js';
+
 const ESC = String.fromCharCode(27);
 const CSI = `${ESC}[`;
 
@@ -21,37 +23,8 @@ const CSI = `${ESC}[`;
  * @typedef {0 | 1 | 2 | 3} ColourDepth
  */
 
-/**
- * What the terminal can show.
- *
- * Read fresh on every call rather than cached at import time, for the same reason `log.js` does it:
- * the test suite sets and unsets these variables between cases, and a value captured when the module
- * was first loaded would make half of those tests describe a terminal nobody is looking at.
- *
- * @returns {ColourDepth}
- */
-export function colourDepth() {
-  const env = process.env;
-  if (env.NO_COLOR) return 0;
-  const force = env.FORCE_COLOR;
-  if (force !== undefined && force !== '') {
-    if (force === '0' || force.toLowerCase() === 'false') return 0;
-    if (force === '1') return 1;
-    if (force === '2') return 2;
-    return 3;
-  }
-  if (!process.stdout || !process.stdout.isTTY) return 0;
-  const term = env.TERM ?? '';
-  if (term === 'dumb') return 0;
-  const colorterm = (env.COLORTERM ?? '').toLowerCase();
-  if (colorterm === 'truecolor' || colorterm === '24bit') return 3;
-  // Terminal.app reports xterm-256color and means it, but it cannot do 24-bit. iTerm, Kitty,
-  // WezTerm, Ghostty and VS Code all set COLORTERM, so the check above has already caught them.
-  if (env.TERM_PROGRAM === 'Apple_Terminal') return 2;
-  if (term.includes('256color')) return 2;
-  if (term.includes('color') || term.includes('xterm') || term.includes('screen')) return 1;
-  return 0;
-}
+// What the terminal can show. The rule lives with the basic colours, so the two never disagree.
+export { colourDepth };
 
 /**
  * Whether box-drawing and block glyphs will render as one column each.

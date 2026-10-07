@@ -20,6 +20,7 @@ import {
 } from '../../test/index.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { createProgress } from '../progress.js';
+import { stripAnsi } from '../tui/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
 /**
@@ -158,7 +159,8 @@ export function resolveMode(args) {
  */
 function writeOut(text, out, code) {
   if (out) {
-    writeFileSync(out, text, 'utf8');
+    // The report was coloured for the terminal it would have gone to. A file is not one.
+    writeFileSync(out, stripAnsi(text), 'utf8');
     process.stdout.write(`${c.gray(`Wrote ${out}`)}\n`);
   } else {
     process.stdout.write(text);

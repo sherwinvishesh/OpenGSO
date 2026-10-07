@@ -15,6 +15,7 @@ import {
 } from '../src/cli/tui/paint.js';
 import { decode, splitChunks } from '../src/cli/tui/keys.js';
 import { openScreen, restoreScreens } from '../src/cli/tui/screen.js';
+import { c } from '../src/shared/log.js';
 import { box, listView, lockedMeter, meter, sparkline, textField } from '../src/cli/tui/widgets.js';
 import { PALETTE, contentBand, structuralBand } from '../src/cli/tui/theme.js';
 
@@ -57,6 +58,55 @@ describe('colour depth', () => {
     expect(colourDepth()).toBe(0);
     process.env.FORCE_COLOR = '2';
     expect(colourDepth()).toBe(2);
+  });
+
+  /**
+   * @param {{ platform?: string; tty?: boolean }} terminal
+   * @param {() => void} run
+   */
+  const on = (terminal, run) => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform');
+    const tty = process.stdout.isTTY;
+    Object.defineProperty(process, 'platform', { value: terminal.platform ?? process.platform });
+    process.stdout.isTTY = terminal.tty ?? true;
+    try {
+      run();
+    } finally {
+      if (platform) Object.defineProperty(process, 'platform', platform);
+      process.stdout.isTTY = tty;
+    }
+  };
+
+  it('gives the plain helpers and the painter the same answer', () => {
+    delete process.env.FORCE_COLOR;
+    delete process.env.COLORTERM;
+    delete process.env.TERM_PROGRAM;
+    for (const term of ['vt100', 'xterm-256color', 'dumb', '']) {
+      process.env.TERM = term;
+      on({ platform: 'linux' }, () => {
+        expect(c.red('x') !== 'x', term).toBe(colourDepth() > 0);
+      });
+    }
+  });
+
+  it('colours a Windows console, which sets no TERM', () => {
+    delete process.env.FORCE_COLOR;
+    delete process.env.TERM;
+    delete process.env.COLORTERM;
+    delete process.env.TERM_PROGRAM;
+    on({ platform: 'win32' }, () => {
+      expect(colourDepth()).toBeGreaterThan(0);
+      expect(c.red('x')).not.toBe('x');
+    });
+  });
+
+  it('asks the stream it is given, not stdout', () => {
+    delete process.env.FORCE_COLOR;
+    process.env.TERM = 'xterm-256color';
+    on({ platform: 'linux' }, () => {
+      expect(colourDepth()).toBeGreaterThan(0);
+      expect(colourDepth(/** @type {NodeJS.WriteStream} */ ({ isTTY: false }))).toBe(0);
+    });
   });
 
   it('emits no escapes at all at depth 0, so piped output stays plain', () => {

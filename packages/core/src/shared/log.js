@@ -1,37 +1,72 @@
 /** Tiny ANSI helper. A colour library would be a dependency for something that is 20 lines. */
 const ESC = String.fromCharCode(27) + '[';
 
-/** @returns {boolean} */
-const enabled = () => {
-  if (process.env.NO_COLOR) return false;
+/**
+ * What a stream can show: 0 no colour, 1 the basic sixteen, 2 the 256-colour cube, 3 full 24-bit.
+ *
+ * The one rule for colour, used by `c` below and by everything `cli/tui/paint.js` draws, so the two
+ * can never disagree about whether it is on. Read fresh on every call rather than cached at import
+ * time: the test suite sets and unsets these variables between cases.
+ *
+ * @param {{ isTTY?: boolean } | undefined} [stream] Where the text is going. stdout by default, and
+ *   stderr is asked about separately, because either can be a pipe while the other is a terminal.
+ * @returns {0 | 1 | 2 | 3}
+ */
+export function colourDepth(stream = process.stdout) {
+  const env = process.env;
+  if (env.NO_COLOR) return 0;
   // FORCE_COLOR=0 is the conventional way to turn colour off, so it cannot be read as merely "set".
-  const force = process.env.FORCE_COLOR;
-  if (force !== undefined && force !== '') return force !== '0' && force.toLowerCase() !== 'false';
-  // A dumb terminal is a terminal that has told us it cannot do this. It reports isTTY, so the
-  // check below would have said yes and filled the screen with the literal escape sequences.
-  if (process.env.TERM === 'dumb') return false;
-  return Boolean(process.stdout && process.stdout.isTTY);
-};
+  const force = env.FORCE_COLOR;
+  if (force !== undefined && force !== '') {
+    if (force === '0' || force.toLowerCase() === 'false') return 0;
+    if (force === '1') return 1;
+    if (force === '2') return 2;
+    return 3;
+  }
+  if (!stream || !stream.isTTY) return 0;
+  const term = env.TERM ?? '';
+  // A dumb terminal is a terminal that has told us it cannot do this, though it reports isTTY.
+  if (term === 'dumb') return 0;
+  const colorterm = (env.COLORTERM ?? '').toLowerCase();
+  if (colorterm === 'truecolor' || colorterm === '24bit') return 3;
+  // A Windows console sets no TERM at all, and every one the supported Node versions run on
+  // understands these sequences. Windows Terminal is the one known to do 24-bit.
+  if (process.platform === 'win32' && !term) return env.WT_SESSION ? 3 : 2;
+  // Terminal.app reports xterm-256color and means it, but it cannot do 24-bit. iTerm, Kitty,
+  // WezTerm, Ghostty and VS Code all set COLORTERM, so the check above has already caught them.
+  if (env.TERM_PROGRAM === 'Apple_Terminal') return 2;
+  if (term.includes('256color')) return 2;
+  if (term.includes('color') || term.includes('xterm') || term.includes('screen')) return 1;
+  return 0;
+}
 
 /**
- * @param {number} open
- * @param {number} close
- * @returns {(s: string) => string}
+ * @param {() => { isTTY?: boolean } | undefined} stream
  */
-const wrap = (open, close) => (s) =>
-  enabled() ? `${ESC}${open}m${s}${ESC}${close}m` : s;
-
-export const c = {
-  bold: wrap(1, 22),
-  dim: wrap(2, 22),
-  red: wrap(31, 39),
-  green: wrap(32, 39),
-  yellow: wrap(33, 39),
-  blue: wrap(34, 39),
-  magenta: wrap(35, 39),
-  cyan: wrap(36, 39),
-  gray: wrap(90, 39),
+const palette = (stream) => {
+  /**
+   * @param {number} open
+   * @param {number} close
+   * @returns {(s: string) => string}
+   */
+  const wrap = (open, close) => (s) => (colourDepth(stream()) > 0 ? `${ESC}${open}m${s}${ESC}${close}m` : s);
+  return {
+    bold: wrap(1, 22),
+    dim: wrap(2, 22),
+    red: wrap(31, 39),
+    green: wrap(32, 39),
+    yellow: wrap(33, 39),
+    blue: wrap(34, 39),
+    magenta: wrap(35, 39),
+    cyan: wrap(36, 39),
+    gray: wrap(90, 39),
+  };
 };
+
+export const c = palette(() => process.stdout);
+
+/** The same colours, decided for stderr, which is what a message written there should ask. */
+export const cErr = palette(() => process.stderr);
 
 export const SYM = {
   pass: () => c.green('PASS'),

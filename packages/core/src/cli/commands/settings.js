@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { c } from '../../shared/log.js';
+import { c, cErr } from '../../shared/log.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
 import { runOnboarding } from '../onboarding.js';
@@ -53,7 +53,7 @@ export async function settingsCommand(ctx) {
     return 0;
   } catch (error) {
     if (error instanceof SetupAbort) {
-      process.stderr.write(`\n${c.red('settings stopped')} ${error.message}\n`);
+      process.stderr.write(`\n${cErr.red('settings stopped')} ${error.message}\n`);
       return 1;
     }
     throw error;

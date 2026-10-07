@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateCommand } from '../src/cli/commands/generate.js';
 import { openBrowser, startCommand } from '../src/cli/commands/start.js';
+import { prodTestCommand } from '../src/cli/commands/prod-test.js';
 import { testCommand } from '../src/cli/commands/test.js';
 import { runOnboarding } from '../src/cli/onboarding.js';
 import { runCli } from '../src/cli/index.js';
@@ -224,5 +225,44 @@ describe('exit codes', () => {
     expect((await run(cli, ['test', site, '--structure', '--content', '--project', root])).code).toBe(2);
     expect((await run(cli, ['test', site, '--provider', 'nobody', '--project', root])).code).toBe(2);
     expect((await run(cli, ['test', site, '--structure', '--project', root])).code).toBe(1);
+  });
+});
+
+describe('colour, on a terminal, for output that is not going to it', () => {
+  const ESC = String.fromCharCode(27);
+  const saved = { ...process.env };
+  /** @type {boolean | undefined} */
+  let tty;
+
+  beforeEach(() => {
+    delete process.env.FORCE_COLOR;
+    delete process.env.NO_COLOR;
+    process.env.TERM = 'xterm-256color';
+    tty = process.stdout.isTTY;
+    process.stdout.isTTY = true;
+  });
+
+  afterEach(() => {
+    process.env = { ...saved };
+    process.stdout.isTTY = /** @type {true} */ (tty);
+  });
+
+  it('writes plain text to a --out file', async () => {
+    const report = join(root, 'test.txt');
+    const prod = join(root, 'prod.txt');
+    await run(testCommand, [site, '--structure', '--out', report, '--project', root]);
+    await run(prodTestCommand, [site, '--out', prod, '--project', root]);
+    expect(readFileSync(report, 'utf8')).not.toContain(ESC);
+    expect(readFileSync(prod, 'utf8')).toContain('/');
+    expect(readFileSync(prod, 'utf8')).not.toContain(ESC);
+  });
+
+  it('writes plain text to a stderr that is a pipe', async () => {
+    const { stderr } = await run(
+      ({ argv }) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv }),
+      ['test', '--project', root],
+    );
+    expect(stderr).toContain('Error');
+    expect(stderr).not.toContain(ESC);
   });
 });
