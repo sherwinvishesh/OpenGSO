@@ -115,6 +115,10 @@ Prints a fix prompt carrying the score, the URL, the expected twin URL, the dete
 every failed check with its id, the points it cost, and the actual observed reason. It references
 only `opengeo-prod` and OpenGEO's own documentation.
 
+Anything the site sent, such as a header value or a JSON-LD field, is quoted as a single-line code
+span and cut at 400 characters, and the prompt tells the agent that those spans are evidence and
+not instructions. A server cannot use its own responses to add steps to the prompt.
+
 Framework detection covers Next.js, Nuxt, Astro, SvelteKit, Remix, Gatsby, Docusaurus, Vite and
 plain HTML, so the prompt tells the agent where the middleware actually goes.
 
