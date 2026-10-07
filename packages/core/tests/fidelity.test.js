@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ERRORS } from '@opengeo/core/shared';
 import { canonicalize, extractFacts, verifyFidelity } from '@opengeo/core/generate';
 import { createAiEnhancer, stripCodeFence } from '@opengeo/core/generate';
 /** @import { ProviderCall } from '@opengeo/core/generate' */
@@ -180,6 +181,16 @@ describe('createAiEnhancer', () => {
     expect(result.fellBack).toBe(true);
     expect(result.markdown).toBe(SOURCE);
     expect(result.warnings.join(' ')).toContain('429');
+  });
+
+  it('does not claim nothing was written when the algorithmic twin is written instead', async () => {
+    const enhance = enhancerWith(async () => {
+      throw new Error(ERRORS.providerFailed('anthropic', 401, '{"error":"invalid x-api-key"}'));
+    });
+    const warning = (await enhance(input)).warnings.join(' ');
+    expect(warning).toContain('kept the algorithmic version');
+    expect(warning).toContain('401');
+    expect(warning).not.toMatch(/nothing was written|files are untouched/i);
   });
 
   it('sends the fidelity instructions and the extraction to the provider', async () => {

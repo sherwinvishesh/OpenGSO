@@ -573,15 +573,12 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   stoppedAfterWriting: (files) => `Already written before that, and left as it is: ${files.join(', ')}.`,
 
   /**
+   * What the failure cost is the caller's to say: generate still writes the algorithmic twin, and
+   * test --quality writes nothing at all, so a fixed "nothing was written" was wrong for generate.
+   *
    * @param {string} provider
    * @param {number} status
    * @param {string} body
    */
-  providerFailed: (provider, status, body) =>
-    [
-      `The ${provider} API returned ${status}.`,
-      `  ${body.slice(0, 400)}`,
-      ``,
-      `Nothing was written. Your existing files are untouched.`,
-    ].join('\n'),
+  providerFailed: (provider, status, body) => [`The ${provider} API returned ${status}.`, `  ${body.slice(0, 400)}`].join('\n'),
 });
