@@ -103,7 +103,7 @@ hand.
 ```jsonc
 {
   "site": "https://example.com",
-  "publicDir": "public",          // where generated files go
+  "publicDir": "public",          // where generated files go; a folder below the project root
   "internalDir": ".opengeo",      // bookkeeping, never web-served
   "extraRoutes": [],              // pages nothing links to
   "crawl": { "maxPages": 200, "maxDepth": 4, "exclude": [] },

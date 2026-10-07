@@ -205,9 +205,15 @@ export const PROVIDERS: readonly ProviderInfo[] = [
   },
 ];
 
-export const AI_PROVIDERS: AiProvider[] = PROVIDERS.map((provider) => provider.id);
+// The three derived tables below are marked pure so a bundle that imports this module and uses none
+// of them can drop them, catalogue and all. `errors.ts` imports from here and `config.ts` imports
+// `errors.ts`, so without the marks `opengeo-prod` ships every provider endpoint. `check:bundles`
+// is what notices if a new top-level call undoes this.
+export const AI_PROVIDERS: AiProvider[] = /* @__PURE__ */ PROVIDERS.map((provider) => provider.id);
 
-const BY_ID = new Map<AiProvider, ProviderInfo>(PROVIDERS.map((provider) => [provider.id, provider]));
+const BY_ID = /* @__PURE__ */ new Map<AiProvider, ProviderInfo>(
+  /* @__PURE__ */ PROVIDERS.map((provider) => [provider.id, provider]),
+);
 
 export function isAiProvider(value: unknown): value is AiProvider {
   return typeof value === 'string' && BY_ID.has(value as AiProvider);
@@ -219,8 +225,8 @@ export function providerInfo(id: AiProvider): ProviderInfo {
   return found;
 }
 
-export const DEFAULT_MODELS: Record<AiProvider, string> = Object.fromEntries(
-  PROVIDERS.map((provider) => [provider.id, provider.defaultModel]),
+export const DEFAULT_MODELS: Record<AiProvider, string> = /* @__PURE__ */ Object.fromEntries(
+  /* @__PURE__ */ PROVIDERS.map((provider) => [provider.id, provider.defaultModel]),
 ) as Record<AiProvider, string>;
 
 /** Every provider-native variable the catalogue accepts, in picker order, for the docs and `.env`. */

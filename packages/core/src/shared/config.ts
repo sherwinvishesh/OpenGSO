@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import type { CustomBotInput } from './bots.js';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
+import { CONFIG_ERRORS } from './errors.js';
 import type { AiProvider, ProviderApi, ProviderAuth, ProviderOverrides } from './providers.js';
 
 // Types only, and deliberately: `prod` loads the config on every boot, and a value import from the
@@ -112,10 +113,32 @@ export function loadConfig(startDir = process.cwd()): LoadedConfig {
   const path = findConfigFile(startDir);
   if (!path) return { config: defaultConfig(), root: resolve(startDir), exists: false };
   const raw = JSON.parse(readFileSync(path, 'utf8')) as ConfigPatch;
-  return { config: mergeConfig(defaultConfig(), raw), root: dirname(path), path, exists: true };
+  const config = mergeConfig(defaultConfig(), raw);
+  const problem = projectDirProblem(dirname(path), config);
+  if (problem) throw new Error(problem);
+  return { config, root: dirname(path), path, exists: true };
+}
+
+/**
+ * Why `publicDir` or `internalDir` would put OpenGEO outside the project, or nothing if both are fine.
+ *
+ * Generate writes into both, the dashboard reads out of the first, and the project root holds `.env`.
+ * A web root of `.` once let the dashboard hand the API key to anybody who asked for `.env`, and
+ * `/etc` let it read the host's files. Strictly inside, never equal: the root is where the key lives.
+ */
+export function projectDirProblem(root: string, config: Pick<OpenGeoConfig, 'publicDir' | 'internalDir'>): string | undefined {
+  const base = resolve(root);
+  for (const field of ['publicDir', 'internalDir'] as const) {
+    const value: unknown = config[field];
+    const inside = typeof value === 'string' && value.trim() !== '' && resolve(base, value).startsWith(base + sep);
+    if (!inside) return CONFIG_ERRORS.dirOutsideProject(field, value, base);
+  }
+  return undefined;
 }
 
 export function saveConfig(root: string, config: OpenGeoConfig): string {
+  const problem = projectDirProblem(root, config);
+  if (problem) throw new Error(problem);
   const path = join(root, CONFIG_FILENAME);
   writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   return path;

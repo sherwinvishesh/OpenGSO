@@ -7,7 +7,22 @@
 
 import { AI_PROVIDERS, PROVIDERS, providerInfo } from './providers.js';
 
-export type CommandName = 'test' | 'generate' | 'settings' | 'start' | 'prod test';
+/**
+ * The errors config loading can raise, kept apart from `ERRORS` because `opengeo-prod` loads the
+ * config on every boot and `ERRORS` reaches into the provider catalogue. Nothing in here may
+ * reference a provider, or prod's bundle grows AI code and `check:bundles` fails the build.
+ */
+export const CONFIG_ERRORS = {
+  dirOutsideProject: (field: string, value: unknown, root: string) =>
+    [
+      `${field} in opengeo.config.json is ${JSON.stringify(value)}, which is not a directory inside the project.`,
+      ``,
+      `It has to be a relative path to a folder below ${root}, such as "public". The project root`,
+      `itself is refused too: it holds .env, and anything OpenGEO can read or write there is too much.`,
+    ].join('\n'),
+} as const;
+
+export type CommandName ='test' | 'generate' | 'settings' | 'start' | 'prod test';
 
 /** Which published packages actually ship each command (§10). */
 export const COMMAND_PACKAGES: Record<CommandName, string[]> = {

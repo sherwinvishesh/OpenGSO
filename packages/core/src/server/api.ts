@@ -14,6 +14,7 @@ import {
   internalDirPath,
   loadConfig,
   mergeConfig,
+  projectDirProblem,
   providerOverridesOf,
   publicDirPath,
   saveConfig,
@@ -251,6 +252,8 @@ function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
 
   const loaded = loadConfig(options.root);
   const next = mergeConfig(loaded.config, patch);
+  const problem = projectDirProblem(options.root, next);
+  if (problem) return bad(problem);
   const configPath = saveConfig(options.root, next);
   return ok({ config: next, configPath });
 }
@@ -605,6 +608,8 @@ function readFileRoute(body: unknown, options: ApiOptions): ApiResponse {
   return ok({ path: relative, content });
 }
 
+const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.opengeo-proposed)?)$/;
+
 // -- shared --------------------------------------------------------------------------------------
 
 /**
@@ -639,8 +644,15 @@ function resolveCredentials(root: string, config: OpenGeoConfig, feature: string
  * server confines asset paths: resolve first, then refuse anything that did not stay inside. The
  * separator matters - without it, a sibling directory named `public-old` would pass a bare
  * `startsWith`.
+ *
+ * Staying inside is necessary and not enough. A web root holds whatever the project put there, so
+ * on top of it the name has to be one generate writes: a twin under `md/`, or one of the three site
+ * files and its proposed copy. No dotfile anywhere in the path, whatever directory it is in.
  */
 export function readGeneratedFile(root: string, relativePath: string): string | undefined {
+  if (!GENERATED_FILE.test(relativePath) || relativePath.split('/').some((part) => part.startsWith('.'))) {
+    return undefined;
+  }
   const loaded = loadConfig(root);
   const base = publicDirPath(loaded);
   const path = resolve(base, relativePath);

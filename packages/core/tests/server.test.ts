@@ -13,7 +13,7 @@ import {
   type RunningServer,
 } from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
-import { CONFIG_FILENAME, defaultConfig } from '../src/shared/config.js';
+import { CONFIG_FILENAME, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
 import type { Evidence, TestResult } from '../src/test/index.js';
 
@@ -311,6 +311,54 @@ describe('reading generated files', () => {
 
   it('404s a file that has not been generated', async () => {
     expect((await post('/api/file', { path: 'md/nothing.md' })).status).toBe(404);
+  });
+
+  it('reads only what generate writes, never another file that happens to sit in the web root', async () => {
+    writeFileSync(join(root, 'public', 'robots.txt'), 'User-agent: *');
+    writeFileSync(join(root, 'public', 'robots.txt.opengeo-proposed'), 'User-agent: GPTBot');
+    writeFileSync(join(root, 'public', '.env'), `KEY=${KEY}`);
+    writeFileSync(join(root, 'public', 'secrets.json'), '{}');
+    mkdirSync(join(root, 'public', 'md', '.hidden'));
+    writeFileSync(join(root, 'public', 'md', '.hidden', 'x.md'), 'x');
+
+    expect(readGeneratedFile(root, 'robots.txt')).toBe('User-agent: *');
+    expect(readGeneratedFile(root, 'robots.txt.opengeo-proposed')).toBe('User-agent: GPTBot');
+    expect(readGeneratedFile(root, '.env')).toBeUndefined();
+    expect(readGeneratedFile(root, 'secrets.json')).toBeUndefined();
+    expect(readGeneratedFile(root, 'md/.hidden/x.md')).toBeUndefined();
+  });
+});
+
+describe('the web root and the internal directory stay inside the project', () => {
+  it('refuses a patch that points either one at the project root, above it, or anywhere absolute', async () => {
+    for (const patch of [
+      { publicDir: '.' },
+      { publicDir: '' },
+      { publicDir: '/etc' },
+      { publicDir: '../sibling' },
+      { internalDir: '..' },
+      { internalDir: '/tmp/opengeo' },
+    ]) {
+      const response = await post('/api/config', patch);
+      expect(response.status, JSON.stringify(patch)).toBe(400);
+    }
+    expect(existsSync(join(root, CONFIG_FILENAME))).toBe(false);
+  });
+
+  it('still accepts a nested web root', async () => {
+    expect((await post('/api/config', { publicDir: 'apps/web/public' })).status).toBe(200);
+  });
+
+  it('closes the reported leak: the API key cannot be read back through /api/file', async () => {
+    writeFileSync(join(root, ENV_FILENAME), `${KEY_VAR}=${KEY}\n`);
+    await post('/api/config', { publicDir: '.' });
+    const response = await post('/api/file', { path: ENV_FILENAME });
+    expect(JSON.stringify(response.body)).not.toContain(KEY);
+  });
+
+  it('refuses a hand-edited config that escapes, so the CLI and prod are covered too', () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ publicDir: '/etc' }));
+    expect(() => loadConfig(root)).toThrow(/publicDir/);
   });
 });
 

@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import type { CustomBotInput } from '../shared/bots.js';
 import { resolveBots, resolveRoutableBots } from '../shared/bots.js';
 import type { OpenGeoConfig } from '../shared/config.js';
-import { CONFIG_FILENAME, defaultConfig, loadConfig, saveConfig } from '../shared/config.js';
+import { CONFIG_FILENAME, defaultConfig, loadConfig, projectDirProblem, saveConfig } from '../shared/config.js';
 import type { AiProvider, ProviderApi } from '../shared/providers.js';
 import { PROVIDERS, providerInfo } from '../shared/providers.js';
 import type { GitignoreResult } from '../shared/env.js';
@@ -174,7 +174,18 @@ async function askWebRoot(ctx: StepContext, current: string): Promise<string> {
   const configured = ctx.hasConfig ? current : '';
   const guess: WebRootGuess = detectWebRoot(ctx.root);
   if (!configured && guess.found) ctx.write(`  ${c.gray(`Detected ${guess.dir}/ - ${guess.why}.`)}\n`);
-  return ctx.prompter.ask('  Web root (generated files land here)', configured || guess.dir);
+  let answer = await ctx.prompter.ask('  Web root (generated files land here)', configured || guess.dir);
+  // The detector's guess is always a folder below the root, so offering it again cannot loop, and a
+  // non-interactive prompter that only ever returns the fallback gets a valid answer the second time.
+  for (let problem = webRootProblem(ctx.root, answer); problem; problem = webRootProblem(ctx.root, answer)) {
+    ctx.write(`  ${c.yellow(problem.split('\n')[0] ?? problem)}\n`);
+    answer = await ctx.prompter.ask('  Web root (generated files land here)', guess.dir);
+  }
+  return answer;
+}
+
+function webRootProblem(root: string, publicDir: string): string | undefined {
+  return projectDirProblem(root, { publicDir, internalDir: defaultConfig().internalDir });
 }
 
 interface RoutingAnswer {

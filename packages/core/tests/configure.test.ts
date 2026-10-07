@@ -115,6 +115,19 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
     });
   });
 
+  describe('the web root', () => {
+    it('refuses the project root and anything above it, and asks again with the detected folder', async () => {
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:3000', '.'], choose: ['all', 'skip'] });
+
+      await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('not a directory inside the project');
+      expect(prompter.asked.filter((question) => question.startsWith('Web root'))).toHaveLength(2);
+      expect(JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).publicDir).toBe('public');
+    });
+  });
+
   describe('the key never leaks (§11)', () => {
     it('puts .env in .gitignore before it asks for the key, not after', async () => {
       let gitignoreAtSecretTime: string | undefined;
