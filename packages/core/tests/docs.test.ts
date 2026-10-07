@@ -77,7 +77,7 @@ describe('docs/checks.md', () => {
   it('names a partial band for every check that can award one', () => {
     // Derived from the source rather than from a list kept here, because a list kept here is a
     // second place to forget. Any `partial('B6', ...)` in the runner has to have a documented band.
-    const runner = read('packages/core/src/test/runner.ts');
+    const runner = read('packages/core/src/test/runner.js');
     const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id!));
     expect(graded.size).toBeGreaterThan(0);
     for (const id of graded) {

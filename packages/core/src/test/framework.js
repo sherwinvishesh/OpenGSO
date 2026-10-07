@@ -1,4 +1,4 @@
-import type { ProbeResult } from '../shared/http.js';
+/** @import { ProbeResult } from '../shared/http.js' */
 
 /**
  * Framework detection (§5), used to make the report and the fix prompt specific.
@@ -13,34 +13,35 @@ import type { ProbeResult } from '../shared/http.js';
  * nothing.
  */
 
-export type FrameworkId =
-  | 'nextjs'
-  | 'nuxt'
-  | 'astro'
-  | 'sveltekit'
-  | 'remix'
-  | 'gatsby'
-  | 'docusaurus'
-  | 'vite'
-  | 'plain';
+/**
+ * @typedef {'nextjs'
+ *   | 'nuxt'
+ *   | 'astro'
+ *   | 'sveltekit'
+ *   | 'remix'
+ *   | 'gatsby'
+ *   | 'docusaurus'
+ *   | 'vite'
+ *   | 'plain'} FrameworkId
+ */
 
-export interface Framework {
-  id: FrameworkId;
-  /** Display name, used verbatim in the report and the fix prompt. */
-  name: string;
-  /** What gave it away, so the user can disagree with us. */
-  evidence: string;
-}
+/**
+ * @typedef {object} Framework
+ * @property {FrameworkId} id
+ * @property {string} name Display name, used verbatim in the report and the fix prompt.
+ * @property {string} evidence What gave it away, so the user can disagree with us.
+ */
 
-interface Signature {
-  id: FrameworkId;
-  name: string;
-  /** Ordered: the first match wins, so more specific frameworks come before what they are built on. */
-  html?: Array<{ pattern: RegExp; evidence: string }>;
-  header?: Array<{ name: string; pattern?: RegExp; evidence: string }>;
-}
+/**
+ * @typedef {object} Signature
+ * @property {FrameworkId} id
+ * @property {string} name
+ * @property {Array<{ pattern: RegExp; evidence: string }>} [html] Ordered: the first match wins, so more specific frameworks come before what they are built on.
+ * @property {Array<{ name: string; pattern?: RegExp; evidence: string }>} [header]
+ */
 
-const SIGNATURES: Signature[] = [
+/** @type {Signature[]} */
+const SIGNATURES = [
   {
     // Before Next.js: a Docusaurus site is a React site and carries some of the same markers.
     id: 'docusaurus',
@@ -112,7 +113,12 @@ const SIGNATURES: Signature[] = [
   },
 ];
 
-export function detectFramework(html: string, headers?: Headers): Framework | undefined {
+/**
+ * @param {string} html
+ * @param {Headers} [headers]
+ * @returns {Framework | undefined}
+ */
+export function detectFramework(html, headers) {
   for (const signature of SIGNATURES) {
     for (const rule of signature.html ?? []) {
       if (rule.pattern.test(html)) {
@@ -136,14 +142,22 @@ export function detectFramework(html: string, headers?: Headers): Framework | un
 /**
  * A page with no bundle at all. Worth naming separately, because the fix for a plain HTML site is
  * not middleware: it is writing the `.md` files next to the `.html` ones and configuring the host.
+ *
+ * @param {string} html
+ * @returns {boolean}
  */
-function looksStatic(html: string): boolean {
+function looksStatic(html) {
   const scripts = html.match(/<script\b[^>]*>/gi) ?? [];
   return !scripts.some((tag) => /\bsrc=/i.test(tag) || /type=["']module["']/i.test(tag));
 }
 
-/** Convenience for the report and the prompt, which both work from gathered evidence. */
-export function detectFrameworkFrom(html: ProbeResult): Framework | undefined {
+/**
+ * Convenience for the report and the prompt, which both work from gathered evidence.
+ *
+ * @param {ProbeResult} html
+ * @returns {Framework | undefined}
+ */
+export function detectFrameworkFrom(html) {
   if (!html.body) return undefined;
   return detectFramework(html.body, html.headers);
 }

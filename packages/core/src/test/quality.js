@@ -1,10 +1,13 @@
-import type { AiProvider, ProviderOverrides } from '../shared/providers.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
-import type { ProviderFn } from '../generate/ai.js';
 import { callProvider, stripCodeFence } from '../generate/ai.js';
-import type { DiscoveredTwin } from './discover.js';
+
+/**
+ * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
+ * @import { ProviderFn } from '../generate/ai.js'
+ * @import { DiscoveredTwin } from './discover.js'
+ */
 
 /**
  * The optional AI content review (§5), and its own 0-100 score.
@@ -37,7 +40,7 @@ import type { DiscoveredTwin } from './discover.js';
  *
  * Ordered heaviest first, which is also the order they are asked about in the prompt.
  */
-export const QUALITY_AREAS = [
+export const QUALITY_AREAS = /** @type {const} */ ([
   {
     id: 'answerability',
     label: 'Answerability',
@@ -68,9 +71,9 @@ export const QUALITY_AREAS = [
     weight: 10,
     asks: 'Are the words someone would actually search for present, and used naturally rather than stuffed?',
   },
-] as const;
+]);
 
-export type QualityAreaId = (typeof QUALITY_AREAS)[number]['id'];
+/** @typedef {(typeof QUALITY_AREAS)[number]['id']} QualityAreaId */
 
 /** Total of the area weights. 100 by construction; asserted by the tests rather than assumed. */
 export const QUALITY_TOTAL_WEIGHT = QUALITY_AREAS.reduce((total, area) => total + area.weight, 0);
@@ -83,22 +86,27 @@ export const QUALITY_TOTAL_WEIGHT = QUALITY_AREAS.reduce((total, area) => total 
  * actually do with the document are the closest thing to a fixed reference point available here,
  * and the report repeats them so a number on screen can be interpreted without the prompt.
  */
-export const QUALITY_BANDS = [
+export const QUALITY_BANDS = /** @type {const} */ ([
   { from: 90, label: 'Anything a reader could reasonably ask is answered here, with specifics.' },
   { from: 75, label: 'Solid. A reader gets what they came for, with gaps at the edges.' },
   { from: 60, label: 'Usable, but vague in places a reader would notice.' },
   { from: 40, label: 'Thin. A reader would have to go back to the site for the real answer.' },
   { from: 20, label: 'Mostly claims and navigation. Very little a reader could use.' },
   { from: 0, label: 'An agent would learn almost nothing from this document.' },
-] as const;
+]);
 
-export function qualityBand(score: number): string {
-  return (QUALITY_BANDS.find((band) => score >= band.from) ?? QUALITY_BANDS[QUALITY_BANDS.length - 1]!).label;
+/**
+ * @param {number} score
+ * @returns {string}
+ */
+export function qualityBand(score) {
+  return (QUALITY_BANDS.find((band) => score >= band.from) ?? /** @type {NonNullable<(typeof QUALITY_BANDS)[number]>} */ (QUALITY_BANDS[QUALITY_BANDS.length - 1])).label;
 }
 
-export type Priority = 'high' | 'medium' | 'low';
+/** @typedef {'high' | 'medium' | 'low'} Priority */
 
-const PRIORITIES: readonly Priority[] = ['high', 'medium', 'low'];
+/** @type {readonly Priority[]} */
+const PRIORITIES = ['high', 'medium', 'low'];
 
 /**
  * One thing to change, in the imperative.
@@ -106,58 +114,49 @@ const PRIORITIES: readonly Priority[] = ['high', 'medium', 'low'];
  * The shape is what makes a recommendation usable rather than decorative: `action` is the edit,
  * `where` is the place in the document to make it, and `impact` is what the reader gains. A model
  * that answers "improve clarity" fails all three, which is why the prompt asks for them by name.
+ *
+ * @typedef {object} QualityRecommendation
+ * @property {string} area Which of the five areas this lifts. Free text, because a model may name its own.
+ * @property {string} action The edit to make, in the imperative: "Add the billing period to each plan".
+ * @property {string} [impact] What a reader gains. Absent when the model gave only the action.
+ * @property {Priority} priority
+ * @property {string} [where] A heading or quoted phrase locating the edit. Absent when the change is document-wide.
  */
-export interface QualityRecommendation {
-  /** Which of the five areas this lifts. Free text, because a model may name its own. */
-  area: string;
-  /** The edit to make, in the imperative: "Add the billing period to each plan". */
-  action: string;
-  /** What a reader gains. Absent when the model gave only the action. */
-  impact?: string;
-  priority: Priority;
-  /** A heading or quoted phrase locating the edit. Absent when the change is document-wide. */
-  where?: string;
-}
 
-export interface QualityFinding {
-  /** Short label, normally one of the five area labels. */
-  area: string;
-  /** The model's read on this area, in one or two sentences. */
-  note: string;
-  /** 0-100 for this area alone. Optional: a reply that omitted it still renders. */
-  score?: number;
-}
+/**
+ * @typedef {object} QualityFinding
+ * @property {string} area Short label, normally one of the five area labels.
+ * @property {string} note The model's read on this area, in one or two sentences.
+ * @property {number} [score] 0-100 for this area alone. Optional: a reply that omitted it still renders.
+ */
 
-export interface QualityReview {
-  /** 0-100 for this document. Derived from the findings, never asked for directly. */
-  score?: number;
-  summary: string;
-  findings: QualityFinding[];
-  recommendations: QualityRecommendation[];
-  provider: AiProvider;
-  model: string;
-  /** Set when the model answered but not in the shape asked for. The raw text is still shown. */
-  raw?: string;
-}
+/**
+ * @typedef {object} QualityReview
+ * @property {number} [score] 0-100 for this document. Derived from the findings, never asked for directly.
+ * @property {string} summary
+ * @property {QualityFinding[]} findings
+ * @property {QualityRecommendation[]} recommendations
+ * @property {AiProvider} provider
+ * @property {string} model
+ * @property {string} [raw] Set when the model answered but not in the shape asked for. The raw text is still shown.
+ */
 
-export interface QualityOptions {
-  provider: AiProvider;
-  apiKey: string;
-  model?: string;
-  /** Injectable so tests never touch the network. */
-  call?: ProviderFn;
-  timeoutMs?: number;
-  /** Endpoint overrides, for a gateway or a provider OpenGEO does not ship with. */
-  overrides?: ProviderOverrides;
-  /** Overridable only so the CI guard itself is testable. */
-  env?: Record<string, string | undefined>;
-}
+/**
+ * @typedef {object} QualityOptions
+ * @property {AiProvider} provider
+ * @property {string} apiKey
+ * @property {string} [model]
+ * @property {ProviderFn} [call] Injectable so tests never touch the network.
+ * @property {number} [timeoutMs]
+ * @property {ProviderOverrides} [overrides] Endpoint overrides, for a gateway or a provider OpenGEO does not ship with.
+ * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is testable.
+ */
 
-export interface QualityInput {
-  url: string;
-  /** The markdown a real agent receives at the twin URL. */
-  markdown: string;
-}
+/**
+ * @typedef {object} QualityInput
+ * @property {string} url
+ * @property {string} markdown The markdown a real agent receives at the twin URL.
+ */
 
 export const QUALITY_SYSTEM_PROMPT = [
   'You review a Markdown document that a website serves to AI agents in place of its HTML page.',
@@ -193,7 +192,11 @@ export const QUALITY_SYSTEM_PROMPT = [
   'Include one finding per area, all five, in the order given above.',
 ].join('\n');
 
-export function buildQualityPrompt(input: QualityInput): string {
+/**
+ * @param {QualityInput} input
+ * @returns {string}
+ */
+export function buildQualityPrompt(input) {
   return [
     `Document URL: ${input.url}`,
     '',
@@ -203,8 +206,13 @@ export function buildQualityPrompt(input: QualityInput): string {
   ].join('\n');
 }
 
-/** The catalogue weight for a label the model used, matched on the label or the id, or undefined. */
-export function areaWeight(area: string): number | undefined {
+/**
+ * The catalogue weight for a label the model used, matched on the label or the id, or undefined.
+ *
+ * @param {string} area
+ * @returns {number | undefined}
+ */
+export function areaWeight(area) {
   const key = area.trim().toLowerCase();
   return QUALITY_AREAS.find((entry) => entry.id === key || entry.label.toLowerCase() === key)?.weight;
 }
@@ -217,8 +225,11 @@ export function areaWeight(area: string): number | undefined {
  * denominator rather than scoring zero, because a model that returned four findings instead of five
  * has told you nothing about the fifth. An area OpenGEO does not know about is ignored in the
  * arithmetic and still printed, on the same principle.
+ *
+ * @param {readonly QualityFinding[]} findings
+ * @returns {number | undefined}
  */
-export function scoreFindings(findings: readonly QualityFinding[]): number | undefined {
+export function scoreFindings(findings) {
   let earned = 0;
   let weight = 0;
   for (const finding of findings) {
@@ -235,8 +246,12 @@ export function scoreFindings(findings: readonly QualityFinding[]): number | und
  * Run the review. Throws only for the two refusals the user needs to see and act on - CI, and an
  * unknown provider. A provider that errors mid-call is reported as a failed review rather than
  * thrown, because the structural report is already on screen and must not be lost.
+ *
+ * @param {QualityInput} input
+ * @param {QualityOptions} options
+ * @returns {Promise<QualityReview>}
  */
-export async function reviewQuality(input: QualityInput, options: QualityOptions): Promise<QualityReview> {
+export async function reviewQuality(input, options) {
   if (!isAiProvider(options.provider)) {
     throw new Error(ERRORS.unknownProvider(options.provider, AI_PROVIDERS));
   }
@@ -269,65 +284,64 @@ export async function reviewQuality(input: QualityInput, options: QualityOptions
  * One call per document, because a single call carrying ten documents produces ten shallow
  * paragraphs and one exhausted context window. Documents are reviewed a few at a time and a failure
  * on one is recorded against that document rather than losing the rest.
+ *
+ * @typedef {object} DocumentReview
+ * @property {string} url
+ * @property {string} [pageUrl]
+ * @property {string} source
+ * @property {number} words
+ * @property {QualityReview} [review]
+ * @property {string} [error] Set when this one document could not be reviewed. The rest of the run still stands.
  */
-export interface DocumentReview {
-  url: string;
-  pageUrl?: string;
-  source: string;
-  words: number;
-  review?: QualityReview;
-  /** Set when this one document could not be reviewed. The rest of the run still stands. */
-  error?: string;
-}
 
-/** One area, averaged across every document that scored it, with what the gap is costing. */
-export interface AreaScore {
-  area: string;
-  /** 0-100, the mean across documents. */
-  score: number;
-  /** Out of 100. Absent for an area the model invented, which therefore costs nothing. */
-  weight?: number;
-  /** Points off the content score this area is responsible for. `weight * (100 - score) / 100`. */
-  lost: number;
-  documents: number;
-}
+/**
+ * One area, averaged across every document that scored it, with what the gap is costing.
+ *
+ * @typedef {object} AreaScore
+ * @property {string} area
+ * @property {number} score 0-100, the mean across documents.
+ * @property {number} [weight] Out of 100. Absent for an area the model invented, which therefore costs nothing.
+ * @property {number} lost Points off the content score this area is responsible for. `weight * (100 - score) / 100`.
+ * @property {number} documents
+ */
 
-/** A recommendation after the same edit has been collapsed across the documents that need it. */
-export interface AggregatedRecommendation extends QualityRecommendation {
-  /** Every document this edit applies to. One entry is the normal case. */
-  documents: string[];
-}
+/**
+ * A recommendation after the same edit has been collapsed across the documents that need it.
+ *
+ * @typedef {QualityRecommendation & {
+ *   documents: string[]; // Every document this edit applies to. One entry is the normal case.
+ * }} AggregatedRecommendation
+ */
 
-export interface ContentReview {
-  provider: AiProvider;
-  model: string;
-  documents: DocumentReview[];
-  /**
-   * 0-100 across the whole site's Markdown, and never mixed into the structural score. The mean of
-   * the per-document scores, so ten strong pages are not rescued by one perfect one.
-   */
-  score?: number;
-  /** Per-area means across every document that scored that area, weakest first. */
-  areaScores: AreaScore[];
-  /** Every recommendation, deduplicated across documents and ordered by priority. */
-  recommendations: AggregatedRecommendation[];
-  /** Documents found but not reviewed because of `maxDocuments`. */
-  notReviewed: number;
-}
+/**
+ * @typedef {object} ContentReview
+ * @property {AiProvider} provider
+ * @property {string} model
+ * @property {DocumentReview[]} documents
+ * @property {number} [score] 0-100 across the whole site's Markdown, and never mixed into the structural score. The mean of
+ *   the per-document scores, so ten strong pages are not rescued by one perfect one.
+ * @property {AreaScore[]} areaScores Per-area means across every document that scored that area, weakest first.
+ * @property {AggregatedRecommendation[]} recommendations Every recommendation, deduplicated across documents and ordered by priority.
+ * @property {number} notReviewed Documents found but not reviewed because of `maxDocuments`.
+ */
 
-export interface ContentReviewOptions extends QualityOptions {
-  /** Hard cap on how many documents are sent to the provider. Every one of them costs money. */
-  maxDocuments?: number;
-  /** How many reviews are in flight at once. */
-  concurrency?: number;
-  /** Called as each document finishes, so a long run can narrate itself. */
-  onProgress?: (done: number, total: number, url: string) => void;
-}
+/**
+ * @typedef {QualityOptions & {
+ *   maxDocuments?: number; // Hard cap on how many documents are sent to the provider. Every one of them costs money.
+ *   concurrency?: number; // How many reviews are in flight at once.
+ *   onProgress?: (done: number, total: number, url: string) => void; // Called as each document finishes, so a long run can narrate itself.
+ * }} ContentReviewOptions
+ */
 
 const DEFAULT_MAX_DOCUMENTS = 10;
 const DEFAULT_CONCURRENCY = 3;
 
-export async function reviewContent(twins: readonly DiscoveredTwin[], options: ContentReviewOptions): Promise<ContentReview> {
+/**
+ * @param {readonly DiscoveredTwin[]} twins
+ * @param {ContentReviewOptions} options
+ * @returns {Promise<ContentReview>}
+ */
+export async function reviewContent(twins, options) {
   if (!isAiProvider(options.provider)) {
     throw new Error(ERRORS.unknownProvider(options.provider, AI_PROVIDERS));
   }
@@ -341,7 +355,8 @@ export async function reviewContent(twins: readonly DiscoveredTwin[], options: C
 
   const max = options.maxDocuments ?? DEFAULT_MAX_DOCUMENTS;
   const reviewing = twins.slice(0, max);
-  const documents: DocumentReview[] = reviewing.map((twin) => ({
+  /** @type {DocumentReview[]} */
+  const documents = reviewing.map((twin) => ({
     url: twin.url,
     pageUrl: twin.pageUrl,
     source: twin.source,
@@ -353,7 +368,7 @@ export async function reviewContent(twins: readonly DiscoveredTwin[], options: C
   for (let i = 0; i < reviewing.length; i += concurrency) {
     await Promise.all(
       reviewing.slice(i, i + concurrency).map(async (twin, offset) => {
-        const entry = documents[i + offset]!;
+        const entry = /** @type {DocumentReview} */ (documents[i + offset]);
         try {
           entry.review = await reviewQuality({ url: twin.url, markdown: twin.markdown }, { ...options, model });
         } catch (error) {
@@ -369,14 +384,18 @@ export async function reviewContent(twins: readonly DiscoveredTwin[], options: C
     provider: options.provider,
     model,
     documents,
-    score: mean(documents.map((doc) => doc.review?.score).filter((value): value is number => typeof value === 'number')),
+    score: mean(documents.map((doc) => doc.review?.score).filter(/** @returns {value is number} */ (value) => typeof value === 'number')),
     areaScores: aggregateAreas(documents),
     recommendations: aggregateRecommendations(documents),
     notReviewed: twins.length - reviewing.length,
   };
 }
 
-function mean(values: readonly number[]): number | undefined {
+/**
+ * @param {readonly number[]} values
+ * @returns {number | undefined}
+ */
+function mean(values) {
   if (values.length === 0) return undefined;
   return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
 }
@@ -389,9 +408,13 @@ function mean(values: readonly number[]): number | undefined {
  * Ordered by what each area is costing rather than by its raw score, so the row at the top is the
  * one worth working on: a weak area worth 10 points is a smaller problem than a middling one
  * worth 30, and sorting on the score alone would put them the wrong way round.
+ *
+ * @param {readonly DocumentReview[]} documents
+ * @returns {AreaScore[]}
  */
-function aggregateAreas(documents: readonly DocumentReview[]): AreaScore[] {
-  const buckets = new Map<string, { total: number; count: number; label: string }>();
+function aggregateAreas(documents) {
+  /** @type {Map<string, { total: number; count: number; label: string }>} */
+  const buckets = new Map();
   for (const document of documents) {
     for (const finding of document.review?.findings ?? []) {
       if (typeof finding.score !== 'number') continue;
@@ -417,9 +440,13 @@ function aggregateAreas(documents: readonly DocumentReview[]): AreaScore[] {
  * Two documents that both need prices added are one job, and a reader working through the list
  * needs to see it once with both URLs attached. Collapsing on the normalised action is crude but
  * it only ever merges wording a model repeated verbatim, which is exactly the case that matters.
+ *
+ * @param {readonly DocumentReview[]} documents
+ * @returns {AggregatedRecommendation[]}
  */
-function aggregateRecommendations(documents: readonly DocumentReview[]): AggregatedRecommendation[] {
-  const merged = new Map<string, AggregatedRecommendation>();
+function aggregateRecommendations(documents) {
+  /** @type {Map<string, AggregatedRecommendation>} */
+  const merged = new Map();
   for (const document of documents) {
     for (const recommendation of document.review?.recommendations ?? []) {
       const key = recommendation.action.trim().toLowerCase().replace(/[^a-z0-9 ]+/g, '');
@@ -449,14 +476,19 @@ function aggregateRecommendations(documents: readonly DocumentReview[]): Aggrega
  * `suggestions` array of bare strings instead of `recommendations`, and a 1-5 `rating` instead of
  * per-area scores. Both are upgraded rather than dropped, because a review that renders with less
  * detail is worth more than an error that renders with none.
+ *
+ * @param {string} text
+ * @param {AiProvider} provider
+ * @param {string} model
+ * @returns {QualityReview}
  */
-export function parseQuality(text: string, provider: AiProvider, model: string): QualityReview {
+export function parseQuality(text, provider, model) {
   const cleaned = stripCodeFence(text).trim();
   const json = extractJsonObject(cleaned);
 
   if (json) {
     try {
-      const parsed = JSON.parse(json) as Record<string, unknown>;
+      const parsed = /** @type {Record<string, unknown>} */ (JSON.parse(json));
       const findings = toFindings(parsed.findings);
       return {
         score: scoreFindings(findings) ?? overallScore(parsed),
@@ -481,7 +513,11 @@ export function parseQuality(text: string, provider: AiProvider, model: string):
   };
 }
 
-function extractJsonObject(text: string): string | undefined {
+/**
+ * @param {string} text
+ * @returns {string | undefined}
+ */
+function extractJsonObject(text) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start === -1 || end <= start) return undefined;
@@ -493,23 +529,35 @@ function extractJsonObject(text: string): string | undefined {
  *
  * `rating` is read on the 1-5 scale the older prompt asked for, because a model answering with one
  * is answering the old question and 4 means 80, not 4.
+ *
+ * @param {Record<string, unknown>} parsed
+ * @returns {number | undefined}
  */
-function overallScore(parsed: Record<string, unknown>): number | undefined {
+function overallScore(parsed) {
   if (typeof parsed.score === 'number') return clamp(parsed.score);
   if (typeof parsed.rating === 'number') return clamp(Math.round((Math.min(5, Math.max(1, parsed.rating)) / 5) * 100));
   return undefined;
 }
 
-function clamp(value: number): number {
+/**
+ * @param {number} value
+ * @returns {number}
+ */
+function clamp(value) {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
-function toFindings(value: unknown): QualityFinding[] {
+/**
+ * @param {unknown} value
+ * @returns {QualityFinding[]}
+ */
+function toFindings(value) {
   if (!Array.isArray(value)) return [];
-  const out: QualityFinding[] = [];
+  /** @type {QualityFinding[]} */
+  const out = [];
   for (const item of value) {
     if (!item || typeof item !== 'object') continue;
-    const record = item as Record<string, unknown>;
+    const record = /** @type {Record<string, unknown>} */ (item);
     const area = typeof record.area === 'string' ? record.area : undefined;
     const note = typeof record.note === 'string' ? record.note : undefined;
     // `rating` on a 1-5 scale is the old shape, and 5 there means 100 here.
@@ -530,17 +578,21 @@ function toFindings(value: unknown): QualityFinding[] {
  * A string carries no area and no priority, so it is filed under the area OpenGEO cannot name and
  * at medium. Inventing a priority for it would put a guess in the same column as the model's own
  * judgement, which is worse than admitting the reply was thinner than asked for.
+ *
+ * @param {unknown} value
+ * @returns {QualityRecommendation[]}
  */
-function toRecommendations(value: unknown): QualityRecommendation[] {
+function toRecommendations(value) {
   if (!Array.isArray(value)) return [];
-  const out: QualityRecommendation[] = [];
+  /** @type {QualityRecommendation[]} */
+  const out = [];
   for (const item of value) {
     if (typeof item === 'string') {
       if (item.trim().length > 0) out.push({ area: 'General', action: item.trim(), priority: 'medium' });
       continue;
     }
     if (!item || typeof item !== 'object') continue;
-    const record = item as Record<string, unknown>;
+    const record = /** @type {Record<string, unknown>} */ (item);
     const action = typeof record.action === 'string' ? record.action.trim() : '';
     if (!action) continue;
     out.push({
@@ -554,7 +606,11 @@ function toRecommendations(value: unknown): QualityRecommendation[] {
   return out;
 }
 
-function toPriority(value: unknown): Priority {
+/**
+ * @param {unknown} value
+ * @returns {Priority}
+ */
+function toPriority(value) {
   const found = typeof value === 'string' ? PRIORITIES.find((priority) => priority === value.trim().toLowerCase()) : undefined;
   return found ?? 'medium';
 }

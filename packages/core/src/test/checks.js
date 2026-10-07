@@ -26,8 +26,8 @@
  * properties so a future weight edit cannot quietly break the calibration.
  */
 
-export type CheckCategory = 'A' | 'B';
-export type CheckImportance = 'required' | 'recommended';
+/** @typedef {'A' | 'B'} CheckCategory */
+/** @typedef {'required' | 'recommended'} CheckImportance */
 /**
  * What a check concluded.
  *
@@ -44,46 +44,45 @@ export type CheckImportance = 'required' | 'recommended';
  * - `locked` not measurable until `lockedBy` passes. Out of the denominator, like `na`, but
  *            unlike `na` it is worth points the user can go and unlock, and the report prices it.
  * - `na`     genuinely cannot apply here. HSTS on localhost. Out of the denominator forever.
+ *
+ * @typedef {'pass' | 'partial' | 'fail' | 'locked' | 'na'} CheckStatus
  */
-export type CheckStatus = 'pass' | 'partial' | 'fail' | 'locked' | 'na';
 
-export interface CheckDefinition {
-  id: string;
-  category: CheckCategory;
-  importance: CheckImportance;
-  /** What the check verifies, in plain language. Shown in the CLI and the product website. */
-  title: string;
-  weight: number;
-}
+/**
+ * @typedef {object} CheckDefinition
+ * @property {string} id
+ * @property {CheckCategory} category
+ * @property {CheckImportance} importance
+ * @property {string} title What the check verifies, in plain language. Shown in the CLI and the product website.
+ * @property {number} weight
+ */
 
-export interface CheckResult extends CheckDefinition {
-  status: CheckStatus;
-  /**
-   * Points actually earned, from 0 to `weight`.
-   *
-   * `pass` is the full weight and `fail` is zero, so the binary checks need no thought. It exists
-   * as its own field rather than being derived from the status because a partial has no other
-   * place to put the number, and because the report has to be able to print "2 of 4" without
-   * knowing which band produced it.
-   */
-  earned: number;
-  /** The specific reason this check passed, failed, or did not apply. Never a generic string. */
-  reason: string;
-  /** Optional extra context: an observed header value, a measured number. */
-  detail?: string;
-  /**
-   * The next step, for anything short of a pass.
-   *
-   * Written as an instruction and priced, e.g. "Add `Vary: Accept` to the HTML response too (+2)".
-   * The report's ranked footer is built from these, which is why a `fix` that only restates the
-   * problem is worse than none at all.
-   */
-  fix?: string;
-  /** `locked` only: the id of the check that has to pass before this one can be measured. */
-  lockedBy?: string;
-}
+/**
+ * What a check adds to its definition once it has run. Kept as its own type only so each field can
+ * carry its comment: JSDoc has no `extends`, and a comment cannot sit inside an inline type.
+ *
+ * @typedef {object} CheckOutcome
+ * @property {CheckStatus} status
+ * @property {number} earned Points actually earned, from 0 to `weight`.
+ *
+ *   `pass` is the full weight and `fail` is zero, so the binary checks need no thought. It exists
+ *   as its own field rather than being derived from the status because a partial has no other
+ *   place to put the number, and because the report has to be able to print "2 of 4" without
+ *   knowing which band produced it.
+ * @property {string} reason The specific reason this check passed, failed, or did not apply. Never a generic string.
+ * @property {string} [detail] Optional extra context: an observed header value, a measured number.
+ * @property {string} [fix] The next step, for anything short of a pass.
+ *
+ *   Written as an instruction and priced, e.g. "Add `Vary: Accept` to the HTML response too (+2)".
+ *   The report's ranked footer is built from these, which is why a `fix` that only restates the
+ *   problem is worse than none at all.
+ * @property {string} [lockedBy] `locked` only: the id of the check that has to pass before this one can be measured.
+ */
 
-export const CHECKS: readonly CheckDefinition[] = [
+/** @typedef {CheckDefinition & CheckOutcome} CheckResult */
+
+/** @type {readonly CheckDefinition[]} */
+export const CHECKS = [
   // ---- A. General AI-discoverability -------------------------------------------------------
   { id: 'A1', category: 'A', importance: 'required', weight: 9, title: 'robots.txt exists and does not disallow known AI bots' },
   { id: 'A2', category: 'A', importance: 'recommended', weight: 3, title: 'llms.txt is present and valid' },
@@ -119,18 +118,35 @@ export const CHECKS: readonly CheckDefinition[] = [
 
 const BY_ID = new Map(CHECKS.map((c) => [c.id, c]));
 
-export function checkDefinition(id: string): CheckDefinition {
+/**
+ * @param {string} id
+ * @returns {CheckDefinition}
+ */
+export function checkDefinition(id) {
   const found = BY_ID.get(id);
   if (!found) throw new Error(`Unknown check id: ${id}`);
   return found;
 }
 
-export function pass(id: string, reason: string, detail?: string): CheckResult {
+/**
+ * @param {string} id
+ * @param {string} reason
+ * @param {string} [detail]
+ * @returns {CheckResult}
+ */
+export function pass(id, reason, detail) {
   const definition = checkDefinition(id);
   return { ...definition, status: 'pass', earned: definition.weight, reason, detail };
 }
 
-export function fail(id: string, reason: string, detail?: string, fix?: string): CheckResult {
+/**
+ * @param {string} id
+ * @param {string} reason
+ * @param {string} [detail]
+ * @param {string} [fix]
+ * @returns {CheckResult}
+ */
+export function fail(id, reason, detail, fix) {
   return { ...checkDefinition(id), status: 'fail', earned: 0, reason, detail, fix };
 }
 
@@ -141,17 +157,24 @@ export function fail(id: string, reason: string, detail?: string, fix?: string):
  * friendlier word, and a partial worth full marks is a pass. Both would make the report's own
  * arithmetic ("2 of 4") read as nonsense, and the clamp means a rounding error in a ramp can never
  * produce either.
+ *
+ * @param {string} id
+ * @param {number} earned
+ * @param {string} reason
+ * @param {PartialOptions} [options]
+ * @returns {CheckResult}
  */
-export function partial(id: string, earned: number, reason: string, options: PartialOptions = {}): CheckResult {
+export function partial(id, earned, reason, options = {}) {
   const definition = checkDefinition(id);
   const bounded = Math.min(definition.weight - 1, Math.max(1, Math.round(earned)));
   return { ...definition, status: 'partial', earned: bounded, reason, detail: options.detail, fix: options.fix };
 }
 
-export interface PartialOptions {
-  detail?: string;
-  fix?: string;
-}
+/**
+ * @typedef {object} PartialOptions
+ * @property {string} [detail]
+ * @property {string} [fix]
+ */
 
 /**
  * Cannot be measured until something else is fixed.
@@ -161,12 +184,24 @@ export interface PartialOptions {
  * charge the user thirteen times for one missing file; reporting them as `na` (what the code did
  * before) told the reader that a third of the audit simply did not matter. Locked says the true
  * thing: these are worth 45 points and one fix unlocks all of them.
+ *
+ * @param {string} id
+ * @param {string} by
+ * @param {string} reason
+ * @param {string} [detail]
+ * @returns {CheckResult}
  */
-export function locked(id: string, by: string, reason: string, detail?: string): CheckResult {
+export function locked(id, by, reason, detail) {
   return { ...checkDefinition(id), status: 'locked', earned: 0, reason, detail, lockedBy: by };
 }
 
-export function na(id: string, reason: string, detail?: string): CheckResult {
+/**
+ * @param {string} id
+ * @param {string} reason
+ * @param {string} [detail]
+ * @returns {CheckResult}
+ */
+export function na(id, reason, detail) {
   return { ...checkDefinition(id), status: 'na', earned: 0, reason, detail };
 }
 
@@ -176,8 +211,14 @@ export function na(id: string, reason: string, detail?: string): CheckResult {
  * Used by the measured checks (word counts, TTFB, drift) where the honest answer is a number on a
  * continuum rather than a threshold. At or past `target` is the full weight; at or below `floor` is
  * zero; in between is proportional, and the caller decides whether zero means fail or partial.
+ *
+ * @param {number} value
+ * @param {number} floor
+ * @param {number} target
+ * @param {number} weight
+ * @returns {number}
  */
-export function ramp(value: number, floor: number, target: number, weight: number): number {
+export function ramp(value, floor, target, weight) {
   if (target === floor) return value >= target ? weight : 0;
   const ratio = (value - floor) / (target - floor);
   return Math.max(0, Math.min(weight, ratio * weight));

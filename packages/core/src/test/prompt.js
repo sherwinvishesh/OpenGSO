@@ -1,7 +1,10 @@
-import type { CheckResult } from './checks.js';
-import type { Framework, FrameworkId } from './framework.js';
-import type { TestResult } from './run.js';
 import { terminalText } from '../shared/log.js';
+
+/**
+ * @import { CheckResult } from './checks.js'
+ * @import { Framework, FrameworkId } from './framework.js'
+ * @import { TestResult } from './run.js'
+ */
 
 /**
  * The fix-prompt generator (§5).
@@ -35,8 +38,11 @@ const MAX_QUOTED = 400;
  * keeps it a value: it cannot open a heading or a line of its own, and the prompt tells the agent
  * what the code spans are. The fence is longer than any backtick run inside, so the text cannot
  * close it early.
+ *
+ * @param {string} text
+ * @returns {string}
  */
-function quoted(text: string): string {
+function quoted(text) {
   let flat = terminalText(text).replace(/\s+/g, ' ').trim();
   if (flat.length > MAX_QUOTED) flat = `${flat.slice(0, MAX_QUOTED)}... [truncated]`;
   const longestRun = Math.max(0, ...(flat.match(/`+/g) ?? []).map((run) => run.length));
@@ -44,10 +50,10 @@ function quoted(text: string): string {
   return `${fence} ${flat} ${fence}`;
 }
 
-export interface FixPromptOptions {
-  /** The command the user ran, echoed so they can re-run it after the fix. */
-  command?: string;
-}
+/**
+ * @typedef {object} FixPromptOptions
+ * @property {string} [command] The command the user ran, echoed so they can re-run it after the fix.
+ */
 
 /**
  * Where the middleware goes, per framework. Names a file, because "add middleware" is not an
@@ -56,8 +62,10 @@ export interface FixPromptOptions {
  * This is guidance inside a prompt, not code that branches on framework: nothing in OpenGEO's
  * runtime behaves differently per framework (§16 rules that out). Getting it wrong costs the agent
  * one wrong guess about a filename, which it will notice immediately.
+ *
+ * @type {Partial<Record<FrameworkId, string>>}
  */
-const PLACEMENT: Partial<Record<FrameworkId, string>> = {
+const PLACEMENT = {
   nextjs: 'middleware.ts at the project root, exporting `config = { runtime: "nodejs", matcher: [...] }` so it can read the generated files from disk',
   nuxt: 'a server middleware under server/middleware/',
   astro: 'src/middleware.ts, wired through Astro\'s onRequest hook',
@@ -69,8 +77,12 @@ const PLACEMENT: Partial<Record<FrameworkId, string>> = {
   plain: 'the static host or CDN in front of the files, since there is no application server to add middleware to',
 };
 
-/** Per-check remediation. Keyed by check id so a new check cannot silently ship without one. */
-const REMEDY: Record<string, string> = {
+/**
+ * Per-check remediation. Keyed by check id so a new check cannot silently ship without one.
+ *
+ * @type {Record<string, string>}
+ */
+const REMEDY = {
   A1: 'Write a robots.txt that does not disallow AI user agents at /. `opengeo generate` writes one; if the file is hand-maintained, remove the Disallow rules for the agents named above.',
   A2: 'Add /llms.txt: an H1 with the site name, a one-line blockquote summary, then a list of the important pages as markdown links pointing at their .md twins. `opengeo generate` writes it from the crawl.',
   A3: 'Add /sitemap.xml as a real <urlset> listing the HTML URLs. `opengeo generate` writes it from the same crawl.',
@@ -94,7 +106,12 @@ const REMEDY: Record<string, string> = {
   B14: 'Re-run `opengeo generate <site>` so the twins match the current pages, then redeploy. Nothing regenerates automatically, by design, so this drift is expected after a content edit.',
 };
 
-export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {}): string {
+/**
+ * @param {TestResult} result
+ * @param {FixPromptOptions} [options]
+ * @returns {string}
+ */
+export function buildFixPrompt(result, options = {}) {
   const failures = result.checks.filter((check) => check.status === 'fail');
   // A partial is work in progress, not a pass, and leaving it out was hiding the cheapest points on
   // the report from the one reader who could act on them. It is a separate section rather than more
@@ -104,7 +121,8 @@ export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {
     (a, b) => b.weight - b.earned - (a.weight - a.earned),
   );
   const blocked = result.checks.filter((check) => check.status === 'locked');
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
 
   lines.push('# Fix this site for AI agents');
   lines.push('');
@@ -192,8 +210,14 @@ export function buildFixPrompt(result: TestResult, options: FixPromptOptions = {
   return lines.join('\n');
 }
 
-function renderFailure(check: CheckResult, result: TestResult): string[] {
-  const lines: string[] = [];
+/**
+ * @param {CheckResult} check
+ * @param {TestResult} result
+ * @returns {string[]}
+ */
+function renderFailure(check, result) {
+  /** @type {string[]} */
+  const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
   lines.push(`- Points lost: ${check.weight} (${check.importance})`);
@@ -212,9 +236,14 @@ function renderFailure(check: CheckResult, result: TestResult): string[] {
  * a partial: the remedy describes building the thing, and the thing is already built. A1 partial
  * means robots.txt exists and allows every assistant, so "write a robots.txt" would be wrong advice
  * where "allow CCBot as well, if that was not deliberate" is right.
+ *
+ * @param {CheckResult} check
+ * @param {TestResult} result
+ * @returns {string[]}
  */
-function renderPartial(check: CheckResult, result: TestResult): string[] {
-  const lines: string[] = [];
+function renderPartial(check, result) {
+  /** @type {string[]} */
+  const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
   lines.push(`- Earned so far: ${check.earned} of ${check.weight} (${check.importance})`);
@@ -234,11 +263,16 @@ function renderPartial(check: CheckResult, result: TestResult): string[] {
  * to fix them individually would have it write a dozen header patches against a route that returns
  * 404. What it needs to know is that they are all downstream of one thing, and that mounting the
  * middleware answers all of them at once.
+ *
+ * @param {CheckResult[]} blocked
+ * @param {TestResult} result
+ * @returns {string[]}
  */
-function renderLockedSection(blocked: CheckResult[], result: TestResult): string[] {
+function renderLockedSection(blocked, result) {
   const points = blocked.reduce((sum, check) => sum + check.weight, 0);
   const blocker = blocked[0]?.lockedBy ?? 'B1';
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   lines.push(`## Blocked behind ${blocker} (${blocked.length} checks, ${points} points)`);
   lines.push('');
   lines.push(
@@ -253,12 +287,20 @@ function renderLockedSection(blocked: CheckResult[], result: TestResult): string
   return lines;
 }
 
-function describeFramework(framework: Framework | undefined): string {
+/**
+ * @param {Framework | undefined} framework
+ * @returns {string}
+ */
+function describeFramework(framework) {
   if (!framework) return 'could not tell from the served HTML';
   return `${framework.name} (${quoted(framework.evidence)})`;
 }
 
-function placementFor(framework: Framework | undefined): string | undefined {
+/**
+ * @param {Framework | undefined} framework
+ * @returns {string | undefined}
+ */
+function placementFor(framework) {
   if (!framework) return undefined;
   return PLACEMENT[framework.id];
 }

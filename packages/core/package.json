@@ -9,7 +9,7 @@
     ".": "./src/index.ts",
     "./shared": "./src/shared/index.js",
     "./generate": "./src/generate/index.js",
-    "./test": "./src/test/index.ts",
+    "./test": "./src/test/index.js",
     "./prod": "./src/prod/index.js",
     "./prod/next": "./src/prod/adapters/next.js",
     "./server": "./src/server/index.ts",

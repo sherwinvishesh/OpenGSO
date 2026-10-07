@@ -7,12 +7,15 @@ import { extractPage } from '../generate/extract.js';
 import { parseFrontmatter } from '../generate/frontmatter.js';
 import { verifyFidelity } from '../generate/fidelity.js';
 import { contentHash } from '../shared/hash.js';
-import type { CheckResult } from './checks.js';
 import { checkDefinition } from './checks.js';
 import { fail, na, partial, pass, ramp } from './checks.js';
-import type { Evidence } from './evidence.js';
-import type { ProbeResult } from '../shared/http.js';
 import { looksLikeHtml } from './discover.js';
+
+/**
+ * @import { CheckResult } from './checks.js'
+ * @import { Evidence } from './evidence.js'
+ * @import { ProbeResult } from '../shared/http.js'
+ */
 
 /**
  * The check implementations (§5).
@@ -47,7 +50,11 @@ export const SSR_FLOOR_WORDS = 15;
 export const TWIN_FULL_RATIO = 0.5;
 export const TWIN_FLOOR_RATIO = 0.08;
 
-export function runChecks(evidence: Evidence): CheckResult[] {
+/**
+ * @param {Evidence} evidence
+ * @returns {CheckResult[]}
+ */
+export function runChecks(evidence) {
   return collapseTwinCascade([
     checkRobots(evidence),
     checkLlmsTxt(evidence),
@@ -95,8 +102,12 @@ export function runChecks(evidence: Evidence): CheckResult[] {
  * tells the reader what to do next.
  *
  * A twin that exists but is wrong is a different situation and is still scored in full detail.
+ *
+ * @param {CheckResult[]} results
+ * @param {Evidence} e
+ * @returns {CheckResult[]}
  */
-function collapseTwinCascade(results: CheckResult[], e: Evidence): CheckResult[] {
+function collapseTwinCascade(results, e) {
   if (e.twin.ok) return results;
 
   return results.map((result) => {
@@ -104,7 +115,7 @@ function collapseTwinCascade(results: CheckResult[], e: Evidence): CheckResult[]
     if (!why) return result;
     return {
       ...result,
-      status: 'locked' as const,
+      status: /** @type {const} */ ('locked'),
       earned: 0,
       lockedBy: 'B1',
       reason: `No markdown twin at ${e.twinUrl}, so ${why}. The missing twin is scored once, on B1.`,
@@ -117,7 +128,8 @@ function collapseTwinCascade(results: CheckResult[], e: Evidence): CheckResult[]
 
 // Read off the twin response itself. With no twin there is nothing to read, pass or fail: B5
 // "passing" because a 404 page happened to carry nosniff is noise, not a point earned.
-const LOCKED_ON_TWIN: Record<string, string> = {
+/** @type {Record<string, string>} */
+const LOCKED_ON_TWIN = {
   B2: 'there is no twin response whose Content-Type could be checked',
   B3: 'there is no twin body to measure',
   B4: 'there is no twin response to carry a token count',
@@ -129,7 +141,8 @@ const LOCKED_ON_TWIN: Record<string, string> = {
 
 // Probed against the live URL. These can genuinely succeed without a `.md` twin - a site can wire
 // Accept negotiation at the same URL - so a pass is kept and only the failure is dropped.
-const LOCKED_ON_LIVE_URL: Record<string, string> = {
+/** @type {Record<string, string>} */
+const LOCKED_ON_LIVE_URL = {
   B7: 'there are not two formats for a CDN to cache apart',
   B8: 'there is no twin for the HTML page to advertise',
   B9: 'there is no markdown representation to negotiate for',
@@ -142,12 +155,18 @@ const LOCKED_ON_LIVE_URL: Record<string, string> = {
  *
  * The report prices this list as one block, and docs.test.ts adds up their weights to check the
  * number written in docs/checks.md is the number the code would actually produce.
+ *
+ * @type {readonly string[]}
  */
-export const TWIN_LOCKED_IDS: readonly string[] = [...Object.keys(LOCKED_ON_TWIN), ...Object.keys(LOCKED_ON_LIVE_URL)];
+export const TWIN_LOCKED_IDS = [...Object.keys(LOCKED_ON_TWIN), ...Object.keys(LOCKED_ON_LIVE_URL)];
 
 // ---- Category A ------------------------------------------------------------------------------
 
-function checkRobots(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkRobots(e) {
   if (!e.robots.ok) {
     return fail(
       'A1',
@@ -157,8 +176,10 @@ function checkRobots(e: Evidence): CheckResult {
     );
   }
   const groups = parseRobots(e.robots.body);
-  const blockedAssistants: string[] = [];
-  const blockedTraining: string[] = [];
+  /** @type {string[]} */
+  const blockedAssistants = [];
+  /** @type {string[]} */
+  const blockedTraining = [];
 
   for (const bot of e.bots ?? AI_BOTS) {
     const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
@@ -192,7 +213,11 @@ function checkRobots(e: Evidence): CheckResult {
   return pass('A1', 'robots.txt is present and does not disallow any known AI bot.');
 }
 
-function checkLlmsTxt(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkLlmsTxt(e) {
   if (!e.llms.ok) {
     return fail(
       'A2',
@@ -223,7 +248,11 @@ function checkLlmsTxt(e: Evidence): CheckResult {
   return pass('A2', `llms.txt is present and valid, listing ${links} link${links === 1 ? '' : 's'}.`);
 }
 
-function checkSitemap(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkSitemap(e) {
   if (!e.sitemap.ok) {
     return fail(
       'A3',
@@ -239,7 +268,7 @@ function checkSitemap(e: Evidence): CheckResult {
       fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `opengeo generate` writes one from the crawl.',
     });
   }
-  const listed = Array.from(body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi), (match) => match[1]!);
+  const listed = Array.from(body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi), (match) => /** @type {string} */ (match[1]));
   const locs = listed.length;
   if (locs === 0) {
     return partial('A3', 3, 'sitemap.xml parses but contains no <loc> entries, so it advertises nothing.', {
@@ -262,8 +291,14 @@ function checkSitemap(e: Evidence): CheckResult {
   return pass('A3', `sitemap.xml is present and valid, listing ${locs} URL${locs === 1 ? '' : 's'}.`);
 }
 
-/** The path a `<loc>` points at, tolerant of a relative entry, compared without a trailing slash. */
-function locPath(loc: string, base: URL): string {
+/**
+ * The path a `<loc>` points at, tolerant of a relative entry, compared without a trailing slash.
+ *
+ * @param {string} loc
+ * @param {URL} base
+ * @returns {string}
+ */
+function locPath(loc, base) {
   try {
     return new URL(loc, base).pathname.replace(/\/+$/, '') || '/';
   } catch {
@@ -271,7 +306,11 @@ function locPath(loc: string, base: URL): string {
   }
 }
 
-function checkJsonLd(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkJsonLd(e) {
   if (!e.html.ok || !e.html.body)
     return fail(
       'A4',
@@ -290,8 +329,10 @@ function checkJsonLd(e: Evidence): CheckResult {
       'Add a `<script type="application/ld+json">` block with an `@type` describing the page (+2).',
     );
   }
-  const types: string[] = [];
-  const broken: string[] = [];
+  /** @type {string[]} */
+  const types = [];
+  /** @type {string[]} */
+  const broken = [];
   for (const block of blocks) {
     const raw = block.textContent?.trim() ?? '';
     try {
@@ -315,20 +356,29 @@ function checkJsonLd(e: Evidence): CheckResult {
   return pass('A4', `JSON-LD present and valid: ${unique(types).join(', ')}.`);
 }
 
-function collectTypes(value: unknown, out: string[]): void {
+/**
+ * @param {unknown} value
+ * @param {string[]} out
+ * @returns {void}
+ */
+function collectTypes(value, out) {
   if (Array.isArray(value)) {
     for (const item of value) collectTypes(item, out);
     return;
   }
   if (!value || typeof value !== 'object') return;
-  const record = value as Record<string, unknown>;
+  const record = /** @type {Record<string, unknown>} */ (value);
   const type = record['@type'];
   if (typeof type === 'string') out.push(type);
   else if (Array.isArray(type)) for (const t of type) if (typeof t === 'string') out.push(t);
   if (Array.isArray(record['@graph'])) collectTypes(record['@graph'], out);
 }
 
-function checkSsrExtractable(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkSsrExtractable(e) {
   if (!e.html.ok || !e.html.body) {
     return fail(
       'A5',
@@ -370,7 +420,11 @@ function checkSsrExtractable(e: Evidence): CheckResult {
   );
 }
 
-function checkTtfb(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTtfb(e) {
   if (!e.html.ok) return na('A6', 'The page did not respond, so there is no time-to-first-byte to measure.');
   const weight = checkDefinition('A6').weight;
   if (e.html.ttfbMs <= TTFB_FAST_MS) {
@@ -390,8 +444,13 @@ function checkTtfb(e: Evidence): CheckResult {
   });
 }
 
-function checkNoAi(e: Evidence): CheckResult {
-  const found: string[] = [];
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkNoAi(e) {
+  /** @type {string[]} */
+  const found = [];
   const headerValue = e.html.headers.get(HEADERS.robotsTag) ?? '';
   if (/\bnoai\b/i.test(headerValue)) found.push(`X-Robots-Tag: ${headerValue}`);
   if (/\bnoimageai\b/i.test(headerValue)) found.push(`X-Robots-Tag: ${headerValue}`);
@@ -420,7 +479,11 @@ function checkNoAi(e: Evidence): CheckResult {
   return pass('A7', 'No noai or noimageai opt-out tag is set.');
 }
 
-function checkHttps(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkHttps(e) {
   const host = e.target.hostname;
   if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local')) {
     return na('A8', 'Local development target - HTTPS and HSTS are not meaningful here.');
@@ -446,12 +509,20 @@ function checkHttps(e: Evidence): CheckResult {
 
 // ---- Category B ------------------------------------------------------------------------------
 
-function isMarkdownResponse(response: ProbeResult): boolean {
+/**
+ * @param {ProbeResult} response
+ * @returns {boolean}
+ */
+function isMarkdownResponse(response) {
   const contentType = response.headers.get(HEADERS.contentType) ?? '';
   return contentType.toLowerCase().includes('text/markdown');
 }
 
-function checkTwinReachable(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTwinReachable(e) {
   if (e.twin.error)
     return fail(
       'B1',
@@ -470,7 +541,11 @@ function checkTwinReachable(e: Evidence): CheckResult {
   return pass('B1', `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}.`);
 }
 
-function checkTwinContentType(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTwinContentType(e) {
   const actual = e.twin.headers.get(HEADERS.contentType);
   if (!e.twin.ok)
     return fail(
@@ -510,7 +585,11 @@ function checkTwinContentType(e: Evidence): CheckResult {
   );
 }
 
-function checkTwinNonEmpty(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTwinNonEmpty(e) {
   if (!e.twin.ok)
     return fail(
       'B3',
@@ -558,7 +637,11 @@ function checkTwinNonEmpty(e: Evidence): CheckResult {
   );
 }
 
-function checkTokensHeader(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTokensHeader(e) {
   const raw = e.twin.headers.get(HEADERS.markdownTokens);
   if (!raw) {
     return fail(
@@ -580,7 +663,11 @@ function checkTokensHeader(e: Evidence): CheckResult {
   return pass('B4', `${HEADERS.markdownTokens}: ${value}.`);
 }
 
-function checkNosniff(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkNosniff(e) {
   const value = e.twin.headers.get(HEADERS.contentTypeOptions);
   if (value?.toLowerCase().trim() === 'nosniff') return pass('B5', 'X-Content-Type-Options: nosniff is set on the markdown response.');
   return fail(
@@ -591,7 +678,11 @@ function checkNosniff(e: Evidence): CheckResult {
   );
 }
 
-function checkTwinNoindex(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkTwinNoindex(e) {
   const value = e.twin.headers.get(HEADERS.robotsTag);
   if (!value) {
     return fail(
@@ -609,7 +700,11 @@ function checkTwinNoindex(e: Evidence): CheckResult {
   return pass('B6', `X-Robots-Tag includes noindex ("${value}").`);
 }
 
-function checkVaryAccept(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkVaryAccept(e) {
   const htmlVary = e.html.headers.get(HEADERS.vary) ?? '';
   const twinVary = e.twin.headers.get(HEADERS.vary) ?? '';
   const htmlOk = varyIncludesAccept(htmlVary);
@@ -638,7 +733,11 @@ function checkVaryAccept(e: Evidence): CheckResult {
   );
 }
 
-function checkLinkAlternate(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkLinkAlternate(e) {
   if (e.advertisedTwinUrl) {
     return pass('B8', `The HTML response advertises its markdown twin: Link rel="alternate" -> ${e.advertisedTwinUrl}`);
   }
@@ -661,7 +760,11 @@ function checkLinkAlternate(e: Evidence): CheckResult {
   );
 }
 
-function checkAcceptNegotiation(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkAcceptNegotiation(e) {
   if (!e.acceptMarkdown.ok) {
     return fail(
       'B9',
@@ -681,7 +784,11 @@ function checkAcceptNegotiation(e: Evidence): CheckResult {
   );
 }
 
-function checkBotUaNegotiation(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkBotUaNegotiation(e) {
   if (!e.botUa.ok)
     return fail(
       'B10',
@@ -700,7 +807,11 @@ function checkBotUaNegotiation(e: Evidence): CheckResult {
   );
 }
 
-function checkNotAcceptable(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkNotAcceptable(e) {
   if (e.notAcceptable.status === 406) {
     return pass('B11', 'An Accept header excluding both HTML and markdown correctly returned 406 Not Acceptable.');
   }
@@ -712,7 +823,11 @@ function checkNotAcceptable(e: Evidence): CheckResult {
   );
 }
 
-function checkAeoVersion(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkAeoVersion(e) {
   const value = e.twin.headers.get(HEADERS.aeoVersion) ?? e.acceptMarkdown.headers.get(HEADERS.aeoVersion);
   if (value) return pass('B12', `X-AEO-Version advertises "${value}".`);
   return fail(
@@ -723,7 +838,11 @@ function checkAeoVersion(e: Evidence): CheckResult {
   );
 }
 
-function checkHtmlUnaffected(e: Evidence): CheckResult {
+/**
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkHtmlUnaffected(e) {
   if (!e.html.ok)
     return fail(
       'B13',
@@ -760,8 +879,11 @@ function checkHtmlUnaffected(e: Evidence): CheckResult {
  *
  * It matters more here than it would elsewhere, because §6 rules out regenerating in CI. Nothing
  * catches a forgotten `opengeo generate` except this check.
+ *
+ * @param {Evidence} e
+ * @returns {CheckResult}
  */
-function checkDrift(e: Evidence): CheckResult {
+function checkDrift(e) {
   if (!e.twin.ok || !e.twin.body.trim()) {
     return fail(
       'B14',
@@ -847,8 +969,13 @@ function checkDrift(e: Evidence): CheckResult {
   );
 }
 
-/** "3 days ago", "today". Undefined when there is no usable last_updated to report. */
-function describeAge(lastUpdated: string | undefined): string | undefined {
+/**
+ * "3 days ago", "today". Undefined when there is no usable last_updated to report.
+ *
+ * @param {string | undefined} lastUpdated
+ * @returns {string | undefined}
+ */
+function describeAge(lastUpdated) {
   if (!lastUpdated) return undefined;
   const then = Date.parse(lastUpdated);
   if (Number.isNaN(then)) return undefined;
@@ -859,11 +986,20 @@ function describeAge(lastUpdated: string | undefined): string | undefined {
   return `${Math.floor(days / 30)} months ago`;
 }
 
-function unique(values: string[]): string[] {
+/**
+ * @param {string[]} values
+ * @returns {string[]}
+ */
+function unique(values) {
   return [...new Set(values)];
 }
 
-/** Same notion of a word the extractor uses, so the two counts B3 compares are comparable. */
-function countWords(text: string): number {
+/**
+ * Same notion of a word the extractor uses, so the two counts B3 compares are comparable.
+ *
+ * @param {string} text
+ * @returns {number}
+ */
+function countWords(text) {
   return text.split(/\s+/).filter(Boolean).length;
 }

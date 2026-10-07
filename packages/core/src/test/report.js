@@ -2,23 +2,26 @@ import { c, SYM, heading, terminalSafe } from '../shared/log.js';
 import { meter, lockedMeter, sparkline } from '../cli/tui/widgets.js';
 import { scoreInk, bandColour, ink } from '../cli/tui/theme.js';
 import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
-import type { History } from './history.js';
 import { deltaFor, relativeAge, scoreTrend } from './history.js';
-import type { CheckResult } from './checks.js';
-import type {
-  AggregatedRecommendation,
-  ContentReview,
-  DocumentReview,
-  Priority,
-  QualityFinding,
-  QualityRecommendation,
-  QualityReview,
-} from './quality.js';
 import { areaWeight, qualityBand } from './quality.js';
-import type { DiscoveryResult } from './discover.js';
-import type { SuiteResult } from './suite.js';
-import type { Score } from './score.js';
-import type { TestResult } from './run.js';
+
+/**
+ * @import { History } from './history.js'
+ * @import { CheckResult } from './checks.js'
+ * @import {
+ *   AggregatedRecommendation,
+ *   ContentReview,
+ *   DocumentReview,
+ *   Priority,
+ *   QualityFinding,
+ *   QualityRecommendation,
+ *   QualityReview,
+ * } from './quality.js'
+ * @import { DiscoveryResult } from './discover.js'
+ * @import { SuiteResult } from './suite.js'
+ * @import { Score } from './score.js'
+ * @import { TestResult } from './run.js'
+ */
 
 /**
  * Terminal rendering of a test run (§5).
@@ -27,24 +30,26 @@ import type { TestResult } from './run.js';
  * llms.txt at https://site/llms.txt" is actionable, "llms.txt: FAIL" is not.
  */
 
-export interface ReportOptions {
-  /** Print passing checks too. Off by default so failures are not buried. */
-  verbose?: boolean;
-  /**
-   * Previous runs, for the delta and the sparkline.
-   *
-   * Optional everywhere: the report has to render identically for a caller that has no project
-   * directory to read a history out of, which is every `opengeo test <url>` against someone else's
-   * site.
-   */
-  history?: History;
-  /** Overridden only by tests, which have no terminal to measure. */
-  width?: number;
-}
+/**
+ * @typedef {object} ReportOptions
+ * @property {boolean} [verbose] Print passing checks too. Off by default so failures are not buried.
+ * @property {History} [history] Previous runs, for the delta and the sparkline.
+ *
+ *   Optional everywhere: the report has to render identically for a caller that has no project
+ *   directory to read a history out of, which is every `opengeo test <url>` against someone else's
+ *   site.
+ * @property {number} [width] Overridden only by tests, which have no terminal to measure.
+ */
 
-export function renderReport(result: TestResult, options: ReportOptions = {}): string {
+/**
+ * @param {TestResult} result
+ * @param {ReportOptions} [options]
+ * @returns {string}
+ */
+export function renderReport(result, options = {}) {
   result = terminalSafe(result);
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   const { checks, score } = result;
   const width = options.width ?? terminalWidth();
 
@@ -103,8 +108,12 @@ export function renderReport(result: TestResult, options: ReportOptions = {}): s
  * carries its arithmetic (`2 of 4`) because "partly there" with no number is a mood, not a
  * measurement, and anything short of a pass carries its `fix` line last, since that is the part the
  * reader is going to act on.
+ *
+ * @param {CheckResult} check
+ * @param {number} width
+ * @returns {string[]}
  */
-function renderCheck(check: CheckResult, width: number): string[] {
+function renderCheck(check, width) {
   const symbol =
     check.status === 'pass' ? SYM.pass()
     : check.status === 'fail' ? SYM.fail()
@@ -131,9 +140,15 @@ function renderCheck(check: CheckResult, width: number): string[] {
  * This is the section the whole `locked` status exists for. Thirteen paragraphs each explaining
  * that a document which does not exist cannot be inspected is not information; the same thirteen
  * checks, summed and labelled with the single thing that unlocks them, is.
+ *
+ * @param {CheckResult[]} blocked
+ * @param {Score} score
+ * @param {number} width
+ * @returns {string[]}
  */
-function renderLocked(blocked: CheckResult[], score: Score, width: number): string[] {
-  const lines: string[] = [];
+function renderLocked(blocked, score, width) {
+  /** @type {string[]} */
+  const lines = [];
   const points = score.locked.points;
   lines.push(heading(`Locked (${blocked.length})`));
   lines.push(`  ${c.bold(fg(bandColour('fair'), `${points} points`))} ${c.gray('waiting behind')} ${c.bold(score.locked.unlockedBy.join(' and ') || 'one fix')}`);
@@ -160,8 +175,12 @@ function renderLocked(blocked: CheckResult[], score: Score, width: number): stri
  * scores right now, and the ranked fixes that move it. It is deliberately the report's own
  * `renderScore` and `renderNextSteps` rather than a smaller copy of them, because a second
  * implementation of "how many points is this worth" is exactly how the two start disagreeing.
+ *
+ * @param {TestResult} result
+ * @param {ReportOptions} [options]
+ * @returns {string}
  */
-export function renderSetupScore(result: TestResult, options: ReportOptions = {}): string {
+export function renderSetupScore(result, options = {}) {
   result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
   const lines = [renderScore(result.url, result.score, options)];
@@ -175,11 +194,18 @@ export function renderSetupScore(result: TestResult, options: ReportOptions = {}
  * Replaces a single line suggesting `--prompt`. The ranking is the useful part: `lost` carries a
  * partial's shortfall rather than its weight, so a check two points from full does not outrank one
  * that earned nothing, and the locked block is priced as a single entry rather than thirteen.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @param {Score} score
+ * @param {number} width
+ * @returns {string[]}
  */
-function renderNextSteps(checks: readonly CheckResult[], score: Score, width: number): string[] {
-  const lines: string[] = [''];
+function renderNextSteps(checks, score, width) {
+  /** @type {string[]} */
+  const lines = [''];
   const byId = new Map(checks.map((check) => [check.id, check]));
-  const steps: Array<{ id: string; points: number; text: string }> = [];
+  /** @type {Array<{ id: string; points: number; text: string }>} */
+  const steps = [];
 
   for (const entry of score.lost) {
     const check = byId.get(entry.id);
@@ -226,7 +252,7 @@ function renderNextSteps(checks: readonly CheckResult[], score: Score, width: nu
     // points lost. Ranking already says which one matters most; recolouring by size would be
     // saying "this fix is bad", which is the opposite of what the list is for.
     const points = ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
-    const paint = index === 0 ? c.bold : (line: string) => line;
+    const paint = index === 0 ? c.bold : (/** @type {string} */ line) => line;
     lines.push(`  ${points}  ${c.bold(step.id.padEnd(NEXT_ID_WIDTH))}  ${paint(wrapped[0] ?? '')}`);
     for (const line of wrapped.slice(1)) lines.push(`${gutter}${paint(line)}`);
   }
@@ -246,19 +272,37 @@ const NEXT_POINTS_WIDTH = 4;
 const NEXT_ID_WIDTH = 3;
 const MAX_NEXT_STEPS = 5;
 
-/** Wrap body text under a check, at the six-space indent the report has always used. */
-function indent(text: string, width: number, paint: (value: string) => string = (value) => value): string[] {
+/**
+ * Wrap body text under a check, at the six-space indent the report has always used.
+ *
+ * @param {string} text
+ * @param {number} width
+ * @param {(value: string) => string} [paint]
+ * @returns {string[]}
+ */
+function indent(text, width, paint = (value) => value) {
   return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
 }
 
-/** The same, with the continuation lines hanging under the first line's text rather than its marker. */
-function indentHanging(marker: string, text: string, width: number, paint: (value: string) => string): string[] {
+/**
+ * The same, with the continuation lines hanging under the first line's text rather than its marker.
+ *
+ * @param {string} marker
+ * @param {string} text
+ * @param {number} width
+ * @param {(value: string) => string} paint
+ * @returns {string[]}
+ */
+function indentHanging(marker, text, width, paint) {
   const pad = ' '.repeat(marker.length + 1);
   const wrapped = wrapText(text, Math.max(20, width - 6 - pad.length));
   return wrapped.map((line, index) => `      ${paint(index === 0 ? `${marker} ${line}` : `${pad}${line}`)}`);
 }
 
-function glyphArrow(): string {
+/**
+ * @returns {string}
+ */
+function glyphArrow() {
   return process.env.OPENGEO_ASCII ? '->' : '\u2192';
 }
 
@@ -267,8 +311,13 @@ function glyphArrow(): string {
  *
  * The locked points ride on the same meter as a ghosted second segment, so the shape of the bar
  * answers "how much of this is even being measured" without a second number to read.
+ *
+ * @param {string} url
+ * @param {Score} score
+ * @param {ReportOptions} options
+ * @returns {string}
  */
-function renderScore(url: string, score: Score, options: ReportOptions): string {
+function renderScore(url, score, options) {
   const value = String(score.value).padStart(3, ' ');
   const bar = score.locked.points > 0
     ? lockedMeter(score.value, lockedShare(score), 24)
@@ -291,8 +340,11 @@ function renderScore(url: string, score: Score, options: ReportOptions): string 
  * Locked weight is outside the denominator, so it has no share of the current 0-100 to take. What
  * the ghost shows is the fraction of the whole checklist that is not being asked about, which is
  * the honest reading of "there is more of this test than you are seeing".
+ *
+ * @param {Score} score
+ * @returns {number}
  */
-function lockedShare(score: Score): number {
+function lockedShare(score) {
   const whole = score.possible + score.locked.points;
   return whole === 0 ? 0 : Math.round((score.locked.points / whole) * 100);
 }
@@ -302,8 +354,13 @@ function lockedShare(score: Score): number {
  *
  * Compared against the last run of *this* URL only. Testing localhost and then production and
  * calling the difference progress would be a lie the headline then prints in green.
+ *
+ * @param {string} url
+ * @param {Score} score
+ * @param {ReportOptions} options
+ * @returns {string | undefined}
  */
-function renderTrend(url: string, score: Score, options: ReportOptions): string | undefined {
+function renderTrend(url, score, options) {
   const history = options.history;
   if (!history || history.entries.length === 0) return undefined;
 
@@ -319,8 +376,13 @@ function renderTrend(url: string, score: Score, options: ReportOptions): string 
   return `  ${moved} ${c.gray(`since ${relativeAge(delta.previous.at)}`)}${spark}`;
 }
 
-/** Machine-readable output for `--json` and for the product website's local API. */
-export function testJson(result: TestResult): Record<string, unknown> {
+/**
+ * Machine-readable output for `--json` and for the product website's local API.
+ *
+ * @param {TestResult} result
+ * @returns {Record<string, unknown>}
+ */
+export function testJson(result) {
   return {
     url: result.url,
     score: result.score.value,
@@ -346,18 +408,22 @@ export function testJson(result: TestResult): Record<string, unknown> {
   };
 }
 
-export interface JsonExtras {
-  /** A single-document review, from the older one-URL path. */
-  quality?: QualityReview;
-  /** The multi-document content pass. */
-  content?: ContentReview;
-  discovery?: DiscoveryResult;
-  mode?: string;
-  contentSkipped?: string;
-  contentError?: string;
-}
+/**
+ * @typedef {object} JsonExtras
+ * @property {QualityReview} [quality] A single-document review, from the older one-URL path.
+ * @property {ContentReview} [content] The multi-document content pass.
+ * @property {DiscoveryResult} [discovery]
+ * @property {string} [mode]
+ * @property {string} [contentSkipped]
+ * @property {string} [contentError]
+ */
 
-export function toJson(result: TestResult | undefined, extras: JsonExtras = {}): string {
+/**
+ * @param {TestResult | undefined} result
+ * @param {JsonExtras} [extras]
+ * @returns {string}
+ */
+export function toJson(result, extras = {}) {
   return JSON.stringify(
     {
       ...(result ? testJson(result) : {}),
@@ -388,8 +454,13 @@ export function toJson(result: TestResult | undefined, extras: JsonExtras = {}):
   );
 }
 
-/** The whole suite as JSON, so `--json` says the same thing in every mode. */
-export function suiteJson(result: SuiteResult): string {
+/**
+ * The whole suite as JSON, so `--json` says the same thing in every mode.
+ *
+ * @param {SuiteResult} result
+ * @returns {string}
+ */
+export function suiteJson(result) {
   return toJson(result.structure, {
     mode: result.mode,
     content: result.content,
@@ -406,10 +477,15 @@ export function suiteJson(result: SuiteResult): string {
  * its own heading, with its own 0-100 clearly labelled as a different measurement. The two numbers
  * answer different questions - is the Markdown served correctly, and is it worth reading - and
  * nothing here is added to, subtracted from, or averaged into the one above it.
+ *
+ * @param {QualityReview} review
+ * @param {{ heading?: string }} [options]
+ * @returns {string}
  */
-export function renderQuality(review: QualityReview, options: { heading?: string } = {}): string {
+export function renderQuality(review, options = {}) {
   review = terminalSafe(review);
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   lines.push(heading(options.heading ?? 'Content quality (AI review, separate from the score above)'));
   lines.push(`  ${c.gray(`${review.provider} ${review.model}`)}`);
   lines.push('');
@@ -442,8 +518,13 @@ export function renderQuality(review: QualityReview, options: { heading?: string
   return lines.join('\n');
 }
 
-/** One area line: what it scored, and what the gap is costing out of 100. */
-function renderFinding(finding: QualityFinding): string[] {
+/**
+ * One area line: what it scored, and what the gap is costing out of 100.
+ *
+ * @param {QualityFinding} finding
+ * @returns {string[]}
+ */
+function renderFinding(finding) {
   const weight = areaWeight(finding.area);
   const value =
     finding.score === undefined
@@ -460,9 +541,14 @@ function renderFinding(finding: QualityFinding): string[] {
  * Priority, action, where, why, in that order, because that is the order somebody deciding whether
  * to do it now reads them in. `where` is printed even when it is only a heading: the difference
  * between "add prices" and "add prices under ## Plans" is the difference between a note and a task.
+ *
+ * @param {AggregatedRecommendation | QualityRecommendation} recommendation
+ * @param {number} index
+ * @returns {string[]}
  */
-function renderRecommendation(recommendation: AggregatedRecommendation | QualityRecommendation, index: number): string[] {
-  const lines: string[] = [];
+function renderRecommendation(recommendation, index) {
+  /** @type {string[]} */
+  const lines = [];
   const documents = 'documents' in recommendation ? recommendation.documents : [];
   lines.push(`  ${c.bold(String(index).padStart(2))}  ${priorityTag(recommendation.priority)} ${c.gray(recommendation.area)}`);
   lines.push(`      ${recommendation.action}`);
@@ -477,7 +563,11 @@ function renderRecommendation(recommendation: AggregatedRecommendation | Quality
   return lines;
 }
 
-function priorityTag(priority: Priority): string {
+/**
+ * @param {Priority} priority
+ * @returns {string}
+ */
+function priorityTag(priority) {
   const colour = priority === 'high' ? c.red : priority === 'medium' ? c.yellow : c.gray;
   return colour(priority.padEnd(6));
 }
@@ -489,11 +579,16 @@ function priorityTag(priority: Priority): string {
  * review that says "8 documents, 62/100" and stops is a dashboard metric, not a tool: the thing
  * the reader can act on is which area is costing them and which edit fixes it, so that leads and
  * the per-document detail follows.
+ *
+ * @param {ContentReview} review
+ * @param {DiscoveryResult} [discovery]
+ * @returns {string}
  */
-export function renderContentReport(review: ContentReview, discovery?: DiscoveryResult): string {
+export function renderContentReport(review, discovery) {
   review = terminalSafe(review);
   discovery = terminalSafe(discovery);
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   const reviewed = review.documents.filter((doc) => doc.review);
   const failed = review.documents.filter((doc) => doc.error);
 
@@ -554,8 +649,13 @@ export function renderContentReport(review: ContentReview, discovery?: Discovery
   return lines.join('\n');
 }
 
-function renderDocument(document: DocumentReview): string[] {
-  const lines: string[] = [];
+/**
+ * @param {DocumentReview} document
+ * @returns {string[]}
+ */
+function renderDocument(document) {
+  /** @type {string[]} */
+  const lines = [];
   const words = c.gray(`${document.words} words, via ${document.source}`);
 
   if (document.error) {
@@ -594,15 +694,29 @@ const WEAK_AREA = 70;
 /** More than this in the terminal is a wall of text. The rest stay in `--json`. */
 const MAX_RECOMMENDATIONS = 6;
 
-function renderContentScore(score: number, label: string): string {
+/**
+ * @param {number} score
+ * @param {string} label
+ * @returns {string}
+ */
+function renderContentScore(score, label) {
   return `  ${scoreColour(score)(c.bold(`${String(score).padStart(3)}/100`))}  ${bar(score, 24)}  ${c.gray(`content, ${label}`)}`;
 }
 
-function scoreColour(score: number): (text: string) => string {
+/**
+ * @param {number} score
+ * @returns {(text: string) => string}
+ */
+function scoreColour(score) {
   return score >= 75 ? c.green : score >= 50 ? c.yellow : c.red;
 }
 
-function bar(score: number, width: number): string {
+/**
+ * @param {number} score
+ * @param {number} width
+ * @returns {string}
+ */
+function bar(score, width) {
   const filled = Math.round((score / 100) * width);
   return `${scoreColour(score)('#'.repeat(filled))}${c.gray('.'.repeat(width - filled))}`;
 }
@@ -610,10 +724,14 @@ function bar(score: number, width: number): string {
 /**
  * What discovery found, before any of it is reviewed. Printed in `--content` mode and whenever a
  * run turns up nothing, because "which documents did you even look at" is the first question.
+ *
+ * @param {DiscoveryResult} discovery
+ * @returns {string}
  */
-export function renderDiscovery(discovery: DiscoveryResult): string {
+export function renderDiscovery(discovery) {
   discovery = terminalSafe(discovery);
-  const lines: string[] = [];
+  /** @type {string[]} */
+  const lines = [];
   lines.push(heading(`Markdown documents found (${discovery.twins.length})`));
   for (const twin of discovery.twins) {
     lines.push(`  ${c.bold(twin.url)}`);

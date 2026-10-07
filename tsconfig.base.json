@@ -33,7 +33,7 @@
         "./packages/core/src/generate/index.js"
       ],
       "@opengeo/core/test": [
-        "./packages/core/src/test/index.ts"
+        "./packages/core/src/test/index.js"
       ],
       "@opengeo/core/prod": [
         "./packages/core/src/prod/index.js"

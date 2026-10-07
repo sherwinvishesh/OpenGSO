@@ -1,6 +1,7 @@
 import { probe } from '../shared/http.js';
 import { isMarkdownPath, twinUrl } from '../shared/routes.js';
-import type { Evidence } from './evidence.js';
+
+/** @import { Evidence } from './evidence.js' */
 
 /**
  * Finding every Markdown document a site actually serves (§5).
@@ -18,42 +19,43 @@ import type { Evidence } from './evidence.js';
  * a document, and reporting it as one would send the reviewer a login page to critique.
  */
 
-export type TwinSource = 'requested' | 'llms.txt' | 'sitemap.xml' | 'advertised';
+/** @typedef {'requested' | 'llms.txt' | 'sitemap.xml' | 'advertised'} TwinSource */
 
-export interface DiscoveredTwin {
-  url: string;
-  /** The page this document is the twin of, when it follows the `<path>.md` convention. */
-  pageUrl?: string;
-  source: TwinSource;
-  markdown: string;
-  bytes: number;
-  words: number;
-}
+/**
+ * @typedef {object} DiscoveredTwin
+ * @property {string} url
+ * @property {string} [pageUrl] The page this document is the twin of, when it follows the `<path>.md` convention.
+ * @property {TwinSource} source
+ * @property {string} markdown
+ * @property {number} bytes
+ * @property {number} words
+ */
 
-export interface DiscoveryResult {
-  /** Verified documents, requested-first, then in the order the site listed them. */
-  twins: DiscoveredTwin[];
-  /** Candidates that were fetched and rejected, with the reason, so the report can say why. */
-  rejected: Array<{ url: string; source: TwinSource; reason: string }>;
-  /** How many candidates were dropped before fetching because of the cap. */
-  overCap: number;
-  sources: { llms: boolean; sitemap: boolean };
-}
+/**
+ * @typedef {object} DiscoveryResult
+ * @property {DiscoveredTwin[]} twins Verified documents, requested-first, then in the order the site listed them.
+ * @property {Array<{ url: string; source: TwinSource; reason: string }>} rejected Candidates that were fetched and rejected, with the reason, so the report can say why.
+ * @property {number} overCap How many candidates were dropped before fetching because of the cap.
+ * @property {{ llms: boolean; sitemap: boolean }} sources
+ */
 
-export interface DiscoverOptions {
-  timeoutMs?: number;
-  /** Hard cap on how many candidate URLs are fetched. A sitemap can list thousands. */
-  maxFetch?: number;
-  /** Evidence from a structural run, so the main flow does not fetch llms.txt or the twin twice. */
-  evidence?: Evidence;
-  /** How many candidates are fetched at once. */
-  concurrency?: number;
-}
+/**
+ * @typedef {object} DiscoverOptions
+ * @property {number} [timeoutMs]
+ * @property {number} [maxFetch] Hard cap on how many candidate URLs are fetched. A sitemap can list thousands.
+ * @property {Evidence} [evidence] Evidence from a structural run, so the main flow does not fetch llms.txt or the twin twice.
+ * @property {number} [concurrency] How many candidates are fetched at once.
+ */
 
 const DEFAULT_MAX_FETCH = 25;
 const DEFAULT_CONCURRENCY = 5;
 
-export async function discoverTwins(target: URL, options: DiscoverOptions = {}): Promise<DiscoveryResult> {
+/**
+ * @param {URL} target
+ * @param {DiscoverOptions} [options]
+ * @returns {Promise<DiscoveryResult>}
+ */
+export async function discoverTwins(target, options = {}) {
   const timeoutMs = options.timeoutMs ?? 15_000;
   const maxFetch = options.maxFetch ?? DEFAULT_MAX_FETCH;
   const evidence = options.evidence;
@@ -68,8 +70,13 @@ export async function discoverTwins(target: URL, options: DiscoverOptions = {}):
         probe(new URL('/sitemap.xml', target.origin).toString(), { timeoutMs }),
       ]);
 
-  const candidates = new Map<string, TwinSource>();
-  const add = (url: string, source: TwinSource) => {
+  /** @type {Map<string, TwinSource>} */
+  const candidates = new Map();
+  /**
+   * @param {string} url
+   * @param {TwinSource} source
+   */
+  const add = (url, source) => {
     if (!candidates.has(url)) candidates.set(url, source);
   };
 
@@ -81,8 +88,10 @@ export async function discoverTwins(target: URL, options: DiscoverOptions = {}):
   const fetching = all.slice(0, maxFetch);
   const overCap = all.length - fetching.length;
 
-  const twins: DiscoveredTwin[] = [];
-  const rejected: DiscoveryResult['rejected'] = [];
+  /** @type {DiscoveredTwin[]} */
+  const twins = [];
+  /** @type {DiscoveryResult['rejected']} */
+  const rejected = [];
 
   // The requested twin is usually already in hand from the structural pass. Reusing it keeps the
   // main flow at one fetch per document rather than two.
@@ -111,7 +120,11 @@ export async function discoverTwins(target: URL, options: DiscoverOptions = {}):
   return { twins, rejected, overCap, sources: { llms: llms.ok, sitemap: sitemap.ok } };
 }
 
-function judge(result: { ok: boolean; status: number; body: string }): { ok: true } | { ok: false; reason: string } {
+/**
+ * @param {{ ok: boolean; status: number; body: string }} result
+ * @returns {{ ok: true } | { ok: false; reason: string }}
+ */
+function judge(result) {
   if (!result.ok) return { ok: false, reason: `HTTP ${result.status || 'unreachable'}` };
   const body = result.body.trim();
   if (!body) return { ok: false, reason: 'the response was empty' };
@@ -124,17 +137,30 @@ function judge(result: { ok: boolean; status: number; body: string }): { ok: tru
  * route, a SPA shell, or a 404 page served with a 200. Sniffing the body rather than trusting the
  * content-type is deliberate, because a static host serving `.md` as `text/html` is exactly the
  * misconfiguration B2 exists to catch, and it must not also poison the review.
+ *
+ * @param {string} body
+ * @returns {boolean}
  */
-export function looksLikeHtml(body: string): boolean {
+export function looksLikeHtml(body) {
   return /^\s*(<!doctype html|<html[\s>])/i.test(body.slice(0, 400));
 }
 
-/** Markdown links and bare URLs in llms.txt that point at a `.md` document on this origin. */
-export function markdownLinksIn(body: string, origin: string): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const push = (raw: string) => {
-    let url: URL;
+/**
+ * Markdown links and bare URLs in llms.txt that point at a `.md` document on this origin.
+ *
+ * @param {string} body
+ * @param {string} origin
+ * @returns {string[]}
+ */
+export function markdownLinksIn(body, origin) {
+  /** @type {string[]} */
+  const out = [];
+  /** @type {Set<string>} */
+  const seen = new Set();
+  /** @param {string} raw */
+  const push = (raw) => {
+    /** @type {URL} */
+    let url;
     try {
       url = new URL(raw, origin);
     } catch {
@@ -150,19 +176,28 @@ export function markdownLinksIn(body: string, origin: string): string[] {
     }
   };
 
-  for (const [, href] of body.matchAll(/\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) push(href!);
+  for (const [, href] of body.matchAll(/\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) push(/** @type {string} */ (href));
   for (const [bare] of body.matchAll(/https?:\/\/[^\s)<>"']+\.md\b/g)) push(bare);
   return out;
 }
 
-/** Every `<loc>` in a sitemap, mapped through the twin-URL convention. */
-export function sitemapTwins(body: string, origin: string): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
+/**
+ * Every `<loc>` in a sitemap, mapped through the twin-URL convention.
+ *
+ * @param {string} body
+ * @param {string} origin
+ * @returns {string[]}
+ */
+export function sitemapTwins(body, origin) {
+  /** @type {string[]} */
+  const out = [];
+  /** @type {Set<string>} */
+  const seen = new Set();
   for (const [, loc] of body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
-    let url: URL;
+    /** @type {URL} */
+    let url;
     try {
-      url = new URL(decodeEntities(loc!), origin);
+      url = new URL(decodeEntities(/** @type {string} */ (loc)), origin);
     } catch {
       continue;
     }
@@ -176,8 +211,13 @@ export function sitemapTwins(body: string, origin: string): string[] {
   return out;
 }
 
-/** `/resume.md` -> `/resume`, so the report can name the page a document belongs to. */
-function pageUrlOf(url: string): string | undefined {
+/**
+ * `/resume.md` -> `/resume`, so the report can name the page a document belongs to.
+ *
+ * @param {string} url
+ * @returns {string | undefined}
+ */
+function pageUrlOf(url) {
   try {
     const parsed = new URL(url);
     if (!isMarkdownPath(parsed.pathname)) return undefined;
@@ -188,7 +228,11 @@ function pageUrlOf(url: string): string | undefined {
   }
 }
 
-function decodeEntities(value: string): string {
+/**
+ * @param {string} value
+ * @returns {string}
+ */
+function decodeEntities(value) {
   return value
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -197,12 +241,23 @@ function decodeEntities(value: string): string {
     .replace(/&apos;/g, "'");
 }
 
-export function countWords(text: string): number {
+/**
+ * @param {string} text
+ * @returns {number}
+ */
+export function countWords(text) {
   const words = text.trim().match(/\S+/g);
   return words ? words.length : 0;
 }
 
-async function inBatches<T>(items: readonly T[], size: number, run: (item: T) => Promise<void>): Promise<void> {
+/**
+ * @template T
+ * @param {readonly T[]} items
+ * @param {number} size
+ * @param {(item: T) => Promise<void>} run
+ * @returns {Promise<void>}
+ */
+async function inBatches(items, size, run) {
   for (let i = 0; i < items.length; i += size) {
     await Promise.all(items.slice(i, i + size).map(run));
   }

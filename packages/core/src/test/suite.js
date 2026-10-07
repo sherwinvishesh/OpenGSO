@@ -1,14 +1,17 @@
-import type { AiBot } from '../shared/bots.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
-import type { AiProvider, ProviderOverrides } from '../shared/providers.js';
-import type { ProviderFn } from '../generate/ai.js';
-import type { DiscoveryResult } from './discover.js';
 import { discoverTwins } from './discover.js';
-import type { ContentReview } from './quality.js';
 import { reviewContent } from './quality.js';
-import type { TestResult } from './run.js';
 import { testUrl } from './run.js';
+
+/**
+ * @import { AiBot } from '../shared/bots.js'
+ * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
+ * @import { ProviderFn } from '../generate/ai.js'
+ * @import { DiscoveryResult } from './discover.js'
+ * @import { ContentReview } from './quality.js'
+ * @import { TestResult } from './run.js'
+ */
 
 /**
  * The three shapes a test run can take, and the single function that runs all of them.
@@ -30,77 +33,80 @@ import { testUrl } from './run.js';
  * why the two can never disagree about what "run the full test" means.
  */
 
-export type TestMode = 'full' | 'structure' | 'content';
+/** @typedef {'full' | 'structure' | 'content'} TestMode */
 
-export const TEST_MODES: readonly TestMode[] = ['full', 'structure', 'content'];
+/** @type {readonly TestMode[]} */
+export const TEST_MODES = ['full', 'structure', 'content'];
 
-export function isTestMode(value: unknown): value is TestMode {
-  return typeof value === 'string' && (TEST_MODES as readonly string[]).includes(value);
+/**
+ * @param {unknown} value
+ * @returns {value is TestMode}
+ */
+export function isTestMode(value) {
+  return typeof value === 'string' && /** @type {readonly string[]} */ (TEST_MODES).includes(value);
 }
 
-/** Everything the content pass needs. Absent means it cannot run, which is a reportable state. */
-export interface SuiteAi {
-  provider: AiProvider;
-  apiKey: string;
-  model?: string;
-  overrides?: ProviderOverrides;
-  /** Injectable so tests never touch the network. */
-  call?: ProviderFn;
-}
+/**
+ * Everything the content pass needs. Absent means it cannot run, which is a reportable state.
+ *
+ * @typedef {object} SuiteAi
+ * @property {AiProvider} provider
+ * @property {string} apiKey
+ * @property {string} [model]
+ * @property {ProviderOverrides} [overrides]
+ * @property {ProviderFn} [call] Injectable so tests never touch the network.
+ */
 
-export interface SuiteOptions {
-  mode: TestMode;
-  timeoutMs?: number;
-  /** Built-ins plus the project's own crawlers, so A1 judges robots.txt against both. */
-  bots?: readonly AiBot[];
-  /** Absent means the content pass reports "no key" instead of running. */
-  ai?: SuiteAi;
-  /**
-   * The caller asked for the content pass by name (`-q`, or the dashboard's own toggle). Turns a
-   * missing key from a note into a refusal, because silently doing less than was asked for is the
-   * one outcome nobody can debug.
-   */
-  requireContent?: boolean;
-  /** How many documents get reviewed. Every one is a paid call. */
-  maxDocs?: number;
-  /** How many candidate URLs discovery will fetch before giving up on a huge sitemap. */
-  maxFetch?: number;
-  onProgress?: (event: SuiteProgress) => void;
-  /** Overridable only so the CI guard itself is testable. */
-  env?: Record<string, string | undefined>;
-}
+/**
+ * @typedef {object} SuiteOptions
+ * @property {TestMode} mode
+ * @property {number} [timeoutMs]
+ * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
+ * @property {SuiteAi} [ai] Absent means the content pass reports "no key" instead of running.
+ * @property {boolean} [requireContent] The caller asked for the content pass by name (`-q`, or the dashboard's own toggle). Turns a
+ *   missing key from a note into a refusal, because silently doing less than was asked for is the
+ *   one outcome nobody can debug.
+ * @property {number} [maxDocs] How many documents get reviewed. Every one is a paid call.
+ * @property {number} [maxFetch] How many candidate URLs discovery will fetch before giving up on a huge sitemap.
+ * @property {(event: SuiteProgress) => void} [onProgress]
+ * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is testable.
+ */
 
-export type SuiteProgress =
-  | { phase: 'structure' }
-  // Carries the finished structural result so a terminal can print the report the moment it exists,
-  // rather than making the user watch a blank screen through a minute of paid AI calls.
-  | { phase: 'structure-done'; result: TestResult }
-  | { phase: 'discover' }
-  | { phase: 'discovered'; documents: number }
-  | { phase: 'review'; done: number; total: number; url: string };
+/**
+ * `structure-done` carries the finished structural result so a terminal can print the report the
+ * moment it exists, rather than making the user watch a blank screen through a minute of paid AI calls.
+ *
+ * @typedef {{ phase: 'structure' }
+ *   | { phase: 'structure-done'; result: TestResult }
+ *   | { phase: 'discover' }
+ *   | { phase: 'discovered'; documents: number }
+ *   | { phase: 'review'; done: number; total: number; url: string }} SuiteProgress
+ */
 
-export interface SuiteResult {
-  mode: TestMode;
-  url: string;
-  /** Absent only in `content` mode, which never runs the checks. */
-  structure?: TestResult;
-  discovery?: DiscoveryResult;
-  content?: ContentReview;
-  /**
-   * Why the content pass did not run. A note, not a failure: in `full` mode this is the normal
-   * outcome for the majority of users, who have no key and did not ask for one.
-   */
-  contentSkipped?: string;
-  /** The content pass was attempted and failed. Distinct from skipped, and worth an exit code. */
-  contentError?: string;
-}
+/**
+ * @typedef {object} SuiteResult
+ * @property {TestMode} mode
+ * @property {string} url
+ * @property {TestResult} [structure] Absent only in `content` mode, which never runs the checks.
+ * @property {DiscoveryResult} [discovery]
+ * @property {ContentReview} [content]
+ * @property {string} [contentSkipped] Why the content pass did not run. A note, not a failure: in `full` mode this is the normal
+ *   outcome for the majority of users, who have no key and did not ask for one.
+ * @property {string} [contentError] The content pass was attempted and failed. Distinct from skipped, and worth an exit code.
+ */
 
-export async function runTestSuite(target: string, options: SuiteOptions): Promise<SuiteResult> {
+/**
+ * @param {string} target
+ * @param {SuiteOptions} options
+ * @returns {Promise<SuiteResult>}
+ */
+export async function runTestSuite(target, options) {
   const url = parseUrl(target);
   if (!url) throw new Error(ERRORS.invalidUrl(target));
 
   const structure = options.mode === 'content' ? undefined : await runStructure(url, options);
-  const result: SuiteResult = { mode: options.mode, url: url.toString(), structure };
+  /** @type {SuiteResult} */
+  const result = { mode: options.mode, url: url.toString(), structure };
   if (options.mode === 'structure') return result;
 
   // In `full` mode a missing key is expected and must not read as an error. In `content` mode the
@@ -144,7 +150,12 @@ export async function runTestSuite(target: string, options: SuiteOptions): Promi
   return result;
 }
 
-async function runStructure(url: URL, options: SuiteOptions): Promise<TestResult> {
+/**
+ * @param {URL} url
+ * @param {SuiteOptions} options
+ * @returns {Promise<TestResult>}
+ */
+async function runStructure(url, options) {
   options.onProgress?.({ phase: 'structure' });
   const result = await testUrl(url.toString(), { timeoutMs: options.timeoutMs, bots: options.bots });
   options.onProgress?.({ phase: 'structure-done', result });
@@ -154,8 +165,12 @@ async function runStructure(url: URL, options: SuiteOptions): Promise<TestResult
 /**
  * "Nothing to review" has several causes and the user can only act on the specific one, so the
  * message names what was tried and what came back rather than saying no markdown was found.
+ *
+ * @param {URL} url
+ * @param {DiscoveryResult} discovery
+ * @returns {string}
  */
-function noDocuments(url: URL, discovery: DiscoveryResult): string {
+function noDocuments(url, discovery) {
   const lines = [`No Markdown documents to review on ${url.origin}.`];
   if (discovery.rejected.length > 0) {
     lines.push('', 'Tried:');
@@ -173,8 +188,13 @@ function noDocuments(url: URL, discovery: DiscoveryResult): string {
   return lines.join('\n');
 }
 
-/** The exit code a suite result deserves. Structural failures decide it whenever there was one. */
-export function suiteExitCode(result: SuiteResult): number {
+/**
+ * The exit code a suite result deserves. Structural failures decide it whenever there was one.
+ *
+ * @param {SuiteResult} result
+ * @returns {number}
+ */
+export function suiteExitCode(result) {
   if (result.structure) return result.structure.score.counts.fail === 0 ? 0 : 1;
   return result.contentError ? 1 : 0;
 }

@@ -1,4 +1,4 @@
-import type { CheckResult } from './checks.js';
+/** @import { CheckResult } from './checks.js' */
 
 /**
  * The 0-100 score (§5).
@@ -13,30 +13,32 @@ import type { CheckResult } from './checks.js';
  * separate failures for one missing file would take a site from 80 to 38 for a single fix. What the
  * score does instead is carry those points as a number the report can show: `locked.points` is what
  * comes into play the moment the prerequisite passes.
+ *
+ * @typedef {object} Score
+ * @property {number} value
+ * @property {number} earned
+ * @property {number} possible
+ * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} counts
+ * @property {Array<{ id: string; points: number }>} lost Points lost, per check, for the fix prompt and the ranked footer.
+ *
+ *   A partial contributes its shortfall rather than its weight, so a check worth 4 that earned 2
+ *   appears here as 2. That is what makes the "do this next" list a genuine ranking: the two points
+ *   still available from a partial should not outrank the ten behind a check that earned nothing.
+ * @property {{ count: number; points: number; unlockedBy: string[] }} locked What is waiting behind a failed prerequisite. `count` is zero on a healthy run.
  */
-export interface Score {
-  value: number;
-  earned: number;
-  possible: number;
-  counts: { pass: number; partial: number; fail: number; locked: number; na: number };
-  /**
-   * Points lost, per check, for the fix prompt and the ranked footer.
-   *
-   * A partial contributes its shortfall rather than its weight, so a check worth 4 that earned 2
-   * appears here as 2. That is what makes the "do this next" list a genuine ranking: the two points
-   * still available from a partial should not outrank the ten behind a check that earned nothing.
-   */
-  lost: Array<{ id: string; points: number }>;
-  /** What is waiting behind a failed prerequisite. `count` is zero on a healthy run. */
-  locked: { count: number; points: number; unlockedBy: string[] };
-}
 
-export function scoreChecks(results: readonly CheckResult[]): Score {
+/**
+ * @param {readonly CheckResult[]} results
+ * @returns {Score}
+ */
+export function scoreChecks(results) {
   let earned = 0;
   let possible = 0;
   const counts = { pass: 0, partial: 0, fail: 0, locked: 0, na: 0 };
-  const lost: Score['lost'] = [];
-  const lockedIds = new Set<string>();
+  /** @type {Score['lost']} */
+  const lost = [];
+  /** @type {Set<string>} */
+  const lockedIds = new Set();
   let lockedPoints = 0;
 
   for (const result of results) {

@@ -1,8 +1,11 @@
-import type { AiBot } from '../shared/bots.js';
-import type { ProbeResult } from '../shared/http.js';
 import { BROWSER_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
+
+/**
+ * @import { AiBot } from '../shared/bots.js'
+ * @import { ProbeResult } from '../shared/http.js'
+ */
 
 /**
  * Everything the checks need, gathered in one pass.
@@ -14,43 +17,39 @@ import { parseLinkAlternate } from '../prod/headers.js';
 /** A User-Agent a site would recognise as a well-known AI crawler. Used for the B10 probe. */
 export const GPTBOT_UA = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.2; +https://openai.com/gptbot';
 
-export interface Evidence {
-  target: URL;
-  origin: string;
-  /** The page fetched the way a browser would. */
-  html: ProbeResult;
-  robots: ProbeResult;
-  llms: ProbeResult;
-  sitemap: ProbeResult;
-  /** The markdown twin, fetched at its canonical URL (or the one the HTML advertised). */
-  twin: ProbeResult;
-  twinUrl: string;
-  advertisedTwinUrl?: string;
-  /**
-   * A twin the HTML advertised on another origin, or with a scheme other than http(s). It is
-   * reported and never fetched: the audit is of this site, and a Link header is not permission to
-   * make OpenGEO request a third party's URL or read a `data:` body as if the site had served it.
-   */
-  foreignTwinUrl?: string;
-  /** Same page URL, asking for markdown by content negotiation. */
-  acceptMarkdown: ProbeResult;
-  /** Same page URL, as a known AI bot, with no markdown preference expressed. */
-  botUa: ProbeResult;
-  /** Same page URL, with an Accept header that allows neither HTML nor markdown. */
-  notAcceptable: ProbeResult;
-  /**
-   * The crawler catalogue A1 reads robots.txt against. Defaults to the shipped list; a caller with
-   * a config in hand passes the resolved one so a project's own crawler is judged too.
-   */
-  bots?: readonly AiBot[];
-}
+/**
+ * @typedef {object} Evidence
+ * @property {URL} target
+ * @property {string} origin
+ * @property {ProbeResult} html The page fetched the way a browser would.
+ * @property {ProbeResult} robots
+ * @property {ProbeResult} llms
+ * @property {ProbeResult} sitemap
+ * @property {ProbeResult} twin The markdown twin, fetched at its canonical URL (or the one the HTML advertised).
+ * @property {string} twinUrl
+ * @property {string} [advertisedTwinUrl]
+ * @property {string} [foreignTwinUrl] A twin the HTML advertised on another origin, or with a scheme other than http(s). It is
+ *   reported and never fetched: the audit is of this site, and a Link header is not permission to
+ *   make OpenGEO request a third party's URL or read a `data:` body as if the site had served it.
+ * @property {ProbeResult} acceptMarkdown Same page URL, asking for markdown by content negotiation.
+ * @property {ProbeResult} botUa Same page URL, as a known AI bot, with no markdown preference expressed.
+ * @property {ProbeResult} notAcceptable Same page URL, with an Accept header that allows neither HTML nor markdown.
+ * @property {readonly AiBot[]} [bots] The crawler catalogue A1 reads robots.txt against. Defaults to the shipped list; a caller with
+ *   a config in hand passes the resolved one so a project's own crawler is judged too.
+ */
 
-export interface GatherOptions {
-  timeoutMs?: number;
-  bots?: readonly AiBot[];
-}
+/**
+ * @typedef {object} GatherOptions
+ * @property {number} [timeoutMs]
+ * @property {readonly AiBot[]} [bots]
+ */
 
-export async function gatherEvidence(target: URL, options: GatherOptions = {}): Promise<Evidence> {
+/**
+ * @param {URL} target
+ * @param {GatherOptions} [options]
+ * @returns {Promise<Evidence>}
+ */
+export async function gatherEvidence(target, options = {}) {
   const timeoutMs = options.timeoutMs ?? 15_000;
   const origin = target.origin;
 
@@ -90,11 +89,18 @@ export async function gatherEvidence(target: URL, options: GatherOptions = {}): 
   };
 }
 
-/** The advertised twin, if it is on this origin; otherwise what was advertised, to report. */
-function resolveAdvertised(html: ProbeResult, target: URL): { advertisedTwinUrl?: string; foreignTwinUrl?: string } {
+/**
+ * The advertised twin, if it is on this origin; otherwise what was advertised, to report.
+ *
+ * @param {ProbeResult} html
+ * @param {URL} target
+ * @returns {{ advertisedTwinUrl?: string; foreignTwinUrl?: string }}
+ */
+function resolveAdvertised(html, target) {
   const advertised = parseLinkAlternate(html.headers.get('link'));
   if (!advertised) return {};
-  let url: URL;
+  /** @type {URL} */
+  let url;
   try {
     url = new URL(advertised, target);
   } catch {

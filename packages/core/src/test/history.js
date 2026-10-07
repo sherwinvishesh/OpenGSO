@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomic } from '../shared/fs.js';
-import type { SuiteResult } from './suite.js';
-import type { TestMode } from './suite.js';
+
+/** @import { SuiteResult, TestMode } from './suite.js' */
 
 /**
  * A short local record of what the score has been (§5).
@@ -26,63 +26,90 @@ export const HISTORY_VERSION = 1;
 /** How many runs to keep. Enough for a sparkline and a week of work, small enough to stay hand-readable. */
 export const HISTORY_LIMIT = 20;
 
-export interface HistoryEntry {
-  /** ISO timestamp of when the run finished. */
-  at: string;
-  url: string;
-  mode: TestMode;
-  /** The structural 0-100. Absent in `content` mode, which never runs the checks. */
-  score?: number;
-  /** The content 0-100, kept separate from the structural one exactly as §5 requires. */
-  contentScore?: number;
-  counts?: { pass: number; partial: number; fail: number; locked: number; na: number };
-  /** Points sitting behind a locked check, so the home screen can price the next fix. */
-  lockedPoints?: number;
-  /** Ids of the checks that actually failed, so a delta can say what changed rather than only by how much. */
-  failedIds?: string[];
-}
+/**
+ * @typedef {object} HistoryEntry
+ * @property {string} at ISO timestamp of when the run finished.
+ * @property {string} url
+ * @property {TestMode} mode
+ * @property {number} [score] The structural 0-100. Absent in `content` mode, which never runs the checks.
+ * @property {number} [contentScore] The content 0-100, kept separate from the structural one exactly as §5 requires.
+ * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} [counts]
+ * @property {number} [lockedPoints] Points sitting behind a locked check, so the home screen can price the next fix.
+ * @property {string[]} [failedIds] Ids of the checks that actually failed, so a delta can say what changed rather than only by how much.
+ */
 
-export interface History {
-  version: number;
-  entries: HistoryEntry[];
-}
+/**
+ * @typedef {object} History
+ * @property {number} version
+ * @property {HistoryEntry[]} entries
+ */
 
-export function historyPath(internalDir: string): string {
+/**
+ * @param {string} internalDir
+ * @returns {string}
+ */
+export function historyPath(internalDir) {
   return join(internalDir, HISTORY_FILENAME);
 }
 
-export function emptyHistory(): History {
+/**
+ * @returns {History}
+ */
+export function emptyHistory() {
   return { version: HISTORY_VERSION, entries: [] };
 }
 
-export function readHistory(internalDir: string): History {
+/**
+ * @param {string} internalDir
+ * @returns {History}
+ */
+export function readHistory(internalDir) {
   const path = historyPath(internalDir);
   if (!existsSync(path)) return emptyHistory();
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as Partial<History>;
+    const parsed = /** @type {Partial<History>} */ (JSON.parse(readFileSync(path, 'utf8')));
     if (!parsed || !Array.isArray(parsed.entries)) return emptyHistory();
     // A file written by a future version is read for what is recognisable rather than discarded:
     // the entries are additive, and losing a week of scores to a version bump would be rude.
-    const entries = parsed.entries.filter((entry): entry is HistoryEntry => {
-      return Boolean(entry) && typeof entry.at === 'string' && typeof entry.url === 'string';
-    });
+    const entries = parsed.entries.filter(
+      /**
+       * @param {HistoryEntry} entry
+       * @returns {entry is HistoryEntry}
+       */
+      (entry) => {
+        return Boolean(entry) && typeof entry.at === 'string' && typeof entry.url === 'string';
+      },
+    );
     return { version: HISTORY_VERSION, entries: entries.slice(-HISTORY_LIMIT) };
   } catch {
     return emptyHistory();
   }
 }
 
-export function writeHistory(internalDir: string, history: History): string {
+/**
+ * @param {string} internalDir
+ * @param {History} history
+ * @returns {string}
+ */
+export function writeHistory(internalDir, history) {
   const path = historyPath(internalDir);
-  const trimmed: History = { version: HISTORY_VERSION, entries: history.entries.slice(-HISTORY_LIMIT) };
+  /** @type {History} */
+  const trimmed = { version: HISTORY_VERSION, entries: history.entries.slice(-HISTORY_LIMIT) };
   writeFileAtomic(path, `${JSON.stringify(trimmed, null, 2)}\n`);
   return path;
 }
 
-/** Fold a finished suite into an entry. Pure, so the shape is testable without touching disk. */
-export function entryFromSuite(result: SuiteResult, at = new Date()): HistoryEntry {
+/**
+ * Fold a finished suite into an entry. Pure, so the shape is testable without touching disk.
+ *
+ * @param {SuiteResult} result
+ * @param {Date} [at]
+ * @returns {HistoryEntry}
+ */
+export function entryFromSuite(result, at = new Date()) {
   const score = result.structure?.score;
-  const entry: HistoryEntry = { at: at.toISOString(), url: result.url, mode: result.mode };
+  /** @type {HistoryEntry} */
+  const entry = { at: at.toISOString(), url: result.url, mode: result.mode };
   if (score) {
     entry.score = score.value;
     entry.counts = { ...score.counts };
@@ -100,8 +127,13 @@ export function entryFromSuite(result: SuiteResult, at = new Date()): HistoryEnt
  * Recording a score is never worth failing a test run over, so every filesystem error here is
  * swallowed: a read-only checkout, a `.opengeo` owned by root from a container mount, a full disk.
  * The caller gets `undefined` and carries on printing the report.
+ *
+ * @param {string} internalDir
+ * @param {SuiteResult} result
+ * @param {Date} [at]
+ * @returns {HistoryEntry | undefined}
  */
-export function recordRun(internalDir: string, result: SuiteResult, at = new Date()): HistoryEntry | undefined {
+export function recordRun(internalDir, result, at = new Date()) {
   try {
     const history = readHistory(internalDir);
     const entry = entryFromSuite(result, at);
@@ -113,8 +145,13 @@ export function recordRun(internalDir: string, result: SuiteResult, at = new Dat
   }
 }
 
-/** The most recent entry that actually carries a structural score. */
-export function lastScored(history: History): HistoryEntry | undefined {
+/**
+ * The most recent entry that actually carries a structural score.
+ *
+ * @param {History} history
+ * @returns {HistoryEntry | undefined}
+ */
+export function lastScored(history) {
   for (let index = history.entries.length - 1; index >= 0; index -= 1) {
     const entry = history.entries[index];
     if (entry && typeof entry.score === 'number') return entry;
@@ -122,12 +159,11 @@ export function lastScored(history: History): HistoryEntry | undefined {
   return undefined;
 }
 
-export interface ScoreDelta {
-  /** Points moved since the previous scored run of the same URL. */
-  points: number;
-  /** The run it is being compared against. */
-  previous: HistoryEntry;
-}
+/**
+ * @typedef {object} ScoreDelta
+ * @property {number} points Points moved since the previous scored run of the same URL.
+ * @property {HistoryEntry} previous The run it is being compared against.
+ */
 
 /**
  * How far the score moved since the last run of the same URL.
@@ -135,8 +171,12 @@ export interface ScoreDelta {
  * Same URL matters: testing localhost and then production and calling the difference an improvement
  * would be a lie the report then repeats in bold. `current` is excluded by identity, so this works
  * whether it is called before or after the new entry is appended.
+ *
+ * @param {History} history
+ * @param {HistoryEntry} current
+ * @returns {ScoreDelta | undefined}
  */
-export function deltaFor(history: History, current: HistoryEntry): ScoreDelta | undefined {
+export function deltaFor(history, current) {
   if (typeof current.score !== 'number') return undefined;
   for (let index = history.entries.length - 1; index >= 0; index -= 1) {
     const entry = history.entries[index];
@@ -148,9 +188,17 @@ export function deltaFor(history: History, current: HistoryEntry): ScoreDelta | 
   return undefined;
 }
 
-/** The structural scores for the same URL, oldest first, for a sparkline. */
-export function scoreTrend(history: History, url?: string, limit = 12): number[] {
-  const scores: number[] = [];
+/**
+ * The structural scores for the same URL, oldest first, for a sparkline.
+ *
+ * @param {History} history
+ * @param {string} [url]
+ * @param {number} [limit]
+ * @returns {number[]}
+ */
+export function scoreTrend(history, url, limit = 12) {
+  /** @type {number[]} */
+  const scores = [];
   for (const entry of history.entries) {
     if (typeof entry.score !== 'number') continue;
     if (url && entry.url !== url) continue;
@@ -159,8 +207,14 @@ export function scoreTrend(history: History, url?: string, limit = 12): number[]
   return scores.slice(-limit);
 }
 
-/** "just now", "2h ago", "3d ago". Used by the home screen and the report headline. */
-export function relativeAge(iso: string, now = new Date()): string {
+/**
+ * "just now", "2h ago", "3d ago". Used by the home screen and the report headline.
+ *
+ * @param {string} iso
+ * @param {Date} [now]
+ * @returns {string}
+ */
+export function relativeAge(iso, now = new Date()) {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return 'unknown';
   const seconds = Math.max(0, Math.round((now.getTime() - then) / 1000));
