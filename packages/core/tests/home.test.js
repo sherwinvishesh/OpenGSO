@@ -404,3 +404,51 @@ describe('the flat menu and a pipe', () => {
     expect(seen).toBe('');
   });
 });
+
+describe('the full-screen menu after a command', () => {
+  /** @type {string | undefined} */
+  let force;
+  beforeEach(() => {
+    force = process.env.FORCE_COLOR;
+    process.env.FORCE_COLOR = '1';
+  });
+  afterEach(() => {
+    if (force === undefined) delete process.env.FORCE_COLOR;
+    else process.env.FORCE_COLOR = force;
+  });
+
+  it('quits cleanly when the input ends at the go-back prompt, rather than hanging', async () => {
+    const input = /** @type {NodeJS.ReadStream} */ (
+      /** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, isRaw: false, setRawMode: (/** @type {boolean} */ on) => ((input.isRaw = on), input) }))
+    );
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, columns: 80, rows: 24 })));
+    let seen = '';
+    output.on('data', (/** @type {Buffer} */ chunk) => {
+      seen += chunk.toString();
+    });
+    /** @param {string} needle */
+    const waitFor = async (needle) => {
+      for (let tries = 0; !stripAnsi(seen).includes(needle); tries += 1) {
+        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)}`);
+        await new Promise((done) => setTimeout(done, 5));
+      }
+    };
+    let ran = 0;
+    /** @type {CommandHandler} */
+    const prod = async () => {
+      ran += 1;
+      return 0;
+    };
+
+    const done = runHome({ packageName: 'opengeo', version: '0.0.0', commands: { 'prod test': prod }, root: project({ 'opengeo.config.json': CONFIG }), input, output });
+    await waitFor('Prod check');
+    input.write('p');
+    await waitFor('URL');
+    input.write('\r');
+    await waitFor('Press Enter');
+    input.end();
+
+    expect(await done).toBe(0);
+    expect(ran).toBe(1);
+  });
+});

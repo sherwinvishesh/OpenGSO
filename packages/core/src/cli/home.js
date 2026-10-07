@@ -285,10 +285,12 @@ export async function runHome(options) {
       // on stdin (`settings` opens a readline) would otherwise receive every keystroke, and the
       // menu would replay the setup answers into itself the moment the command returned.
       keys.close();
-      await screen.suspend(async () => {
+      const ended = await screen.suspend(async () => {
         await runInScrollback(options, action, argv, output);
-        await waitForKey(input, output);
+        return await waitForKey(input, output);
       });
+      // Ctrl-D at the prompt closes stdin for good, and a menu with no input could only hang.
+      if (ended) return 0;
       keys = readKeys(input);
     }
   } finally {
@@ -432,19 +434,27 @@ function isUrlish(value) {
  * Enter". Trying to read a single raw keypress here would mean turning raw mode back on while the
  * report is still on screen, which is how a terminal ends up echoing nothing after a Ctrl-C.
  *
+ * Resolves true when the input ended instead (Ctrl-D on an empty line), which is not a keypress and
+ * never arrives as `data`.
+ *
  * @param {NodeJS.ReadStream} input
  * @param {NodeJS.WriteStream} output
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>}
  */
 function waitForKey(input, output) {
   return new Promise((resolve) => {
     output.write(`\n${ink.faint('Press Enter to go back to the menu.')} `);
-    const done = () => {
-      input.off('data', done);
+    /** @param {boolean} ended */
+    const settle = (ended) => {
+      input.off('data', onData);
+      input.off('end', onEnd);
       output.write('\n');
-      resolve();
+      resolve(ended);
     };
-    input.once('data', done);
+    const onData = () => settle(false);
+    const onEnd = () => settle(true);
+    input.once('data', onData);
+    input.once('end', onEnd);
     input.resume();
   });
 }
