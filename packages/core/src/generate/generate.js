@@ -79,6 +79,9 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
  * @property {string[]} warnings
  * @property {boolean} fellBack True when the fidelity guard rejected the AI output and the
  *   algorithmic one was kept.
+ * @property {'fidelity' | 'truncated' | 'too-long' | 'unavailable'} [fallback] Why it fell back.
+ *   Every reason but `unavailable` would recur on the same content, so it is remembered in the
+ *   manifest and the page is not paid for again until it changes.
  */
 
 /**
@@ -204,7 +207,7 @@ export async function generatePages(options) {
         const sourceHash = contentHash(extracted.markdown);
 
         const prior = previous.pages[route];
-        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
+        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && tierSatisfied(prior, tier)) {
           pages.push({
             route,
             url,
@@ -216,7 +219,7 @@ export async function generatePages(options) {
             tokens: prior.tokens,
             wordCount: prior.wordCount,
             warnings: [],
-            reason: 'Source unchanged since the last run.',
+            reason: prior.aiFallback && tier === 'ai' ? ERRORS.aiFallbackCached(prior.aiFallback) : 'Source unchanged since the last run.',
           });
           manifest.pages[route] = prior;
           continue;
@@ -226,6 +229,8 @@ export async function generatePages(options) {
         const warnings = [...extracted.warnings];
         /** @type {GenerationTier} */
         let appliedTier = 'free';
+        /** @type {ManifestEntry['aiFallback']} */
+        let aiFallback;
 
         if (tier === 'ai' && enhance) {
           onProgress?.({ route, index, total: unique.length, phase: 'ai' });
@@ -238,6 +243,7 @@ export async function generatePages(options) {
           markdown = enhanced.markdown;
           warnings.push(...enhanced.warnings);
           appliedTier = enhanced.fellBack ? 'free' : 'ai';
+          if (enhanced.fellBack && enhanced.fallback && enhanced.fallback !== 'unavailable') aiFallback = enhanced.fallback;
         }
 
         const tokens = estimateTokens(markdown);
@@ -284,6 +290,7 @@ export async function generatePages(options) {
           sourceHash,
           lastUpdated,
           tier: appliedTier,
+          ...(aiFallback ? { aiFallback } : {}),
           ...(extracted.description ? { description: extracted.description } : {}),
         };
         pages.push({
@@ -324,6 +331,18 @@ export async function generatePages(options) {
     warnings: problem ? [problem] : [],
     durationMs: Date.now() - started,
   };
+}
+
+/**
+ * Whether the twin on disk is what this run's tier would produce. A free twin the AI tier already
+ * tried and could not improve counts for the AI tier, or every run would pay for the same rejection.
+ *
+ * @param {ManifestEntry} prior
+ * @param {'free' | 'ai'} tier
+ * @returns {boolean}
+ */
+function tierSatisfied(prior, tier) {
+  return prior.tier === tier || (tier === 'ai' && prior.tier === 'free' && prior.aiFallback !== undefined);
 }
 
 /**

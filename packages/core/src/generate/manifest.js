@@ -44,6 +44,10 @@ export const MANIFEST_VERSION = 1;
  *   here, and inventing one would make the drift check report a page as verified when it isn't.
  * @property {string} lastUpdated
  * @property {GenerationTier} tier
+ * @property {'fidelity' | 'truncated' | 'too-long'} [aiFallback] The AI tier was asked for this
+ *   content and could not be used, for a reason that would recur. The next AI run treats the free
+ *   twin as current instead of paying for the same outcome again; a content change or `--force`
+ *   tries again.
  * @property {string} [description] Carried so a fully-cached rerun can still write llms.txt without
  *   re-extracting every page.
  */

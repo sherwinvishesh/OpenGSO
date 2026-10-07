@@ -152,6 +152,12 @@ instead, and you get a warning naming the fact that went missing.
 
 This makes "never alters your facts" a property the code enforces, not a promise the prompt makes.
 
+A call you pay for is not repeated for nothing. A rewrite that stopped at the model's output cap is
+refused rather than accepted. A page too long to fit in that cap is never sent at all. And a page
+whose rewrite was refused for either reason, or by the fidelity check, is remembered in the
+manifest: the next run leaves it as it is until its content changes or you pass `--force`. A
+provider error (a timeout, a 429) is not remembered, so that page is tried again next time.
+
 ### Which model
 
 Any of twelve providers, including Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral, DeepSeek,

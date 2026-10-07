@@ -468,6 +468,21 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
+  /** @param {string} provider */
+  aiOutputTruncated: (provider) =>
+    `${provider} stopped at the output cap before the page was finished, so the cut-off rewrite was not used.`,
+
+  /**
+   * @param {number} tokens
+   * @param {number} cap
+   */
+  aiPageTooLong: (tokens, cap) =>
+    `Not sent to the AI tier, so the algorithmic version was kept: this page is about ${tokens} tokens and the model's output cap is ${cap}, so a full rewrite could not fit and the call would be paid for and thrown away.`,
+
+  /** @param {string} why */
+  aiFallbackCached: (why) =>
+    `Source unchanged since the last run, when the AI tier kept the algorithmic version (${why}). Not sent to the model again; --force retries it.`,
+
   /** @param {string} message */
   pageCrashed: (message) => `Could not generate this page: ${message}. The rest of the run carried on.`,
 

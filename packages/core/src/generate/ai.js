@@ -1,6 +1,7 @@
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps, resolveProvider } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
+import { estimateTokens } from '../shared/tokens.js';
 import { verifyFidelity } from './fidelity.js';
 
 /**
@@ -56,6 +57,21 @@ import { verifyFidelity } from './fidelity.js';
  * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is
  *   testable.
  */
+
+/** The output cap sent with every call that does not set its own. */
+export const DEFAULT_MAX_TOKENS = 8192;
+
+/**
+ * The provider stopped because it hit the output cap. What it returned is the start of an answer,
+ * and a rewrite that is missing its end must never be accepted or cached.
+ */
+export class TruncatedOutputError extends Error {
+  /** @param {string} provider */
+  constructor(provider) {
+    super(ERRORS.aiOutputTruncated(provider));
+    this.name = 'TruncatedOutputError';
+  }
+}
 
 export const SYSTEM_PROMPT = [
   'You convert an already-rendered web page into clean Markdown for AI agents to read.',
@@ -129,7 +145,16 @@ export function createAiEnhancer(options) {
   const gaps = providerGaps(options.provider, model, options.overrides);
   if (gaps.length > 0) throw new Error(ERRORS.providerIncomplete(options.provider, gaps));
 
+  const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+
   return async (input) => {
+    // A transcription is about as long as its source. One that cannot fit would be cut off on every
+    // run, and billed every time, so it is never sent.
+    const tokens = estimateTokens(input.algorithmicMarkdown);
+    if (tokens > maxTokens) {
+      return { markdown: input.algorithmicMarkdown, warnings: [ERRORS.aiPageTooLong(tokens, maxTokens)], fellBack: true, fallback: 'too-long' };
+    }
+
     /** @type {string} */
     let text;
     try {
@@ -139,7 +164,7 @@ export function createAiEnhancer(options) {
         apiKey: options.apiKey,
         system: SYSTEM_PROMPT,
         prompt: buildFidelityPrompt(input),
-        maxTokens: options.maxTokens,
+        maxTokens,
         timeoutMs: options.timeoutMs,
         overrides: options.overrides,
       });
@@ -148,6 +173,7 @@ export function createAiEnhancer(options) {
         markdown: input.algorithmicMarkdown,
         warnings: [`AI tier unavailable for this page, kept the algorithmic version. ${errorText(error)}`],
         fellBack: true,
+        fallback: error instanceof TruncatedOutputError ? 'truncated' : 'unavailable',
       };
     }
 
@@ -161,6 +187,7 @@ export function createAiEnhancer(options) {
           ...report.errors,
         ],
         fellBack: true,
+        fallback: 'fidelity',
       };
     }
 
@@ -283,7 +310,7 @@ async function post(url, init, timeoutMs, label) {
  * @returns {Promise<string>}
  */
 async function callAnthropic(call, provider) {
-  const json = /** @type {{ content?: Array<{ type?: string; text?: string }> }} */ (await post(
+  const json = /** @type {{ content?: Array<{ type?: string; text?: string }>; stop_reason?: string }} */ (await post(
     `${provider.baseUrl}/messages`,
     {
       method: 'POST',
@@ -294,7 +321,7 @@ async function callAnthropic(call, provider) {
       },
       body: JSON.stringify({
         model: call.model,
-        max_tokens: call.maxTokens ?? 8192,
+        max_tokens: call.maxTokens ?? DEFAULT_MAX_TOKENS,
         system: call.system,
         messages: [{ role: 'user', content: call.prompt }],
       }),
@@ -303,6 +330,7 @@ async function callAnthropic(call, provider) {
     provider.label,
   ));
 
+  if (json.stop_reason === 'max_tokens') throw new TruncatedOutputError(provider.label);
   const text = (json.content ?? [])
     .filter((block) => block.type === 'text' || typeof block.text === 'string')
     .map((block) => block.text ?? '')
@@ -319,8 +347,8 @@ async function callAnthropic(call, provider) {
 async function callOpenAI(call, provider) {
   // OpenAI's own newer models reject `max_tokens`; almost every compatible clone rejects
   // `max_completion_tokens`. The catalogue row says which one this endpoint accepts.
-  const tokens = { [provider.tokenParam]: call.maxTokens ?? 8192 };
-  const json = /** @type {{ choices?: Array<{ message?: { content?: string } }> }} */ (await post(
+  const tokens = { [provider.tokenParam]: call.maxTokens ?? DEFAULT_MAX_TOKENS };
+  const json = /** @type {{ choices?: Array<{ message?: { content?: string }; finish_reason?: string }> }} */ (await post(
     `${provider.baseUrl}/chat/completions`,
     {
       method: 'POST',
@@ -338,6 +366,7 @@ async function callOpenAI(call, provider) {
     provider.label,
   ));
 
+  if (json.choices?.[0]?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
   const text = json.choices?.[0]?.message?.content ?? '';
   if (!text) throw new Error(`${provider.label} returned no message content.`);
   return text;
@@ -350,7 +379,7 @@ async function callOpenAI(call, provider) {
  */
 async function callGemini(call, provider) {
   const model = encodeURIComponent(call.model);
-  const json = /** @type {{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }} */ (await post(
+  const json = /** @type {{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }> }} */ (await post(
     `${provider.baseUrl}/models/${model}:generateContent`,
     {
       method: 'POST',
@@ -358,13 +387,14 @@ async function callGemini(call, provider) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: call.system }] },
         contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
-        generationConfig: { maxOutputTokens: call.maxTokens ?? 8192 },
+        generationConfig: { maxOutputTokens: call.maxTokens ?? DEFAULT_MAX_TOKENS },
       }),
     },
     call.timeoutMs ?? 120_000,
     provider.label,
   ));
 
+  if (json.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new TruncatedOutputError(provider.label);
   const text = (json.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('');
   if (!text) throw new Error(`${provider.label} returned no candidate content.`);
   return text;
