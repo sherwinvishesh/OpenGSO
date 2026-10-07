@@ -15,6 +15,9 @@ import { routeToTwinUrlPath } from '../shared/routes.js';
  *   `Last-Modified`.
  * @property {string} [sourceHash] Hash of the HTML the twin was built from, so `test`'s B14 check
  *   can detect drift exactly.
+ * @property {boolean} [selectedByUserAgent] True when the User-Agent, not Accept or the URL, is what
+ *   chose markdown. `Vary: Accept` cannot describe that, so the response is kept out of shared
+ *   caches instead.
  */
 
 /**
@@ -39,6 +42,9 @@ export function markdownHeaders(input) {
   const lastModified = httpDate(input.lastUpdated);
   if (lastModified) headers[HEADERS.lastModified] = lastModified;
   if (input.sourceHash) headers[HEADERS.markdownSourceHash] = input.sourceHash;
+  // A shared cache keyed on Accept would hand this body to the next plain `*/*` client. Varying on
+  // User-Agent instead would split the cache for every browser build, so this one response opts out.
+  if (input.selectedByUserAgent) headers[HEADERS.cacheControl] = 'private';
   return headers;
 }
 

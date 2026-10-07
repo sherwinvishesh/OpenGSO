@@ -102,6 +102,7 @@ export function handleRequest(request, ctx) {
           specVersion,
           lastUpdated: doc.lastUpdated,
           sourceHash: doc.sourceHash,
+          selectedByUserAgent: !classification.explicitTwin && !classification.accept.prefersMarkdown,
         }),
       }),
     };

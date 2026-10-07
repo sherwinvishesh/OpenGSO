@@ -20,6 +20,8 @@ export const HEADERS = /* @__PURE__ */ Object.freeze({
    */
   markdownSourceHash: 'X-Markdown-Source-Hash',
   lastModified: 'Last-Modified',
+  /** Set to `private` only on markdown the User-Agent chose, which `Vary: Accept` cannot describe. */
+  cacheControl: 'Cache-Control',
 });
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';

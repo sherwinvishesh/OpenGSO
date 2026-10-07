@@ -92,6 +92,7 @@ next section is not optional.
 | `X-Markdown-Tokens` | positive integer | recommended |
 | `X-Markdown-Source-Hash` | hash of the extracted source | optional |
 | `Last-Modified` | IMF-fixdate | optional |
+| `Cache-Control` | `private` | yes, when the User-Agent chose markdown |
 
 `X-Robots-Tag: noindex` is required rather than recommended. Without it the twin is a duplicate of
 every page on the site, offered to search engines as a separate document.
@@ -125,6 +126,15 @@ the cache that these are two representations of one resource.
 `Vary` is a comma-separated list of field names, so it must be read as whole tokens.
 `Vary: Accept-Encoding` is on almost every compressed response and says nothing about content
 negotiation. `Vary: *` counts.
+
+### `Cache-Control: private` when the User-Agent chose the format
+
+`Vary: Accept` describes markdown chosen by the Accept header, and the twin URL is markdown whatever
+is asked. Markdown sent because a crawler's User-Agent is on the routing list is the one case it
+does not describe: that crawler usually sends `Accept: */*`, the same as curl, so a shared cache
+keyed on Accept would hand its markdown to the next plain client. Those responses, and only those,
+carry `Cache-Control: private`. Adding `User-Agent` to `Vary` instead would split a cache into one
+entry per browser build for every visitor, to fix a problem only crawlers have.
 
 **Known limitation.** The Next.js App Router appends its own values to `Vary` on HTML responses and
 offers no supported way to stop it. OpenGEO reports this as a genuine failure rather than

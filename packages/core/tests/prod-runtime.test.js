@@ -142,3 +142,29 @@ describe('search-index crawlers get the HTML page by default', () => {
     expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
   });
 });
+
+/**
+ * `Vary: Accept` tells a shared cache the body depends on Accept. When the User-Agent chose the
+ * body instead, Accept is the same `*` / `*` a curl sends, so a CDN would hand GPTBot's markdown
+ * to the next plain client. That one response is marked private rather than varying on User-Agent,
+ * which would fragment the cache for every visitor.
+ */
+describe('markdown chosen by User-Agent stays out of shared caches', () => {
+  const GPTBOT = 'Mozilla/5.0 AppleWebKit/537.36 (compatible; GPTBot/1.2; +https://openai.com/gptbot)';
+
+  it('marks the routed bot\'s markdown private and still varies on Accept', async () => {
+    const response = await fetch(`${site}/resume`, { headers: { 'user-agent': GPTBOT, accept: '*/*' } });
+    expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(response.headers.get(HEADERS.cacheControl)).toBe('private');
+    expect(response.headers.get(HEADERS.vary)).toBe('Accept');
+  });
+
+  it.each([
+    ['Accept: text/markdown', '/resume', { accept: 'text/markdown' }],
+    ['the twin URL', '/resume.md', { 'user-agent': GPTBOT, accept: '*/*' }],
+  ])('leaves markdown chosen by %s cacheable', async (_label, path, headers) => {
+    const response = await fetch(`${site}${path}`, { headers });
+    expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(response.headers.get(HEADERS.cacheControl)).toBeNull();
+  });
+});
