@@ -2,6 +2,7 @@ import { api, ApiError } from './api.js';
 import { stalenessBanner, stalenessOf } from './components/staleness.js';
 import { abortAll } from './runs.js';
 import { createGenerateView } from './views/generate.js';
+import { createProdView } from './views/prod.js';
 import { createTestView } from './views/test.js';
 import { banner, button, card, el, empty, fill, pageHead, setLabel, setText } from './ui.js';
 
@@ -40,7 +41,7 @@ const notYet = (title) => () => ({ node: el('div', {}, pageHead(title), empty('N
 const SCREENS = {
   test: createTestView,
   generate: createGenerateView,
-  prod: notYet('Prod'),
+  prod: createProdView,
   bots: notYet('Bot settings'),
   settings: notYet('Settings'),
 };
