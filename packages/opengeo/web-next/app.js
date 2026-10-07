@@ -3,10 +3,11 @@ import { stalenessBanner, stalenessOf } from './components/staleness.js';
 import { abortAll } from './runs.js';
 import { createBotsView } from './views/bots.js';
 import { createGenerateView } from './views/generate.js';
+import { createOnboarding } from './views/onboarding.js';
 import { createProdView } from './views/prod.js';
 import { createSettingsView } from './views/settings.js';
 import { createTestView } from './views/test.js';
-import { banner, button, card, el, empty, fill, pageHead, setLabel, setText } from './ui.js';
+import { banner, button, card, el, fill, pageHead, setLabel, setText } from './ui.js';
 
 /**
  * @import { AiBot, StateResponse, TestResponse } from '../../core/src/shared/api-types.js'
@@ -41,12 +42,6 @@ const SCREENS = {
   bots: createBotsView,
   settings: createSettingsView,
 };
-
-/** @type {(ctx: Ctx, onDone: (firstTest?: TestResponse) => void) => View} */
-const createOnboarding = (_ctx, onDone) => ({
-  node: el('div', { className: 'onboarding' }, card('card-pad onboarding-card', empty('Not ported yet')), button({ label: 'Skip', onClick: () => onDone() })),
-  update() {},
-});
 
 // -- state ---------------------------------------------------------------------------------------
 
