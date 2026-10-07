@@ -135,11 +135,14 @@ scripts/             check-bundles.mjs, which asserts those structural guarantee
 
 ## Working on it
 
+The source is plain JavaScript with JSDoc types, so there is no compile step: after `npm install`,
+`npm run opengeo -- --help` runs the CLI straight from the source tree.
+
 ```bash
 npm install
 npm run typecheck
 npm test
-npm run build
+npm run build            # packaging only; nothing needs it to run or test the code
 npm run check:bundles
 ```
 

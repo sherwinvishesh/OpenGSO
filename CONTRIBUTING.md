@@ -18,20 +18,44 @@ docs/                checks.md (the 22 checks) and spec.md (the wire format)
 You do not need it: the decisions those sections drove are all described where they are cited, and
 the two documents in `docs/` cover the parts a contributor actually has to match.
 
-`@opengeo/core` is private and its `exports` map points at source `.ts`. Each published package
+`@opengeo/core` is private and its `exports` map points at its source files. Each published package
 bundles core with tsup (`noExternal: [/@opengeo\/core/]`), so core is never an install-time
 dependency of anything. Write the code once, in core. A published package should be a thin
 entry point and nothing else.
+
+**Plain JavaScript, typed with JSDoc.** Every package's source, tests and config is JavaScript that
+Node runs exactly as written, so there is no compile step between editing a file and running it.
+(The dashboard in `packages/opengeo/web` is still React and TypeScript until its rewrite lands.) Types are
+JSDoc comments (`@param`, `@returns`, `@typedef`, `@import`), and `npm run typecheck` checks them
+with `tsc` under `strict` and `checkJs`. TypeScript is a dev dependency and a checker, nothing more.
+`packages/core/tests/plain-js.test.js` fails if a `.ts` file comes back, and runs every CLI entry
+with plain `node` to prove the source works unbundled. `examples/nextjs-demo` stays TypeScript on
+purpose: it shows a TypeScript user what wiring OpenGEO in looks like.
+
+Adding an export to core takes three places: `packages/core/package.json` `exports`, the matching
+`paths` entry in `tsconfig.base.json`, and the consuming package's entry file. `tsc` resolves core
+through the workspace without `paths`, but tsup's declaration build does not: without it,
+`opengeo-prod`'s types would point at `@opengeo/core`, which is never published.
 
 ## The loop
 
 ```bash
 npm install
 npm run typecheck
+npx tsc --noEmit -p packages/opengeo/web/tsconfig.json
 npm test
 npm run build
 npm run check:bundles
 ```
+
+`npm run build` is packaging only. Nothing needs it to run, test or change the code: after
+`npm install`, `npm run opengeo -- <command>` runs the CLI straight from `src/`, and
+`npm run example:dev` builds the one thing the demo needs (`opengeo-prod`) before starting it.
+The exception, until the dashboard is rewritten, is `opengeo start`, which serves the built
+dashboard from `packages/opengeo/dist/web`.
+
+The second line checks the dashboard, which the root `tsconfig.json` does not cover. Run it from
+the repository root.
 
 `check:bundles` reads `dist/` and asserts the two structural promises from §3:
 `opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency
