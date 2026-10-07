@@ -226,3 +226,33 @@ describe('robotsAllows', () => {
     expect(summary.blocked).toEqual([]);
   });
 });
+
+describe('markdown reached by redirect rather than rewrite', () => {
+  beforeEach(() => {
+    handler = (req, res, path) => {
+      if (path === '/docs/page.md') {
+        res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8' });
+        res.end('# Docs');
+        return;
+      }
+      const wantsMarkdown = (req.headers.accept ?? '').includes('text/markdown') || /GPTBot/.test(req.headers['user-agent'] ?? '');
+      if (path === '/docs/page' && wantsMarkdown) {
+        res.writeHead(302, { location: '/docs/page.md' });
+        res.end();
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(PAGE);
+    };
+  });
+
+  it('does not pass B9 or B10, and does not claim the same URL', async () => {
+    const result = await testUrl(`${site}/docs/page`);
+    for (const id of ['B9', 'B10']) {
+      const found = check(result, id);
+      expect(found.status, id).not.toBe('pass');
+      expect(found.reason, id).toContain('redirect');
+      expect(found.reason, id).not.toContain('at the same URL');
+    }
+  });
+});

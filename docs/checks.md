@@ -319,6 +319,11 @@ crawler you chose not to route is never held against you.
 The two probes are deliberately separated. Together they tell you which lever is working; a single
 combined probe would tell you only that something is.
 
+Both B9 and B10 fail when the markdown arrives by redirect to another URL (the `.md` file, say)
+rather than at the URL that was asked for. The twin has to be rewritten into place, so the agent
+keeps citing the page. A redirect the browser request also follows, such as a trailing slash, does
+not count against either.
+
 ### B11 - An Accept header excluding HTML and markdown returns 406
 **Recommended, weight 2.**
 

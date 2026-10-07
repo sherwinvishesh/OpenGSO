@@ -843,6 +843,19 @@ function checkLinkAlternate(e) {
 }
 
 /**
+ * Whether a negotiated response reached its markdown by redirect, which breaks the same-URL contract.
+ *
+ * Compared with where the browser's request landed rather than with the target, so a site that
+ * redirects every request (a trailing slash, say) is not blamed for the markdown following suit.
+ *
+ * @param {ProbeResult} response
+ * @param {Evidence} e
+ */
+function redirectedAway(response, e) {
+  return response.redirected && response.finalUrl !== e.html.finalUrl;
+}
+
+/**
  * @param {Evidence} e
  * @returns {CheckResult}
  */
@@ -853,6 +866,14 @@ function checkAcceptNegotiation(e) {
       `A request with Accept: text/markdown returned HTTP ${e.acceptMarkdown.status || 'nothing'}.`,
       undefined,
       'Answer 2xx to a request carrying `Accept: text/markdown` (+6).',
+    );
+  }
+  if (isMarkdownResponse(e.acceptMarkdown) && redirectedAway(e.acceptMarkdown, e)) {
+    return fail(
+      'B9',
+      `A request with Accept: text/markdown was sent by redirect to ${e.acceptMarkdown.finalUrl} for its markdown. An agent that follows it cites that URL instead of the page.`,
+      undefined,
+      'Rewrite requests that prefer text/markdown to the twin instead of redirecting them, so the markdown is served at the same URL (+6). This is what the prod middleware does.',
     );
   }
   if (isMarkdownResponse(e.acceptMarkdown)) {
@@ -878,6 +899,14 @@ function checkBotUaNegotiation(e) {
       undefined,
       'Answer 2xx to a known AI bot User-Agent (+6). Check nothing upstream is rate limiting or blocking it.',
     );
+  if (isMarkdownResponse(e.botUa) && redirectedAway(e.botUa, e)) {
+    return fail(
+      'B10',
+      `A GPTBot User-Agent was sent by redirect to ${e.botUa.finalUrl} for its markdown. A crawler that follows it indexes that URL instead of the page.`,
+      undefined,
+      'Rewrite known AI bot User-Agents to the twin instead of redirecting them, so the markdown is served at the same URL (+6). Set `bots.markdownRouting` and let the middleware do it.',
+    );
+  }
   if (isMarkdownResponse(e.botUa)) {
     return pass('B10', 'A known AI bot User-Agent received markdown without needing to send an Accept header.');
   }
