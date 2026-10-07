@@ -263,6 +263,28 @@ describe('category A bands', () => {
     expect(check(insecure, 'A8').status).toBe('fail');
   });
 
+  it('A8 judges where an http:// target ends up, not the scheme the user typed', () => {
+    const upgraded = perfect();
+    upgraded.target = new URL('http://example.com/resume');
+    upgraded.html = { ...upgraded.html, redirected: true, finalUrl: 'https://example.com/resume' };
+    const result = check(upgraded, 'A8');
+    expect(result.status).toBe('pass');
+    expect(result.earned).toBe(9);
+
+    const noHsts = perfect();
+    noHsts.target = new URL('http://example.com/resume');
+    noHsts.html = { ...noHsts.html, redirected: true, finalUrl: 'https://example.com/resume' };
+    noHsts.html.headers = new Headers(noHsts.html.headers);
+    noHsts.html.headers.delete('strict-transport-security');
+    expectBand(check(noHsts, 'A8'), 6);
+
+    // A redirect that stays on plain HTTP upgrades nothing.
+    const sideways = perfect();
+    sideways.target = new URL('http://example.com/resume');
+    sideways.html = { ...sideways.html, redirected: true, finalUrl: 'http://www.example.com/resume' };
+    expect(check(sideways, 'A8').status).toBe('fail');
+  });
+
   it('A8 is still not applicable on localhost, which is not the same as partial', () => {
     const evidence = perfect();
     evidence.target = new URL('http://localhost:3000/resume');

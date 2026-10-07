@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
-import { HOSTILE_ACCEPT } from '../shared/http.js';
+import { HOSTILE_ACCEPT, parseUrl } from '../shared/http.js';
 import { parseRobots } from '../prod/startup.js';
 import { varyIncludesAccept } from '../prod/headers.js';
 import { extractPage } from '../generate/extract.js';
@@ -489,7 +489,11 @@ function checkHttps(e) {
   if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local')) {
     return na('A8', 'Local development target - HTTPS and HSTS are not meaningful here.');
   }
-  if (e.target.protocol !== 'https:') {
+  // An agent that asks for http:// and is redirected to https:// talks to the site over HTTPS, and
+  // the HSTS header it reads is the HTTPS response's. Judging the scheme the user typed failed
+  // every site that upgrades correctly.
+  const landed = e.html.redirected ? parseUrl(e.html.finalUrl) : undefined;
+  if ((landed ?? e.target).protocol !== 'https:') {
     return fail(
       'A8',
       'The site is served over plain HTTP. Some agents refuse insecure origins outright.',

@@ -193,7 +193,9 @@ is asking agents to ignore it, which makes everything else you do pointless.
 ### A8 - Served over HTTPS with HSTS
 **Required, weight 9.**
 
-Checks the scheme and looks for `Strict-Transport-Security`.
+Checks the scheme the page is finally served over and looks for `Strict-Transport-Security`. An
+`http://` URL that redirects to `https://` is judged on the HTTPS response it lands on, since that is
+what an agent ends up talking to.
 
 **Partial: 6.** Served over HTTPS with no `Strict-Transport-Security` header. The connection is
 encrypted; a first visit can still be downgraded.
