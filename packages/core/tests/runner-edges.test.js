@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { parseRobots, robotsAllows, summarizeRobots } from '@opengeo/core/prod';
 import { discoverTwins, sitemapTwins, testUrl } from '@opengeo/core/test';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
@@ -160,5 +161,68 @@ describe('a site with no twin', () => {
     expect(check(withHeaders, 'B7').status).toBe('locked');
     expect(check(withHeaders, 'B8').status).toBe('locked');
     expect(withHeaders.score.value).toBe(bare.score.value);
+  });
+});
+
+describe('robots.txt, read for the path under test', () => {
+  let robots = '';
+
+  beforeEach(() => {
+    robots = '';
+    handler = (_req, res, path) => {
+      if (path === '/robots.txt') {
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end(robots);
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(PAGE);
+    };
+  });
+
+  it('fails A1 when a directory rule covers the page, not only `Disallow: /`', async () => {
+    robots = 'User-agent: OAI-SearchBot\nDisallow: /docs/\n';
+    const a1 = check(await testUrl(`${site}/docs/page`), 'A1');
+    expect(a1.status).toBe('fail');
+    expect(a1.reason).toContain('OAI-SearchBot');
+    expect(a1.reason).toContain('/docs/page');
+  });
+
+  it('passes A1 when the rule covers some other path', async () => {
+    robots = 'User-agent: OAI-SearchBot\nDisallow: /private/\n';
+    expect(check(await testUrl(`${site}/docs/page`), 'A1').status).toBe('pass');
+  });
+
+  it('lets a longer Allow win over a shorter Disallow', async () => {
+    robots = 'User-agent: *\nDisallow: /\nAllow: /docs/\n';
+    expect(check(await testUrl(`${site}/docs/page`), 'A1').status).toBe('pass');
+  });
+});
+
+describe('robotsAllows', () => {
+  /**
+   * @param {string} rules
+   * @param {string} path
+   */
+  const allows = (rules, path) => robotsAllows(parseRobots(`User-agent: *\n${rules}`).get('*') ?? [], path);
+
+  it('uses the longest matching rule, and Allow on a tie', () => {
+    expect(allows('Disallow: /docs/', '/docs/page')).toBe(false);
+    expect(allows('Disallow: /docs/\nAllow: /docs/page', '/docs/page')).toBe(true);
+    expect(allows('Disallow: /\nAllow: /', '/anything')).toBe(true);
+    expect(allows('Disallow:', '/anything')).toBe(true);
+  });
+
+  it('understands * and $', () => {
+    expect(allows('Disallow: /*.pdf$', '/files/a.pdf')).toBe(false);
+    expect(allows('Disallow: /*.pdf$', '/files/a.pdf.html')).toBe(true);
+    expect(allows('Disallow: /*/drafts', '/blog/drafts/one')).toBe(false);
+  });
+
+  it('is what the prod startup summary reads, so an Allow is honoured there too', () => {
+    const summary = summarizeRobots('User-agent: GPTBot\nDisallow: /\nAllow: /\n', [
+      { name: 'GPTBot', vendor: 'OpenAI', uaPatterns: ['GPTBot'], robotsToken: 'GPTBot', kind: 'training' },
+    ]);
+    expect(summary.blocked).toEqual([]);
   });
 });

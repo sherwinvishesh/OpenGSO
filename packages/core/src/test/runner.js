@@ -2,7 +2,7 @@ import { JSDOM } from 'jsdom';
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
 import { HOSTILE_ACCEPT, parseUrl } from '../shared/http.js';
-import { parseRobots } from '../prod/startup.js';
+import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
 import { varyIncludesAccept } from '../prod/headers.js';
 import { extractPage } from '../generate/extract.js';
 import { parseFrontmatter } from '../generate/frontmatter.js';
@@ -201,26 +201,33 @@ function checkRobots(e) {
     );
   }
   const groups = parseRobots(e.robots.body);
+  // The page under test, path and query, which is what a crawler matches the rules against.
+  const path = `${e.target.pathname}${e.target.search}`;
   /** @type {string[]} */
   const blockedAssistants = [];
   /** @type {string[]} */
   const blockedTraining = [];
+  let wholeSite = true;
 
   for (const bot of e.bots ?? AI_BOTS) {
-    const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
-    if (!rules) continue;
-    const blockedAtRoot = rules.some((rule) => rule.type === 'disallow' && rule.path === '/');
-    if (!blockedAtRoot) continue;
-    if (bot.kind === 'training') blockedTraining.push(bot.name);
-    else blockedAssistants.push(bot.name);
+    const rules = robotsRulesFor(groups, bot.robotsToken);
+    if (!rules || robotsAllows(rules, path)) continue;
+    if (bot.kind === 'training') {
+      blockedTraining.push(bot.name);
+      continue;
+    }
+    blockedAssistants.push(bot.name);
+    if (robotsAllows(rules, '/')) wholeSite = false;
   }
 
   if (blockedAssistants.length > 0) {
     return fail(
       'A1',
-      `robots.txt disallows ${blockedAssistants.join(', ')} at /. These are live assistant and search agents - blocking them removes the site from AI answers entirely.`,
+      wholeSite
+        ? `robots.txt disallows ${blockedAssistants.join(', ')} from ${path}. These are live assistant and search agents - blocking them removes the site from AI answers entirely.`
+        : `robots.txt disallows ${blockedAssistants.join(', ')} from ${path}. These are live assistant and search agents - blocking them keeps this page out of AI answers.`,
       blockedTraining.length > 0 ? `Also blocking training crawlers: ${blockedTraining.join(', ')}.` : undefined,
-      `Remove the \`Disallow: /\` rule for ${blockedAssistants.join(', ')} (+9). These are the agents that answer questions about the site.`,
+      `Remove the Disallow rule that covers ${path} for ${blockedAssistants.join(', ')} (+9). These are the agents that answer questions about the site.`,
     );
   }
   if (blockedTraining.length > 0) {

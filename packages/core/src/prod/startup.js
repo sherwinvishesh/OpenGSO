@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AI_BOTS } from '../shared/bots.js';
+import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
+
+// Still exported from here, as opengeo-prod always has; the one implementation lives in shared/.
+export { parseRobots, robotsAllows, robotsRulesFor };
 
 /**
  * @import { AiBot } from '../shared/bots.js'
@@ -152,56 +156,10 @@ export function summarizeRobots(contents, bots = AI_BOTS) {
   /** @type {string[]} */
   const blocked = [];
   for (const bot of bots) {
-    const rules = groups.get(bot.robotsToken.toLowerCase()) ?? groups.get('*');
+    const rules = robotsRulesFor(groups, bot.robotsToken);
     if (!rules) continue;
-    if (rules.some((rule) => rule.type === 'disallow' && rule.path === '/')) blocked.push(bot.name);
+    if (!robotsAllows(rules, '/')) blocked.push(bot.name);
     else if (groups.has(bot.robotsToken.toLowerCase())) allowed.push(bot.name);
   }
   return { allowed, blocked };
-}
-
-/**
- * @typedef {object} RobotsRule
- * @property {'allow' | 'disallow'} type
- * @property {string} path
- */
-
-/**
- * @param {string} contents
- * @returns {Map<string, RobotsRule[]>}
- */
-export function parseRobots(contents) {
-  /** @type {Map<string, RobotsRule[]>} */
-  const groups = new Map();
-  /** @type {string[]} */
-  let currentAgents = [];
-  let expectingAgents = true;
-
-  for (const rawLine of contents.split('\n')) {
-    const line = rawLine.split('#')[0]?.trim() ?? '';
-    if (!line) continue;
-    const colon = line.indexOf(':');
-    if (colon === -1) continue;
-    const field = line.slice(0, colon).trim().toLowerCase();
-    const value = line.slice(colon + 1).trim();
-
-    if (field === 'user-agent') {
-      if (!expectingAgents) {
-        currentAgents = [];
-        expectingAgents = true;
-      }
-      currentAgents.push(value.toLowerCase());
-      if (!groups.has(value.toLowerCase())) groups.set(value.toLowerCase(), []);
-      continue;
-    }
-    if (field === 'allow' || field === 'disallow') {
-      expectingAgents = false;
-      for (const agent of currentAgents) {
-        const list = groups.get(agent) ?? [];
-        list.push({ type: field, path: value });
-        groups.set(agent, list);
-      }
-    }
-  }
-  return groups;
 }

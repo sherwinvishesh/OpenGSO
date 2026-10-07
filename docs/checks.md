@@ -95,8 +95,11 @@ without installing anything.
 ### A1 - robots.txt exists and does not disallow known AI bots
 **Required, weight 9.**
 
-Fetches `/robots.txt` and reads it the way a crawler would: longest-match on `User-agent`, with the
-wildcard group as the fallback. Fails when a rule disallows a known AI bot from the URL under test.
+Fetches `/robots.txt` and reads it the way a crawler would: the bot's own `User-agent` group, with
+the wildcard group as the fallback, then the longest `Allow` or `Disallow` rule matching the path
+under test (an `Allow` wins a tie, and `*` and a trailing `$` work as wildcards). Fails when that
+rule disallows a known AI bot from the URL under test, so `Disallow: /docs/` counts when testing
+`/docs/page`.
 
 An agent that is disallowed here will usually not fetch your page at all, so this check gates
 everything below it. If you deliberately block a crawler, that is a legitimate choice and this check
