@@ -301,7 +301,9 @@ OpenGEO has never heard of.
 **Required, weight 6.**
 
 Requests the original URL with a GPTBot User-Agent and `Accept: */*`, the header most crawlers send,
-so a markdown response can only have been caused by the User-Agent.
+so a markdown response can only have been caused by the User-Agent. When the project's
+`bots.markdownRouting` leaves GPTBot out, the probe is the first crawler on that list instead, so a
+crawler you chose not to route is never held against you.
 
 The two probes are deliberately separated. Together they tell you which lever is working; a single
 combined probe would tell you only that something is.

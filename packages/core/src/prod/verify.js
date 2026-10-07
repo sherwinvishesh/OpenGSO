@@ -1,4 +1,4 @@
-import { AI_BOTS, findBot, identifyBot } from '../shared/bots.js';
+import { AI_BOTS, botUserAgent, findBot } from '../shared/bots.js';
 import { BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
@@ -161,20 +161,6 @@ export function resolveBot(name, bots = AI_BOTS) {
     );
   }
   return bot;
-}
-
-/**
- * @param {AiBot} bot
- * @param {readonly AiBot[]} [bots]
- * @returns {string}
- */
-function botUserAgent(bot, bots = AI_BOTS) {
-  const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
-  if (identifyBot(ua, bots)?.name === bot.name) return ua;
-  // Defensive: a bot whose UA token is not its own name. None today, but bots.js is the
-  // community-contribution surface, and a probe that silently fails to impersonate anyone would
-  // report a routing failure that does not exist.
-  return `Mozilla/5.0 (compatible; ${bot.uaPatterns[0]}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
 }
 
 // --- probe judgements -------------------------------------------------------------------------

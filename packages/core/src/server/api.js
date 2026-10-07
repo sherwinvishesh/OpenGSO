@@ -375,6 +375,7 @@ async function runTest(body, options) {
     mode,
     timeoutMs: input.timeoutMs,
     bots: resolveBots(loaded.config.bots.custom),
+    markdownRouting: loaded.config.bots.markdownRouting,
     ai,
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,

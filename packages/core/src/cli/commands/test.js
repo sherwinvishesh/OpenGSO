@@ -59,13 +59,14 @@ export async function testCommand(ctx) {
   const loaded = resolveProject(args);
   const target = resolveTarget(args, loaded, 'test');
   const bots = resolveBots(loaded.config.bots.custom);
+  const markdownRouting = loaded.config.bots.markdownRouting;
   const timeoutMs = args.num('timeout');
 
   // --prompt replaces the report rather than appending to it: the whole output is meant to be
   // selected and pasted into a coding agent, so anything else in the buffer is in the way. It is
   // also structural by definition - a model's opinion is not a checklist an agent can work through.
   if (args.bool('prompt')) {
-    const result = await testUrl(target.toString(), { timeoutMs, bots });
+    const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting });
     const prompt = buildFixPrompt(result, { command: `opengeo test ${target.toString()}` });
     return writeOut(prompt, args.str('out'), result.score.counts.fail === 0 ? 0 : 1);
   }
@@ -91,6 +92,7 @@ export async function testCommand(ctx) {
     mode,
     timeoutMs,
     bots,
+    markdownRouting,
     ai: ai.ai,
     // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.
     requireContent: args.bool('quality'),

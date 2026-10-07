@@ -76,6 +76,8 @@ beforeAll(async () => {
         ? send(200, 'text/html', '<!doctype html><html><body>Not found</body></html>')
         : send(404, 'text/plain', 'not found');
     }
+    // User-Agent routing configured for ClaudeBot alone, the way `bots.markdownRouting` would.
+    if (path === '/' && /ClaudeBot/.test(req.headers['user-agent'] ?? '')) return send(200, 'text/markdown; charset=utf-8', MD_HOME);
     return send(200, 'text/html', '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1></main></body></html>');
   });
   await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
@@ -450,6 +452,19 @@ describe('runTestSuite', () => {
     expect(result.contentError).toMatch(/No Markdown documents/);
     expect(result.contentError).toMatch(/neither llms\.txt nor sitemap\.xml/);
     expect(result.contentError).toMatch(/opengeo generate/);
+  });
+
+  it('probes B10 with a crawler the project actually routes', async () => {
+    const b10 = async (/** @type {string[] | undefined} */ markdownRouting) => {
+      const result = await runTestSuite(`${site}/`, { mode: 'structure', markdownRouting, env: {} });
+      return result.structure?.checks.find((check) => check.id === 'B10');
+    };
+    // Routing narrowed to ClaudeBot: a GPTBot probe would report a failure the site does not have.
+    const routed = await b10(['ClaudeBot']);
+    expect(routed?.status).toBe('pass');
+    // GPTBot is still the probe whenever the list includes it, or there is no list.
+    expect((await b10(undefined))?.reason).toMatch(/GPTBot/);
+    expect((await b10(['ClaudeBot', 'GPTBot']))?.reason).toMatch(/GPTBot/);
   });
 
   it('rejects a target that is not a URL', async () => {

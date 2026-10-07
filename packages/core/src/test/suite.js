@@ -66,6 +66,7 @@ export function isTestMode(value) {
  * @property {TestMode} mode
  * @property {number} [timeoutMs]
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
+ * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it routes.
  * @property {SuiteAi} [ai] Absent means the content pass reports "no key" instead of running.
  * @property {boolean} [requireContent] The caller asked for the content pass by name (`-q`, or the dashboard's own toggle). Turns a
  *   missing key from a note into a refusal, because silently doing less than was asked for is the
@@ -175,7 +176,7 @@ export async function runTestSuite(target, options) {
  */
 async function runStructure(url, options) {
   options.onProgress?.({ phase: 'structure' });
-  const result = await testUrl(url.toString(), { timeoutMs: options.timeoutMs, bots: options.bots });
+  const result = await testUrl(url.toString(), { timeoutMs: options.timeoutMs, bots: options.bots, markdownRouting: options.markdownRouting });
   options.onProgress?.({ phase: 'structure-done', result });
   return result;
 }

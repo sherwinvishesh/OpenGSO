@@ -1,3 +1,4 @@
+import { botUserAgent, routingProbeBot } from '../shared/bots.js';
 import { BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
@@ -46,6 +47,7 @@ export const PROBE_HEADERS = {
  *   make OpenGEO request a third party's URL or read a `data:` body as if the site had served it.
  * @property {ProbeResult} acceptMarkdown Same page URL, asking for markdown by content negotiation.
  * @property {ProbeResult} botUa Same page URL, as a known AI bot, with no markdown preference expressed.
+ * @property {string} [botName] The crawler `botUa` impersonated. Absent means GPTBot.
  * @property {ProbeResult} notAcceptable Same page URL, with an Accept header that allows neither HTML nor markdown.
  * @property {readonly AiBot[]} [bots] The crawler catalogue A1 reads robots.txt against. Defaults to the shipped list; a caller with
  *   a config in hand passes the resolved one so a project's own crawler is judged too.
@@ -55,6 +57,7 @@ export const PROBE_HEADERS = {
  * @typedef {object} GatherOptions
  * @property {number} [timeoutMs]
  * @property {readonly AiBot[]} [bots]
+ * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it actually routes.
  */
 
 /**
@@ -74,13 +77,16 @@ export async function gatherEvidence(target, options = {}) {
   const { advertisedTwinUrl, foreignTwinUrl } = resolveAdvertised(html, target);
   const canonicalTwinUrl = advertisedTwinUrl ?? twinUrl(target.toString());
 
+  const routed = routingProbeBot(options.markdownRouting, options.bots);
+  const botHeaders = routed ? { ...PROBE_HEADERS.botUa, 'User-Agent': botUserAgent(routed, options.bots) } : PROBE_HEADERS.botUa;
+
   const [robots, llms, sitemap, twin, acceptMarkdown, botUa, notAcceptable] = await Promise.all([
     probe(new URL('/robots.txt', origin).toString(), { timeoutMs }),
     probe(new URL('/llms.txt', origin).toString(), { timeoutMs }),
     probe(new URL('/sitemap.xml', origin).toString(), { timeoutMs }),
     probe(canonicalTwinUrl, { headers: { Accept: 'text/markdown,*/*;q=0.5' }, timeoutMs }),
     probe(target.toString(), { headers: PROBE_HEADERS.acceptMarkdown, timeoutMs }),
-    probe(target.toString(), { headers: PROBE_HEADERS.botUa, timeoutMs }),
+    probe(target.toString(), { headers: botHeaders, timeoutMs }),
     probe(target.toString(), { headers: PROBE_HEADERS.notAcceptable, timeoutMs }),
   ]);
 
@@ -97,6 +103,7 @@ export async function gatherEvidence(target, options = {}) {
     foreignTwinUrl,
     acceptMarkdown,
     botUa,
+    botName: routed?.name,
     notAcceptable,
     bots: options.bots,
   };

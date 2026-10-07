@@ -199,3 +199,33 @@ export function identifyBot(userAgent, bots = AI_BOTS) {
   const ua = userAgent.toLowerCase();
   return bots.find((bot) => bot.uaPatterns.length > 0 && bot.uaPatterns.some((p) => ua.includes(p)));
 }
+
+/**
+ * A User-Agent that `identifyBot` reads back as `bot`, for probing a site's routing as that bot.
+ *
+ * @param {AiBot} bot
+ * @param {readonly AiBot[]} [bots]
+ * @returns {string}
+ */
+export function botUserAgent(bot, bots = AI_BOTS) {
+  const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
+  if (identifyBot(ua, bots)?.name === bot.name) return ua;
+  // Defensive: a bot whose UA token is not its own name. None today, but this file is the
+  // community-contribution surface, and a probe that silently fails to impersonate anyone would
+  // report a routing failure that does not exist.
+  return `Mozilla/5.0 (compatible; ${bot.uaPatterns[0]}/1.0; +https://github.com/sherwinvishesh/OpenGEO)`;
+}
+
+/**
+ * The crawler `opengeo test` impersonates for B10: GPTBot, unless the project routes a list that
+ * leaves it out, in which case the first routable crawler on that list. Probing a bot the project
+ * chose not to route would report a failure the site does not have.
+ *
+ * @param {readonly string[] | undefined} markdownRouting
+ * @param {readonly AiBot[]} [bots]
+ * @returns {AiBot | undefined} Undefined means GPTBot.
+ */
+export function routingProbeBot(markdownRouting, bots = AI_BOTS) {
+  if (!markdownRouting || markdownRouting.some((name) => name.toLowerCase() === 'gptbot')) return undefined;
+  return markdownRouting.map((name) => findBot(name, bots)).find((bot) => bot !== undefined && bot.uaPatterns.length > 0);
+}

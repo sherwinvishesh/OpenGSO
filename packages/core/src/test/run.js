@@ -34,6 +34,7 @@ import { scoreChecks } from './score.js';
  * @typedef {object} TestOptions
  * @property {number} [timeoutMs]
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
+ * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it routes.
  */
 
 /**
@@ -44,7 +45,7 @@ import { scoreChecks } from './score.js';
 export async function testUrl(target, options = {}) {
   const url = parseUrl(target);
   if (!url) throw new Error(ERRORS.invalidUrl(target));
-  const evidence = await gatherEvidence(url, { timeoutMs: options.timeoutMs, bots: options.bots });
+  const evidence = await gatherEvidence(url, { timeoutMs: options.timeoutMs, bots: options.bots, markdownRouting: options.markdownRouting });
   return testEvidence(evidence);
 }
 

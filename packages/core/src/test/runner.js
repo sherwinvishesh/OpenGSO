@@ -793,7 +793,7 @@ function checkBotUaNegotiation(e) {
   if (!e.botUa.ok)
     return fail(
       'B10',
-      `A GPTBot-identified request returned HTTP ${e.botUa.status || 'nothing'}.`,
+      `A ${e.botName ?? 'GPTBot'}-identified request returned HTTP ${e.botUa.status || 'nothing'}.`,
       undefined,
       'Answer 2xx to a known AI bot User-Agent (+6). Check nothing upstream is rate limiting or blocking it.',
     );
@@ -802,7 +802,7 @@ function checkBotUaNegotiation(e) {
   }
   return fail(
     'B10',
-    `A GPTBot User-Agent received "${e.botUa.headers.get(HEADERS.contentType) ?? 'no Content-Type'}". Most AI crawlers never send Accept: text/markdown, so User-Agent routing is what actually reaches them.`,
+    `A ${e.botName ?? 'GPTBot'} User-Agent received "${e.botUa.headers.get(HEADERS.contentType) ?? 'no Content-Type'}". Most AI crawlers never send Accept: text/markdown, so User-Agent routing is what actually reaches them.`,
     undefined,
     'Route known AI bot User-Agents to the twin as well, not only Accept headers (+6). Set `bots.markdownRouting` and let the middleware do it.',
   );
