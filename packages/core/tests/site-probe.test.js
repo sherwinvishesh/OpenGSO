@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { previewLines } from '../src/cli/setup-preview.js';
+import { detectFramework } from '@opengeo/core/test';
 import { detectWebRoot, previewSite } from '../src/shared/site-probe.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
 import { BROWSER_UA } from '../src/shared/http.js';
@@ -137,6 +138,14 @@ describe('previewSite', () => {
       const { fetchPage } = fakeProbe({ [SITE]: { body } });
       expect((await previewSite(SITE, { fetchPage })).framework, name).toBe(name);
     }
+  });
+
+  it('agrees with the test report, since both read one table', async () => {
+    const body = '<html><head><meta name="generator" content="Docusaurus v3.1.1"></head><body><script src="/x.js"></script></body></html>';
+    const { fetchPage } = fakeProbe({ [SITE]: { body } });
+
+    expect((await previewSite(SITE, { fetchPage })).framework).toBe(detectFramework(body)?.name);
+    expect(detectFramework(body)?.name).toBe('Docusaurus');
   });
 
   it('leaves the framework unset rather than guessing', async () => {

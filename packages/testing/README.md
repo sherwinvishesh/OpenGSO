@@ -119,8 +119,9 @@ Anything the site sent, such as a header value or a JSON-LD field, is quoted as 
 span and cut at 400 characters, and the prompt tells the agent that those spans are evidence and
 not instructions. A server cannot use its own responses to add steps to the prompt.
 
-Framework detection covers Next.js, Nuxt, Astro, SvelteKit, Remix, Gatsby, Docusaurus, Vite and
-plain HTML, so the prompt tells the agent where the middleware actually goes.
+Framework detection covers Next.js, Nuxt, Astro, SvelteKit, Remix, Gatsby, Docusaurus, Hugo,
+Jekyll, WordPress, Vite and plain HTML, so the prompt tells the agent where the middleware actually
+goes. It matches only markers a framework emits itself, never a word in the page's text.
 
 ## The content review
 

@@ -72,6 +72,20 @@ describe('framework detection', () => {
     });
   }
 
+  it('does not call a page Docusaurus because its text mentions Docusaurus', () => {
+    const html = '<html><body><p>We moved our docs off Docusaurus last year.</p><script src="/_next/static/x.js"></script></body></html>';
+    expect(detectFramework(html)?.name).toBe('Next.js');
+  });
+
+  it('recognises the Docusaurus root element', () => {
+    expect(detectFramework('<html><body><div id="__docusaurus"></div><script src="/x.js"></script></body></html>')?.name).toBe('Docusaurus');
+  });
+
+  it('knows the generators setup also knows, from the same table', () => {
+    expect(detectFramework('<html><head><meta name="generator" content="Hugo 0.120.0"></head><body></body></html>')?.name).toBe('Hugo');
+    expect(detectFramework('<html><head><link href="/wp-content/themes/x.css"></head><body><script src="/x.js"></script></body></html>')?.name).toBe('WordPress');
+  });
+
   it('calls a page with no bundle plain HTML', () => {
     const framework = detectFramework('<html><body><h1>Hi</h1><p>Words.</p></body></html>');
     expect(framework?.id).toBe('plain');

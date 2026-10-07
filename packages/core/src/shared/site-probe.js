@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultConfig } from './config.js';
+import { detectFramework } from './framework.js';
 import { BROWSER_UA, parseUrl, probe } from './http.js';
 import { twinUrl } from './routes.js';
 import { HEADERS } from './version.js';
@@ -30,26 +31,6 @@ import { HEADERS } from './version.js';
  * over `POST /api/preview`. Nothing here knows about either. The rendering is somebody else's job.
  */
 
-/**
- * Signals in the order they are checked. A header beats markup, because markup can be copied from a
- * tutorial and a header is emitted by the thing actually running.
- *
- * @type {ReadonlyArray<{ name: string; header?: RegExp; markup?: RegExp }>}
- */
-const FRAMEWORKS = [
-  { name: 'Next.js', header: /next\.js/i, markup: /__NEXT_DATA__|\/_next\/static\//i },
-  { name: 'Nuxt', markup: /__NUXT__|\/_nuxt\//i },
-  { name: 'SvelteKit', markup: /__sveltekit|\/_app\/immutable\//i },
-  { name: 'Astro', markup: /astro-island|content=["']Astro/i },
-  { name: 'Remix', markup: /__remixContext/i },
-  { name: 'Gatsby', markup: /___gatsby|\/page-data\//i },
-  { name: 'Docusaurus', markup: /__docusaurus/i },
-  { name: 'Hugo', markup: /content=["']Hugo/i },
-  { name: 'Jekyll', markup: /content=["']Jekyll/i },
-  { name: 'WordPress', markup: /wp-content\/|content=["']WordPress/i },
-  { name: 'Vite', markup: /\/@vite\/client/i },
-];
-
 /** An empty root element and nothing else is the shape of a page whose content only exists after JS. */
 const EMPTY_MOUNT = /<div[^>]+id=["'](root|app|__next)["'][^>]*>\s*<\/div>/i;
 
@@ -77,11 +58,10 @@ export async function previewSite(url, options = {}) {
   if (page.error) preview.error = whyUnreachable(url, page.error);
   if (!page.ok) return preview;
 
-  const poweredBy = page.headers.get('x-powered-by') ?? '';
-  const framework = FRAMEWORKS.find(
-    (candidate) => (candidate.header && candidate.header.test(poweredBy)) || (candidate.markup && candidate.markup.test(page.body)),
-  );
-  if (framework) preview.framework = framework.name;
+  // The same table the test report reads, so setup and the report cannot disagree. "plain HTML" is
+  // a guess from the absence of a bundle rather than a fingerprint, and setup names only what it saw.
+  const framework = detectFramework(page.body, page.headers);
+  if (framework && framework.id !== 'plain') preview.framework = framework.name;
   if (EMPTY_MOUNT.test(page.body)) preview.clientRendered = true;
 
   // Head-only: whether a twin exists is the question, and downloading it to answer that would make
