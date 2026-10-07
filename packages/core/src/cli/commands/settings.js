@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { c } from '../../shared/log.js';
-import { parseArgs } from '../args.js';
+import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
 import { runOnboarding } from '../onboarding.js';
 
@@ -37,7 +37,7 @@ export async function settingsCommand(ctx) {
   const problem = args.problem();
   if (problem) {
     process.stderr.write(`${problem}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   const dir = args.str('project');

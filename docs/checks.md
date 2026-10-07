@@ -43,8 +43,9 @@ Thirteen checks are graded rather than binary, because the thing they measure ha
 and a report that scores those two identically is telling you something false. Every graded check
 says below what a partial is worth and why.
 
-A **partial never fails a build.** The exit code of `opengeo test` is nonzero only when a check has
-status `fail`, and that rule did not change when partial credit arrived.
+A **partial never fails a build.** `opengeo test` exits 1 only when a check has status `fail`, and
+that rule did not change when partial credit arrived. Exit 2 is reserved for a command line that
+could not be run as written: an unknown option, a missing or malformed value, no URL.
 
 ### One missing twin costs one check
 

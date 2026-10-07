@@ -6,7 +6,7 @@ import { ERRORS } from '../../shared/errors.js';
 import { createAiEnhancer } from '../../generate/ai.js';
 import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
-import { parseArgs } from '../args.js';
+import { EXIT_USAGE, parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
 import { terminalWidth, wrap } from '../tui/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
@@ -36,7 +36,7 @@ export async function generateCommand(ctx) {
   const problem = args.problem();
   if (problem) {
     process.stderr.write(`${problem}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   const loaded = resolveProject(args);
@@ -46,7 +46,7 @@ export async function generateCommand(ctx) {
   const tierFlag = args.str('tier');
   if (tierFlag && tierFlag !== 'free' && tierFlag !== 'ai') {
     process.stderr.write(`Unknown tier "${tierFlag}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).\n`);
-    return 1;
+    return EXIT_USAGE;
   }
   const tier = /** @type {'free' | 'ai' | undefined} */ (tierFlag) ?? loaded.config.generate.tier;
 
@@ -58,7 +58,7 @@ export async function generateCommand(ctx) {
     const built = buildEnhancer(args, loaded);
     if ('error' in built) {
       process.stderr.write(`\n${built.error}\n\n`);
-      return 1;
+      return built.usage ? EXIT_USAGE : 1;
     }
     enhance = built.enhance;
     if (!json) {
@@ -251,7 +251,7 @@ function indent(text) {
  *
  * @param {ReturnType<typeof parseArgs>} args
  * @param {ReturnType<typeof resolveProject>} loaded
- * @returns {EnhancerReady | { error: string }}
+ * @returns {EnhancerReady | { error: string; usage?: boolean }}
  */
 function buildEnhancer(args, loaded) {
   if (isCI()) return { error: ERRORS.ciBlocked("generate's AI tier") };

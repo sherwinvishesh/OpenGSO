@@ -33,7 +33,9 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './prov
  * `missing` is not an error on its own: a missing key is a footnote to a structural test and a
  * refusal to generate's AI tier, and only the caller knows which.
  *
- * @typedef {{ call: AiCall } | { missing: AiProvider } | { error: string }} AiResolution
+ * `usage` marks the one error that is the command line's fault, a `--provider` that does not exist.
+ *
+ * @typedef {{ call: AiCall } | { missing: AiProvider } | { error: string; usage?: boolean }} AiResolution
  */
 
 /**
@@ -44,7 +46,7 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './prov
  */
 export function resolveAiCall(root, config, flags = {}) {
   if (flags.provider && !isAiProvider(flags.provider)) {
-    return { error: ERRORS.unknownProvider(flags.provider, AI_PROVIDERS) };
+    return { error: ERRORS.unknownProvider(flags.provider, AI_PROVIDERS), usage: true };
   }
 
   const credentials = readCredentials(root);

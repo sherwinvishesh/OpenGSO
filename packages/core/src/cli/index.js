@@ -1,6 +1,7 @@
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
+import { EXIT_USAGE, UsageError } from './args.js';
 import { runHome } from './home.js';
 
 /** @import { CommandName } from '../shared/errors.js' */
@@ -88,7 +89,7 @@ export async function runCli(options) {
   const { command, rest } = matchCommand(argv);
   if (!command) {
     process.stderr.write(`${unknownCommand(argv.join(' '), available)}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   if (rest.includes('--help') || rest.includes('-h')) {
@@ -99,14 +100,14 @@ export async function runCli(options) {
   const handler = options.commands[command];
   if (!handler) {
     process.stderr.write(`${commandUnavailable(command, options.packageName)}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   try {
     return await handler({ argv: rest, packageName: options.packageName, version: options.version });
   } catch (error) {
     process.stderr.write(`${c.red('Error')} ${error instanceof Error ? error.message : String(error)}\n`);
-    return 1;
+    return error instanceof UsageError ? EXIT_USAGE : 1;
   }
 }
 
@@ -168,6 +169,11 @@ function renderHelp(packageName, version, available) {
   lines.push(c.bold('Global options'));
   lines.push(`  --help, -h      ${c.gray('this message')}`);
   lines.push(`  --version, -v   ${c.gray('print the version')}`);
+  lines.push('');
+  lines.push(c.bold('Exit codes'));
+  lines.push(`  0   ${c.gray('done, and nothing failed')}`);
+  lines.push(`  1   ${c.gray('a check failed, or the command could not finish')}`);
+  lines.push(`  2   ${c.gray('the command line was wrong: unknown command or option, missing or bad value, no URL')}`);
   lines.push('');
   lines.push(c.bold('Help topics'));
   lines.push(`  opengeo help providers   ${c.gray('every AI tool OpenGEO can use, and how to add your own')}`);
@@ -288,6 +294,7 @@ const COMMAND_HELP = {
     '  --timeout <secs>   per-request timeout (default: 15)',
     '',
     'The exit code always comes from the structural checks. A model\'s opinion never fails a build.',
+    'It is 1 when a check fails, and 2 when the command line itself is wrong.',
   ],
   generate: [
     'Usage: opengeo generate <url> [options]',

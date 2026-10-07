@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { loadConfig } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
+import { UsageError } from './args.js';
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
@@ -31,8 +32,8 @@ export function resolveProject(args) {
  */
 export function resolveTarget(args, loaded, command) {
   const raw = args.positionals[0] ?? (loaded.exists ? loaded.config.site : undefined);
-  if (!raw) throw new Error(ERRORS.missingUrl(command));
+  if (!raw) throw new UsageError(ERRORS.missingUrl(command));
   const url = parseUrl(raw);
-  if (!url) throw new Error(ERRORS.invalidUrl(raw));
+  if (!url) throw new UsageError(ERRORS.invalidUrl(raw));
   return url;
 }

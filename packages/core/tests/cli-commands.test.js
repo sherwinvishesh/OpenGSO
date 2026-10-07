@@ -8,6 +8,7 @@ import { generateCommand } from '../src/cli/commands/generate.js';
 import { openBrowser, startCommand } from '../src/cli/commands/start.js';
 import { testCommand } from '../src/cli/commands/test.js';
 import { runOnboarding } from '../src/cli/onboarding.js';
+import { runCli } from '../src/cli/index.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 
@@ -185,21 +186,21 @@ describe('opengeo test --out', () => {
 describe('a command line that cannot mean what it says', () => {
   it('refuses a bare --port instead of binding a random one', async () => {
     const { code, stderr } = await run(startCommand, ['--port', '--no-open', '--project', root]);
-    expect(code).not.toBe(0);
+    expect(code).toBe(2);
     expect(stderr).toContain('--port needs a value');
   });
 
   it('refuses a port that is not a port', async () => {
     for (const port of ['abc', '70000', '0']) {
       const { code, stderr } = await run(startCommand, ['-p', port, '--no-open', '--project', root]);
-      expect(code, port).not.toBe(0);
+      expect(code, port).toBe(2);
       expect(stderr, port).toContain('--port takes a whole number from 1 to 65535');
     }
   });
 
   it('refuses a non-numeric timeout rather than silently using the default', async () => {
     const { code, stderr } = await run(testCommand, [site, '--timeout', 'soon', '--project', root]);
-    expect(code).not.toBe(0);
+    expect(code).toBe(2);
     expect(stderr).toContain('"soon"');
   });
 
@@ -208,5 +209,20 @@ describe('a command line that cannot mean what it says', () => {
     const { code } = await run(testCommand, ['--structure', '--out', file, '--project', root, '--', site]);
     expect(code).not.toBe(2);
     expect(readFileSync(file, 'utf8')).toContain(site);
+  });
+});
+
+describe('exit codes', () => {
+  /** @param {{ argv: string[] }} ctx */
+  const cli = ({ argv }) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv });
+
+  it('exits 2 for a command line that cannot run, and 1 only for what the run found', async () => {
+    expect((await run(cli, ['tset', site])).code).toBe(2);
+    expect((await run(cli, ['generate', site])).code).toBe(2);
+    expect((await run(cli, ['test', '--project', root])).code).toBe(2);
+    expect((await run(cli, ['test', 'not a url', '--project', root])).code).toBe(2);
+    expect((await run(cli, ['test', site, '--structure', '--content', '--project', root])).code).toBe(2);
+    expect((await run(cli, ['test', site, '--provider', 'nobody', '--project', root])).code).toBe(2);
+    expect((await run(cli, ['test', site, '--structure', '--project', root])).code).toBe(1);
   });
 });

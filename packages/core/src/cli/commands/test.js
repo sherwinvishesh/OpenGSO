@@ -18,7 +18,7 @@ import {
   suiteJson,
   testUrl,
 } from '../../test/index.js';
-import { parseArgs } from '../args.js';
+import { EXIT_USAGE, parseArgs } from '../args.js';
 import { createProgress } from '../progress.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
@@ -55,7 +55,7 @@ export async function testCommand(ctx) {
   const problem = args.problem();
   if (problem) {
     process.stderr.write(`${problem}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   const loaded = resolveProject(args);
@@ -81,13 +81,13 @@ export async function testCommand(ctx) {
   const mode = resolveMode(args);
   if (typeof mode !== 'string') {
     process.stderr.write(`${mode.error}\n`);
-    return 1;
+    return EXIT_USAGE;
   }
 
   const ai = resolveAi(args, loaded);
   if (ai.error) {
     process.stderr.write(`${ai.error}\n`);
-    return 1;
+    return ai.usage ? EXIT_USAGE : 1;
   }
 
   const json = args.bool('json');
@@ -236,6 +236,7 @@ function writeContent(result, write) {
  * @property {SuiteAi} [ai]
  * @property {string} [error] A flag the user got wrong. Fatal, unlike a missing key, which the suite
  *   reports in context.
+ * @property {boolean} [usage] The error is a `--provider` that does not exist.
  */
 
 /**

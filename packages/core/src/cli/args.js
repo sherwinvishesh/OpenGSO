@@ -1,6 +1,16 @@
 import { ERRORS } from '../shared/errors.js';
 
 /**
+ * The exit code for a command line that cannot be run as written (D15): an unknown command or
+ * option, a missing or malformed value, no URL. 1 stays what it always was, a failing check or a
+ * command that could not finish, so a script can tell "fix your invocation" from "fix your site".
+ */
+export const EXIT_USAGE = 2;
+
+/** Thrown where a usage problem is found below the command, so `runCli` can exit with {@link EXIT_USAGE}. */
+export class UsageError extends Error {}
+
+/**
  * A small argv parser, so the CLI has no runtime dependency for something this small.
  *
  * Supports `--flag`, `--key value`, `--key=value`, single-dash aliases, `--` to stop parsing (what
