@@ -28,6 +28,7 @@ import {
   MODEL_VAR,
   PROVIDER_VAR,
   ensureEnvGitignored,
+  envValueProblem,
   isCI,
   readCredentials,
   writeEnvVars,
@@ -568,7 +569,6 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   const keyless = info.keyless || auth === 'none';
   if (!apiKey && !keyless) return bad('No key was provided, so nothing was written.');
 
-  const gitignore = ensureEnvGitignored(options.root);
   // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
   const vars: Record<string, string | undefined> = {
     [PROVIDER_VAR]: provider,
@@ -576,6 +576,11 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
     [BASE_URL_VAR]: baseUrl || undefined,
   };
   if (apiKey) vars[KEY_VAR] = apiKey;
+  // Checked here as well as in writeEnvVars so a refusal is a 400 that touched nothing on disk.
+  const unwritable = envValueProblem(vars);
+  if (unwritable) return bad(unwritable);
+
+  const gitignore = ensureEnvGitignored(options.root);
   const envPath = writeEnvVars(options.root, vars);
 
   const loaded = loadConfig(options.root);

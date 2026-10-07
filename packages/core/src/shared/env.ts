@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AiProvider } from './providers.js';
+import { ERRORS } from './errors.js';
 import { PROVIDERS, isAiProvider, providerInfo } from './providers.js';
 
 /**
@@ -117,6 +118,8 @@ export function readCredentials(root: string): Credentials | undefined {
  * the next provider's key.
  */
 export function writeEnvVars(root: string, vars: Record<string, string | undefined>): string {
+  const problem = envValueProblem(vars);
+  if (problem) throw new Error(problem);
   const path = join(root, ENV_FILENAME);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
   let lines = existing ? existing.replace(/\n+$/, '').split('\n') : [];
@@ -131,8 +134,21 @@ export function writeEnvVars(root: string, vars: Record<string, string | undefin
     else lines.push(`${key}=${value}`);
   }
   const output = `${lines.join('\n').replace(/\n+$/, '')}\n`;
-  writeFileSync(path, output, 'utf8');
+  // The mode only applies when the file is created. An existing .env keeps whatever its owner chose.
+  writeFileSync(path, output, { encoding: 'utf8', mode: 0o600 });
   return path;
+}
+
+/**
+ * Why these values cannot go into `.env`, or nothing if they can. A line break in a model name or a
+ * pasted key would write a second variable, `OPENGEO_BASE_URL` included, so control characters are
+ * refused outright rather than escaped into a syntax every dotenv reader parses differently.
+ */
+export function envValueProblem(vars: Record<string, string | undefined>): string | undefined {
+  for (const [name, value] of Object.entries(vars)) {
+    if (value !== undefined && /[\u0000-\u001f\u007f]/.test(value)) return ERRORS.envValueRefused(name);
+  }
+  return undefined;
 }
 
 export interface GitignoreResult {

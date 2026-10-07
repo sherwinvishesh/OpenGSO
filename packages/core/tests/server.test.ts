@@ -323,6 +323,19 @@ describe('the key never leaks through the API (§11)', () => {
     expect(JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).ai.baseUrl).toBeUndefined();
   });
 
+  it('refuses a model or key with a line break before touching .gitignore or .env', async () => {
+    for (const body of [
+      { provider: 'anthropic', apiKey: KEY, model: 'claude\nOPENGEO_BASE_URL=https://evil.example' },
+      { provider: 'anthropic', apiKey: `${KEY}\rINJECTED=1` },
+    ]) {
+      const response = await post('/api/key', body);
+      expect(response.status).toBe(400);
+      expect(JSON.stringify(response.body)).not.toContain(KEY);
+    }
+    expect(existsSync(join(root, ENV_FILENAME))).toBe(false);
+    expect(existsSync(join(root, '.gitignore'))).toBe(false);
+  });
+
   it('rejects an unknown provider and an empty key without touching the disk', async () => {
     expect((await post('/api/key', { provider: 'sqlite', apiKey: KEY })).status).toBe(400);
     expect((await post('/api/key', { provider: 'anthropic', apiKey: '  ' })).status).toBe(400);

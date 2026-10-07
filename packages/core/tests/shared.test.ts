@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -225,6 +225,20 @@ describe('API key handling (§11)', () => {
     writeFileSync(join(root, '.env'), '# mine\nOPENGEO_BASE_URL=https://old.example/v1\nOTHER=1\n', 'utf8');
     writeEnvVars(root, { OPENGEO_BASE_URL: undefined, OPENGEO_PROVIDER: 'openai' });
     expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\nOTHER=1\nOPENGEO_PROVIDER=openai\n');
+  });
+
+  it('refuses a value that would break onto a second line, and writes nothing', () => {
+    const root = temp();
+    for (const value of ['m\nINJECTED=1', 'm\rINJECTED=1', 'm\u0000']) {
+      expect(() => writeEnvVars(root, { OPENGEO_MODEL: value })).toThrow(/OPENGEO_MODEL/);
+    }
+    expect(existsSync(join(root, '.env'))).toBe(false);
+  });
+
+  it('creates .env readable by its owner only', () => {
+    const root = temp();
+    writeEnvVars(root, { OPENGEO_API_KEY: 'sk-test' });
+    expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
   });
 
   it('detects CI, which is what gates every AI-touched feature', () => {

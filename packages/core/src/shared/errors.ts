@@ -233,6 +233,15 @@ export const ERRORS = {
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
     ].join('\n'),
 
+  /** Names the variable and never echoes the value: the value may be the key. */
+  envValueRefused: (name: string) =>
+    [
+      `The value for ${name} contains a line break or another control character, so nothing was written.`,
+      ``,
+      `.env holds one variable per line, and a line break would let the value write a second one.`,
+      `Paste it again without the trailing newline.`,
+    ].join('\n'),
+
   aiViaConfigRefused: () =>
     [
       `The AI provider cannot be changed through /api/config.`,
@@ -242,7 +251,7 @@ export const ERRORS = {
       `never pointed at a host nobody typed it for.`,
     ].join('\n'),
 
-  hostRefused:(host: string | undefined) =>
+  hostRefused: (host: string | undefined) =>
     [
       `Refused: this dashboard only answers to the address it was started on, and the request was`,
       `addressed to ${host === undefined ? 'no host at all' : `"${host}"`}.`,
