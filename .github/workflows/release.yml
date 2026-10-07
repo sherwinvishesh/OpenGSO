@@ -5,10 +5,21 @@
 # version is not already on the registry, so a push would have shipped all five packages to npm
 # before anyone had decided to.
 #
-# To go live: add the `push:` trigger back below, make sure NPM_TOKEN is set in repo secrets, give
-# the `npm` environment required reviewers (Settings > Environments) so a publish waits for a
-# person, and make the repository public, because npm will not attach provenance to a package
-# built from a private one.
+# Before the first run, in the repository settings:
+#  - Create the `release` environment (Settings > Environments > New environment) and give it
+#    required reviewers. The `release` job names it, so it waits for one of them to approve. The
+#    workflow cannot create it: a job naming an environment that does not exist gets one made on the
+#    fly with no protection rules, which is no gate at all.
+#  - Add NPM_TOKEN as a secret, ideally on that environment rather than the whole repository, so
+#    only the gated job can read it.
+#  - Make the repository public, because npm will not attach provenance to a package built from a
+#    private one.
+#
+# A run does one of two things. With changesets pending, it opens the "Version Packages" pull
+# request and publishes nothing. With none, `npm run release` refuses any package still at a
+# placeholder version (scripts/check-release-versions.mjs) and then publishes.
+#
+# To go live: add the `push:` trigger back below.
 #
 # on:
 #   push:
@@ -20,43 +31,65 @@ name: Release
 on:
   workflow_dispatch:
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# Nothing gets a scope it does not ask for by name in its own job.
+permissions: {}
+
+# One release at a time, across every ref, and never cancelled halfway: a publish that stops after
+# two of five packages leaves the registry in a state nobody chose.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
-  release:
-    name: Release
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # The approval gate. A job that names an environment waits for that environment's reviewers.
-    environment: npm
+    timeout-minutes: 20
     permissions:
-      contents: write
-      pull-requests: write
-      # Lets npm sign a provenance statement tying each tarball to this workflow run.
-      id-token: write
+      contents: read
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Dependencies
-        run: npm ci
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:bundles
+      - run: npm run check:packages
 
-      - name: Typecheck
-        run: npm run typecheck
+  release:
+    name: Release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The approval gate. A job that names an environment waits for that environment's reviewers.
+    environment: release
+    permissions:
+      # Push the version commit and tags, and open the "Version Packages" pull request.
+      contents: write
+      pull-requests: write
+      # Lets npm sign a provenance statement tying each tarball to this workflow run. Only this job
+      # can request the token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Run tests
-        run: npm test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Build packages
-        run: npm run build
-
-      - name: Check bundles
-        run: npm run check:bundles
+      - run: npm ci
+      # Rebuilt here because these are the files that ship, so the checks that read dist/ run again
+      # against them rather than against the verify job's copy.
+      - run: npm run build
+      - run: npm run check:bundles
+      - run: npm run check:packages
 
       - name: Create Release PR or Publish to npm
         uses: changesets/action@v1
@@ -65,4 +98,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The same as `npm publish --provenance` on every publish `changeset publish` runs, which
+          # has no flag of its own to pass it through.
           NPM_CONFIG_PROVENANCE: true

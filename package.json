@@ -22,7 +22,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/opengeo/web/tsconfig.json",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset publish",
+    "release": "node scripts/check-release-versions.mjs && changeset publish",
     "example:dev": "npm run build -w packages/prod && npm run dev -w examples/nextjs-demo",
     "example:build": "npm run build -w packages/prod && npm run build -w examples/nextjs-demo",
     "example:start": "npm run start -w examples/nextjs-demo",
