@@ -115,4 +115,18 @@ describe('field', () => {
     expect(await typed(['ctrl-w'], 'foo bar')).toBe('foo');
     expect(await typed([...Array(6).fill('left'), 'ctrl-w'], 'one two three')).toBe('one  three');
   });
+
+  it('edits a character outside the Basic Multilingual Plane as one character', async () => {
+    expect(await typed(['backspace'], 'ab\u{1F600}')).toBe('ab');
+    expect(await typed(['home', 'right', 'y'], '\u{1F600}x')).toBe('\u{1F600}yx');
+    expect(await typed(['home', 'delete'], '\u{1F600}x')).toBe('x');
+  });
+
+  it('masks a secret with one star per character', async () => {
+    const { screen, frames } = fakeScreen();
+    await field(screen, fakeKeys(['enter']), { header: [], label: 'Key', value: 'k\u{1F511}', secret: true });
+    const line = stripAnsi(frames[0].find((row) => row.includes('Key')) ?? '');
+    expect(line).toContain('**');
+    expect(line).not.toContain('***');
+  });
 });

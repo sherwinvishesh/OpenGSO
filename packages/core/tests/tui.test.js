@@ -285,6 +285,11 @@ describe('key decoding', () => {
     expect(decode('q')).toEqual({ name: 'char', value: 'q' });
   });
 
+  it('keeps a character outside the Basic Multilingual Plane whole', () => {
+    expect(splitChunks('a\u{1F600}b')).toEqual(['a', '\u{1F600}', 'b']);
+    expect(textField('\u{1F600}ab', 0)).toContain('\u{1F600}');
+  });
+
   it('splits a chunk holding several keys, keeping each escape sequence whole', () => {
     expect(splitChunks(`a${ESC}[Bb`)).toEqual(['a', `${ESC}[B`, 'b']);
   });

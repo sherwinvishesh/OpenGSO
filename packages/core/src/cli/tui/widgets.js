@@ -226,19 +226,21 @@ export function listView(items, selected, options = {}) {
  * A one-line text field with a visible caret. Scrolls horizontally once the value outgrows the box.
  *
  * @param {string} value
- * @param {number} caret
+ * @param {number} caret In code points, not UTF-16 units.
  * @param {{ width?: number; placeholder?: string }} [options]
  * @returns {string}
  */
 export function textField(value, caret, options = {}) {
   const width = options.width ?? 48;
   if (value === '' && options.placeholder) return ink.faint(truncate(options.placeholder, width));
+  // In code points, as the caret is, so the inverted cell is never half of a surrogate pair.
+  const chars = [...value];
   const start = Math.max(0, caret - width + 1);
-  const window = value.slice(start, start + width);
+  const window = chars.slice(start, start + width);
   const local = caret - start;
-  const before = window.slice(0, local);
-  const at = window.slice(local, local + 1) || ' ';
-  const after = window.slice(local + 1);
+  const before = window.slice(0, local).join('');
+  const at = window[local] ?? ' ';
+  const after = window.slice(local + 1).join('');
   return `${before}${invert(at)}${after}`;
 }
 

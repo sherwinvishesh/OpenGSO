@@ -122,13 +122,15 @@ function clampToEnabled(items, start, direction) {
  * @returns {Promise<string | undefined>}
  */
 export async function field(screen, keys, options) {
-  let value = options.value ?? '';
-  let caret = value.length;
+  // Code points, not UTF-16 units, so an emoji is one step for the arrows, backspace and the mask.
+  let chars = [...(options.value ?? '')];
+  let caret = chars.length;
   /** @type {string | undefined} */
   let error;
 
   for (;;) {
-    const shown = options.secret ? '*'.repeat(value.length) : value;
+    const value = chars.join('');
+    const shown = options.secret ? '*'.repeat(chars.length) : value;
     const width = Math.max(20, terminalWidth() - visibleWidth(options.label) - 8);
     screen.paint([
       ...options.header,
@@ -152,25 +154,26 @@ export async function field(screen, keys, options) {
     error = undefined;
     if (key.name === 'backspace') {
       if (caret > 0) {
-        value = value.slice(0, caret - 1) + value.slice(caret);
+        chars.splice(caret - 1, 1);
         caret -= 1;
       }
     } else if (key.name === 'delete') {
-      value = value.slice(0, caret) + value.slice(caret + 1);
+      chars.splice(caret, 1);
     } else if (key.name === 'left') caret = Math.max(0, caret - 1);
-    else if (key.name === 'right') caret = Math.min(value.length, caret + 1);
+    else if (key.name === 'right') caret = Math.min(chars.length, caret + 1);
     else if (key.name === 'home') caret = 0;
-    else if (key.name === 'end') caret = value.length;
+    else if (key.name === 'end') caret = chars.length;
     else if (key.name === 'ctrl-u') {
-      value = value.slice(caret);
+      chars = chars.slice(caret);
       caret = 0;
     } else if (key.name === 'ctrl-w') {
-      const upto = value.slice(0, caret).replace(/\S+\s*$/, '');
-      value = upto + value.slice(caret);
+      const upto = [...chars.slice(0, caret).join('').replace(/\S+\s*$/, '')];
+      chars = [...upto, ...chars.slice(caret)];
       caret = upto.length;
     } else if (key.name === 'char' || key.name === 'space') {
-      value = value.slice(0, caret) + key.value + value.slice(caret);
-      caret += key.value.length;
+      const typed = [...key.value];
+      chars.splice(caret, 0, ...typed);
+      caret += typed.length;
     }
   }
 }

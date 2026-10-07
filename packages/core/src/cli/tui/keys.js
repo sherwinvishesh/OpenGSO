@@ -190,10 +190,11 @@ export function splitChunks(text) {
   const out = [];
   let index = 0;
   while (index < text.length) {
-    const ch = text[index];
+    // By code point, so an emoji or any character beyond U+FFFF stays one key, not two halves.
+    const ch = String.fromCodePoint(text.codePointAt(index) ?? 0);
     if (ch !== ESC) {
       out.push(ch);
-      index += 1;
+      index += ch.length;
       continue;
     }
     let end = index + 1;
