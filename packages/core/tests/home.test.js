@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
 import { createPrompter } from '../src/cli/prompt.js';
-import { stripAnsi } from '../src/cli/tui/paint.js';
+import { stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
 /** @import { CommandHandler } from '@opengeo/core/cli' */
 /** @import { CommandName } from '@opengeo/core/shared' */
 /** @import { HomeStatus } from '../src/cli/home.js' */
@@ -450,5 +450,43 @@ describe('the full-screen menu after a command', () => {
 
     expect(await done).toBe(0);
     expect(ran).toBe(1);
+  });
+
+  it('redraws the menu at the new width when the terminal is resized', async () => {
+    const input = /** @type {NodeJS.ReadStream} */ (
+      /** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, isRaw: false, setRawMode: (/** @type {boolean} */ on) => ((input.isRaw = on), input) }))
+    );
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, columns: 80, rows: 24 })));
+    let seen = '';
+    output.on('data', (/** @type {Buffer} */ chunk) => {
+      seen += chunk.toString();
+    });
+    /** @param {(text: string) => boolean} test */
+    const waitUntil = async (test) => {
+      for (let tries = 0; !test(seen); tries += 1) {
+        if (tries > 200) throw new Error('the screen never got there');
+        await new Promise((done) => setTimeout(done, 5));
+      }
+    };
+    /** The width of the box the header is drawn in, in the most recent frame. */
+    const boxWidth = () => {
+      const top = stripAnsi(seen.slice(seen.lastIndexOf('\x1b[H')))
+        .split('\n')
+        .find((line) => line.startsWith('\u256d'));
+      return visibleWidth(top ?? '');
+    };
+
+    const done = runHome({ packageName: 'opengeo', version: '0.0.0', commands: { test: async () => 0 }, root: project({ 'opengeo.config.json': CONFIG }), input, output });
+    await waitUntil((text) => stripAnsi(text).includes('Quit'));
+    expect(boxWidth()).toBeGreaterThan(50);
+
+    const before = seen.length;
+    Object.assign(output, { columns: 50 });
+    output.emit('resize');
+    await waitUntil((text) => text.length > before && stripAnsi(text.slice(before)).includes('Quit'));
+    expect(boxWidth()).toBe(50);
+
+    input.write('q');
+    expect(await done).toBe(0);
   });
 });

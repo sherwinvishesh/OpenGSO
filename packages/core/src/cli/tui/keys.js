@@ -33,6 +33,7 @@ const ESC = String.fromCharCode(27);
  *   | 'ctrl-w'
  *   | 'space'
  *   | 'char'
+ *   | 'resize'
  *   | 'unknown'} KeyName
  */
 
@@ -45,6 +46,8 @@ const ESC = String.fromCharCode(27);
 /**
  * @typedef {object} KeyReader
  * @property {() => Promise<Key>} next
+ * @property {() => void} wake Hand whoever is waiting a `resize` key, so a loop that only wakes on
+ *   input redraws for a terminal that changed size under it.
  * @property {() => void} close
  */
 
@@ -165,6 +168,11 @@ export function readKeys(input = process.stdin) {
       if (ready) return Promise.resolve(ready);
       if (closed) return Promise.resolve({ name: 'ctrl-d', value: '' });
       return new Promise((resolve) => waiting.push(resolve));
+    },
+    /** @returns {void} */
+    wake() {
+      if (closed || queue.some((key) => key.name === 'resize')) return;
+      push({ name: 'resize', value: '' });
     },
     /** @returns {void} */
     close() {

@@ -20,7 +20,8 @@ import { keyHints, listView, rule, textField } from './widgets.js';
 /**
  * @template T
  * @typedef {object} SelectOptions
- * @property {string[]} header
+ * @property {string[] | (() => string[])} header A function is called on every draw, for a header
+ *   whose layout depends on the terminal width.
  * @property {ReadonlyArray<ListItem<T>>} items
  * @property {number} [selected]
  * @property {ReadonlyArray<[string, string]>} [hints]
@@ -42,9 +43,10 @@ export async function select(screen, keys, options) {
   let top = 0;
 
   for (;;) {
+    const header = typeof options.header === 'function' ? options.header() : options.header;
     // `paint` clips at rows - 1, so a list taller than what is left under the header scrolls
     // instead, or the selected row and the hints can be cut off with nothing saying so.
-    const room = Math.max(3, screen.size().rows - 1 - options.header.length - 3);
+    const room = Math.max(3, screen.size().rows - 1 - header.length - 3);
     const rows = listView(items, index);
     if (rows.length > room) {
       if (index < top) top = index;
@@ -57,7 +59,7 @@ export async function select(screen, keys, options) {
     const above = top;
     const below = rows.length - top - visible.length;
     screen.paint([
-      ...options.header,
+      ...header,
       // The two blank lines around the list carry the scroll markers, so scrolling costs no rows.
       above > 0 ? `  ${ink.faint(`${above} more above`)}` : '',
       ...visible,
@@ -145,6 +147,8 @@ export async function field(screen, keys, options) {
     /** @type {Key} */
     const key = await keys.next();
     if (key.name === 'ctrl-c' || key.name === 'escape') return undefined;
+    // A redraw, not an edit, so it must not clear a validation message the user has not acted on.
+    if (key.name === 'resize') continue;
     if (key.name === 'enter') {
       const problem = options.validate?.(value.trim());
       if (!problem) return value.trim();

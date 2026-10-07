@@ -259,15 +259,16 @@ export async function runHome(options) {
   const screen = openScreen({ input, output });
   /** @type {KeyReader} */
   let keys = readKeys(input);
-  const stopResize = screen.onResize(() => undefined);
+  // `keys` is read when the event fires, not now: it is replaced after every command.
+  const stopResize = screen.onResize(() => keys.wake());
 
   try {
     for (;;) {
       const status = readHomeStatus(root);
-      const header = homeHeader(status, `${options.packageName} ${options.version}`, screen.size().columns);
       /** @type {HomeAction | undefined} */
       const action = await select(screen, keys, {
-        header: ['', ...header],
+        // A function, so a resize draws the box at the new width rather than the one it opened at.
+        header: () => ['', ...homeHeader(status, `${options.packageName} ${options.version}`, screen.size().columns)],
         items: homeEntries(options.commands, status),
         shortcuts: SHORTCUTS,
         hints: [
