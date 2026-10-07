@@ -16,6 +16,7 @@
     "opengeo": "node packages/opengeo/src/cli.js",
     "build": "npm run build -w packages/testing -w packages/generate -w packages/prod -w packages/cli -w packages/opengeo",
     "check:bundles": "node scripts/check-bundles.mjs",
+    "check:packages": "node scripts/check-packages.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/opengeo/web/tsconfig.json",

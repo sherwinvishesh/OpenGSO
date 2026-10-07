@@ -146,6 +146,7 @@ npm run typecheck
 npm test
 npm run build            # packaging only; nothing needs it to run or test the code
 npm run check:bundles
+npm run check:packages
 ```
 
 To drive the CLI against the bundled example, install it globally from its own tarball and use it

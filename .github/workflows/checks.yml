@@ -44,3 +44,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run check:bundles
+      # What a user installs: each bin starts, each export imports by name, each tarball has its files.
+      - run: npm run check:packages
+      # The demo is the integration test for opengeo-prod/next against a real Next.js build.
+      - run: npm run example:build

@@ -46,6 +46,7 @@ npm run typecheck
 npm test
 npm run build
 npm run check:bundles
+npm run check:packages
 ```
 
 `npm run build` is packaging only. Nothing needs it to run, test or change the code: after
@@ -62,6 +63,11 @@ an import that reaches into core.
 `check:bundles` reads `dist/` and asserts the two structural promises from §3:
 `opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency
 any published package may declare. Run it after `build`, never instead of it.
+
+`check:packages` checks what a user installs: every package's bin answers `--version`, every entry
+in its `exports` imports by name, and `npm pack --dry-run` lists every file the manifest points at
+(and the dashboard, for `opengeo`) and nothing from `src/` or `tests/`. CI also builds the
+Next.js example, which is the integration test for `opengeo-prod/next`.
 
 To exercise the whole thing against a real site, put the CLI on your PATH first. This builds
 everything, packs `opengeo`, and installs that tarball globally, so you are driving the same
