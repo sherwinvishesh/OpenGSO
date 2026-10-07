@@ -238,6 +238,7 @@ export function readJsonLd(doc) {
 /**
  * @typedef {object} RenderContext
  * @property {string} baseUrl
+ * @property {boolean} [inCell] Rendering inside a table cell, where a nested table must be flattened.
  */
 
 /**
@@ -488,18 +489,29 @@ function renderDefinitionList(el, ctx) {
  * @returns {string}
  */
 function renderTable(el, ctx) {
+  // A GFM cell cannot hold a table, so one nested inside a cell is written as lines of
+  // comma-separated values, which the outer cell then joins with <br>.
+  if (ctx.inCell) {
+    return ownRows(el)
+      .map((tr) => tr.map((cell) => collapse(renderInlineChildren(cell, ctx))).filter(Boolean).join(', '))
+      .filter(Boolean)
+      .join('\n');
+  }
+  const cellCtx = { ...ctx, inCell: true };
   /** @type {string[][]} */
   const rows = [];
-  for (const tr of Array.from(el.querySelectorAll('tr'))) {
-    const cells = Array.from(tr.children)
-      .filter((cell) => ['td', 'th'].includes(cell.tagName.toLowerCase()))
+  for (const tr of ownRows(el)) {
+    const cells = tr
       // A GFM row is one line, so a line break inside a cell (a <br>, a list) has to stay HTML.
-      .map((cell) => collapse(renderInlineChildren(cell, ctx)).replace(/\|/g, '\\|').replace(/\n/g, '<br>'));
+      .map((cell) => collapse(renderInlineChildren(cell, cellCtx)).replace(/\|/g, '\\|').replace(/\n/g, '<br>'));
     if (cells.length > 0) rows.push(cells);
   }
   if (rows.length === 0) return '';
 
-  const hasHeader = Boolean(el.querySelector('thead th, thead td, tr > th'));
+  // Asked of this table's own rows: a <th> in a table nested inside a cell says nothing about this one.
+  const hasHeader = Array.from(/** @type {HTMLTableElement} */ (el).rows).some(
+    (tr) => tr.parentElement?.tagName.toLowerCase() === 'thead' || Array.from(tr.children).some((cell) => cell.tagName.toLowerCase() === 'th'),
+  );
   const width = Math.max(...rows.map((r) => r.length));
   /** @param {string[]} row */
   const pad = (row) => {
@@ -512,6 +524,19 @@ function renderTable(el, ctx) {
   const body = hasHeader ? rows.slice(1) : rows;
   const separator = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
   return [pad(header), separator, ...body.map(pad)].join('\n');
+}
+
+/**
+ * The cells of a table's own rows. `querySelectorAll('tr')` would also return the rows of every
+ * table nested inside a cell and splice them into this one.
+ *
+ * @param {Element} el
+ * @returns {Element[][]}
+ */
+function ownRows(el) {
+  return Array.from(/** @type {HTMLTableElement} */ (el).rows).map((tr) =>
+    Array.from(tr.children).filter((cell) => ['td', 'th'].includes(cell.tagName.toLowerCase())),
+  );
 }
 
 /**

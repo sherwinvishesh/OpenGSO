@@ -154,6 +154,21 @@ describe('extraction keeps the page shape intact', () => {
     const { markdown } = extractPage(html, { url: 'https://example.com/' });
     expect(markdown).toContain('| Pro<br>yearly | - SSO<br>- Audit log |');
   });
+
+  it('flattens a table nested in a cell instead of leaking its rows into the outer table', () => {
+    const html = page(`<main><h1>Specs</h1>
+      <table><tr><td>Size</td><td><table><tr><th>W</th><th>H</th></tr><tr><td>10</td><td>20</td></tr></table></td></tr>
+      <tr><td>Weight</td><td>3 kg</td></tr></table>
+      <p>${words}</p></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    const table = markdown.split('\n').filter((line) => line.startsWith('|'));
+    expect(table).toEqual([
+      '|  |  |',
+      '| --- | --- |',
+      '| Size | W, H<br>10, 20 |',
+      '| Weight | 3 kg |',
+    ]);
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {
