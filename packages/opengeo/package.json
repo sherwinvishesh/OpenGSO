@@ -35,6 +35,10 @@
     "./prod/next": {
       "types": "./dist/prod-next.d.ts",
       "import": "./dist/prod-next.js"
+    },
+    "./prod/edge": {
+      "types": "./dist/prod-edge.d.ts",
+      "import": "./dist/prod-edge.js"
     }
   },
   "files": [

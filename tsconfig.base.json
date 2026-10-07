@@ -39,6 +39,9 @@
       "@opengeo/core/prod/next": [
         "./packages/core/src/prod/adapters/next.js"
       ],
+      "@opengeo/core/prod/edge": [
+        "./packages/core/src/prod/edge.js"
+      ],
       "@opengeo/core/server": [
         "./packages/core/src/server/index.js"
       ],

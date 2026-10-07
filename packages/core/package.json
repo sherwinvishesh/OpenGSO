@@ -12,6 +12,7 @@
     "./test": "./src/test/index.js",
     "./prod": "./src/prod/index.js",
     "./prod/next": "./src/prod/adapters/next.js",
+    "./prod/edge": "./src/prod/edge.js",
     "./server": "./src/server/index.js",
     "./cli": "./src/cli/index.js",
     "./cli/commands/*": "./src/cli/commands/*.js"

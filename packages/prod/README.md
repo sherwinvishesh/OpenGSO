@@ -43,8 +43,7 @@ export const config = {
 ```
 
 **`runtime: 'nodejs'` is required.** The middleware reads the generated files from disk, which the
-Edge runtime cannot do. If you need Edge, use `createManifestStore` with a manifest you inline at
-build time.
+Edge runtime cannot do. If you need Edge, see [Edge runtimes](#edge-runtimes) below.
 
 ### A known Next limitation
 
@@ -106,6 +105,58 @@ crawler added later needs a restart before the running server sees it.
 | `createMemoryStore` | Tests. |
 
 All three are loaded once. None of them touch the filesystem per request.
+
+## Edge runtimes
+
+Import from `opengeo-prod/edge`, not `opengeo-prod`. Edge bundlers reject any `node:` import, even
+one in code you never call, and the main entry carries `createFsStore` and the startup log, which
+read the disk. `opengeo-prod/edge` is the same handler without those two, and nothing in it imports
+a Node module.
+
+There is no disk at the edge, so the twins travel as data. Turn them into a module at build time,
+after `opengeo generate` and before your bundler runs:
+
+```js
+// scripts/opengeo-edge-data.mjs, run with node before your build
+import { readFileSync, writeFileSync } from 'node:fs';
+
+const manifest = JSON.parse(readFileSync('.opengeo/manifest.json', 'utf8'));
+const contents = {};
+for (const { file } of Object.values(manifest.pages)) {
+  contents[file] = readFileSync(`public/${file}`, 'utf8');
+}
+writeFileSync('opengeo-edge-data.js', `export default ${JSON.stringify({ manifest, contents })};\n`);
+```
+
+Then any runtime that speaks `Request` and `Response` takes the generic handler:
+
+```js
+import { createManifestStore, createProdHandler } from 'opengeo-prod/edge';
+import data from './opengeo-edge-data.js';
+
+// Built once per isolate, so a request is a lookup and nothing else.
+const handle = createProdHandler({
+  store: createManifestStore(data),
+  markdownRouting: ['ClaudeBot', 'GPTBot', 'Perplexity-User'],
+});
+
+export default {
+  async fetch(request, env) {
+    const decision = handle(request);
+    if (decision.type !== 'passthrough') return decision.response; // markdown, or a 406
+    const page = await env.ASSETS.fetch(request);                   // however your host serves HTML
+    const response = new Response(page.body, page);
+    for (const [name, value] of Object.entries(decision.headers)) response.headers.set(name, value);
+    return response;
+  },
+};
+```
+
+In Next.js edge middleware the same lines apply: return `decision.response` when there is one,
+otherwise `NextResponse.next()` with the same header loop. Do not import `opengeo-prod/next` there:
+it is the Node adapter and reads the disk. The data module has to be
+regenerated whenever `opengeo generate` runs, or the edge keeps serving the old twins. There is no
+startup log at the edge; check a deployment with `opengeo prod test` instead.
 
 ## Verifying a deployment
 

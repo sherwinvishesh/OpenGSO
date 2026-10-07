@@ -9,7 +9,7 @@ import { defineConfig } from 'tsup';
  */
 export default defineConfig([
   {
-    entry: { index: 'src/index.js', next: 'src/next.js' },
+    entry: { index: 'src/index.js', next: 'src/next.js', edge: 'src/edge.js' },
     format: ['esm'],
     target: 'node22',
     platform: 'neutral',

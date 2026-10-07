@@ -12,7 +12,7 @@ import { defineConfig } from 'tsup';
  */
 export default defineConfig([
   {
-    entry: { prod: 'src/prod.js', 'prod-next': 'src/prod-next.js' },
+    entry: { prod: 'src/prod.js', 'prod-next': 'src/prod-next.js', 'prod-edge': 'src/prod-edge.js' },
     format: ['esm'],
     target: 'node22',
     platform: 'neutral',

@@ -62,9 +62,16 @@ if (!existsSync(prodDist)) {
     // something like the deployment checker has been re-exported from the runtime entry.
     { label: 'a network call', pattern: /\bfetch\(/ },
   ];
-  for (const file of libraryFiles(prodDist, ['index.js', 'next.js'])) {
+  for (const file of libraryFiles(prodDist, ['index.js', 'next.js', 'edge.js'])) {
     for (const { label, pattern } of banned) {
       if (pattern.test(file.text)) failures.push(`opengeo-prod/dist/${file.name} contains ${label}.`);
+    }
+  }
+  // The edge entry is only worth having if an edge bundler accepts it, and those reject a `node:`
+  // import even when the code using it is never called. A shared chunk is the usual way one sneaks in.
+  for (const file of libraryFiles(prodDist, ['edge.js'])) {
+    if (/\bfrom\s*["']node:|import\s*\(\s*["']node:/.test(file.text)) {
+      failures.push(`opengeo-prod/dist/${file.name} is reachable from edge.js and imports a node: module.`);
     }
   }
 }
