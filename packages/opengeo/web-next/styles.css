@@ -1046,6 +1046,13 @@ summary:focus-visible,
   color: var(--accent);
 }
 
+/* The routing presets on Bot settings say which one is in force; the old page left that unsaid. */
+.btn[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .crawler-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

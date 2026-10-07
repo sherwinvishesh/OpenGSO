@@ -1,6 +1,7 @@
 import { api, ApiError } from './api.js';
 import { stalenessBanner, stalenessOf } from './components/staleness.js';
 import { abortAll } from './runs.js';
+import { createBotsView } from './views/bots.js';
 import { createGenerateView } from './views/generate.js';
 import { createProdView } from './views/prod.js';
 import { createTestView } from './views/test.js';
@@ -42,7 +43,7 @@ const SCREENS = {
   test: createTestView,
   generate: createGenerateView,
   prod: createProdView,
-  bots: notYet('Bot settings'),
+  bots: createBotsView,
   settings: notYet('Settings'),
 };
 
