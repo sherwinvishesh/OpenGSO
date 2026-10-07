@@ -321,9 +321,21 @@ describe('the flat menu, for terminals that cannot do any of this', () => {
  * and a Ctrl-D meant for the command closes the menu's reader too.
  */
 describe('the flat menu hands stdin to the command it runs', () => {
+  // A real terminal on both ends, with colour switched off: the case the flat menu exists for.
+  /** @type {string | undefined} */
+  let noColor;
+  beforeEach(() => {
+    noColor = process.env.NO_COLOR;
+    process.env.NO_COLOR = '1';
+  });
+  afterEach(() => {
+    if (noColor === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = noColor;
+  });
+
   function terminal() {
     const input = /** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => input })));
-    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: false, columns: 100 })));
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, columns: 100 })));
     let seen = '';
     output.on('data', (/** @type {Buffer} */ chunk) => {
       seen += chunk.toString();
@@ -374,5 +386,21 @@ describe('the flat menu hands stdin to the command it runs', () => {
   it('comes back to the menu after a Ctrl-D inside the command', async () => {
     const { code } = await drive('\u0004');
     expect(code).toBe(0);
+  });
+});
+
+describe('the flat menu and a pipe', () => {
+  it('prints nothing and hands back to the help page when stdout is not a terminal', async () => {
+    const input = /** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true })));
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: false })));
+    let seen = '';
+    output.on('data', (/** @type {Buffer} */ chunk) => {
+      seen += chunk.toString();
+    });
+
+    const code = await runHome({ packageName: 'opengeo', version: '0.0.0', commands: ALL, root: project(), input, output });
+
+    expect(code).toBe(-1);
+    expect(seen).toBe('');
   });
 });

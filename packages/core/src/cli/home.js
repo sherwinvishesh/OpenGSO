@@ -452,9 +452,9 @@ function waitForKey(input, output) {
 /**
  * The same menu without any of the terminal control.
  *
- * `NO_COLOR`, `TERM=dumb`, `CI` and a piped stdin all land here. It is numbered rather than
- * arrow-driven because there is no raw mode to read arrows with, and it is the same list in the
- * same order so that describing one describes both.
+ * `NO_COLOR`, `TERM=dumb`, `CI` and a pipe on either end all land here, and a pipe goes straight on
+ * to the help page. It is numbered rather than arrow-driven because there is no raw mode to read
+ * arrows with, and it is the same list in the same order so that describing one describes both.
  *
  * @param {HomeOptions} options
  * @param {string} root
@@ -463,9 +463,10 @@ function waitForKey(input, output) {
 async function runFlatHome(options, root) {
   const output = options.output ?? process.stdout;
   const input = options.input ?? process.stdin;
-  // Nobody is there to answer. A menu would either hang or silently pick its own default, and both
-  // are worse than the help page the old bare invocation printed.
-  if (!input.isTTY) return -1;
+  // Nobody is there to answer, or nobody is there to read the question (`opengeo | head`). A menu
+  // would either hang or silently pick its own default, and both are worse than the help page the
+  // old bare invocation printed.
+  if (!input.isTTY || !output.isTTY) return -1;
 
   for (;;) {
     const status = readHomeStatus(root);
