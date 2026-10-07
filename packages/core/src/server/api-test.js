@@ -68,7 +68,7 @@ export async function runTest(body, options) {
   /** @type {TestMode} */
   const mode = isTestMode(input.mode) ? input.mode : input.quality ? 'full' : 'structure';
   if (input.mode !== undefined && !isTestMode(input.mode)) {
-    return bad(`Unknown test mode "${String(input.mode)}". Pick one of: full, structure, content.`);
+    return bad(ERRORS.unknownTestMode(String(input.mode)));
   }
 
   /** @type {SuiteAi | undefined} */

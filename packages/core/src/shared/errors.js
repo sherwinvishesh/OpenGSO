@@ -321,6 +321,23 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** A dashboard API request whose body is not a JSON object. */
   requestNotObject: () => 'The request body has to be a JSON object.',
 
+  /** @param {string} route The method and path, as `GET /api/nope`. */
+  noSuchEndpoint: (route) => `No such endpoint: ${route}`,
+
+  filePathRequired: 'Expected a path relative to the public directory.',
+
+  /** @param {string} relative */
+  noGeneratedFile: (relative) => `There is no generated file at ${relative}.`,
+
+  /** @param {string} api */
+  unknownApiShape: (api) => `Unknown API shape "${api}". OpenGEO speaks three: anthropic, openai, gemini.`,
+
+  /** @param {string} auth */
+  unknownAuthStyle: (auth) => `Unknown auth style "${auth}". Use one of: bearer, x-api-key, x-goog-api-key, none.`,
+
+  /** @param {string} mode */
+  unknownTestMode: (mode) => `Unknown test mode "${mode}". Pick one of: full, structure, content.`,
+
   /**
    * @param {string} field
    * @param {string} expected `string`, `boolean` or `number`.

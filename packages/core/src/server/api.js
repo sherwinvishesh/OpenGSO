@@ -133,7 +133,7 @@ export async function handleApi(request, options) {
     case 'POST /api/file':
       return readFileRoute(request.body, options);
     default:
-      return { status: 404, body: { error: `No such endpoint: ${route}` } };
+      return { status: 404, body: { error: ERRORS.noSuchEndpoint(route) } };
   }
 }
 

@@ -16,6 +16,7 @@ import {
 } from '../src/server/server.js';
 import { CONTENT_BANDS, STRUCTURAL_BANDS, structuralBand } from '../src/shared/render/theme.js';
 import { AI_BOTS } from '../src/shared/bots.js';
+import { ERRORS } from '../src/shared/errors.js';
 import { CHECKS } from '../src/test/checks.js';
 import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
@@ -304,10 +305,24 @@ describe('the API', () => {
     expect(/** @type {{ bots: unknown[] }} */ (response.body).bots).toHaveLength(AI_BOTS.length);
   });
 
+  it('refuses a malformed request in the words errors.js gives it', async () => {
+    /** @param {{ status: number, body: unknown }} response */
+    const error = (response) => /** @type {{ error: string }} */ (response.body).error;
+    const api = await post('/api/key', { provider: 'custom', apiKey: 'k', api: 'soap' });
+    expect([api.status, error(api)]).toEqual([400, ERRORS.unknownApiShape('soap')]);
+    const auth = await post('/api/key', { provider: 'custom', apiKey: 'k', auth: 'basic' });
+    expect([auth.status, error(auth)]).toEqual([400, ERRORS.unknownAuthStyle('basic')]);
+    const mode = await post('/api/test', { url: 'http://127.0.0.1:9', mode: 'everything' });
+    expect([mode.status, error(mode)]).toEqual([400, ERRORS.unknownTestMode('everything')]);
+    const file = await post('/api/file', { path: '  ' });
+    expect([file.status, error(file)]).toEqual([400, ERRORS.filePathRequired]);
+  });
+
   it('404s an endpoint that does not exist, naming what was asked for', async () => {
     const response = await get('/api/nope');
     expect(response.status).toBe(404);
     expect(String(/** @type {{ error: string }} */ (response.body).error)).toContain('GET /api/nope');
+    expect(/** @type {{ error: string }} */ (response.body).error).toBe(ERRORS.noSuchEndpoint('GET /api/nope'));
   });
 
   it('writes a config patch and merges it into the defaults', async () => {
@@ -520,7 +535,9 @@ describe('reading generated files', () => {
   });
 
   it('404s a file that has not been generated', async () => {
-    expect((await post('/api/file', { path: 'md/nothing.md' })).status).toBe(404);
+    const response = await post('/api/file', { path: 'md/nothing.md' });
+    expect(response.status).toBe(404);
+    expect(/** @type {{ error: string }} */ (response.body).error).toBe(ERRORS.noGeneratedFile('md/nothing.md'));
   });
 
   it('reads only what generate writes, never another file that happens to sit in the web root', async () => {

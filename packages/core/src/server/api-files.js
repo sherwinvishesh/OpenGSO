@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { loadConfig, publicDirPath } from '../shared/config.js';
+import { ERRORS } from '../shared/errors.js';
 import { ok, bad } from './api-shared.js';
 
 /**
@@ -21,9 +22,9 @@ import { ok, bad } from './api-shared.js';
 export function readFileRoute(body, options) {
   const input = /** @type {{ path?: string }} */ (body ?? {});
   const relative = (input.path ?? '').trim();
-  if (!relative) return bad('Expected a path relative to the public directory.');
+  if (!relative) return bad(ERRORS.filePathRequired);
   const content = readGeneratedFile(options.root, relative);
-  if (content === undefined) return { status: 404, body: { error: `There is no generated file at ${relative}.` } };
+  if (content === undefined) return { status: 404, body: { error: ERRORS.noGeneratedFile(relative) } };
   return ok({ path: relative, content });
 }
 

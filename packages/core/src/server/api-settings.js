@@ -205,10 +205,10 @@ export function saveKey(body, options) {
 
   if (baseUrl && !parseUrl(baseUrl)) return bad(ERRORS.invalidUrl(baseUrl));
   if (rawApi && !isProviderApi(rawApi)) {
-    return bad(`Unknown API shape "${rawApi}". OpenGEO speaks three: anthropic, openai, gemini.`);
+    return bad(ERRORS.unknownApiShape(rawApi));
   }
   if (rawAuth && !isProviderAuth(rawAuth)) {
-    return bad(`Unknown auth style "${rawAuth}". Use one of: bearer, x-api-key, x-goog-api-key, none.`);
+    return bad(ERRORS.unknownAuthStyle(rawAuth));
   }
   /** @type {ProviderApi | undefined} */
   const api = isProviderApi(rawApi) ? rawApi : undefined;
