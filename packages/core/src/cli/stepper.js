@@ -1,3 +1,4 @@
+import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { SetupAbort } from './configure.js';
 import { confirm, field, pause, select } from './tui/interact.js';
@@ -114,7 +115,7 @@ export function openStepper(options = {}) {
    * @returns {never}
    */
   function cancelled() {
-    throw new SetupAbort('Setup was cancelled. Nothing was written.');
+    throw new SetupAbort(ERRORS.setupCancelled);
   }
 
   /** @type {Prompter} */

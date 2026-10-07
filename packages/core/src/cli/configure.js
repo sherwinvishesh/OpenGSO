@@ -15,6 +15,7 @@ import {
   writeEnvVars,
 } from '../shared/env.js';
 import { parseUrl } from '../shared/http.js';
+import { ERRORS } from '../shared/errors.js';
 import { c, heading } from '../shared/log.js';
 import { pickBots } from './bot-picker.js';
 import { detectWebRoot } from '../shared/site-probe.js';
@@ -169,9 +170,9 @@ async function askSiteUrl(ctx, current) {
       return answer;
     }
     if (attempt >= MAX_URL_ATTEMPTS) {
-      throw new SetupAbort(`"${answer}" is not a URL OpenGEO can fetch, and setup ran out of attempts. Nothing was written.`);
+      throw new SetupAbort(ERRORS.setupUrlGaveUp(answer));
     }
-    ctx.write(`  ${c.yellow(`"${answer}" is not a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000.`)}\n`);
+    ctx.write(`  ${c.yellow(ERRORS.setupUrlRefused(answer))}\n`);
   }
 }
 
@@ -359,7 +360,7 @@ async function askProvider(ctx, config) {
   const info = providerInfo(providerChoice);
   const endpoint = await askEndpoint(prompter, write, providerChoice, config);
   if (!endpoint) {
-    write(`  ${c.yellow('No endpoint given, so nothing was written.')}\n`);
+    write(`  ${c.yellow(ERRORS.noEndpointGiven)}\n`);
     return undefined;
   }
 
@@ -377,7 +378,7 @@ async function askProvider(ctx, config) {
     : await prompter.secret(`  ${info.label} API key ${c.gray(`(hidden as you type${info.keysUrl ? `, get one at ${info.keysUrl}` : ''})`)}:`);
 
   if (!key && !endpoint.keyless) {
-    write(`  ${c.yellow('No key entered, so nothing was written.')}\n`);
+    write(`  ${c.yellow(ERRORS.noKeyEntered)}\n`);
     return undefined;
   }
 
@@ -764,7 +765,7 @@ async function askEndpoint(prompter, write, provider, base) {
   const baseUrl = (await prompter.ask('  Base URL (no trailing slash)', base.ai.baseUrl ?? '')).trim();
   if (!baseUrl) return undefined;
   if (!parseUrl(baseUrl)) {
-    write(`  ${c.yellow(`"${baseUrl}" is not a URL OpenGEO can call. Include the scheme, e.g. https://gateway.example.com/v1.`)}\n`);
+    write(`  ${c.yellow(ERRORS.endpointNotUrl(baseUrl))}\n`);
     return undefined;
   }
 

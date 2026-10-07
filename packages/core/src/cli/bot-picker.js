@@ -1,4 +1,5 @@
 import { BOT_KINDS, normalizeCustomBot } from '../shared/bots.js';
+import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 
 /**
@@ -92,7 +93,7 @@ export async function pickBots(options) {
     }
     if (word === 'add' || word === 'new' || word === '+') {
       if (!options.allowAdd) {
-        out(`  ${c.yellow('Adding a crawler is only offered for markdown routing.')}\n`);
+        out(`  ${c.yellow(ERRORS.crawlerAddRoutingOnly)}\n`);
         continue;
       }
       const bot = await addCustomBot(prompter, out, catalogue);
@@ -118,7 +119,7 @@ export async function pickBots(options) {
     for (const token of tokens) {
       const bot = resolveToken(token, list);
       if (!bot) {
-        out(`  ${c.yellow(`No crawler called "${token}". Type its name or its number, or \`list\` to see them again.`)}\n`);
+        out(`  ${c.yellow(ERRORS.unknownCrawler(token))}\n`);
         continue;
       }
       matched = true;
@@ -186,7 +187,7 @@ async function addCustomBot(prompter, out, existing) {
     return undefined;
   }
   if (existing.some((bot) => bot.name.toLowerCase() === name.toLowerCase())) {
-    out(`  ${c.yellow(`${name} is already on the list.`)}\n`);
+    out(`  ${c.yellow(ERRORS.crawlerAlreadyListed(name))}\n`);
     return undefined;
   }
 

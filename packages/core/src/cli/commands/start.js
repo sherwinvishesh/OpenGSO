@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../../server/server.js';
 import { CONFIG_FILENAME } from '../../shared/config.js';
+import { ERRORS } from '../../shared/errors.js';
 import { c, cErr } from '../../shared/log.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
@@ -61,7 +62,7 @@ export async function startCommand(ctx) {
       await runOnboarding({ root, mode, autoAccept: args.bool('yes'), tag: `${ctx.packageName} ${ctx.version}` });
     } catch (error) {
       if (error instanceof SetupAbort) {
-        process.stderr.write(`\n${cErr.red('setup stopped')} ${error.message}\n`);
+        process.stderr.write(`\n${cErr.red(ERRORS.setupStopped)} ${error.message}\n`);
         return 1;
       }
       throw error;
@@ -83,7 +84,7 @@ export async function startCommand(ctx) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('EADDRINUSE')) {
-      process.stderr.write(`\n${cErr.red('Port in use')} Something is already listening on ${port}. Try \`opengeo start -p ${port + 1}\`.\n\n`);
+      process.stderr.write(`\n${cErr.red(ERRORS.portInUseLabel)} ${ERRORS.portInUse(port)}\n\n`);
       return 1;
     }
     throw error;

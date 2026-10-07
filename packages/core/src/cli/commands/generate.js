@@ -45,7 +45,7 @@ export async function generateCommand(ctx) {
 
   const tierFlag = args.str('tier');
   if (tierFlag && tierFlag !== 'free' && tierFlag !== 'ai') {
-    process.stderr.write(`Unknown tier "${tierFlag}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).\n`);
+    process.stderr.write(`${ERRORS.unknownTier(tierFlag)}\n`);
     return EXIT_USAGE;
   }
   const tier = /** @type {'free' | 'ai' | undefined} */ (tierFlag) ?? loaded.config.generate.tier;

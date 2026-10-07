@@ -1,5 +1,6 @@
 import { internalDirPath } from '../shared/config.js';
 import { resolveBots } from '../shared/bots.js';
+import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { recordRun } from '../test/history.js';
 import { renderSetupScore } from '../test/report.js';
@@ -113,7 +114,7 @@ async function scoreOnFinish(result, write, framed) {
     write(renderSetupScore(suite.structure, { width: framed ? 80 : undefined }));
     write(`${c.gray(`Re-run it any time with \`opengeo test ${config.site}\`, or just \`opengeo\`.\n`)}`);
   } catch (error) {
-    write(`  ${c.yellow(`Could not test the site yet: ${error instanceof Error ? error.message : String(error)}`)}\n`);
+    write(`  ${c.yellow(ERRORS.setupScoreFailed(error instanceof Error ? error.message : String(error)))}\n`);
     write(`  ${c.gray(`Setup is finished regardless. Run \`opengeo test ${config.site}\` once the site is up.`)}\n`);
   }
 }

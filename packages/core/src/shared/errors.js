@@ -240,6 +240,56 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   invalidUrl: (value) =>
     `"${value}" isn't a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000 or https://your-site.com.`,
 
+  /** The same refusal, inline under a field that is still waiting for an answer. */
+  urlNeedsScheme: 'That does not look like a URL. It needs http:// or https://.',
+
+  /** @param {string} value */
+  setupUrlRefused: (value) => `"${value}" is not a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000.`,
+
+  /** @param {string} value */
+  setupUrlGaveUp: (value) =>
+    `"${value}" is not a URL OpenGEO can fetch, and setup ran out of attempts. Nothing was written.`,
+
+  /** @param {string} value */
+  endpointNotUrl: (value) =>
+    `"${value}" is not a URL OpenGEO can call. Include the scheme, e.g. https://gateway.example.com/v1.`,
+
+  noEndpointGiven: 'No endpoint given, so nothing was written.',
+
+  noKeyEntered: 'No key entered, so nothing was written.',
+
+  setupCancelled: 'Setup was cancelled. Nothing was written.',
+
+  /** The label in front of the reason setup stopped, from `opengeo start`. */
+  setupStopped: 'setup stopped',
+
+  /** The same label, from `opengeo settings`. */
+  settingsStopped: 'settings stopped',
+
+  /** @param {string} reason */
+  setupScoreFailed: (reason) => `Could not test the site yet: ${reason}`,
+
+  /** @param {number} count */
+  pickANumber: (count) => `Pick a number between 1 and ${count}.`,
+
+  crawlerAddRoutingOnly: 'Adding a crawler is only offered for markdown routing.',
+
+  /** @param {string} token */
+  unknownCrawler: (token) => `No crawler called "${token}". Type its name or its number, or \`list\` to see them again.`,
+
+  /** @param {string} name */
+  crawlerAlreadyListed: (name) => `${name} is already on the list.`,
+
+  portInUseLabel: 'Port in use',
+
+  /**
+   * The next port up, except at the top of the range, where there is no next port to suggest.
+   *
+   * @param {number} port
+   */
+  portInUse: (port) =>
+    `Something is already listening on ${port}. Try \`opengeo start -p ${port < 65535 ? port + 1 : port - 1}\`.`,
+
   /** @param {string[]} flags */
   unknownOptions: (flags) => `Unknown option${flags.length === 1 ? '' : 's'}: ${flags.join(', ')}`,
 
@@ -261,6 +311,11 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
           : `of ${rule.min} or more`;
     return `${flag} takes ${kind} ${range}, and "${value}" is not one.`;
   },
+
+  modeConflict: 'Pick one: --structure runs the checks only, --content runs the AI review only, and neither runs both.',
+
+  /** @param {string} tier */
+  unknownTier: (tier) => `Unknown tier "${tier}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).`,
 
   /**
    * @param {string} url

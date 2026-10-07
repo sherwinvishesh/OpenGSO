@@ -421,6 +421,19 @@ describe('error copy (§13)', () => {
   });
 });
 
+describe("the CLI's own messages", () => {
+  it('never suggests a port that does not exist', () => {
+    expect(ERRORS.portInUse(3000)).toContain('-p 3001');
+    expect(ERRORS.portInUse(65535)).toContain('-p 65534');
+  });
+
+  it('keeps every refusal the commands print in one place', () => {
+    expect(ERRORS.unknownTier('pro')).toContain('"pro"');
+    expect(ERRORS.modeConflict).toContain('--structure');
+    expect(ERRORS.pickANumber(3)).toBe('Pick a number between 1 and 3.');
+  });
+});
+
 describe('the colour gate', () => {
   const saved = { ...process.env };
 

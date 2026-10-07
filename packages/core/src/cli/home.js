@@ -2,6 +2,7 @@ import { basename } from 'node:path';
 import { readManifest } from '../generate/manifest.js';
 import { internalDirPath, loadConfig } from '../shared/config.js';
 import { readCredentials } from '../shared/env.js';
+import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { PALETTE, ink } from './tui/theme.js';
 import { deltaFor, lastScored, readHistory, relativeAge, scoreTrend } from '../test/history.js';
@@ -410,7 +411,7 @@ async function askUrl(screen, keys, header, site, label) {
     value: site,
     placeholder: 'https://example.com',
     hint: 'Enter to accept, esc to go back.',
-    validate: (value) => (isUrlish(value) ? undefined : 'That does not look like a URL. It needs http:// or https://.'),
+    validate: (value) => (isUrlish(value) ? undefined : ERRORS.urlNeedsScheme),
   });
 }
 

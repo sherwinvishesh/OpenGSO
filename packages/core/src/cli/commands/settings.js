@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { ERRORS } from '../../shared/errors.js';
 import { c, cErr } from '../../shared/log.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
@@ -53,7 +54,7 @@ export async function settingsCommand(ctx) {
     return 0;
   } catch (error) {
     if (error instanceof SetupAbort) {
-      process.stderr.write(`\n${cErr.red('settings stopped')} ${error.message}\n`);
+      process.stderr.write(`\n${cErr.red(ERRORS.settingsStopped)} ${error.message}\n`);
       return 1;
     }
     throw error;

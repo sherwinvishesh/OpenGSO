@@ -1,4 +1,5 @@
 import { createInterface } from 'node:readline';
+import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 
 /** @import { Interface } from 'node:readline' */
@@ -151,7 +152,7 @@ export function createPrompter(options = {}) {
         if (!raw || ended) return fallback;
         const index = Number(raw) - 1;
         if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index].value;
-        output.write(`  ${c.yellow(`Pick a number between 1 and ${choices.length}.`)}\n`);
+        output.write(`  ${c.yellow(ERRORS.pickANumber(choices.length))}\n`);
       }
     },
 

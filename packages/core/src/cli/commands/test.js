@@ -144,7 +144,7 @@ export function resolveMode(args) {
   const structure = args.bool('structure') || args.bool('offline') || args.bool('no-quality');
   const content = args.bool('content');
   if (structure && content) {
-    return { error: 'Pick one: --structure runs the checks only, --content runs the AI review only, and neither runs both.' };
+    return { error: ERRORS.modeConflict };
   }
   if (content) return 'content';
   if (structure) return 'structure';
