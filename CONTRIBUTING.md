@@ -60,9 +60,13 @@ types. The root `tsconfig.json` does not cover the dashboard, which is why the s
 Dashboard modules import only from inside `web/`, because nothing bundles them: a test fails on
 an import that reaches into core.
 
-`check:bundles` reads `dist/` and asserts the two structural promises from §3:
-`opengeo-prod` ships no jsdom and no AI provider code, and jsdom is the only runtime dependency
-any published package may declare. Run it after `build`, never instead of it.
+`check:bundles` reads what the build produced and asserts the structural promises from §3. The
+runtime library (`opengeo-prod`, and the copy `opengeo` ships as `opengeo/prod`) carries no jsdom,
+no AI provider code and no network call. The edge entries import no `node:` module. Every bundle,
+CLIs included, imports only Node builtins and dependencies its package declares, and jsdom is the
+only dependency any package may declare. It follows the import graph through the metafile each
+build writes to `packages/*/.bundle-meta/`, and scans the `dist/` text too. Run it after `build`,
+never instead of it.
 
 `check:packages` checks what a user installs: every package's bin answers `--version`, every entry
 in its `exports` imports by name, and `npm pack --dry-run` lists every file the manifest points at

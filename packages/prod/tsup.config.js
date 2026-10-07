@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+import { recordBundle } from '../../scripts/bundle-meta.mjs';
 
 /**
  * Two builds: the importable middleware library, and the CLI that ships `opengeo prod test`.
@@ -25,6 +26,7 @@ export default defineConfig([
     dts: { resolve: true },
     sourcemap: false,
     noExternal: [/@opengeo\/core/],
+    esbuildPlugins: [recordBundle('library')],
   },
   {
     entry: { cli: 'src/cli.js' },
@@ -36,5 +38,6 @@ export default defineConfig([
     sourcemap: false,
     noExternal: [/@opengeo\/core/],
     banner: { js: '#!/usr/bin/env node' },
+    esbuildPlugins: [recordBundle('cli')],
   },
 ]);

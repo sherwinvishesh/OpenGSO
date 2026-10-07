@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# What each bundle was built from, for scripts/check-bundles.mjs. Never shipped.
+.bundle-meta/
 coverage/
 .next/
 out/

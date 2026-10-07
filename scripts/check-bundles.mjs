@@ -1,95 +1,189 @@
 #!/usr/bin/env node
 /**
- * Asserts the two structural promises the built bundles make (§3).
+ * Asserts the structural promises the built bundles make (§3).
  *
- * 1. `opengeo-prod`'s importable library carries no jsdom and no AI provider code. It is the one
- *    package that runs on the user's server on every request, so its weight and its network
- *    surface are part of the product, not an implementation detail.
- * 2. jsdom is the only runtime dependency any published package may declare, and `opengeo-prod`
+ * 1. `opengeo-prod`'s importable library, and the copy of it `opengeo` ships as `opengeo/prod`,
+ *    carry no jsdom, no AI provider code and no network call. That library runs on the user's
+ *    server on every request, so its weight and its network surface are part of the product.
+ * 2. The edge entries import no `node:` module at all, since edge bundlers reject one even when
+ *    the code that uses it never runs.
+ * 3. Every bundle, CLIs included, imports nothing but Node builtins and the dependencies its
+ *    package declares, and jsdom is the only dependency any package may declare. `opengeo-prod`
  *    may not declare even that.
  *
- * Run after `npm run build`. It reads `dist/`, never the source, because the source is not what
- * ships.
+ * Run after `npm run build`. It reads what the build produced, never the source: the metafile
+ * esbuild wrote beside `dist/` (`scripts/bundle-meta.mjs`) says which modules went into which
+ * file and what each file imports, and the `dist/` text is scanned as well, because a string
+ * that matters can arrive from anywhere.
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUNDLE_META_DIR } from './bundle-meta.mjs';
+import { PROVIDERS } from '../packages/core/src/shared/providers.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+/** @type {string[]} */
 const failures = [];
 
-function read(dir, files) {
-  return files.map((name) => ({ name, text: readFileSync(join(dir, name), 'utf8') }));
+const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
+/** Library entries, by package directory. Each is checked as the runtime the middleware is. */
+const LIBRARIES = {
+  prod: { runtime: ['index.js', 'next.js', 'edge.js'], edge: ['edge.js'] },
+  opengeo: { runtime: ['prod.js', 'prod-next.js', 'prod-edge.js'], edge: ['prod-edge.js'] },
+};
+const ALLOWED_DEPENDENCIES = { 'opengeo-prod': [] };
+
+/**
+ * Modules whose presence in a runtime bundle means AI or jsdom code came along. Matched against
+ * the metafile's input paths, which are relative to the package directory.
+ */
+const BANNED_MODULES = [
+  { label: 'jsdom', pattern: /(^|\/)node_modules\/jsdom\// },
+  { label: 'the AI provider catalogue', pattern: /core\/src\/shared\/providers\.js$/ },
+  { label: 'the AI call path', pattern: /core\/src\/shared\/ai-call\.js$/ },
+  { label: 'the AI rewriter', pattern: /core\/src\/generate\/ai\.js$/ },
+  { label: 'the AI quality review', pattern: /core\/src\/test\/quality\.js$/ },
+];
+
+/**
+ * Strings no runtime bundle may contain, derived from the provider catalogue so a thirteenth
+ * provider is banned the day it is added.
+ */
+const BANNED_TEXT = [
+  { label: 'jsdom', pattern: /\bjsdom\b/i },
+  // The middleware answers from a map it loaded at boot. A network call in the library means
+  // something like the deployment checker has been re-exported from the runtime entry.
+  { label: 'a network call', pattern: /\bfetch\(/ },
+  ...Object.values(PROVIDERS).flatMap((provider) => [
+    ...(provider.baseUrl ? [{ label: `the ${provider.id} endpoint`, text: new URL(provider.baseUrl).host }] : []),
+    ...(provider.envVars ?? []).map((name) => ({ label: `the ${provider.id} key variable ${name}`, text: name })),
+  ]),
+];
+if (Object.keys(PROVIDERS).length < 12) failures.push(`The provider catalogue has ${Object.keys(PROVIDERS).length} entries; expected at least 12.`);
+
+const builtins = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
+
+/**
+ * @typedef {{ path: string, kind: string, external?: boolean }} MetaImport
+ * @typedef {{ imports: MetaImport[], inputs: Record<string, { bytesInOutput: number }>, entryPoint?: string }} MetaOutput
+ * @typedef {{ outputs: Record<string, MetaOutput> }} Metafile
+ */
+
+/** @param {string} pkgDir @param {string} name @returns {Metafile | undefined} */
+function readMeta(pkgDir, name) {
+  const file = join(pkgDir, BUNDLE_META_DIR, `${name}.json`);
+  if (!existsSync(file)) return undefined;
+  return JSON.parse(readFileSync(file, 'utf8'));
 }
 
 /**
- * Everything the entry actually pulls in, followed transitively.
+ * Every output file an entry pulls in, followed through static and dynamic imports.
  *
- * This used to read every `chunk-*.js` in the directory, which was wrong in both directions: it
- * missed a chunk tsup happened to name differently, and it failed on a chunk that belongs only to
- * the package's CLI. The CLI is allowed to know about AI providers - `opengeo prod test --help`
- * lists them - and the promise being checked is about the importable library, so the check has to
- * walk the import graph rather than the directory listing.
+ * @param {Metafile} meta
+ * @param {string} entry A file name inside `dist/`.
+ * @returns {{ file: string, output: MetaOutput }[]}
  */
-function libraryFiles(dir, entries) {
+function reachable(meta, entry) {
   const seen = new Set();
-  const queue = [...entries];
-  const files = [];
+  const queue = [`dist/${entry}`];
+  const found = [];
   while (queue.length > 0) {
-    const name = queue.shift();
-    if (seen.has(name) || !existsSync(join(dir, name))) continue;
-    seen.add(name);
-    const text = readFileSync(join(dir, name), 'utf8');
-    files.push({ name, text });
-    for (const match of text.matchAll(/(?:^|[\s{}(,;])(?:import|export)[\s\S]{0,400}?from\s*['"]\.\/([^'"]+)['"]/g)) {
-      queue.push(match[1]);
-    }
-    for (const match of text.matchAll(/import\s*\(\s*['"]\.\/([^'"]+)['"]\s*\)/g)) queue.push(match[1]);
+    const file = /** @type {string} */ (queue.shift());
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const output = meta.outputs[file];
+    if (!output) continue;
+    found.push({ file, output });
+    for (const imported of output.imports) if (!imported.external) queue.push(imported.path);
   }
-  return files;
+  return found;
 }
 
-// 1. opengeo-prod's library half.
-const prodDist = join(root, 'packages/prod/dist');
-if (!existsSync(prodDist)) {
-  failures.push('packages/prod/dist is missing. Run `npm run build` first.');
-} else {
-  const banned = [
-    { label: 'jsdom', pattern: /\bjsdom\b/i },
-    { label: 'an AI provider endpoint', pattern: /api\.anthropic\.com|api\.openai\.com|generativelanguage\.googleapis\.com/i },
-    { label: 'an API key environment variable', pattern: /ANTHROPIC_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY/ },
-    // The middleware answers from a map it loaded at boot. A network call in the library means
-    // something like the deployment checker has been re-exported from the runtime entry.
-    { label: 'a network call', pattern: /\bfetch\(/ },
-  ];
-  for (const file of libraryFiles(prodDist, ['index.js', 'next.js', 'edge.js'])) {
-    for (const { label, pattern } of banned) {
-      if (pattern.test(file.text)) failures.push(`opengeo-prod/dist/${file.name} contains ${label}.`);
-    }
-  }
-  // The edge entry is only worth having if an edge bundler accepts it, and those reject a `node:`
-  // import even when the code using it is never called. A shared chunk is the usual way one sneaks in.
-  for (const file of libraryFiles(prodDist, ['edge.js'])) {
-    if (/\bfrom\s*["']node:|import\s*\(\s*["']node:/.test(file.text)) {
-      failures.push(`opengeo-prod/dist/${file.name} is reachable from edge.js and imports a node: module.`);
-    }
-  }
-}
+/** A bare specifier's package name: `@scope/name/sub` -> `@scope/name`, `jsdom/lib` -> `jsdom`. */
+const packageName = (/** @type {string} */ specifier) =>
+  specifier.split('/').slice(0, specifier.startsWith('@') ? 2 : 1).join('/');
 
-// 2. Declared runtime dependencies. jsdom is the one dependency OpenGEO has, and `opengeo-prod`
-// is not allowed even that: it is the package that runs on a server on every request.
-const allowed = { 'opengeo-prod': [] };
-for (const dir of ['testing', 'generate', 'prod', 'cli', 'opengeo']) {
-  const pkg = JSON.parse(readFileSync(join(root, 'packages', dir, 'package.json'), 'utf8'));
-  const deps = Object.keys(pkg.dependencies ?? {});
-  const permitted = allowed[pkg.name] ?? ['jsdom'];
-  for (const dep of deps) {
+let scanned = 0;
+for (const dir of PACKAGES) {
+  const pkgDir = join(root, 'packages', dir);
+  const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
+  const declared = Object.keys(pkg.dependencies ?? {});
+
+  // 3a. What the package declares.
+  const permitted = ALLOWED_DEPENDENCIES[pkg.name] ?? ['jsdom'];
+  for (const dep of declared) {
     if (!permitted.includes(dep)) failures.push(`${pkg.name} declares an unexpected runtime dependency: ${dep}.`);
   }
+
+  const builds = LIBRARIES[dir] ? ['library', 'cli'] : ['cli'];
+  for (const build of builds) {
+    const meta = readMeta(pkgDir, build);
+    if (!meta) {
+      failures.push(`packages/${dir}/${BUNDLE_META_DIR}/${build}.json is missing. Run \`npm run build\` first.`);
+      continue;
+    }
+
+    // 3b. What the bundles import, which is what has to be installed for them to run.
+    for (const [file, output] of Object.entries(meta.outputs)) {
+      if (!file.endsWith('.js')) continue;
+      if (!existsSync(join(pkgDir, file))) failures.push(`${pkg.name}: the metafile lists ${file}, which the build did not leave in dist/. Rebuild.`);
+      for (const imported of output.imports) {
+        if (!imported.external || builtins.has(imported.path)) continue;
+        if (!declared.includes(packageName(imported.path))) {
+          failures.push(`${pkg.name}: ${file} imports ${imported.path}, which the package does not declare.`);
+        }
+      }
+    }
+
+    if (build !== 'library') continue;
+    const { runtime, edge } = LIBRARIES[dir];
+
+    // 1. The runtime library.
+    for (const entry of runtime) {
+      const files = reachable(meta, entry);
+      if (files.length === 0) {
+        failures.push(`${pkg.name}: dist/${entry} is not in the metafile, so nothing about it was checked.`);
+        continue;
+      }
+      for (const { file, output } of files) {
+        scanned += 1;
+        for (const [input, { bytesInOutput }] of Object.entries(output.inputs)) {
+          if (bytesInOutput === 0) continue;
+          for (const { label, pattern } of BANNED_MODULES) {
+            if (pattern.test(input)) failures.push(`${pkg.name}: ${file}, reachable from ${entry}, contains ${label} (${input}).`);
+          }
+        }
+        for (const imported of output.imports) {
+          if (imported.external && !imported.path.startsWith('node:')) {
+            failures.push(`${pkg.name}: ${file}, reachable from ${entry}, imports ${imported.path}. The runtime imports Node builtins only.`);
+          }
+        }
+        const text = readFileSync(join(pkgDir, file), 'utf8');
+        for (const ban of BANNED_TEXT) {
+          const hit = 'pattern' in ban ? ban.pattern.test(text) : text.includes(ban.text);
+          if (hit) failures.push(`${pkg.name}: ${file}, reachable from ${entry}, contains ${ban.label}.`);
+        }
+      }
+    }
+
+    // 2. The edge entries.
+    for (const entry of edge) {
+      for (const { file, output } of reachable(meta, entry)) {
+        for (const imported of output.imports) {
+          if (imported.external) failures.push(`${pkg.name}: ${file} is reachable from ${entry} and imports ${imported.path}.`);
+        }
+      }
+    }
+  }
 }
 
+if (scanned === 0) failures.push('No runtime bundle file was scanned, so the check proved nothing.');
 if (failures.length > 0) {
   for (const line of failures) console.error(`FAIL  ${line}`);
   process.exit(1);
 }
-console.log('ok  opengeo-prod ships no jsdom and no AI code, and no package declares an unexpected runtime dependency.');
+console.log(
+  `ok  ${scanned} runtime bundle files carry no jsdom, no AI code and no network call; the edge entries import nothing; every bundle imports only builtins and declared dependencies.`,
+);

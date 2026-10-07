@@ -2,7 +2,7 @@
 /**
  * Checks what a user would actually install, not the source it was built from.
  *
- * Tests run against `src/` and `check-bundles` reads the import graph, so neither notices a bin
+ * Tests run against `src/` and `check-bundles` reads what went into each bundle, so neither notices a bin
  * that crashes on start, an export pointing at a file the build stopped producing, or a tarball
  * that leaves out the dashboard. For every published package this script:
  *

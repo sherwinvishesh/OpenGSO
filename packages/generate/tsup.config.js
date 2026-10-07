@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+import { recordBundle } from '../../scripts/bundle-meta.mjs';
 
 /**
  * `@opengeo/core` is private and never published, so it must be inlined into this bundle rather
@@ -15,4 +16,5 @@ export default defineConfig({
   sourcemap: false,
   noExternal: [/@opengeo\/core/],
   banner: { js: '#!/usr/bin/env node' },
+  esbuildPlugins: [recordBundle('cli')],
 });
