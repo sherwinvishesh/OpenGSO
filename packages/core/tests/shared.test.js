@@ -29,6 +29,7 @@ import {
   twinUrl,
   twinUrlPathToRoute,
   ERRORS,
+  parseEnv,
   writeEnvVars,
   unknownCommand,
 } from '@opengeo/core/shared';
@@ -296,6 +297,22 @@ describe('API key handling (§11)', () => {
     const root = temp();
     writeEnvVars(root, { OPENGEO_API_KEY: 'sk-test' });
     expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
+  });
+
+  it('reads a variable written with export, the way a shell-sourced .env is', () => {
+    expect(parseEnv('export OPENGEO_API_KEY=sk-1\nexport  OPENGEO_PROVIDER="openai"\n')).toEqual({
+      OPENGEO_API_KEY: 'sk-1',
+      OPENGEO_PROVIDER: 'openai',
+    });
+  });
+
+  it('updates an exported variable in place instead of adding a second one', () => {
+    const root = temp();
+    writeFileSync(join(root, '.env'), 'export OPENGEO_PROVIDER=openai\n', 'utf8');
+    writeEnvVars(root, { OPENGEO_PROVIDER: 'groq' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('export OPENGEO_PROVIDER=groq\n');
+    writeEnvVars(root, { OPENGEO_PROVIDER: undefined });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('\n');
   });
 
   it('detects CI, which is what gates every AI-touched feature', () => {

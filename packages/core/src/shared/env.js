@@ -27,6 +27,29 @@ export const MODEL_VAR = 'OPENGEO_MODEL';
 export const BASE_URL_VAR = 'OPENGEO_BASE_URL';
 
 /**
+ * A leading `export ` is what lets the same file be `source`d by a shell, and every dotenv reader
+ * accepts it. Without this the key was read as a variable literally named `export OPENGEO_API_KEY`.
+ */
+const EXPORT_PREFIX = /^export\s+/;
+
+/**
+ * The variable a line assigns, or undefined for a blank line, a comment, or anything else.
+ *
+ * @param {string} rawLine
+ * @returns {{ key: string; value: string; exported: boolean } | undefined}
+ */
+function assignment(rawLine) {
+  let line = rawLine.trim();
+  if (!line || line.startsWith('#')) return undefined;
+  const exported = EXPORT_PREFIX.test(line);
+  if (exported) line = line.replace(EXPORT_PREFIX, '');
+  const eq = line.indexOf('=');
+  if (eq === -1) return undefined;
+  const key = line.slice(0, eq).trim();
+  return key ? { key, value: line.slice(eq + 1).trim(), exported } : undefined;
+}
+
+/**
  * @param {string} contents
  * @returns {Record<string, string>}
  */
@@ -34,19 +57,17 @@ export function parseEnv(contents) {
   /** @type {Record<string, string>} */
   const out = {};
   for (const rawLine of contents.split('\n')) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const eq = line.indexOf('=');
-    if (eq === -1) continue;
-    const key = line.slice(0, eq).trim();
-    let value = line.slice(eq + 1).trim();
+    const parsed = assignment(rawLine);
+    if (!parsed) continue;
+    const key = parsed.key;
+    let value = parsed.value;
     if (
       (value.startsWith('"') && value.endsWith('"') && value.length > 1) ||
       (value.startsWith("'") && value.endsWith("'") && value.length > 1)
     ) {
       value = value.slice(1, -1);
     }
-    if (key) out[key] = value;
+    out[key] = value;
   }
   return out;
 }
@@ -174,13 +195,14 @@ export function writeEnvVars(root, vars) {
   let lines = existing ? existing.replace(/\n+$/, '').split('\n') : [];
   for (const [key, value] of Object.entries(vars)) {
     /** @param {string} line */
-    const matches = (line) => line.trim().startsWith(`${key}=`);
+    const matches = (line) => assignment(line)?.key === key;
     if (value === undefined) {
       lines = lines.filter((line) => !matches(line));
       continue;
     }
     const index = lines.findIndex(matches);
-    if (index >= 0) lines[index] = `${key}=${value}`;
+    // A line the user wrote with export keeps it, so the file still works when sourced.
+    if (index >= 0) lines[index] = `${assignment(lines[index])?.exported ? 'export ' : ''}${key}=${value}`;
     else lines.push(`${key}=${value}`);
   }
   const output = `${lines.join('\n').replace(/\n+$/, '')}\n`;
