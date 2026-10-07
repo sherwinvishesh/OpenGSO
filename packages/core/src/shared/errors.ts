@@ -113,6 +113,15 @@ export function unknownCommand(command: string, available: CommandName[]): strin
 }
 
 /** Wrap a comma-separated list at `width` so a long catalogue does not run off a terminal. */
+/** Only the host of a redirect target. Its path and query are the remote server's words, not ours. */
+function redirectHost(location: string): string {
+  try {
+    return new URL(location).host || 'another address';
+  } catch {
+    return 'another address';
+  }
+}
+
 function wrapList(items: readonly string[], width: number): string[] {
   const lines: string[] = [];
   let current = '';
@@ -305,6 +314,15 @@ export const ERRORS = {
       `Open the full URL that \`opengeo start\` printed, including ?token=. The token changes every time`,
       `the dashboard starts, so a URL from an earlier launch no longer works.`,
     ].join('\n'),
+
+  providerRedirected: (provider: string, status: number, location: string | null) =>
+    [
+      `The ${provider} API answered ${status} with a redirect${location ? ` to ${redirectHost(location)}` : ''}, and OpenGEO does not follow it.`,
+      `A redirect would send your key to a host you did not configure. If the endpoint moved, put`,
+      `its new address in ai.baseUrl in opengeo.config.json.`,
+    ].join('\n'),
+
+  pageTooLarge: (maxBytes: number) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
 
   providerFailed: (provider: string, status: number, body: string) =>
     [

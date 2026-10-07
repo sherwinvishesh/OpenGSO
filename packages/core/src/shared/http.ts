@@ -16,6 +16,8 @@ export interface ProbeResult {
   totalMs: number;
   redirected: boolean;
   finalUrl: string;
+  /** The body stopped at `maxBytes`. What is in `body` is the start of it, not all of it. */
+  truncated?: boolean;
   error?: string;
 }
 
@@ -26,7 +28,19 @@ export interface ProbeOptions {
   /** Skip reading the body - used by header-only checks. */
   headOnly?: boolean;
   redirect?: RequestRedirect;
+  /** Stop reading after this many bytes. Defaults to {@link MAX_PROBE_BYTES}. */
+  maxBytes?: number;
+  /** Decide from the headers whether the body is worth downloading at all. */
+  readBody?: (headers: Headers) => boolean;
 }
+
+/**
+ * The most of any one response OpenGEO will hold in memory.
+ *
+ * A tested page is somebody else's server, and it can send a body that never ends. Real pages are
+ * a few hundred kilobytes; this is far past any of them and far short of hurting the process.
+ */
+export const MAX_PROBE_BYTES = 8 * 1024 * 1024;
 
 export const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
@@ -34,7 +48,7 @@ export const BROWSER_UA =
 export const OPENGEO_UA = 'OpenGEO/1.0 (+https://github.com/sherwinvishesh/OpenGEO)';
 
 export async function probe(url: string, options: ProbeOptions = {}): Promise<ProbeResult> {
-  const { headers = {}, method = 'GET', timeoutMs = 15_000, headOnly = false, redirect = 'follow' } = options;
+  const { headers = {}, method = 'GET', timeoutMs = 15_000, headOnly = false, redirect = 'follow', maxBytes = MAX_PROBE_BYTES } = options;
   const started = performance.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -47,7 +61,8 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
       signal: controller.signal,
     });
     const ttfbMs = performance.now() - started;
-    const body = headOnly ? '' : await response.text();
+    const wanted = !headOnly && (options.readBody?.(response.headers) ?? true);
+    const { body, truncated } = wanted ? await readCapped(response, maxBytes) : await discard(response);
     return {
       url,
       ok: response.ok,
@@ -58,6 +73,7 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
       totalMs: Math.round(performance.now() - started),
       redirected: response.redirected,
       finalUrl: response.url || url,
+      ...(truncated ? { truncated } : {}),
     };
   } catch (error) {
     return {
@@ -75,6 +91,33 @@ export async function probe(url: string, options: ProbeOptions = {}): Promise<Pr
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** The body as text, up to `maxBytes`. The rest is never downloaded. */
+async function readCapped(response: Response, maxBytes: number): Promise<{ body: string; truncated: boolean }> {
+  if (!response.body) return { body: '', truncated: false };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let body = '';
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return { body: body + decoder.decode(), truncated: false };
+    const room = maxBytes - size;
+    if (value.byteLength > room) {
+      body += decoder.decode(value.subarray(0, room));
+      await reader.cancel().catch(() => {});
+      return { body, truncated: true };
+    }
+    size += value.byteLength;
+    body += decoder.decode(value, { stream: true });
+  }
+}
+
+/** Close the connection without reading what is on it. */
+async function discard(response: Response): Promise<{ body: string; truncated: boolean }> {
+  await response.body?.cancel().catch(() => {});
+  return { body: '', truncated: false };
 }
 
 export function parseUrl(value: string): URL | undefined {

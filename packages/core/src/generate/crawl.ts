@@ -1,5 +1,6 @@
 import { JSDOM } from 'jsdom';
-import { probe } from '../shared/http.js';
+import { ERRORS } from '../shared/errors.js';
+import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { normalizeRoute } from '../shared/routes.js';
 
 /**
@@ -116,15 +117,25 @@ export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
     const url = new URL(next.route, origin).toString();
     options.onProgress?.({ route: next.route, depth: next.depth, found: queued.size, visited: pages.length });
 
-    const response = await probe(url, { timeoutMs });
-    if (!response.ok || !response.body) {
+    // The type is checked from the headers, before the body is read, so a linked PDF or video is
+    // never downloaded just to be thrown away.
+    const response = await probe(url, { timeoutMs, readBody: servesHtml });
+    if (!response.ok) {
       failures.push({ route: next.route, url, reason: response.error ?? `HTTP ${response.status}` });
       continue;
     }
 
     const contentType = response.headers.get('content-type') ?? '';
-    if (contentType && !contentType.toLowerCase().includes('html')) {
+    if (!servesHtml(response.headers)) {
       failures.push({ route: next.route, url, reason: `Served ${contentType}, not HTML - skipped.` });
+      continue;
+    }
+    if (response.truncated) {
+      failures.push({ route: next.route, url, reason: ERRORS.pageTooLarge(MAX_PROBE_BYTES) });
+      continue;
+    }
+    if (!response.body) {
+      failures.push({ route: next.route, url, reason: `HTTP ${response.status} with an empty body` });
       continue;
     }
 
@@ -153,6 +164,12 @@ export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
   }
 
   return { site: options.site, origin, pages, failures, warnings };
+}
+
+/** No content type is taken as HTML, as it always was here; any other type has to say so. */
+function servesHtml(headers: Headers): boolean {
+  const type = headers.get('content-type');
+  return !type || type.toLowerCase().includes('html');
 }
 
 /**

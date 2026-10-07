@@ -220,7 +220,13 @@ async function post(url: string, init: RequestInit, timeoutMs: number, label: st
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    // Never followed. A redirect replays the request, key headers included, to a host nobody chose,
+    // and fetch only strips `Authorization` on the way, not `x-api-key` or `x-goog-api-key`.
+    const response = await fetch(url, { ...init, redirect: 'manual', signal: controller.signal });
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => {});
+      throw new Error(ERRORS.providerRedirected(label, response.status, response.headers.get('location')));
+    }
     const body = await response.text();
     if (!response.ok) {
       throw new Error(ERRORS.providerFailed(label, response.status, body));

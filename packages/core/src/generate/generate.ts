@@ -3,7 +3,8 @@ import { dirname, join } from 'node:path';
 import type { LoadedConfig } from '../shared/config.js';
 import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
-import { probe } from '../shared/http.js';
+import { ERRORS } from '../shared/errors.js';
+import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
@@ -116,13 +117,13 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
     if (html === undefined) {
       onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
       const response = await probe(url, { timeoutMs: 20_000 });
-      if (!response.ok || !response.body) {
+      if (!response.ok || !response.body || response.truncated) {
         pages.push({
           route,
           url,
           status: 'failed',
           warnings: [],
-          reason: response.error ?? `HTTP ${response.status}`,
+          reason: response.truncated ? ERRORS.pageTooLarge(MAX_PROBE_BYTES) : (response.error ?? `HTTP ${response.status}`),
         });
         const carried = previous.pages[route];
         if (carried) manifest.pages[route] = carried;
