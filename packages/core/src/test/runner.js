@@ -17,6 +17,7 @@ import { isSitemapIndex, looksLikeHtml, MAX_CHILD_SITEMAPS, sitemapLocs } from '
  * @import { CheckResult } from './checks.js'
  * @import { Evidence } from './evidence.js'
  * @import { ProbeResult } from '../shared/http.js'
+ * @import { ExtractedPage } from '../generate/extract.js'
  */
 
 /**
@@ -81,6 +82,32 @@ export function runChecks(evidence) {
     checkHtmlUnaffected(evidence),
     checkDrift(evidence),
   ], evidence);
+}
+
+/**
+ * A5, B3 and B14 all read the live page's extracted content, with the same options, and extraction
+ * is a full JSDOM parse plus Readability. One extraction per page serves all three.
+ *
+ * Keyed on the response and checked against the body and URL it was made from, because evidence is
+ * a plain object and nothing stops a caller swapping either between runs.
+ *
+ * @type {WeakMap<ProbeResult, { body: string; url: string; extracted: ExtractedPage }>}
+ */
+const extractions = new WeakMap();
+
+/**
+ * Only called once the caller has checked that there is a body.
+ *
+ * @param {Evidence} e
+ * @returns {ExtractedPage}
+ */
+function liveExtract(e) {
+  const url = e.target.toString();
+  const cached = extractions.get(e.html);
+  if (cached && cached.body === e.html.body && cached.url === url) return cached.extracted;
+  const extracted = extractPage(e.html.body, { url, minWords: SSR_MIN_WORDS });
+  extractions.set(e.html, { body: e.html.body, url, extracted });
+  return extracted;
 }
 
 /**
@@ -467,7 +494,7 @@ function checkSsrExtractable(e) {
       'Get the URL returning a 2xx HTML response (+9). Nothing else on this report can be measured properly until it does.',
     );
   }
-  const extracted = extractPage(e.html.body, { url: e.target.toString(), minWords: SSR_MIN_WORDS });
+  const extracted = liveExtract(e);
   if (extracted.wordCount >= SSR_MIN_WORDS) {
     return pass(
       'A5',
@@ -692,7 +719,7 @@ function checkTwinNonEmpty(e) {
   // nothing else is technically a body and is useless to the agent that fetched it, so the credit
   // slides with how much of the page actually made it across.
   const twinWords = countWords(body);
-  const live = e.html.ok && e.html.body ? extractPage(e.html.body, { url: e.target.toString(), minWords: SSR_MIN_WORDS }) : undefined;
+  const live = e.html.ok && e.html.body ? liveExtract(e) : undefined;
   const liveWords = live?.wordCount ?? 0;
   const complete = liveWords === 0 || twinWords >= liveWords * TWIN_FULL_RATIO;
   if (complete) return pass('B3', `The markdown twin returned ${body.length} characters of markdown.`);
@@ -1014,7 +1041,7 @@ function checkDrift(e) {
   // Extracted content, never raw HTML: generate hashes the same thing, for the same reason. A build
   // id or a script nonce changing is not the page changing, and a check that says otherwise on every
   // deploy is a check people learn to ignore.
-  const extracted = extractPage(e.html.body, { url: e.target.toString(), minWords: SSR_MIN_WORDS });
+  const extracted = liveExtract(e);
 
   if (sourceHash) {
     const liveHash = contentHash(extracted.markdown);
