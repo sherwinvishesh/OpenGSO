@@ -22,6 +22,7 @@ import { defaultConfig } from '@opengeo/core/shared';
 
 const store = createMemoryStore([
   { route: '/resume', title: 'Resume', body: '# Resume\n\nShipped 4 projects in 2024.', tokens: 12, lastUpdated: '' },
+  { route: '/blog/v1.2', title: 'Release 1.2', body: '# Release 1.2\n\nFaster builds.', tokens: 5, lastUpdated: '' },
 ]);
 
 /** What the application itself answers, keyed by path, when prod passes a request through. */
@@ -31,6 +32,8 @@ const APP = {
   '/api/users': { type: 'application/json', body: '[{"id":1}]' },
   '/events': { type: 'text/event-stream', body: 'data: hello\n\n' },
   '/feed': { type: 'application/rss+xml', body: '<rss version="2.0"></rss>' },
+  '/blog/v1.2': { type: 'text/html; charset=utf-8', body: '<h1>Release 1.2</h1>' },
+  '/logo.svg': { type: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"/>' },
 };
 
 /** @type {Server} */
@@ -166,5 +169,29 @@ describe('markdown chosen by User-Agent stays out of shared caches', () => {
     const response = await fetch(`${site}${path}`, { headers });
     expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
     expect(response.headers.get(HEADERS.cacheControl)).toBeNull();
+  });
+});
+
+/**
+ * A dot in the last segment usually means a file, which is why prod skips those paths. It is only
+ * a guess, and the store knows better: generate wrote a twin for `/blog/v1.2`, so it is a page.
+ */
+describe('a route with a twin is a page, whatever its last segment looks like', () => {
+  it('serves the twin for a dotted route', async () => {
+    const response = await fetch(`${site}/blog/v1.2`, { headers: { accept: 'text/markdown' } });
+    expect(response.headers.get('content-type')).toBe(MARKDOWN_CONTENT_TYPE);
+    expect(await response.text()).toContain('# Release 1.2');
+  });
+
+  it('advertises the twin on the dotted route\'s HTML', async () => {
+    const response = await fetch(`${site}/blog/v1.2`, { headers: { accept: 'text/html' } });
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(response.headers.get(HEADERS.link)).toContain('/blog/v1.2.md');
+  });
+
+  it('still leaves a real asset untouched', async () => {
+    const response = await fetch(`${site}/logo.svg`, { headers: { accept: 'text/markdown' } });
+    expect(response.headers.get('content-type')).toBe('image/svg+xml');
+    expect(response.headers.get(HEADERS.aeoVersion)).toBeNull();
   });
 });

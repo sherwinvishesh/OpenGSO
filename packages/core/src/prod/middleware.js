@@ -59,10 +59,6 @@ export function handleRequest(request, ctx) {
   const method = (request.method ?? 'GET').toUpperCase();
   const specVersion = ctx.specVersion ?? AEO_SPEC_VERSION;
 
-  const isAsset =
-    IGNORED_PREFIXES.some((prefix) => url.pathname.startsWith(prefix)) ||
-    (ASSET_EXTENSION.test(url.pathname) && !url.pathname.endsWith('.md'));
-
   const classification = classify({
     pathname: url.pathname,
     userAgent: request.headers.get('user-agent'),
@@ -71,11 +67,17 @@ export function handleRequest(request, ctx) {
     bots: ctx.bots,
   });
 
+  const doc = ctx.store.get(classification.route);
+
+  // The extension test is a guess about what a path is, and the store is the answer: a route
+  // generate wrote a twin for (`/blog/v1.2`) is a page, however its last segment looks.
+  const isAsset =
+    IGNORED_PREFIXES.some((prefix) => url.pathname.startsWith(prefix)) ||
+    (ASSET_EXTENSION.test(url.pathname) && !url.pathname.endsWith('.md') && !doc);
+
   if (isAsset || (method !== 'GET' && method !== 'HEAD')) {
     return { type: 'passthrough', headers: {}, classification };
   }
-
-  const doc = ctx.store.get(classification.route);
 
   // Only a route with a twin is prod's to refuse. Everywhere else the application owns the URL, and
   // an API asking for JSON or an event stream asking for text/event-stream is none of our business.
