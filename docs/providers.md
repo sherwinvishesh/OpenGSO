@@ -63,6 +63,12 @@ OPENGEO_MODEL=grok-4
 OPENGEO_BASE_URL=https://gateway.example.com/v1    # optional
 ```
 
+A key is only ever sent to the provider that issued it. `--provider groq` uses `GROQ_API_KEY`, or
+`OPENGEO_API_KEY` when `OPENGEO_PROVIDER` is `groq`. If the only key available belongs to another
+provider, the run stops and says so rather than sending it. The same goes for the rest of the
+address: a model, `baseUrl`, `api`, `auth` or `headers` set for one provider is not carried over
+when a flag picks another.
+
 ## A model on your own machine
 
 Ollama needs no key and no network:

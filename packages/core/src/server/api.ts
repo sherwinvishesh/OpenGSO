@@ -6,6 +6,7 @@ import { readManifest } from '../generate/manifest.js';
 import type { SiteProgress } from '../generate/site.js';
 import { generateSite } from '../generate/site.js';
 import { verifyProd } from '../prod/verify.js';
+import { resolveAiCall } from '../shared/ai-call.js';
 import type { CustomBotInput } from '../shared/bots.js';
 import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
 import type { OpenGeoConfig } from '../shared/config.js';
@@ -16,11 +17,10 @@ import {
   loadConfig,
   mergeConfig,
   projectDirProblem,
-  providerOverridesOf,
   publicDirPath,
   saveConfig,
 } from '../shared/config.js';
-import type { AiProvider, ProviderApi, ProviderAuth, ProviderInfo, ProviderOverrides } from '../shared/providers.js';
+import type { AiProvider, ProviderApi, ProviderAuth, ProviderInfo } from '../shared/providers.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, PROVIDERS, isAiProvider, providerInfo } from '../shared/providers.js';
 import {
   BASE_URL_VAR,
@@ -635,20 +635,11 @@ const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.open
  */
 function resolveCredentials(root: string, config: OpenGeoConfig, feature: string): SuiteAi | { error: string } {
   if (isCI()) return { error: ERRORS.ciBlocked(feature) };
-  const credentials = readCredentials(root);
-  const provider = credentials?.provider ?? config.ai.provider;
-  // A local model server needs no key, so "nothing in .env" is not the same as "cannot run".
-  if (!credentials && !providerInfo(provider).keyless) return { error: ERRORS.noApiKey(feature) };
-
-  const overrides: ProviderOverrides = { ...providerOverridesOf(config) };
-  if (credentials?.baseUrl) overrides.baseUrl = credentials.baseUrl;
-
-  return {
-    provider,
-    model: credentials?.model || config.ai.model || DEFAULT_MODELS[provider],
-    apiKey: credentials?.apiKey ?? '',
-    overrides,
-  };
+  const resolved = resolveAiCall(root, config);
+  if ('error' in resolved) return resolved;
+  if ('missing' in resolved) return { error: ERRORS.noApiKey(feature) };
+  const { keySource: _source, ...ai } = resolved.call;
+  return ai;
 }
 
 /**

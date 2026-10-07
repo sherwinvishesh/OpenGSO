@@ -1,9 +1,8 @@
 import { relative } from 'node:path';
 import { c, heading } from '../../shared/log.js';
-import { providerOverridesOf } from '../../shared/config.js';
+import { resolveAiCall } from '../../shared/ai-call.js';
 import type { AiProvider } from '../../shared/providers.js';
-import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from '../../shared/providers.js';
-import { isCI, readCredentials } from '../../shared/env.js';
+import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import { createAiEnhancer } from '../../generate/ai.js';
 import { generateSite } from '../../generate/site.js';
@@ -207,31 +206,18 @@ function buildEnhancer(
 ): EnhancerReady | { error: string } {
   if (isCI()) return { error: ERRORS.ciBlocked("generate's AI tier") };
 
-  const { root, config } = loaded;
-  const providerFlag = args.str('provider');
-  if (providerFlag && !isAiProvider(providerFlag)) {
-    return { error: ERRORS.unknownProvider(providerFlag, AI_PROVIDERS) };
-  }
-
-  const credentials = readCredentials(root);
-  const provider = (providerFlag as AiProvider | undefined) ?? credentials?.provider ?? config.ai.provider;
-  // A model server on this machine has no key to find, so "no credentials" and "cannot run" are
-  // different states. Only the providers that actually authenticate get turned away here.
-  const keyless = Boolean(providerInfo(provider).keyless) || config.ai.auth === 'none';
-  if (!credentials && !keyless) return { error: ERRORS.noApiKey("generate's AI tier") };
-
-  const model = args.str('model') || credentials?.model || config.ai.model || DEFAULT_MODELS[provider];
-  // The endpoint comes from the config, which is shared, and the key from .env, which is not. A
-  // BASE_URL in the environment wins, because that is the machine-specific override.
-  const overrides = { ...providerOverridesOf(config), baseUrl: credentials?.baseUrl ?? config.ai.baseUrl };
+  const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });
+  if ('error' in resolved) return resolved;
+  if ('missing' in resolved) return { error: ERRORS.noApiKey("generate's AI tier") };
+  const { provider, model, apiKey, overrides, keySource } = resolved.call;
 
   try {
-    const enhance = createAiEnhancer({ provider, model, apiKey: credentials?.apiKey ?? '', overrides });
+    const enhance = createAiEnhancer({ provider, model, apiKey, overrides });
     return {
       enhance,
       provider,
       model,
-      source: credentials ? `key from ${credentials.source === 'env-file' ? '.env' : 'environment'}` : 'no key needed',
+      source: keySource ? `key from ${keySource === 'env-file' ? '.env' : 'environment'}` : 'no key needed',
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : String(error) };

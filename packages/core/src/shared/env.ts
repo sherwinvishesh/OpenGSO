@@ -80,12 +80,7 @@ const NATIVE_KEY_VARS: Array<[AiProvider, string]> = PROVIDERS.flatMap((provider
  */
 export function readCredentials(root: string): Credentials | undefined {
   const fileEnv = readEnvFile(root);
-  const pick = (name: string): { value: string; source: Credentials['source'] } | undefined => {
-    if (fileEnv[name]) return { value: fileEnv[name], source: 'env-file' };
-    const fromProcess = process.env[name];
-    if (fromProcess) return { value: fromProcess, source: 'process-env' };
-    return undefined;
-  };
+  const pick = (name: string) => pickVar(fileEnv, name);
 
   const explicit = pick(KEY_VAR);
   const providerVar = pick(PROVIDER_VAR);
@@ -109,6 +104,28 @@ export function readCredentials(root: string): Credentials | undefined {
     const found = pick(varName);
     if (found) return { provider: nativeProvider, apiKey: found.value, model, baseUrl, source: found.source };
   }
+  return undefined;
+}
+
+/**
+ * The key issued by one particular provider, under its own variable names only. `OPENGEO_API_KEY`
+ * is not one of them: it belongs to whichever provider `OPENGEO_PROVIDER` names, and that is
+ * `readCredentials`'s answer, not this one's.
+ */
+export function readNativeKey(root: string, provider: AiProvider): { value: string; source: Credentials['source'] } | undefined {
+  const fileEnv = readEnvFile(root);
+  for (const name of providerInfo(provider).envVars) {
+    const found = pickVar(fileEnv, name);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/** `.env` first, then the process environment. */
+function pickVar(fileEnv: Record<string, string>, name: string): { value: string; source: Credentials['source'] } | undefined {
+  if (fileEnv[name]) return { value: fileEnv[name], source: 'env-file' };
+  const fromProcess = process.env[name];
+  if (fromProcess) return { value: fromProcess, source: 'process-env' };
   return undefined;
 }
 

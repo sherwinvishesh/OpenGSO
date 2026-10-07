@@ -1,10 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
-import { internalDirPath, providerOverridesOf } from '../../shared/config.js';
-import type { AiProvider } from '../../shared/providers.js';
-import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from '../../shared/providers.js';
-import { isCI, readCredentials } from '../../shared/env.js';
+import { resolveAiCall } from '../../shared/ai-call.js';
+import { internalDirPath } from '../../shared/config.js';
+import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import type { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js';
 import {
@@ -197,37 +196,14 @@ interface AiChoice {
  *
  * A missing key is deliberately *not* an error here. The suite decides what a missing key means,
  * because it depends on the mode: a note in `full`, a refusal in `content`. What is fatal is a flag
- * that cannot be honoured, like a provider that does not exist.
+ * that cannot be honoured: a provider that does not exist, or one whose only key belongs to another.
  */
 function resolveAi(args: ReturnType<typeof parseArgs>, loaded: ReturnType<typeof resolveProject>): AiChoice {
   if (isCI()) return {};
 
-  const providerFlag = args.str('provider');
-  if (providerFlag && !isAiProvider(providerFlag)) {
-    return { error: ERRORS.unknownProvider(providerFlag, AI_PROVIDERS) };
-  }
-
-  const credentials = readCredentials(loaded.root);
-  const provider =
-    (providerFlag as AiProvider | undefined) ?? credentials?.provider ?? loaded.config.ai.provider ?? 'anthropic';
-  // A local model server has no key to find, so "no credentials" is not the same as "cannot run".
-  if (!credentials && !isKeyless(provider)) return {};
-
-  const model = args.str('model') || credentials?.model || loaded.config.ai.model || DEFAULT_MODELS[provider];
-  return {
-    ai: {
-      provider,
-      apiKey: credentials?.apiKey ?? '',
-      model,
-      overrides: { ...providerOverridesOf(loaded.config), baseUrl: credentials?.baseUrl ?? loaded.config.ai.baseUrl },
-    },
-  };
-}
-
-function isKeyless(provider: AiProvider): boolean {
-  try {
-    return Boolean(providerInfo(provider).keyless);
-  } catch {
-    return false;
-  }
+  const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });
+  if ('error' in resolved) return resolved;
+  if ('missing' in resolved) return {};
+  const { keySource: _source, ...ai } = resolved.call;
+  return { ai };
 }

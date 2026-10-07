@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   AI_PROVIDERS,
   DEFAULT_MODELS,
@@ -10,6 +13,7 @@ import {
   providerGaps,
   providerInfo,
   providerOverridesOf,
+  resolveAiCall,
   resolveProvider,
 } from '@opengeo/core/shared';
 import type { OpenGeoConfig } from '@opengeo/core/shared';
@@ -198,5 +202,113 @@ describe('the wire code', () => {
 
   it('refuses a provider that does not exist', () => {
     expect(() => createAiEnhancer({ provider: 'grok' as never, apiKey: 'k', env: {} })).toThrow(/grok/);
+  });
+});
+
+/**
+ * The one place a CLI run or a dashboard request decides which provider to call, with which key, at
+ * which address. Every case here is a way the key used to reach a host it was never issued for.
+ */
+describe('resolveAiCall', () => {
+  // Every variable the resolver reads, cleared so a key exported on the machine running the tests
+  // cannot decide an outcome. Restored afterwards.
+  const NAMES = [...PROVIDERS.flatMap((provider) => provider.envVars), 'OPENGEO_API_KEY', 'OPENGEO_PROVIDER', 'OPENGEO_MODEL', 'OPENGEO_BASE_URL'];
+  const saved: Record<string, string | undefined> = {};
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'opengeo-ai-call-'));
+    for (const name of NAMES) {
+      saved[name] = process.env[name];
+      delete process.env[name];
+    }
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+    for (const name of NAMES) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  });
+
+  const env = (lines: string[]) => writeFileSync(join(root, '.env'), `${lines.join('\n')}\n`);
+  const config = (ai: Partial<OpenGeoConfig['ai']> = {}): OpenGeoConfig => ({
+    ...defaultConfig(),
+    ai: { ...defaultConfig().ai, ...ai },
+  });
+  const call = (result: ReturnType<typeof resolveAiCall>) => {
+    if (!('call' in result)) throw new Error(`expected a call, got ${JSON.stringify(result)}`);
+    return result.call;
+  };
+
+  it('refuses to send one provider\'s key to another one named by a flag', () => {
+    env(['OPENAI_API_KEY=sk-openai-only']);
+    const result = resolveAiCall(root, config(), { provider: 'anthropic' });
+    expect('error' in result).toBe(true);
+    const message = (result as { error: string }).error;
+    expect(message).toContain('anthropic');
+    expect(message).toContain('openai');
+    expect(message).toContain('ANTHROPIC_API_KEY');
+    expect(message).not.toContain('sk-openai-only');
+  });
+
+  it('uses the flagged provider\'s own key when there is one', () => {
+    env(['OPENAI_API_KEY=sk-openai', 'ANTHROPIC_API_KEY=sk-anthropic']);
+    const resolved = call(resolveAiCall(root, config(), { provider: 'anthropic' }));
+    expect(resolved.provider).toBe('anthropic');
+    expect(resolved.apiKey).toBe('sk-anthropic');
+  });
+
+  it('drops the endpoint and model of the configured provider when a flag picks another', () => {
+    env([
+      'OPENGEO_PROVIDER=custom',
+      'OPENGEO_API_KEY=sk-gateway',
+      'OPENGEO_BASE_URL=https://gateway.corp.example/v1',
+      'OPENAI_API_KEY=sk-openai',
+    ]);
+    const custom = config({
+      provider: 'custom',
+      model: 'local-1',
+      baseUrl: 'https://gateway.corp.example/v1',
+      api: 'openai',
+      headers: { 'X-Team': 'web' },
+    });
+    const resolved = call(resolveAiCall(root, custom, { provider: 'openai' }));
+    expect(resolved.apiKey).toBe('sk-openai');
+    expect(resolved.overrides.baseUrl).toBeUndefined();
+    expect(resolved.overrides.headers).toBeUndefined();
+    expect(resolved.overrides.api).toBeUndefined();
+    expect(resolved.model).toBe(DEFAULT_MODELS.openai);
+  });
+
+  it('does not point a native key at the endpoint configured for a different provider', () => {
+    env(['ANTHROPIC_API_KEY=sk-anthropic']);
+    const custom = config({ provider: 'custom', model: 'local-1', baseUrl: 'https://gateway.corp.example/v1', api: 'openai' });
+    const resolved = call(resolveAiCall(root, custom));
+    expect(resolved.provider).toBe('anthropic');
+    expect(resolved.overrides.baseUrl).toBeUndefined();
+    expect(resolved.model).toBe(DEFAULT_MODELS.anthropic);
+  });
+
+  it('keeps the endpoint, model and key when they all belong to the provider being called', () => {
+    env(['OPENGEO_PROVIDER=openai', 'OPENGEO_API_KEY=sk-openai']);
+    const gateway = config({ provider: 'openai', model: 'gpt-x', baseUrl: 'https://gateway.corp.example/openai' });
+    const resolved = call(resolveAiCall(root, gateway));
+    expect(resolved).toMatchObject({ provider: 'openai', apiKey: 'sk-openai', model: 'gpt-x', keySource: 'env-file' });
+    expect(resolved.overrides.baseUrl).toBe('https://gateway.corp.example/openai');
+    expect(call(resolveAiCall(root, gateway, { model: 'gpt-y' })).model).toBe('gpt-y');
+  });
+
+  it('says a key is missing, rather than erroring, when there is none at all', () => {
+    expect(resolveAiCall(root, config())).toEqual({ missing: 'anthropic' });
+    expect(resolveAiCall(root, config(), { provider: 'openai' })).toEqual({ missing: 'openai' });
+  });
+
+  it('runs a keyless provider with no key, and refuses a provider that does not exist', () => {
+    const resolved = call(resolveAiCall(root, config({ provider: 'ollama', model: 'llama3' })));
+    expect(resolved).toMatchObject({ provider: 'ollama', apiKey: '', model: 'llama3' });
+    expect(resolved.keySource).toBeUndefined();
+    expect('error' in resolveAiCall(root, config(), { provider: 'nope' })).toBe(true);
   });
 });

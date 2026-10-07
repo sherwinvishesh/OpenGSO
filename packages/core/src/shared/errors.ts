@@ -5,7 +5,7 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
-import { AI_PROVIDERS, PROVIDERS, providerInfo } from './providers.js';
+import { AI_PROVIDERS, PROVIDERS, providerInfo, type AiProvider } from './providers.js';
 
 /**
  * The errors config loading can raise, kept apart from `ERRORS` because `opengeo-prod` loads the
@@ -242,6 +242,22 @@ export const ERRORS = {
       `If yours is not on that list it is still supported: pick "custom", give it a baseUrl and a`,
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
     ].join('\n'),
+
+  /** Names both providers and never the key itself. */
+  keyForOtherProvider: (provider: AiProvider, keyProvider: AiProvider) => {
+    const native = providerInfo(provider).envVars[0];
+    return [
+      `The ${provider} provider was asked for, but the only key OpenGEO found belongs to ${keyProvider}, so`,
+      `nothing was sent. A key only ever goes to the provider that issued it.`,
+      ``,
+      `To use ${provider}, give it its own key in .env:`,
+      ...(native ? [`  ${native}=...`, `or:`] : []),
+      `  OPENGEO_PROVIDER=${provider}`,
+      `  OPENGEO_API_KEY=...`,
+      ``,
+      `Or run \`opengeo settings\` and pick ${provider}.`,
+    ].join('\n');
+  },
 
   /** Names the variable and never echoes the value: the value may be the key. */
   envValueRefused: (name: string) =>
