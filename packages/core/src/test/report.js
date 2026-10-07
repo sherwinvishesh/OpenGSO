@@ -1,6 +1,6 @@
 import { c, SYM, heading, terminalSafe } from '../shared/log.js';
 import { meter, lockedMeter, sparkline } from '../cli/tui/widgets.js';
-import { scoreInk, bandColour, ink } from '../cli/tui/theme.js';
+import { scoreInk, bandColour, contentBand, ink } from '../cli/tui/theme.js';
 import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from './history.js';
 import { areaWeight, qualityBand } from './quality.js';
@@ -718,7 +718,8 @@ function renderContentScore(score, label) {
  * @returns {(text: string) => string}
  */
 function scoreColour(score) {
-  return score >= 75 ? c.green : score >= 50 ? c.yellow : c.red;
+  const band = contentBand(score);
+  return band === 'good' ? c.green : band === 'fair' ? c.yellow : c.red;
 }
 
 /**
