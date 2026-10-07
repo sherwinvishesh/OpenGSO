@@ -416,7 +416,7 @@ describe('a config patch is checked before it is saved', () => {
   });
 });
 
-describe('what an error tells the browser', () => {
+describe('what the browser is told', () => {
   let running: RunningServer;
 
   beforeEach(async () => {
@@ -438,6 +438,39 @@ describe('what an error tells the browser', () => {
     expect(response.status).toBe(500);
     expect(body.configBroken).toBe(true);
     expect(body.error).toContain(CONFIG_FILENAME);
+  });
+
+  it('sends the browser hardening headers on the page and on the API', async () => {
+    for (const path of ['/', '/api/state']) {
+      const response = await fetch(`${running.url}${path}`);
+      expect(response.headers.get('x-content-type-options'), path).toBe('nosniff');
+      expect(response.headers.get('x-frame-options'), path).toBe('DENY');
+      expect(response.headers.get('referrer-policy'), path).toBe('no-referrer');
+      expect(response.headers.get('content-security-policy'), path).toContain("frame-ancestors 'none'");
+      expect(response.headers.get('content-security-policy'), path).toContain("script-src 'self'");
+    }
+  });
+
+  /**
+   * A cross-site form can POST `text/plain` without a preflight. Only a script can send
+   * `application/json`, and a cross-origin script asking to has to pass a preflight this server
+   * never grants, so requiring it is what makes the comment about forgery true.
+   */
+  it('refuses a POST that is not JSON before reading it, and accepts one that is', async () => {
+    const asText = await fetch(`${running.url}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ site: 'http://localhost:4000' }),
+    });
+    expect(asText.status).toBe(415);
+    expect(existsSync(join(root, CONFIG_FILENAME))).toBe(false);
+
+    const asJson = await fetch(`${running.url}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ site: 'http://localhost:4000' }),
+    });
+    expect(asJson.status).toBe(200);
   });
 
   it('keeps the detail of an unexpected failure in the terminal', () => {

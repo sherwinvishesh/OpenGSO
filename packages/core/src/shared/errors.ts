@@ -252,6 +252,9 @@ export const ERRORS = {
       `Paste it again without the trailing newline.`,
     ].join('\n'),
 
+  jsonRequired: () =>
+    `The dashboard API only accepts a POST sent as Content-Type: application/json. That is what keeps a form on another site from posting here.`,
+
   serverFailed: () =>
     [
       `Something went wrong inside the dashboard server.`,

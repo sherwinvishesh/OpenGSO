@@ -53,8 +53,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
  * the other writes markdown to disk. A GET that does either is reachable from any page on the
  * internet through an `<img src>`, which sends no `Origin` header and so slips past the same-origin
  * guard that protects every other route. A POST carrying a JSON content type cannot be forged that
- * way, so the frames are parsed here by hand. Twenty lines, and the endpoint stays as safe as the
- * rest of the API.
+ * way, and the server answers 415 to any API POST without one, so the frames are parsed here by
+ * hand. Twenty lines, and the endpoint stays as safe as the rest of the API.
  *
  * The result is the last frame rather than the response body, so the caller still awaits one value
  * and still throws one `ApiError`. Progress is a side channel, and a caller that does not care

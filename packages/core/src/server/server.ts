@@ -53,10 +53,26 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
  * They are POST, not GET, which means the browser cannot use `EventSource`. That is the trade taken
  * deliberately: `EventSource` only issues a GET, and a GET that runs a test or writes files is
  * reachable from any page on the internet through an `<img>` tag, which sends no `Origin` header
- * and so walks straight past `crossOriginDenial`. A POST carrying a JSON content type cannot be
- * forged that way. The wire format is still SSE, so `curl -N` reads it as text.
+ * and so walks straight past `crossOriginDenial`. Every API POST must carry `application/json`,
+ * which `handle` checks before reading the body: a plain form can only send `text/plain` and
+ * friends, and a script on another origin that asks for JSON needs a preflight this server never
+ * grants. The wire format is still SSE, so `curl -N` reads it as text.
  */
 const STREAM_PATHS = new Set(['/api/test/stream', '/api/generate/stream']);
+
+/**
+ * Sent on every response, page and API alike. The dashboard is one script and one stylesheet from
+ * this server, so `'self'` is the whole policy; it must not be framed, since it has buttons that
+ * write to disk; and nothing it links to needs to learn the local port it was opened on.
+ */
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
+    "object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+} as const;
 
 /** Long enough to stay out of the way, short enough that no idle timer sees a dead connection. */
 const HEARTBEAT_MS = 15_000;
@@ -103,6 +119,9 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
     // disk, so a cross-origin request has to be refused before it is parsed, not after.
     const denial = crossOriginDenial(request);
     if (denial) return send(response, 403, 'application/json; charset=utf-8', JSON.stringify({ error: denial }));
+    if (request.method === 'POST' && !isJson(request.headers['content-type'])) {
+      return send(response, 415, 'application/json; charset=utf-8', JSON.stringify({ error: ERRORS.jsonRequired() }));
+    }
 
     let body: unknown;
     try {
@@ -136,6 +155,7 @@ async function streamApi(
   options: StartOptions,
 ): Promise<void> {
   response.writeHead(200, {
+    ...SECURITY_HEADERS,
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-store',
     Connection: 'keep-alive',
@@ -325,8 +345,13 @@ function readJsonBody(request: IncomingMessage): Promise<unknown> {
   });
 }
 
+function isJson(contentType: string | undefined): boolean {
+  return contentType?.split(';')[0]?.trim().toLowerCase() === 'application/json';
+}
+
 function send(response: ServerResponse, status: number, type: string, body: string | Buffer, cacheControl?: string): void {
   response.writeHead(status, {
+    ...SECURITY_HEADERS,
     'Content-Type': type,
     'Content-Length': Buffer.byteLength(body),
     ...(cacheControl ? { 'Cache-Control': cacheControl } : {}),
