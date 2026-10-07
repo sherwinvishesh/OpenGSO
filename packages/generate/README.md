@@ -132,8 +132,9 @@ A tool that silently rewrites `robots.txt` is a tool that eventually takes a sit
 
 ## Caching
 
-Every page's extracted content is hashed into the manifest. On a re-run, unchanged pages are skipped
-and reported as cached.
+Every page's extracted content is hashed into the manifest. On a re-run, a page is skipped and
+reported as cached only when that hash and its title, meta description and URL are all unchanged,
+since those three go into the twin's frontmatter and `llms.txt` but not into the hash.
 
 The hash is taken over the **extracted markdown**, not the raw HTML. Raw HTML changes on every
 framework rebuild, every hydration marker, every build id, so hashing it would mean nothing is ever

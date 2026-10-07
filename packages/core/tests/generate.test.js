@@ -457,6 +457,24 @@ describe('hashing what a reader receives, not the markup around it', () => {
     }
   });
 
+  it('regenerates when only the meta description or the head title changed', async () => {
+    const loaded = project();
+    /** @param {string} title @param {string} description */
+    const html = (title, description) =>
+      `<!doctype html><html><head><title>${title}</title><meta name="description" content="${description}"></head><body><main><p>${PAGES['/about']?.match(/<p>(.*?)<\/p>/)?.[1]}</p></main></body></html>`;
+    await generatePages({ site, routes: ['/about'], loaded, sources: new Map([['/about', html('About', 'Old summary.')]]) });
+
+    const described = await generatePages({ site, routes: ['/about'], loaded, sources: new Map([['/about', html('About', 'New summary.')]]) });
+    expect(described.pages[0]?.status).toBe('written');
+    const file = join(loaded.root, 'public', 'md', 'about.md');
+    expect(parseFrontmatter(readFileSync(file, 'utf8')).data.description).toBe('New summary.');
+    expect(described.manifest.pages['/about']?.description).toBe('New summary.');
+
+    const retitled = await generatePages({ site, routes: ['/about'], loaded, sources: new Map([['/about', html('About us', 'New summary.')]]) });
+    expect(retitled.pages[0]?.status).toBe('written');
+    expect(retitled.manifest.pages['/about']?.title).toBe('About us');
+  });
+
   it('records no source hash for a hand-written twin, rather than inventing one', async () => {
     const loaded = project();
     const file = join(loaded.root, 'public', 'md', 'resume.md');

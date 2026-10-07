@@ -223,8 +223,11 @@ export async function generatePages(options) {
         const sourceHash = contentHash(extracted.markdown);
 
         const prior = previous.pages[route];
-        // The url check is for a changed publicOrigin: same content, but a twin naming the old origin.
-        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && prior.url === url && tierSatisfied(prior, tier)) {
+        // The hash covers the body only. Title, description and URL go into the frontmatter and
+        // llms.txt, so a change to any of them must regenerate too, or the twin keeps the old one.
+        // The URL also changes on its own when publicOrigin does.
+        const sameHead = prior && prior.title === extracted.title && prior.description === extracted.description && prior.url === url;
+        if (existing && owned && !force && prior && sameHead && prior.sourceHash === sourceHash && tierSatisfied(prior, tier)) {
           pages.push({
             route,
             url,
