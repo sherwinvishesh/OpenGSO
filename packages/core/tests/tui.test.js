@@ -30,7 +30,12 @@ const saved = { ...process.env };
 beforeEach(() => {
   process.env.FORCE_COLOR = '3';
   delete process.env.NO_COLOR;
+  // A UTF-8 terminal on every system. LC_ALL and LC_CTYPE outrank LANG, and CI runners set them;
+  // Windows ignores the locale and asks whether it is in Windows Terminal instead.
   process.env.LANG = 'en_US.UTF-8';
+  delete process.env.LC_ALL;
+  delete process.env.LC_CTYPE;
+  process.env.WT_SESSION = 'test';
   delete process.env.OPENGEO_ASCII;
 });
 
@@ -132,6 +137,8 @@ describe('meter', () => {
 
   it('falls back to ASCII when the locale is not UTF-8', () => {
     process.env.LANG = 'C';
+    delete process.env.WT_SESSION;
+    delete process.env.TERM_PROGRAM;
     expect(stripAnsi(meter(50, 10))).toBe('#####.....');
   });
 });

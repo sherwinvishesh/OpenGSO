@@ -20,6 +20,10 @@ import {
   scoreTrend,
   writeHistory,
 } from '@opengeo/core/test';
+
+// Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
+const posixModes = process.platform !== 'win32';
+
 /** @import { CheckResult, ContentReview, Evidence, History, HistoryEntry, SuiteResult, TestMode, TestResult } from '@opengeo/core/test' */
 
 /**
@@ -219,7 +223,8 @@ describe('recording a run', () => {
     expect(entries.at(-1)).toEqual(second);
   });
 
-  it('never lets a broken cache stop a test run', () => {
+  // A read-only folder is how this test breaks the cache, and Windows ignores the mode bits.
+  it.runIf(posixModes)('never lets a broken cache stop a test run', () => {
     const dir = scratch();
     const blocked = join(dir, 'locked');
     mkdirSync(blocked, { recursive: true });

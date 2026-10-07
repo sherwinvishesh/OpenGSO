@@ -5,6 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { readManifestChecked, writeManifest, emptyManifest } from '@opengeo/core/generate';
 import { writeFileAtomic } from '@opengeo/core/shared';
 
+// Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
+const posixModes = process.platform !== 'win32';
+
 /**
  * What a write leaves behind when it is interrupted.
  *
@@ -25,7 +28,7 @@ describe('writeFileAtomic', () => {
     expect(readdirSync(join(root, 'nested'))).toEqual(['file.json']);
   });
 
-  it('creates a new file with the mode asked for, and keeps the mode of one that exists', () => {
+  it.runIf(posixModes)('creates a new file with the mode asked for, and keeps the mode of one that exists', () => {
     const root = dir();
     const fresh = join(root, 'fresh');
     writeFileAtomic(fresh, 'x', { mode: 0o600 });

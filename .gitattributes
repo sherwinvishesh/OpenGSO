@@ -1,0 +1,2 @@
+# The docs tests compare text byte for byte, and a CRLF checkout on Windows would fail every one.
+* text=auto eol=lf

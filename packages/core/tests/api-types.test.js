@@ -46,13 +46,13 @@ function closure() {
 describe('the API types module', () => {
   it('reaches nothing that needs Node, jsdom or a package', () => {
     const offenders = [...closure()].flatMap(([file, named]) =>
-      named.filter((specifier) => !specifier.startsWith('.')).map((specifier) => `${file.slice(SRC.length + 1)} -> ${specifier}`),
+      named.filter((specifier) => !specifier.startsWith('.')).map((specifier) => `${file.slice(SRC.length + 1).replaceAll('\\', '/')} -> ${specifier}`),
     );
     expect(offenders).toEqual([]);
   });
 
   it('really does follow imports, so an empty pass means something', () => {
-    expect([...closure().keys()].map((file) => file.slice(SRC.length + 1))).toEqual(
+    expect([...closure().keys()].map((file) => file.slice(SRC.length + 1).replaceAll('\\', '/'))).toEqual(
       expect.arrayContaining(['shared/api-types.js', 'shared/providers.js', 'test/checks.js']),
     );
   });

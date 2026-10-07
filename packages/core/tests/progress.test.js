@@ -55,6 +55,8 @@ beforeEach(() => {
   process.env.LANG = 'en_US.UTF-8';
   delete process.env.LC_ALL;
   delete process.env.LC_CTYPE;
+  // Windows decides by terminal rather than by locale.
+  process.env.WT_SESSION = 'test';
   delete process.env.OPENGEO_ASCII;
 });
 

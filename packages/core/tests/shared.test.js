@@ -32,6 +32,10 @@ import {
   unknownCommand,
 } from '@opengeo/core/shared';
 import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@opengeo/core/generate';
+
+// Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
+const posixModes = process.platform !== 'win32';
+
 /** @import { CommandName } from '@opengeo/core/shared' */
 
 const temp = () => mkdtempSync(join(tmpdir(), 'opengeo-test-'));
@@ -245,7 +249,7 @@ describe('API key handling (§11)', () => {
     expect(existsSync(join(root, '.env'))).toBe(false);
   });
 
-  it('creates .env readable by its owner only', () => {
+  it.runIf(posixModes)('creates .env readable by its owner only', () => {
     const root = temp();
     writeEnvVars(root, { OPENGEO_API_KEY: 'sk-test' });
     expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
