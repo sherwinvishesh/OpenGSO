@@ -240,6 +240,10 @@ function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
   let patch = body as Partial<OpenGeoConfig> | null;
   if (!patch || typeof patch !== 'object') return bad('Expected a config object.');
 
+  // The key is in .env and goes wherever `ai` says. Only /api/key may move it, because it checks
+  // the endpoint and takes the key in the same request; the dashboard never sends `ai` here.
+  if ('ai' in patch) return bad(ERRORS.aiViaConfigRefused());
+
   if (patch.site !== undefined && !parseUrl(patch.site)) return bad(ERRORS.invalidUrl(String(patch.site)));
 
   // Custom crawlers arrive as free text from a form, so they are normalized here rather than

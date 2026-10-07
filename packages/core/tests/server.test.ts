@@ -284,6 +284,29 @@ describe('the key never leaks through the API (§11)', () => {
     expect(JSON.stringify(state)).not.toContain(KEY);
   });
 
+  /**
+   * The key form validates the endpoint and saves it together with the key. The config endpoint
+   * validated neither, so one POST could point a stored key at any host and the next AI run would
+   * send it there. Even a bare provider change re-routes a generic OPENGEO_API_KEY to a new vendor.
+   */
+  it('refuses any AI provider change through the config endpoint, leaving the config untouched', async () => {
+    await post('/api/key', { provider: 'anthropic', apiKey: KEY, model: 'claude-test' });
+    const before = readFileSync(join(root, CONFIG_FILENAME), 'utf8');
+    for (const ai of [
+      { baseUrl: 'https://evil.example/v1' },
+      { headers: { 'x-tenant': 'evil' } },
+      { api: 'openai' },
+      { auth: 'bearer' },
+      { provider: 'openai' },
+      { model: 'something-else' },
+    ]) {
+      const response = await post('/api/config', { ai });
+      expect(response.status, JSON.stringify(ai)).toBe(400);
+      expect(JSON.stringify(response.body)).toContain('/api/key');
+    }
+    expect(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).toBe(before);
+  });
+
   it('rejects an unknown provider and an empty key without touching the disk', async () => {
     expect((await post('/api/key', { provider: 'sqlite', apiKey: KEY })).status).toBe(400);
     expect((await post('/api/key', { provider: 'anthropic', apiKey: '  ' })).status).toBe(400);

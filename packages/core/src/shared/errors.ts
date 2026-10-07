@@ -233,7 +233,16 @@ export const ERRORS = {
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
     ].join('\n'),
 
-  hostRefused: (host: string | undefined) =>
+  aiViaConfigRefused: () =>
+    [
+      `The AI provider cannot be changed through /api/config.`,
+      ``,
+      `Use the AI provider card in Settings, which posts to /api/key, or run \`opengeo settings\`.`,
+      `Both save the provider, endpoint and key together and check them first, so a stored key is`,
+      `never pointed at a host nobody typed it for.`,
+    ].join('\n'),
+
+  hostRefused:(host: string | undefined) =>
     [
       `Refused: this dashboard only answers to the address it was started on, and the request was`,
       `addressed to ${host === undefined ? 'no host at all' : `"${host}"`}.`,
