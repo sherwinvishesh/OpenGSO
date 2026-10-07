@@ -70,6 +70,17 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
   twinOutsidePublicDir: (route, file, publicDir) =>
     `Manifest lists ${route} at ${file}, which resolves outside ${publicDir}, so it was not loaded. ` +
     'OpenGEO only ever writes twins inside publicDir: rerun `opengeo generate` to rewrite the manifest.',
+
+  /** @param {string} manifestFile */
+  manifestHasNoPages: (manifestFile) =>
+    `${manifestFile} is JSON but has no page table, so no twins were loaded. Rerun \`opengeo generate\` to rewrite it.`,
+
+  /**
+   * @param {string} key The entry's key in the page table.
+   * @param {string} manifestFile
+   */
+  manifestEntryUnusable: (key, manifestFile) =>
+    `${manifestFile} lists ${key} without a route and a file, so it was not loaded. Rerun \`opengeo generate\` to rewrite the manifest.`,
 });
 
 /** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */
@@ -321,6 +332,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** @param {string} tier */
   unknownTier: (tier) => `Unknown tier "${tier}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).`,
 
+  /** A dashboard API request whose body is not a JSON object. */
+  requestNotObject: () => 'The request body has to be a JSON object.',
+
+  /**
+   * @param {string} field
+   * @param {string} expected `string`, `boolean` or `number`.
+   * @param {unknown} value
+   */
+  requestFieldType: (field, expected, value) =>
+    `${field} in the request has to be a ${expected}, and it is ${JSON.stringify(value) ?? String(value)}.`,
+
   /**
    * @param {string} url
    * @param {string} reason
@@ -571,6 +593,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `The ${provider} API answered ${status} with a redirect${location ? ` to ${redirectHost(location)}` : ''}, and OpenGEO does not follow it.`,
       `A redirect would send your key to a host you did not configure. If the endpoint moved, put`,
       `its new address in ai.baseUrl in opengeo.config.json.`,
+    ].join('\n'),
+
+  /**
+   * @param {string} provider
+   * @param {string} body
+   */
+  providerNotJson: (provider, body) =>
+    [
+      `The ${provider} API answered, but not with JSON, so there is no reply to read. Something in front`,
+      `of the endpoint (a proxy, a gateway, a login page) may be answering instead; check ai.baseUrl.`,
+      `  ${body.slice(0, 400)}`,
     ].join('\n'),
 
   /**

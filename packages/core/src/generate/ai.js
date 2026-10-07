@@ -304,7 +304,17 @@ async function post(url, init, timeoutMs, label) {
       // The status rides along so a caller with many calls queued can tell a refused key from one bad document.
       throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, body)), { status: response.status });
     }
-    return /** @type {unknown} */ (JSON.parse(body));
+    // A 200 is no promise of JSON: a proxy or a captive portal in front of the endpoint answers with
+    // a page, and a parser error would name a token rather than the endpoint.
+    /** @type {unknown} */
+    let json;
+    try {
+      json = JSON.parse(body);
+    } catch {
+      throw new Error(ERRORS.providerNotJson(label, body));
+    }
+    if (typeof json !== 'object' || json === null) throw new Error(ERRORS.providerNotJson(label, body));
+    return json;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`The ${label} API did not respond within ${Math.round(timeoutMs / 1000)}s.`);
@@ -342,9 +352,8 @@ async function callAnthropic(call, provider) {
   ));
 
   if (json.stop_reason === 'max_tokens') throw new TruncatedOutputError(provider.label);
-  const text = (json.content ?? [])
-    .filter((block) => block.type === 'text' || typeof block.text === 'string')
-    .map((block) => block.text ?? '')
+  const text = (Array.isArray(json.content) ? json.content : [])
+    .map((block) => (typeof block?.text === 'string' ? block.text : ''))
     .join('');
   if (!text) throw new Error(`${provider.label} returned no text content.`);
   return text;
@@ -378,7 +387,8 @@ async function callOpenAI(call, provider) {
   ));
 
   if (json.choices?.[0]?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
-  const text = json.choices?.[0]?.message?.content ?? '';
+  const content = json.choices?.[0]?.message?.content;
+  const text = typeof content === 'string' ? content : '';
   if (!text) throw new Error(`${provider.label} returned no message content.`);
   return text;
 }
@@ -406,7 +416,8 @@ async function callGemini(call, provider) {
   ));
 
   if (json.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new TruncatedOutputError(provider.label);
-  const text = (json.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('');
+  const parts = json.candidates?.[0]?.content?.parts;
+  const text = (Array.isArray(parts) ? parts : []).map((part) => (typeof part?.text === 'string' ? part.text : '')).join('');
   if (!text) throw new Error(`${provider.label} returned no candidate content.`);
   return text;
 }

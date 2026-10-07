@@ -49,15 +49,19 @@ export function createFsStore(options) {
     ]);
   }
 
-  /** @type {StoreManifest} */
+  /** @type {unknown} */
   let manifest;
   try {
-    manifest = /** @type {StoreManifest} */ (JSON.parse(readFileSync(manifestFile, 'utf8')));
+    manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   } catch (error) {
     return withProblems(createMemoryStore([]), [
       `Could not read ${manifestFile}: ${error instanceof Error ? error.message : String(error)}`,
     ]);
   }
+  // Parsed is not the same as a manifest, and this runs at server start: a TypeError here would
+  // take the site down over a file that only decides which pages get a twin.
+  const table = isRecord(manifest) ? manifest.pages : undefined;
+  if (!isRecord(table)) return withProblems(createMemoryStore([]), [STORE_ERRORS.manifestHasNoPages(manifestFile)]);
 
   /** @type {string[]} */
   const problems = [];
@@ -65,7 +69,12 @@ export function createFsStore(options) {
   const pages = {};
   /** @type {Record<string, string>} */
   const contents = {};
-  for (const [key, entry] of Object.entries(manifest.pages ?? {})) {
+  for (const [key, value] of Object.entries(table)) {
+    if (!isRecord(value) || typeof value.route !== 'string' || typeof value.file !== 'string') {
+      problems.push(STORE_ERRORS.manifestEntryUnusable(key, manifestFile));
+      continue;
+    }
+    const entry = /** @type {StoreManifestEntry} */ (value);
     const file = resolve(publicDir, entry.file);
     // The manifest is a file on disk that anything with write access can edit, and prod serves
     // whatever it points at to anyone who asks. Only files inside publicDir are twins.
@@ -82,6 +91,14 @@ export function createFsStore(options) {
     contents[entry.file] = readFileSync(file, 'utf8');
   }
   return withProblems(createManifestStore({ manifest: { pages }, contents }), problems);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

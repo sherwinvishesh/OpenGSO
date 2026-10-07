@@ -134,6 +134,13 @@ export function readManifestChecked(internalDir, site = '') {
     const why = parsed?.version === MANIFEST_VERSION ? 'it has no page table' : `it is manifest version ${String(parsed?.version)}, not ${MANIFEST_VERSION}`;
     return { manifest: emptyManifest(site), problem: ERRORS.manifestUnreadable(path, why) };
   }
+  // Every run keys off these three, in a `finally` that writes the next manifest, so one bad entry
+  // would stop the run that is meant to replace it.
+  for (const [route, entry] of Object.entries(parsed.pages)) {
+    const usable =
+      typeof entry === 'object' && entry !== null && typeof entry.route === 'string' && typeof entry.url === 'string' && typeof entry.file === 'string';
+    if (!usable) return { manifest: emptyManifest(site), problem: ERRORS.manifestUnreadable(path, `its entry for ${route} has no route, url or file`) };
+  }
   return { manifest: parsed };
 }
 

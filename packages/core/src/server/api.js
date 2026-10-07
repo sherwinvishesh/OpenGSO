@@ -111,6 +111,57 @@ const bad = (message, extra = {}) => ({
   body: { error: message, ...extra },
 });
 
+/** @typedef {Record<string, 'string' | 'boolean' | 'number'>} BodyFields */
+
+/** @type {BodyFields} */
+const TEST_FIELDS = { url: 'string', mode: 'string', quality: 'boolean', maxDocs: 'number', timeoutMs: 'number' };
+/** @type {BodyFields} */
+const GENERATE_FIELDS = {
+  url: 'string',
+  tier: 'string',
+  single: 'boolean',
+  force: 'boolean',
+  skipSiteFiles: 'boolean',
+  maxPages: 'number',
+  maxDepth: 'number',
+};
+
+/**
+ * The fields each handler below reads from its body, and what each has to be.
+ *
+ * The handlers cast the body to these shapes, and a cast checks nothing: `{ "path": 5 }` was a
+ * TypeError and a 500, and a `maxPages` of `"lots"` was a crawl with no cap, because every
+ * comparison against it is false. `null` counts as absent, as the handlers' `??` always treated it.
+ * `/api/config` is not here: `configPatchProblem` checks that one field by field.
+ *
+ * @type {Record<string, BodyFields>}
+ */
+const BODY_FIELDS = {
+  'POST /api/preview': { url: 'string' },
+  'POST /api/test': TEST_FIELDS,
+  'POST /api/test/stream': TEST_FIELDS,
+  'POST /api/generate': GENERATE_FIELDS,
+  'POST /api/generate/stream': GENERATE_FIELDS,
+  'POST /api/prod-test': { url: 'string', bot: 'string', timeoutMs: 'number' },
+  'POST /api/key': { provider: 'string', apiKey: 'string', model: 'string', baseUrl: 'string', api: 'string', auth: 'string' },
+  'POST /api/file': { path: 'string' },
+};
+
+/**
+ * @param {unknown} body
+ * @param {BodyFields} fields
+ * @returns {string | undefined}
+ */
+function bodyProblem(body, fields) {
+  if (body === undefined || body === null) return undefined;
+  if (typeof body !== 'object' || Array.isArray(body)) return ERRORS.requestNotObject();
+  for (const [field, expected] of Object.entries(fields)) {
+    const value = /** @type {Record<string, unknown>} */ (body)[field];
+    if (value !== undefined && value !== null && typeof value !== expected) return ERRORS.requestFieldType(field, expected, value);
+  }
+  return undefined;
+}
+
 /**
  * @param {ApiRequest} request
  * @param {ApiOptions} options
@@ -119,6 +170,11 @@ const bad = (message, extra = {}) => ({
 export async function handleApi(request, options) {
   const { method, path } = request;
   const route = `${method} ${path}`;
+  const fields = BODY_FIELDS[route];
+  if (fields) {
+    const problem = bodyProblem(request.body, fields);
+    if (problem) return bad(problem);
+  }
 
   switch (route) {
     case 'GET /api/state':
