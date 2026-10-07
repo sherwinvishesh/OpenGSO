@@ -169,6 +169,24 @@ describe('extraction keeps the page shape intact', () => {
       '| Weight | 3 kg |',
     ]);
   });
+
+  it('keeps the content of a page wrapped in one <form>', () => {
+    const html = page(`<form action="/postback" method="post">
+      <h1>Opening hours</h1><p>${words}</p><p>Open 9 to 5 on weekdays.</p>
+      <input type="hidden" name="__VIEWSTATE" value="x">
+      <form><label>Email for the newsletter</label><input name="email"><button>Join</button></form>
+    </form>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).toContain('# Opening hours');
+    expect(markdown).toContain('Open 9 to 5 on weekdays.');
+    expect(markdown).not.toContain('Join');
+  });
+
+  it('still drops a newsletter form beside the real content', () => {
+    const html = page(`<main><h1>About</h1><p>${words}</p><form><label>Email for the newsletter</label><input name="email"></form></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).not.toContain('newsletter');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {

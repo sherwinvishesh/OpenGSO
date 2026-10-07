@@ -26,7 +26,6 @@ const ALWAYS_STRIP = [
   'object',
   'embed',
   'canvas',
-  'form',
   'input',
   'select',
   'textarea',
@@ -111,6 +110,13 @@ export function extractPage(html, options) {
     warnings.push(
       'No <main>, <article> or [role="main"] found - fell back to <body> and stripped nav/header/footer. Adding a <main> landmark gives a cleaner twin.',
     );
+  }
+  // A <form> is usually a search box or a signup and goes, but ASP.NET WebForms and some CMSs wrap
+  // the whole page in one, and stripping that left a twin holding only the title. A form that holds
+  // most of the remaining text is the page; its controls are already gone.
+  const rootText = textLength(root);
+  for (const form of Array.from(root.querySelectorAll('form'))) {
+    if (textLength(form) <= rootText / 2) form.remove();
   }
 
   const title = pickTitle(doc, root);
