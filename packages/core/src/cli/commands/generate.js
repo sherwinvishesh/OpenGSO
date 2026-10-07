@@ -8,7 +8,7 @@ import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
-import { terminalWidth, wrap } from '../tui/paint.js';
+import { terminalWidth, wrap } from '../../shared/render/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
 /**

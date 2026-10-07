@@ -21,7 +21,7 @@ import {
 } from '../../test/index.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { createProgress } from '../progress.js';
-import { stripAnsi } from '../tui/paint.js';
+import { stripAnsi } from '../../shared/render/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
 /**

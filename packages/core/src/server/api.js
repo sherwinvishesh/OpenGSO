@@ -4,7 +4,7 @@ import { createAiEnhancer } from '../generate/ai.js';
 import { readManifest } from '../generate/manifest.js';
 import { generateSite } from '../generate/site.js';
 import { DEFAULT_BOT, verifyProd } from '../prod/verify.js';
-import { CONTENT_BANDS, STRUCTURAL_BANDS } from '../cli/tui/theme.js';
+import { CONTENT_BANDS, STRUCTURAL_BANDS } from '../shared/render/theme.js';
 import { resolveAiCall } from '../shared/ai-call.js';
 import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
 import {

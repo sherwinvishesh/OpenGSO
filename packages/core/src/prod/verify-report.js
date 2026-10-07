@@ -1,7 +1,7 @@
 import { c, heading, SYM, terminalSafe } from '../shared/log.js';
-import { terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
-import { ink } from '../cli/tui/theme.js';
-import { meter } from '../cli/tui/widgets.js';
+import { terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
+import { ink } from '../shared/render/theme.js';
+import { meter } from '../shared/render/meters.js';
 
 /** @import { ProdProbe, ProdVerification } from './verify.js' */
 

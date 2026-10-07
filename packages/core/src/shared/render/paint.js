@@ -12,7 +12,7 @@
  * written in terms of it.
  */
 
-import { colourDepth } from '../../shared/log.js';
+import { colourDepth } from '../log.js';
 
 const ESC = String.fromCharCode(27);
 const CSI = `${ESC}[`;

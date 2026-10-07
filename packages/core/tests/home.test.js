@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
 import { createPrompter } from '../src/cli/prompt.js';
-import { glyphs, stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
+import { glyphs, stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
 /** @import { CommandHandler } from '@opengeo/core/cli' */
 /** @import { CommandName } from '@opengeo/core/shared' */
 /** @import { HomeStatus } from '../src/cli/home.js' */

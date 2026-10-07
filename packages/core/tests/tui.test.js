@@ -12,12 +12,13 @@ import {
   truncate,
   visibleWidth,
   wrap,
-} from '../src/cli/tui/paint.js';
+} from '../src/shared/render/paint.js';
 import { decode, readKeys, splitChunks } from '../src/cli/tui/keys.js';
 import { openScreen, restoreScreens } from '../src/cli/tui/screen.js';
 import { c } from '../src/shared/log.js';
-import { box, listView, lockedMeter, meter, sparkline, textField } from '../src/cli/tui/widgets.js';
-import { PALETTE, contentBand, structuralBand } from '../src/cli/tui/theme.js';
+import { lockedMeter, meter, sparkline } from '../src/shared/render/meters.js';
+import { box, listView, textField } from '../src/cli/tui/widgets.js';
+import { PALETTE, contentBand, structuralBand } from '../src/shared/render/theme.js';
 
 /**
  * The terminal layer, exercised without a terminal.

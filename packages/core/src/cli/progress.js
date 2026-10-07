@@ -1,7 +1,8 @@
 import { c } from '../shared/log.js';
-import { colourDepth, terminalWidth, truncate } from './tui/paint.js';
-import { ink } from './tui/theme.js';
-import { progressMeter, spinnerFrame } from './tui/widgets.js';
+import { colourDepth, terminalWidth, truncate } from '../shared/render/paint.js';
+import { ink } from '../shared/render/theme.js';
+import { progressMeter } from '../shared/render/meters.js';
+import { spinnerFrame } from './tui/widgets.js';
 
 /**
  * The thing that runs while you wait.

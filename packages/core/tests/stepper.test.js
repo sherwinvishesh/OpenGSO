@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { openStepper, stepRail } from '../src/cli/stepper.js';
 import { pause } from '../src/cli/tui/interact.js';
-import { glyphs, stripAnsi } from '../src/cli/tui/paint.js';
+import { glyphs, stripAnsi } from '../src/shared/render/paint.js';
 /** @import { Key, KeyReader } from '../src/cli/tui/keys.js' */
 /** @import { Screen } from '../src/cli/tui/screen.js' */
 

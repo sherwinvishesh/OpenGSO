@@ -1,4 +1,4 @@
-import { colourDepth } from './paint.js';
+import { colourDepth } from '../../shared/render/paint.js';
 
 /**
  * Ownership of the terminal, and giving it back.

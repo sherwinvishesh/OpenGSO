@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { field, select } from '../src/cli/tui/interact.js';
-import { stripAnsi } from '../src/cli/tui/paint.js';
+import { stripAnsi } from '../src/shared/render/paint.js';
 /** @import { Key, KeyReader } from '../src/cli/tui/keys.js' */
 /** @import { Screen } from '../src/cli/tui/screen.js' */
 

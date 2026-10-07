@@ -1,7 +1,7 @@
 import { c, SYM, heading, terminalSafe } from '../shared/log.js';
-import { meter, lockedMeter, sparkline } from '../cli/tui/widgets.js';
-import { scoreInk, bandColour, contentBand, ink } from '../cli/tui/theme.js';
-import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
+import { meter, lockedMeter, sparkline } from '../shared/render/meters.js';
+import { scoreInk, bandColour, contentBand, ink } from '../shared/render/theme.js';
+import { fg, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from './history.js';
 import { areaWeight, qualityBand } from './quality.js';
 import { scoreGain } from './score.js';

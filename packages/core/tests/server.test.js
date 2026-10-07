@@ -14,7 +14,7 @@ import {
   sseFrame,
   startServer,
 } from '../src/server/server.js';
-import { CONTENT_BANDS, STRUCTURAL_BANDS, structuralBand } from '../src/cli/tui/theme.js';
+import { CONTENT_BANDS, STRUCTURAL_BANDS, structuralBand } from '../src/shared/render/theme.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { CHECKS } from '../src/test/checks.js';
 import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';

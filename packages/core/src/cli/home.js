@@ -4,13 +4,14 @@ import { internalDirPath, loadConfig } from '../shared/config.js';
 import { readCredentials } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 import { c } from '../shared/log.js';
-import { PALETTE, ink } from './tui/theme.js';
+import { PALETTE, ink } from '../shared/render/theme.js';
 import { deltaFor, lastScored, readHistory, relativeAge, scoreTrend } from '../test/history.js';
 import { field, select } from './tui/interact.js';
 import { readKeys } from './tui/keys.js';
-import { padEnd, terminalWidth, truncate } from './tui/paint.js';
+import { padEnd, terminalWidth, truncate } from '../shared/render/paint.js';
 import { canUseTui, openScreen } from './tui/screen.js';
-import { box, keyHints, lockedMeter, meter, sparkline, wordmark } from './tui/widgets.js';
+import { lockedMeter, meter, sparkline } from '../shared/render/meters.js';
+import { box, keyHints, wordmark } from './tui/widgets.js';
 import { createPrompter } from './prompt.js';
 
 /**

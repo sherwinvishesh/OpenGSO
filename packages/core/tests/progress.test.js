@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canRedraw, createProgress } from '../src/cli/progress.js';
-import { stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
+import { stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
 
 /**
  * The live progress block, and the plain transcript it falls back to.

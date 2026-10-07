@@ -4,7 +4,7 @@ const ESC = String.fromCharCode(27) + '[';
 /**
  * What a stream can show: 0 no colour, 1 the basic sixteen, 2 the 256-colour cube, 3 full 24-bit.
  *
- * The one rule for colour, used by `c` below and by everything `cli/tui/paint.js` draws, so the two
+ * The one rule for colour, used by `c` below and by everything `shared/render/paint.js` draws, so the two
  * can never disagree about whether it is on. Read fresh on every call rather than cached at import
  * time: the test suite sets and unsets these variables between cases.
  *

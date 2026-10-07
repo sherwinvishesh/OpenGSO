@@ -1,6 +1,6 @@
 import { c } from '../shared/log.js';
 import { twinUrl } from '../shared/routes.js';
-import { ink } from './tui/theme.js';
+import { ink } from '../shared/render/theme.js';
 
 /** @import { SitePreview } from '../shared/site-probe.js' */
 

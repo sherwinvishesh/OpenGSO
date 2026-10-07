@@ -5,7 +5,7 @@ import { verifyProd } from '../../prod/verify.js';
 import { prodVerificationToJson, renderProdVerification } from '../../prod/verify-report.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { resolveProject, resolveTarget } from '../project.js';
-import { stripAnsi } from '../tui/paint.js';
+import { stripAnsi } from '../../shared/render/paint.js';
 
 /** @import { CommandContext } from '../index.js' */
 

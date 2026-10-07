@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { previewLines } from '../src/cli/setup-preview.js';
 import { detectFramework } from '@opengeo/core/test';
 import { detectWebRoot, previewSite } from '../src/shared/site-probe.js';
-import { stripAnsi } from '../src/cli/tui/paint.js';
+import { stripAnsi } from '../src/shared/render/paint.js';
 import { BROWSER_UA } from '../src/shared/http.js';
 import { HEADERS } from '../src/shared/version.js';
 /** @import { SitePreview } from '../src/shared/site-probe.js' */

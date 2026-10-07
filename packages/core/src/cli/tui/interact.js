@@ -1,6 +1,6 @@
 import { c } from '../../shared/log.js';
-import { terminalWidth, visibleWidth } from './paint.js';
-import { ink } from './theme.js';
+import { terminalWidth, visibleWidth } from '../../shared/render/paint.js';
+import { ink } from '../../shared/render/theme.js';
 import { keyHints, listView, rule, textField } from './widgets.js';
 
 /**

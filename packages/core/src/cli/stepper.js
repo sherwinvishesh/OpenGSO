@@ -3,9 +3,9 @@ import { c } from '../shared/log.js';
 import { SetupAbort } from './configure.js';
 import { confirm, field, pause, select } from './tui/interact.js';
 import { readKeys } from './tui/keys.js';
-import { glyphs, stripAnsi, terminalWidth, truncate, wrap } from './tui/paint.js';
+import { glyphs, stripAnsi, terminalWidth, truncate, wrap } from '../shared/render/paint.js';
 import { canUseTui, openScreen } from './tui/screen.js';
-import { ink } from './tui/theme.js';
+import { ink } from '../shared/render/theme.js';
 import { box, wordmark } from './tui/widgets.js';
 
 /**
