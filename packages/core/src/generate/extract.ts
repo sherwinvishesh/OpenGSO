@@ -390,7 +390,8 @@ function renderInline(el: Element, ctx: RenderContext): string {
     case 'wbr':
       return '';
     case 'img': {
-      const alt = (el.getAttribute('alt') ?? '').trim();
+      // An attribute is page text like any other, and unescaped it could close the image early.
+      const alt = escapeText(clean(el.getAttribute('alt') ?? ''));
       const src = absolute(el.getAttribute('src'), ctx.baseUrl);
       if (!src) return alt;
       return `![${alt}](${src})`;
@@ -437,7 +438,9 @@ function absolute(href: string | null, baseUrl: string): string | undefined {
   const trimmed = href.trim();
   if (!trimmed || trimmed.startsWith('#')) return undefined;
   try {
-    return new URL(trimmed, baseUrl).toString();
+    // The URL serialiser encodes spaces and angle brackets but not parentheses, and a `)` would
+    // end the link destination early and let the rest of the href read as markdown.
+    return new URL(trimmed, baseUrl).toString().replace(/\(/g, '%28').replace(/\)/g, '%29');
   } catch {
     return undefined;
   }
@@ -450,6 +453,8 @@ function absolute(href: string | null, baseUrl: string): string | undefined {
 function escapeText(text: string): string {
   return text
     .replace(/([\\`*_[\]])/g, '\\$1')
+    // Only a `<` that could open a tag, a comment or an autolink. "2 < 3" means what it says.
+    .replace(/<(?=[A-Za-z/!?])/g, '\\<')
     .replace(/^(\s*)([-+#>])/gm, '$1\\$2');
 }
 

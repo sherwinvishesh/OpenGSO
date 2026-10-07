@@ -103,3 +103,39 @@ describe('extractPage', () => {
     expect(result.warnings.join(' ')).toMatch(/JSON-LD block on this page does not parse/);
   });
 });
+
+describe('page text cannot forge markdown in the twin', () => {
+  /** Where every link and image in a markdown string points, ignoring anything escaped. */
+  function destinations(markdown: string): string[] {
+    const unescaped = markdown.replace(/\\./g, '');
+    return [...unescaped.matchAll(/\]\(([^)\s]*)\)/g)].map((match) => match[1]!);
+  }
+
+  it('escapes image alt text, so it cannot close the image and open a link', () => {
+    const html = page('<main><h1>T</h1><p>Words here. <img alt="a](https://evil.example/x) [b" src="/i.png"></p></main>');
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(destinations(markdown)).toEqual(['https://example.com/i.png']);
+    expect(markdown).toContain('evil.example');
+  });
+
+  it('escapes alt text that stands alone when the image has no source', () => {
+    const html = page('<main><h1>T</h1><p>Words <img alt="[forged](https://evil.example/)"></p></main>');
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(destinations(markdown)).toEqual([]);
+  });
+
+  it('keeps a parenthesis in a URL from ending the link early', () => {
+    const html = page('<main><h1>T</h1><p><a href="https://example.com/a) [forged](https://evil.example/">Docs</a></p></main>');
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(destinations(markdown)).toHaveLength(1);
+    expect(destinations(markdown)[0]).toMatch(/^https:\/\/example\.com\//);
+  });
+
+  it('escapes text that would read as an HTML tag, and leaves a plain less-than alone', () => {
+    const html = page('<main><h1>T</h1><p>Use &lt;img src=x onerror=alert(1)&gt; with care, since 2 &lt; 3.</p></main>');
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).not.toMatch(/(^|[^\\])<img/);
+    expect(markdown).toContain('\\<img');
+    expect(markdown).toContain('2 < 3');
+  });
+});
