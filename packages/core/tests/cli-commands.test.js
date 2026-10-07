@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateCommand } from '../src/cli/commands/generate.js';
+import { openBrowser } from '../src/cli/commands/start.js';
 import { testCommand } from '../src/cli/commands/test.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
@@ -115,6 +116,16 @@ describe('opengeo test --timeout', () => {
     await run(testCommand, [site, '--project', root, '--structure', '--json']);
 
     expect(seen.runTestSuite[0]?.timeoutMs).toBeUndefined();
+  });
+});
+
+describe('opengeo start, opening the browser', () => {
+  it('survives a machine with no opener binary, which reports it as an asynchronous error event', async () => {
+    // No error listener is attached here on purpose: if openBrowser does not attach one, the
+    // ENOENT is an unhandled 'error' event and the run dies, as `opengeo start` did on headless Linux.
+    const child = openBrowser('http://127.0.0.1:1/', 'opengeo-no-such-opener-binary');
+    await new Promise((resolve) => child?.once('close', resolve));
+    expect(child?.listenerCount('error')).toBeGreaterThan(0);
   });
 });
 

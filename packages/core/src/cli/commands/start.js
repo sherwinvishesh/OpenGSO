@@ -151,14 +151,20 @@ function findWebRoot() {
  * Best-effort. A dashboard that fails to open a browser is still a dashboard at a printed URL.
  *
  * @param {string} url
- * @returns {void}
+ * @param {string} [command] The opener. Only tests pass one.
+ * @returns {import('node:child_process').ChildProcess | undefined}
  */
-function openBrowser(url) {
-  const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
+export function openBrowser(url, command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open') {
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {
-    spawn(command, args, { stdio: 'ignore', detached: true }).unref();
+    const child = spawn(command, args, { stdio: 'ignore', detached: true });
+    // A missing opener (xdg-open on a headless box) arrives later as an 'error' event, which the
+    // catch below never sees and which kills the process if nobody listens for it.
+    child.on('error', () => {});
+    child.unref();
+    return child;
   } catch {
     // Ignored on purpose: the URL is already on screen.
+    return undefined;
   }
 }
