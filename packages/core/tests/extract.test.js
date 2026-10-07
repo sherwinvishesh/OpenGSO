@@ -108,6 +108,23 @@ describe('extractPage', () => {
   });
 });
 
+describe('extraction keeps the page shape intact', () => {
+  const words = 'Enough words in this paragraph to make the region count as real page content.';
+
+  it('keeps every top-level <article> when the page has no <main>', () => {
+    const html = page(`
+      <nav><a href="/">Home</a></nav>
+      <article><h2>First post</h2><p>${words}</p></article>
+      <article><h2>Second post</h2><p>${words}</p></article>
+    `);
+    const result = extractPage(html, { url: 'https://example.com/' });
+    expect(result.contentRoot).toBe('article');
+    expect(result.markdown).toContain('## First post');
+    expect(result.markdown).toContain('## Second post');
+    expect(result.markdown).not.toContain('Home');
+  });
+});
+
 describe('page text cannot forge markdown in the twin', () => {
   /**
    * Where every link and image in a markdown string points, ignoring anything escaped.

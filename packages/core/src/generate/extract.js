@@ -142,12 +142,32 @@ export function extractPage(html, options) {
  */
 function pickContentRoot(doc) {
   for (const selector of MAIN_SELECTORS) {
-    const found = doc.querySelector(selector);
+    const found = selector === 'article' ? gatherArticles(doc) : doc.querySelector(selector);
     // A short-but-real page is still a page: only skip a landmark that is essentially empty, which
     // is what an unrendered SPA shell (`<main></main>`) looks like.
     if (found && textLength(found) >= 40) return { root: found, selector };
   }
   return { root: doc.body ?? doc.documentElement, selector: 'body' };
+}
+
+/**
+ * A listing page with no <main> is often a run of sibling <article>s, and taking only the first
+ * would publish a twin of one post. Their common ancestor would drag the chrome back in, so the
+ * top-level ones are copied into a detached container instead. Nested articles (a comment inside a
+ * post) come along with their parent. Copies, so a container that fails the emptiness floor leaves
+ * the document whole for the selectors after it.
+ *
+ * @param {Document} doc
+ * @returns {Element | null}
+ */
+function gatherArticles(doc) {
+  const topLevel = Array.from(doc.querySelectorAll('article')).filter(
+    (article) => !article.parentElement?.closest('article'),
+  );
+  if (topLevel.length <= 1) return topLevel[0] ?? null;
+  const container = doc.createElement('div');
+  for (const article of topLevel) container.append(article.cloneNode(true));
+  return container;
 }
 
 /**
