@@ -258,6 +258,12 @@ kbd {
   gap: var(--s-24);
 }
 
+/* Screens and panels are kept and hidden rather than removed, so `hidden` has to win over any class
+   that sets `display`. Without this, a hidden `.page-head` or `.progress` would still show. */
+[hidden] {
+  display: none !important;
+}
+
 /* A slot the shell redraws on its own. It adds a node to hold onto, and no box to lay out. */
 .contents {
   display: contents;

@@ -1,6 +1,7 @@
 import { api, ApiError } from './api.js';
 import { stalenessBanner, stalenessOf } from './components/staleness.js';
 import { abortAll } from './runs.js';
+import { createTestView } from './views/test.js';
 import { banner, button, card, el, empty, fill, pageHead, setLabel, setText } from './ui.js';
 
 /**
@@ -36,7 +37,7 @@ const notYet = (title) => () => ({ node: el('div', {}, pageHead(title), empty('N
 
 /** @type {Record<Tab, (ctx: Ctx) => View>} */
 const SCREENS = {
-  test: notYet('Test'),
+  test: createTestView,
   generate: notYet('Generate'),
   prod: notYet('Prod'),
   bots: notYet('Bot settings'),
