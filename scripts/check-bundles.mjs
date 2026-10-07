@@ -58,6 +58,9 @@ if (!existsSync(prodDist)) {
     { label: 'jsdom', pattern: /\bjsdom\b/i },
     { label: 'an AI provider endpoint', pattern: /api\.anthropic\.com|api\.openai\.com|generativelanguage\.googleapis\.com/i },
     { label: 'an API key environment variable', pattern: /ANTHROPIC_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY/ },
+    // The middleware answers from a map it loaded at boot. A network call in the library means
+    // something like the deployment checker has been re-exported from the runtime entry.
+    { label: 'a network call', pattern: /\bfetch\(/ },
   ];
   for (const file of libraryFiles(prodDist, ['index.js', 'next.js'])) {
     for (const { label, pattern } of banned) {

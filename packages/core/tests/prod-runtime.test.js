@@ -195,3 +195,19 @@ describe('a route with a twin is a page, whatever its last segment looks like', 
     expect(response.headers.get(HEADERS.aeoVersion)).toBeNull();
   });
 });
+
+describe('the runtime entry', () => {
+  it('carries the middleware and not the deployment checker or test hooks', async () => {
+    const entry = Object.keys(await import('@opengeo/core/prod'));
+    expect(entry).toEqual(expect.arrayContaining(['handleRequest', 'createProdHandler', 'logStartupStatus']));
+    for (const name of [
+      'verifyProd',
+      'resolveBot',
+      'renderProdVerification',
+      'prodVerificationToJson',
+      'resetStartupLogForTests',
+    ]) {
+      expect(entry).not.toContain(name);
+    }
+  });
+});

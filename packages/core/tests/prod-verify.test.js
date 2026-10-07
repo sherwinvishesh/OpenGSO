@@ -11,15 +11,13 @@ import {
   handleRequest,
   identifyBot,
   logStartupStatus,
-  prodVerificationToJson,
-  renderProdVerification,
-  resetStartupLogForTests,
-  resolveBot,
-  verifyProd,
 } from '@opengeo/core/prod';
+import { resetStartupLogForTests } from '../src/prod/startup.js';
+import { resolveBot, verifyProd } from '../src/prod/verify.js';
+import { prodVerificationToJson, renderProdVerification } from '../src/prod/verify-report.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { ProdProbe } from '@opengeo/core/prod' */
+/** @import { ProdProbe } from '../src/prod/verify.js' */
 
 /**
  * `prod test` is verified against a real HTTP server whose responses come from `handleRequest`

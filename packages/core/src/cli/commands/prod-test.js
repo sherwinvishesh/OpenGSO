@@ -1,7 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
-import { prodVerificationToJson, renderProdVerification, verifyProd } from '../../prod/index.js';
+import { verifyProd } from '../../prod/verify.js';
+import { prodVerificationToJson, renderProdVerification } from '../../prod/verify-report.js';
 import { parseArgs } from '../args.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
