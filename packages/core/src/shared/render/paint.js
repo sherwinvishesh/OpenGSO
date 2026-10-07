@@ -12,6 +12,7 @@
  * written in terms of it.
  */
 
+import { isCI } from '../ci.js';
 import { colourDepth } from '../log.js';
 
 const ESC = String.fromCharCode(27);
@@ -325,6 +326,23 @@ export const BODY_INDENT = 6;
 export function indentWrapped(text, width, paint = (value) => value) {
   const gutter = ' '.repeat(BODY_INDENT);
   return wrap(text, Math.max(20, width - BODY_INDENT)).map((line) => `${gutter}${paint(line)}`);
+}
+
+/**
+ * Whether output can be redrawn in place: the live progress block, and half of the full-screen gate.
+ *
+ * This does not ask about stdin: nothing that redraws reads a key, so a command being fed from a
+ * pipe can still redraw its own output perfectly well. `canUseTui` is this plus a terminal on
+ * stdin. `colourDepth()` already folds in `NO_COLOR`, `FORCE_COLOR` and `TERM=dumb`.
+ *
+ * @param {NodeJS.WriteStream} [output]
+ * @returns {boolean}
+ */
+export function canRedraw(output = process.stdout) {
+  if (!output.isTTY) return false;
+  if (isCI()) return false;
+  if (process.env.OPENGEO_NO_TUI) return false;
+  return colourDepth() > 0;
 }
 
 /**

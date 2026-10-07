@@ -1,5 +1,4 @@
-import { isCI } from '../../shared/ci.js';
-import { colourDepth } from '../../shared/render/paint.js';
+import { canRedraw } from '../../shared/render/paint.js';
 
 /**
  * Ownership of the terminal, and giving it back.
@@ -57,10 +56,7 @@ const CLEAR = `${CSI}2J${CSI}H`;
 export function canUseTui(options = {}) {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
-  if (!input.isTTY || !output.isTTY) return false;
-  if (process.env.OPENGEO_NO_TUI) return false;
-  if (isCI()) return false;
-  return colourDepth() > 0;
+  return Boolean(input.isTTY) && canRedraw(output);
 }
 
 /**

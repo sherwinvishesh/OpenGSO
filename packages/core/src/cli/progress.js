@@ -1,6 +1,5 @@
-import { isCI } from '../shared/ci.js';
 import { c } from '../shared/log.js';
-import { colourDepth, terminalWidth, truncate } from '../shared/render/paint.js';
+import { canRedraw, terminalWidth, truncate } from '../shared/render/paint.js';
 import { ink } from '../shared/render/theme.js';
 import { progressMeter } from '../shared/render/meters.js';
 import { spinnerFrame } from './tui/widgets.js';
@@ -48,22 +47,8 @@ const METER_WIDTH = 18;
  * @property {(summary?: string) => void} done `finish`, and stop for good. Nothing paints after this.
  */
 
-/**
- * Whether the live block is appropriate here.
- *
- * Unlike `canUseTui` this does not ask about stdin: nothing here reads a key, so a command being
- * fed from a pipe can still redraw its own output perfectly well. Everything else is the same
- * question, and `colourDepth()` already folds in `NO_COLOR`, `FORCE_COLOR` and `TERM=dumb`.
- *
- * @param {NodeJS.WriteStream} [output]
- * @returns {boolean}
- */
-export function canRedraw(output = process.stdout) {
-  if (!output.isTTY) return false;
-  if (isCI()) return false;
-  if (process.env.OPENGEO_NO_TUI) return false;
-  return colourDepth() > 0;
-}
+// The gate lives with the other terminal-capability questions; re-exported for existing callers.
+export { canRedraw };
 
 /**
  * @param {ProgressOptions} [options]
