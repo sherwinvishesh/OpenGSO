@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { generateCommand } from '../src/cli/commands/generate.js';
 import { testCommand } from '../src/cli/commands/test.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
@@ -114,5 +115,14 @@ describe('opengeo test --timeout', () => {
     await run(testCommand, [site, '--project', root, '--structure', '--json']);
 
     expect(seen.runTestSuite[0]?.timeoutMs).toBeUndefined();
+  });
+});
+
+describe('opengeo generate --json', () => {
+  it('writes nothing to stdout but the JSON, so it can be piped into jq', async () => {
+    const { stdout } = await run(generateCommand, [site, '--project', root, '--json', '--single']);
+
+    expect(() => JSON.parse(stdout)).not.toThrow();
+    expect(JSON.parse(stdout)).toMatchObject({ site });
   });
 });

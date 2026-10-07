@@ -44,6 +44,8 @@ export async function generateCommand(ctx) {
   }
   const tier = /** @type {'free' | 'ai' | undefined} */ (tierFlag) ?? loaded.config.generate.tier;
 
+  // With --json, stdout carries the JSON document and nothing else, or `| jq` breaks.
+  const json = args.bool('json');
   /** @type {((input: EnhanceInput) => Promise<EnhanceOutput>) | undefined} */
   let enhance;
   if (tier === 'ai') {
@@ -53,15 +55,17 @@ export async function generateCommand(ctx) {
       return 1;
     }
     enhance = built.enhance;
-    process.stdout.write(
-      `\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}  ${c.gray(`AI tier, ${built.provider}/${built.model}, ${built.source}`)}\n`,
-    );
-  } else {
+    if (!json) {
+      process.stdout.write(
+        `\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}  ${c.gray(`AI tier, ${built.provider}/${built.model}, ${built.source}`)}\n`,
+      );
+    }
+  } else if (!json) {
     process.stdout.write(`\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${site}\n`);
   }
 
   const single = args.bool('single');
-  const progress = args.bool('json') ? undefined : createProgress();
+  const progress = json ? undefined : createProgress();
   const progressIsLive = canRedraw();
   let lastPhase = '';
   const result = await generateSite({
@@ -108,7 +112,7 @@ export async function generateCommand(ctx) {
   });
   progress?.done();
 
-  if (args.bool('json')) {
+  if (json) {
     process.stdout.write(
       `${JSON.stringify(
         {
