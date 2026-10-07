@@ -6,9 +6,9 @@ import { colourDepth } from './paint.js';
  * A full-screen interface has to switch the terminal into the alternate buffer, hide the cursor and
  * put stdin into raw mode. All three are global mutations of something the user owns, and any exit
  * path that skips the restore leaves them with an invisible cursor and a shell that no longer echoes
- * what they type. So the restore is registered once, on `exit`, on both fatal signals and on an
- * uncaught throw, and it is idempotent: there is no code path out of this process that leaves the
- * terminal changed.
+ * what they type. So the restore is registered on `exit` and on an uncaught throw, and on both fatal
+ * signals while any screen is open, and it is idempotent: there is no code path out of this process
+ * that leaves the terminal changed.
  */
 
 const ESC = String.fromCharCode(27);
@@ -81,6 +81,34 @@ export function restoreScreens() {
   for (const leave of [...openScreens].reverse()) leave();
 }
 
+const onSigint = () => {
+  restoreScreens();
+  process.exit(130);
+};
+
+const onSigterm = () => {
+  restoreScreens();
+  process.exit(143);
+};
+
+/**
+ * The signal hooks are held only while a screen holds the terminal. Held for good, they ran first
+ * and exited on every later Ctrl-C, so `opengeo start` launched from the home screen never got to
+ * close its server.
+ *
+ * @param {boolean} armed
+ * @returns {void}
+ */
+function armSignals(armed) {
+  if (armed) {
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+  } else {
+    process.off('SIGINT', onSigint);
+    process.off('SIGTERM', onSigterm);
+  }
+}
+
 /**
  * Registered once per process, not once per screen.
  *
@@ -95,14 +123,6 @@ function hookExit() {
   hooked = true;
   const cleanup = restoreScreens;
   process.on('exit', cleanup);
-  process.on('SIGINT', () => {
-    cleanup();
-    process.exit(130);
-  });
-  process.on('SIGTERM', () => {
-    cleanup();
-    process.exit(143);
-  });
   process.on('uncaughtException', (error) => {
     cleanup();
     process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
@@ -124,6 +144,7 @@ export function openScreen(options = {}) {
   const enter = () => {
     if (open) return;
     open = true;
+    if (openScreens.length === 0) armSignals(true);
     openScreens.push(leave);
     output.write(ALT_ON + CURSOR_HIDE + CLEAR);
     if (input.isTTY && !input.isRaw) input.setRawMode(true);
@@ -135,6 +156,7 @@ export function openScreen(options = {}) {
     open = false;
     const index = openScreens.lastIndexOf(leave);
     if (index !== -1) openScreens.splice(index, 1);
+    if (openScreens.length === 0) armSignals(false);
     if (input.isTTY && input.isRaw) input.setRawMode(false);
     output.write(CURSOR_SHOW + ALT_OFF);
   }

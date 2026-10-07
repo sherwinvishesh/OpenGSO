@@ -1,5 +1,5 @@
 import { PassThrough } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   centre,
   colourDepth,
@@ -317,5 +317,26 @@ describe('the terminal safety net', () => {
     expect(terminal.raw()).toBe(false);
     expect(terminal.written().endsWith(`${ESC}[?25h${ESC}[?1049l`)).toBe(true);
     outer.close();
+  });
+
+  it('leaves Ctrl-C to whoever else is listening once the screens are closed, such as the dashboard', () => {
+    /** @type {unknown[]} */
+    const exits = [];
+    const exit = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      exits.push(code);
+      return /** @type {never} */ (undefined);
+    });
+    const stop = vi.fn();
+    try {
+      // The home screen has been and gone by the time it launches `opengeo start`.
+      openScreen(fakeTerminal()).close();
+      process.once('SIGINT', stop);
+      process.emit('SIGINT');
+    } finally {
+      process.off('SIGINT', stop);
+      exit.mockRestore();
+    }
+    expect(stop).toHaveBeenCalled();
+    expect(exits).toEqual([]);
   });
 });
