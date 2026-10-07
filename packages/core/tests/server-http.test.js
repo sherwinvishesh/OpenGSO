@@ -191,18 +191,23 @@ describe('what the API refuses over the wire', () => {
     expect(/** @type {{ error: string }} */ (await response.json()).error).toContain('not valid JSON');
   });
 
-  it('stops reading a body past the 2 MiB cap', async () => {
-    const response = await hit('/api/config', postJson({ site: 'x'.repeat(2 * 1024 * 1024 + 16) })).catch(
-      (/** @type {unknown} */ error) => error,
-    );
-    // The server destroys the request once it is over the cap, so the client sees either the 400 or
-    // a reset socket depending on how much it had already written. Both mean the body was refused.
-    if (response instanceof Response) {
-      expect(response.status).toBe(400);
+  /**
+   * It used to destroy the request on the spot, which closed the socket before the 400 was written,
+   * so every client saw a reset and the dashboard reported an unreachable server instead.
+   */
+  it('refuses a body past the 2 MiB cap with a 400 the client actually receives', async () => {
+    for (const size of [2 * 1024 * 1024 + 16, 8 * 1024 * 1024]) {
+      const response = await hit('/api/config', postJson({ site: 'x'.repeat(size) }));
+      expect(response.status, String(size)).toBe(400);
       expect(/** @type {{ error: string }} */ (await response.json()).error).toContain('too large');
-    } else {
-      expect(response).toBeInstanceOf(Error);
     }
+    expect(existsSync(join(root, 'opengeo.config.json'))).toBe(false);
+  });
+
+  it('still reads a body right up to the cap', async () => {
+    const padding = ' '.repeat(2 * 1024 * 1024 - JSON.stringify({ site: 'http://localhost:4000' }).length);
+    const response = await hit('/api/config', postJson(`${JSON.stringify({ site: 'http://localhost:4000' })}${padding}`));
+    expect(response.status).toBe(200);
   });
 
   it('names a missing endpoint with a 404', async () => {

@@ -507,7 +507,11 @@ function readJsonBody(request) {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
         rejectBody(new Error('Request body too large.'));
-        request.destroy();
+        // Not `destroy()`: that ran before the 400 was written and took the socket with it, so the
+        // client only ever saw a reset. The rest is drained and dropped, so memory stays capped and
+        // the 400 saying why actually arrives.
+        request.removeAllListeners('data');
+        request.resume();
         return;
       }
       chunks.push(chunk);
