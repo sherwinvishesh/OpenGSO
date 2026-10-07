@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -167,5 +167,17 @@ describe('opengeo generate --json', () => {
 
     expect(() => JSON.parse(stdout)).not.toThrow();
     expect(JSON.parse(stdout)).toMatchObject({ site });
+  });
+});
+
+describe('opengeo test --out', () => {
+  it('writes the human report to the file instead of the terminal', async () => {
+    const file = join(root, 'report.txt');
+    const { stdout } = await run(testCommand, [site, '--structure', '--out', file, '--project', root]);
+    const written = readFileSync(file, 'utf8');
+    expect(written).toContain('OpenGEO test');
+    expect(written).toContain('/100');
+    expect(stdout).not.toContain('OpenGEO test');
+    expect(stdout).toContain(`Wrote ${file}`);
   });
 });

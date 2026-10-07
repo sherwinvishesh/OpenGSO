@@ -93,7 +93,13 @@ export async function testCommand(ctx) {
   // Read before the run, so the headline can say what moved. `recordRun` appends afterwards.
   const internalDir = internalDirPath(loaded);
   const history = readHistory(internalDir);
-  const printer = json ? undefined : progressPrinter(args.bool('verbose'), history);
+  // With --out the report is collected for the file and the terminal keeps only the progress.
+  const out = args.str('out');
+  /** @type {string[]} */
+  const report = [];
+  /** @type {(text: string) => void} */
+  const write = out ? (text) => void report.push(text) : (text) => void process.stdout.write(text);
+  const printer = json ? undefined : progressPrinter(args.bool('verbose'), history, write);
   const result = await runTestSuite(target.toString(), {
     mode,
     timeoutMs,
@@ -111,11 +117,12 @@ export async function testCommand(ctx) {
   // Its one warning goes to stderr, so a --json run's stdout stays clean.
   recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
-  if (json) return writeOut(`${suiteJson(result)}\n`, args.str('out'), suiteExitCode(result));
+  if (json) return writeOut(`${suiteJson(result)}\n`, out, suiteExitCode(result));
 
   // The structural report has already been printed by the progress printer, so that a long content
   // pass never hides the half of the answer that is already known.
-  writeContent(result);
+  writeContent(result, write);
+  if (out) return writeOut(report.join(''), out, suiteExitCode(result));
   return suiteExitCode(result);
 }
 
@@ -167,9 +174,10 @@ function writeOut(text, out, code) {
  *
  * @param {boolean} verbose
  * @param {History} history
+ * @param {(text: string) => void} write Where the report goes: stdout, or the buffer for `--out`.
  * @returns {{ onProgress: (event: SuiteProgress) => void; close: () => void }}
  */
-function progressPrinter(verbose, history) {
+function progressPrinter(verbose, history, write) {
   const progress = createProgress();
   /** @param {SuiteProgress} event */
   const onProgress = (event) => {
@@ -181,7 +189,7 @@ function progressPrinter(verbose, history) {
         // The report is the thing the user came for, so it is printed the moment it exists rather
         // than after a content pass that can take another minute.
         progress.finish();
-        process.stdout.write(renderReport(event.result, { verbose, history }));
+        write(renderReport(event.result, { verbose, history }));
         break;
       case 'discover':
         progress.phase('Looking for Markdown documents');
@@ -202,22 +210,23 @@ function progressPrinter(verbose, history) {
 
 /**
  * @param {SuiteResult} result
+ * @param {(text: string) => void} write
  * @returns {void}
  */
-function writeContent(result) {
+function writeContent(result, write) {
   // A provider's error body can end up in contentError, and it is the provider's text, not ours.
   result = terminalSafe(result);
   if (result.mode === 'content' && result.discovery) {
-    process.stdout.write(renderDiscovery(result.discovery));
+    write(renderDiscovery(result.discovery));
   }
   if (result.content) {
-    process.stdout.write(renderContentReport(result.content, result.discovery));
+    write(renderContentReport(result.content, result.discovery));
   }
   if (result.contentSkipped) {
-    process.stdout.write(`\n${c.gray('Content review skipped.')}\n${result.contentSkipped}\n\n`);
+    write(`\n${c.gray('Content review skipped.')}\n${result.contentSkipped}\n\n`);
   }
   if (result.contentError) {
-    process.stdout.write(`${c.yellow('Content review failed.')}\n${result.contentError}\n\n`);
+    write(`${c.yellow('Content review failed.')}\n${result.contentError}\n\n`);
   }
 }
 
