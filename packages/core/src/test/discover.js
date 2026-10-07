@@ -1,7 +1,10 @@
 import { probe } from '../shared/http.js';
 import { isMarkdownPath, twinUrl } from '../shared/routes.js';
 
-/** @import { Evidence } from './evidence.js' */
+/**
+ * @import { Evidence } from './evidence.js'
+ * @import { ProbeResult } from '../shared/http.js'
+ */
 
 /**
  * Finding every Markdown document a site actually serves (§5).
@@ -69,6 +72,7 @@ export async function discoverTwins(target, options = {}) {
         probe(new URL('/llms.txt', target.origin).toString(), { timeoutMs }),
         probe(new URL('/sitemap.xml', target.origin).toString(), { timeoutMs }),
       ]);
+  const childSitemaps = evidence ? (evidence.sitemapChildren ?? []) : await fetchChildSitemaps(sitemap, target.origin, timeoutMs);
 
   /** @type {Map<string, TwinSource>} */
   const candidates = new Map();
@@ -83,6 +87,7 @@ export async function discoverTwins(target, options = {}) {
   add(requested, evidence?.advertisedTwinUrl === requested ? 'advertised' : 'requested');
   if (llms.ok) for (const url of markdownLinksIn(llms.body, target.origin)) add(url, 'llms.txt');
   if (sitemap.ok) for (const url of sitemapTwins(sitemap.body, target.origin)) add(url, 'sitemap.xml');
+  for (const child of childSitemaps) if (child.ok) for (const url of sitemapTwins(child.body, target.origin)) add(url, 'sitemap.xml');
 
   const all = [...candidates.entries()];
   const fetching = all.slice(0, maxFetch);
@@ -184,6 +189,9 @@ export function markdownLinksIn(body, origin) {
 /**
  * Every `<loc>` in a sitemap, mapped through the twin-URL convention.
  *
+ * A sitemap index yields nothing: its `<loc>`s are other sitemaps, and `/sitemap-1.xml.md` is not a
+ * document anyone serves. The caller reads the children through `fetchChildSitemaps` instead.
+ *
  * @param {string} body
  * @param {string} origin
  * @returns {string[]}
@@ -193,14 +201,8 @@ export function sitemapTwins(body, origin) {
   const out = [];
   /** @type {Set<string>} */
   const seen = new Set();
-  for (const [, loc] of body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
-    /** @type {URL} */
-    let url;
-    try {
-      url = new URL(decodeEntities(/** @type {string} */ (loc)), origin);
-    } catch {
-      continue;
-    }
+  if (isSitemapIndex(body)) return out;
+  for (const url of sitemapLocs(body, origin)) {
     if (url.origin !== origin) continue;
     const candidate = isMarkdownPath(url.pathname) ? url.toString() : twinUrl(url.toString());
     if (!seen.has(candidate)) {
@@ -209,6 +211,55 @@ export function sitemapTwins(body, origin) {
     }
   }
   return out;
+}
+
+/** A sitemap index can list thousands of sitemaps. This many are read; the reason says when there were more. */
+export const MAX_CHILD_SITEMAPS = 10;
+
+/**
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function isSitemapIndex(body) {
+  return /<sitemapindex[\s>]/i.test(body);
+}
+
+/**
+ * Every parseable `<loc>` in a sitemap or sitemap index, resolved against `base`.
+ *
+ * @param {string} body
+ * @param {string} base
+ * @returns {URL[]}
+ */
+export function sitemapLocs(body, base) {
+  /** @type {URL[]} */
+  const out = [];
+  for (const [, loc] of body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)) {
+    try {
+      out.push(new URL(decodeEntities(/** @type {string} */ (loc)), base));
+    } catch {
+      // A malformed <loc> is skipped, the same as a crawler would.
+    }
+  }
+  return out;
+}
+
+/**
+ * The sitemaps a sitemap index points at, fetched. Empty for anything that is not an index.
+ *
+ * Each child is fetched at its path on the audited origin. That keeps the request on the site being
+ * tested, for the reason evidence.js gives for an advertised twin, and it still works when a local
+ * run reads an index written for the production host.
+ *
+ * @param {ProbeResult} sitemap
+ * @param {string} origin
+ * @param {number} timeoutMs
+ * @returns {Promise<ProbeResult[]>}
+ */
+export async function fetchChildSitemaps(sitemap, origin, timeoutMs) {
+  if (!sitemap.ok || !isSitemapIndex(sitemap.body)) return [];
+  const children = sitemapLocs(sitemap.body, origin).slice(0, MAX_CHILD_SITEMAPS);
+  return Promise.all(children.map((url) => probe(new URL(`${url.pathname}${url.search}`, origin).toString(), { timeoutMs })));
 }
 
 /**

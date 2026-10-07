@@ -133,10 +133,14 @@ but has no `# Title` heading.
 ### A3 - sitemap.xml is present and valid
 **Required, weight 9.**
 
-Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<loc>`.
+Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<loc>`. A
+`<sitemapindex>` is followed: the first 10 sitemaps it lists are fetched at their paths on the site
+under test, and the page is looked for in those.
 
-**Partial: 3** when something answers at that URL but has no `<urlset>` root or no `<loc>` entries,
-**6** when it is a valid sitemap that does not list the page under test.
+**Partial: 3** when something answers at that URL but has no `<urlset>` root or no `<loc>` entries
+(for an index, when none of its sitemaps answers with a `<urlset>`), **6** when it is a valid
+sitemap that does not list the page under test. An index listing more than 10 sitemaps, none of the
+first 10 listing the page, passes with that limit stated, because the rest were not read.
 
 **Fix:** `opengeo generate` writes one. If your framework already generates a sitemap, keep it:
 OpenGEO never overwrites a file it did not write.

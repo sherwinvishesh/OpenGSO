@@ -10,7 +10,7 @@ import { verifyFidelity } from '../generate/fidelity.js';
 import { contentHash } from '../shared/hash.js';
 import { checkDefinition } from './checks.js';
 import { fail, na, partial, pass, ramp } from './checks.js';
-import { looksLikeHtml } from './discover.js';
+import { isSitemapIndex, looksLikeHtml, MAX_CHILD_SITEMAPS, sitemapLocs } from './discover.js';
 
 /**
  * @import { CheckResult } from './checks.js'
@@ -299,6 +299,7 @@ function checkSitemap(e) {
       fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `opengeo generate` writes one from the crawl.',
     });
   }
+  if (isSitemapIndex(body)) return checkSitemapIndex(e);
   const listed = Array.from(body.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi), (match) => /** @type {string} */ (match[1]));
   const locs = listed.length;
   if (locs === 0) {
@@ -320,6 +321,44 @@ function checkSitemap(e) {
     });
   }
   return pass('A3', `sitemap.xml is present and valid, listing ${locs} URL${locs === 1 ? '' : 's'}.`);
+}
+
+/**
+ * A3 for a `<sitemapindex>`, whose `<loc>`s are other sitemaps rather than pages.
+ *
+ * The page under test can only ever be in one of the children, so the children are what is read.
+ * When the index lists more than were fetched and none of those lists the page, nothing true can be
+ * said about the rest, so it passes with the limit in the detail rather than charging for a page
+ * that may well be in sitemap number eleven.
+ *
+ * @param {Evidence} e
+ * @returns {CheckResult}
+ */
+function checkSitemapIndex(e) {
+  const declared = sitemapLocs(e.sitemap.body, e.origin).length;
+  const children = (e.sitemapChildren ?? []).filter((child) => child.ok && /<urlset[\s>]/i.test(child.body));
+  const plural = (/** @type {number} */ n, /** @type {string} */ word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  if (children.length === 0) {
+    return partial('A3', 3, `sitemap.xml is a sitemap index listing ${plural(declared, 'sitemap')}, but none that was fetched answered with a <urlset>, so it advertises no pages.`, {
+      fix: 'Serve each sitemap the index lists, as a `<urlset>` with one `<url><loc>` per page (+6).',
+    });
+  }
+  const pages = children.flatMap((child) => sitemapLocs(child.body, e.origin));
+  const target = locPath(e.target.pathname, e.target);
+  const read = `${plural(children.length, 'sitemap')} it lists`;
+  if (pages.some((loc) => locPath(loc.toString(), e.target) === target)) {
+    return pass('A3', `sitemap.xml is a sitemap index, and ${e.target.pathname} is listed in the ${read}.`);
+  }
+  if (declared > MAX_CHILD_SITEMAPS) {
+    return pass(
+      'A3',
+      `sitemap.xml is a valid sitemap index listing ${plural(declared, 'sitemap')}.`,
+      `${e.target.pathname} is not in the first ${MAX_CHILD_SITEMAPS}, and the rest were not fetched.`,
+    );
+  }
+  return partial('A3', 6, `sitemap.xml is a sitemap index, and none of the ${read} include ${e.target.pathname}, so at least one real page is missing from them.`, {
+    fix: `Add ${e.target.pathname} and any other missing pages to one of the sitemaps the index lists (+3). \`opengeo generate\` writes a single sitemap from a crawl.`,
+  });
 }
 
 /**

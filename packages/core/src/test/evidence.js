@@ -2,6 +2,7 @@ import { botUserAgent, routingProbeBot } from '../shared/bots.js';
 import { BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
+import { fetchChildSitemaps } from './discover.js';
 
 /**
  * @import { AiBot } from '../shared/bots.js'
@@ -39,6 +40,8 @@ export const PROBE_HEADERS = {
  * @property {ProbeResult} robots
  * @property {ProbeResult} llms
  * @property {ProbeResult} sitemap
+ * @property {ProbeResult[]} [sitemapChildren] When `sitemap` is a sitemap index, the first `MAX_CHILD_SITEMAPS` sitemaps it lists,
+ *   fetched. Absent or empty otherwise.
  * @property {ProbeResult} twin The markdown twin, fetched at its canonical URL (or the one the HTML advertised).
  * @property {string} twinUrl
  * @property {string} [advertisedTwinUrl]
@@ -89,6 +92,7 @@ export async function gatherEvidence(target, options = {}) {
     probe(target.toString(), { headers: botHeaders, timeoutMs }),
     probe(target.toString(), { headers: PROBE_HEADERS.notAcceptable, timeoutMs }),
   ]);
+  const sitemapChildren = await fetchChildSitemaps(sitemap, origin, timeoutMs);
 
   return {
     target,
@@ -97,6 +101,7 @@ export async function gatherEvidence(target, options = {}) {
     robots,
     llms,
     sitemap,
+    sitemapChildren,
     twin,
     twinUrl: canonicalTwinUrl,
     advertisedTwinUrl,
