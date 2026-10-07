@@ -48,11 +48,13 @@ import { canUseTui } from './tui/screen.js';
  */
 export async function runOnboarding(options) {
   const { root, mode, autoAccept } = options;
-  const interactive = !autoAccept;
+  const output = options.output ?? process.stdout;
+  // The list in the note above. `--yes` alone was checked, so a pipe or a CI job still had its site
+  // probed, tested and recorded by a setup nobody was watching.
+  const interactive = !autoAccept && Boolean((options.input ?? process.stdin).isTTY && output.isTTY) && !process.env.CI;
   const stepper = interactive ? openStepper({ input: options.input, output: options.output, tag: options.tag }) : undefined;
   /** @type {Prompter} */
   const prompter = stepper?.prompter ?? createPrompter({ autoAccept, input: options.input, output: options.output });
-  const output = options.output ?? process.stdout;
   const write = stepper ? (/** @type {string} */ text) => stepper.write(text) : (/** @type {string} */ text) => void output.write(text);
 
   try {

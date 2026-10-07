@@ -1,11 +1,13 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateCommand } from '../src/cli/commands/generate.js';
 import { openBrowser } from '../src/cli/commands/start.js';
 import { testCommand } from '../src/cli/commands/test.js';
+import { runOnboarding } from '../src/cli/onboarding.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 
@@ -47,8 +49,12 @@ let site;
 /** @type {string} */
 let root;
 
+/** How many requests the site has had, so a test can show that a command made none. */
+let requests = 0;
+
 beforeAll(async () => {
   server = createServer((_req, res) => {
+    requests += 1;
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end('<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1></main></body></html>');
   });
@@ -126,6 +132,32 @@ describe('opengeo start, opening the browser', () => {
     const child = openBrowser('http://127.0.0.1:1/', 'opengeo-no-such-opener-binary');
     await new Promise((resolve) => child?.once('close', resolve));
     expect(child?.listenerCount('error')).toBeGreaterThan(0);
+  });
+});
+
+describe('a first run with nobody at the keyboard', () => {
+  it('neither probes nor tests the site, and records no run, even without --yes', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    // Readline drops a line that arrives before its question, so each answer is typed once its
+    // question is on screen: the URL for the first, Enter for every default after it.
+    output.on('data', (chunk) => {
+      const text = String(chunk).replace(/\x1b\[[0-9;]*m/g, '');
+      if (text.includes('Site URL')) input.write(`${site}\n`);
+      else if (/\]\s*$/.test(text)) input.write('\n');
+    });
+    requests = 0;
+
+    const result = await runOnboarding({
+      root,
+      mode: 'first-run',
+      input: /** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (input)),
+      output: /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (output)),
+    });
+
+    expect(result.config.site).toBe(site);
+    expect(requests).toBe(0);
+    expect(existsSync(join(root, '.opengeo', 'history.json'))).toBe(false);
   });
 });
 
