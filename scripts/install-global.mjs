@@ -12,8 +12,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+// `.pathname` keeps percent-escapes and a leading slash before a drive letter, so a checkout under a
+// path with a space, or any checkout on Windows, would hand npm a directory that does not exist.
+const root = fileURLToPath(new URL('..', import.meta.url));
 const run = (args) => execFileSync('npm', args, { cwd: root, stdio: 'inherit' });
 
 const skipBuild = process.argv.includes('--no-build');
