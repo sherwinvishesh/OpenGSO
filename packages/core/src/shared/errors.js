@@ -359,6 +359,12 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `Paste it again without the trailing newline.`,
     ].join('\n'),
 
+  keyMissing: () => 'No key was provided, so nothing was written.',
+
+  /** @param {string} provider */
+  keyNotKept: (provider) =>
+    `Paste the key for ${provider}. A blank key only keeps the saved one when the provider and endpoint stay the same, so a saved key is never sent somewhere it was not pasted for. Nothing was written.`,
+
   /** @param {'test' | 'generate'} kind */
   runInProgress: (kind) =>
     `A ${kind} is already running for this project. Wait for it to finish, or close the tab that started it, which stops it.`,

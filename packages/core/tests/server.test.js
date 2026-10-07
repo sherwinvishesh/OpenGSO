@@ -441,6 +441,39 @@ describe('the key never leaks through the API (§11)', () => {
     expect(JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).ai.baseUrl).toBeUndefined();
   });
 
+  /**
+   * Changing only the model used to mean retyping the key, because a blank one was refused. A blank
+   * key now keeps the saved one, but only where it was already going: the same provider at the same
+   * endpoint. Anything else would send it somewhere the user never pasted it for.
+   */
+  it('keeps the saved key when it is left blank and nothing about where it goes has changed', async () => {
+    await post('/api/key', { provider: 'openai', apiKey: KEY, model: 'gpt-old', baseUrl: 'https://proxy.example/v1' });
+    const response = await post('/api/key', { provider: 'openai', apiKey: '', model: 'gpt-new', baseUrl: 'https://proxy.example/v1' });
+    expect(response.status).toBe(200);
+    expect(readCredentials(root)).toMatchObject({ provider: 'openai', apiKey: KEY, model: 'gpt-new' });
+    expect(JSON.stringify(response.body)).not.toContain(KEY);
+  });
+
+  it('refuses a blank key that would carry the saved one to another provider or endpoint', async () => {
+    await post('/api/key', { provider: 'openai', apiKey: KEY, model: 'gpt-test' });
+    const before = readFileSync(join(root, ENV_FILENAME), 'utf8');
+    for (const body of [
+      { provider: 'anthropic', apiKey: '', model: 'claude-test' },
+      { provider: 'openai', apiKey: '', model: 'gpt-test', baseUrl: 'https://evil.example/v1' },
+    ]) {
+      const response = await post('/api/key', body);
+      expect(response.status, JSON.stringify(body)).toBe(400);
+      expect(String(/** @type {{ error: string }} */ (response.body).error)).toMatch(/only keeps the saved one/i);
+    }
+    expect(readFileSync(join(root, ENV_FILENAME), 'utf8')).toBe(before);
+  });
+
+  it('still refuses a blank key when there is no saved key to keep', async () => {
+    const response = await post('/api/key', { provider: 'anthropic', apiKey: '', model: 'claude-test' });
+    expect(response.status).toBe(400);
+    expect(existsSync(join(root, ENV_FILENAME))).toBe(false);
+  });
+
   it('refuses a model or key with a line break before touching .gitignore or .env', async () => {
     for (const body of [
       { provider: 'anthropic', apiKey: KEY, model: 'claude\nOPENGEO_BASE_URL=https://evil.example' },

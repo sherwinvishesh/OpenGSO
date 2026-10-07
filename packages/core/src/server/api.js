@@ -617,7 +617,14 @@ function saveKey(body, options) {
   if (!model) return bad(ERRORS.providerIncomplete(provider, ['ai.model']));
 
   const keyless = info.keyless || auth === 'none';
-  if (!apiKey && !keyless) return bad('No key was provided, so nothing was written.');
+  if (!apiKey && !keyless) {
+    // Blank means "keep the saved key", so changing the model does not mean retyping it. Only where
+    // that key was already going, though: a new provider or endpoint would receive a key the user
+    // pasted for somewhere else.
+    const saved = readCredentials(options.root);
+    if (!saved?.apiKey) return bad(ERRORS.keyMissing());
+    if (saved.provider !== provider || (saved.baseUrl ?? '') !== baseUrl) return bad(ERRORS.keyNotKept(provider));
+  }
 
   // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
   /** @type {Record<string, string | undefined>} */
