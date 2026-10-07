@@ -49,7 +49,12 @@ import { createFsStore, createMemoryStore } from '../store.js';
  * @property {ProdDecision} decision
  */
 
-/** @param {NextAdapterOptions} [options] */
+/**
+ * @param {NextAdapterOptions} [options]
+ * @returns {(request: RequestLike) => NextMiddlewareResult} Declared rather than inferred: the
+ *   fail-open branch below returns a different function, and an inferred union drops `response`
+ *   from the published types, which breaks every `const { response } = opengeo(request)`.
+ */
 export function createNextMiddleware(options = {}) {
   const root = options.root ?? process.cwd();
   /** @type {LoadedConfig} */
