@@ -1,4 +1,4 @@
-import { c, heading, SYM } from '../shared/log.js';
+import { c, heading, SYM, terminalSafe } from '../shared/log.js';
 import { terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
 import { ink } from '../cli/tui/theme.js';
 import { meter } from '../cli/tui/widgets.js';
@@ -19,6 +19,7 @@ export interface VerifyReportOptions {
 }
 
 export function renderProdVerification(result: ProdVerification, options: VerifyReportOptions = {}): string {
+  result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
   const lines: string[] = [];
 

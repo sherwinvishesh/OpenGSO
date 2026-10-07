@@ -327,6 +327,15 @@ describe('output', () => {
     expect(text).toContain('prod has no blocking code path');
   });
 
+  it('prints what the deployed server said without letting it drive the terminal', async () => {
+    const result = await verifyProd(site);
+    result.probes[0].reason = 'served \u001b]0;pwned\u0007\u001b[2K\rtext/html';
+    const text = renderProdVerification(result, { verbose: true });
+    const ours = text.replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(ours).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+    expect(ours).toContain('pwned');
+  });
+
   it('prints a reproducible curl for every probe under --verbose', async () => {
     const result = await verifyProd(site);
     const text = renderProdVerification(result, { verbose: true });

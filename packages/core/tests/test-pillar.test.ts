@@ -533,6 +533,19 @@ describe('the score stays honest when most of the checklist cannot apply', () =>
     expect(scoreChecks(checks).value).toBe(100);
   });
 
+  it('prints a reason built from page bytes without letting them drive the terminal', () => {
+    const result = testEvidence(goodEvidence());
+    const check = result.checks.find((entry) => entry.status !== 'na') ?? result.checks[0];
+    // As the A4 reason did, quoting a JSON-LD block that carried a title-setting escape.
+    check.status = 'fail';
+    check.reason = 'JSON-LD names \u001b]0;pwned\u0007\u001b[2K\rsomething';
+    check.detail = '\u001b[8mhidden';
+    const report = renderReport(result, { verbose: true });
+    const ours = report.replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(ours).not.toMatch(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+    expect(ours).toContain('pwned');
+  });
+
   it('never returns a letter grade or a tier label anywhere in the report', () => {
     const report = renderReport(testEvidence(goodEvidence()), { verbose: true });
     const plain = report.replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');

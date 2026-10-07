@@ -1,5 +1,5 @@
 import { relative } from 'node:path';
-import { c, heading } from '../../shared/log.js';
+import { c, heading, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
 import type { AiProvider } from '../../shared/providers.js';
 import { isCI } from '../../shared/env.js';
@@ -118,8 +118,10 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     return result.generate.pages.some((page) => page.status === 'failed') ? 1 : 0;
   }
 
+  // Provider error bodies and page warnings are remote text, so they are cleaned before printing.
+  const report = terminalSafe(result);
   process.stdout.write(`${heading('Pages')}\n`);
-  for (const page of result.generate.pages) {
+  for (const page of report.generate.pages) {
     const label =
       page.status === 'written'
         ? c.green('written')
@@ -136,9 +138,9 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     for (const warning of page.warnings) process.stdout.write(`          ${c.yellow('warn')} ${warning}\n`);
   }
 
-  if (result.files.length > 0) {
+  if (report.files.length > 0) {
     process.stdout.write(`${heading('Site files')}\n`);
-    for (const file of result.files) {
+    for (const file of report.files) {
       const label =
         file.status === 'written'
           ? c.green('written')
@@ -155,7 +157,7 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     }
   }
 
-  const pages = result.generate.pages;
+  const pages = report.generate.pages;
   const written = pages.filter((page) => page.status === 'written').length;
   const failed = pages.filter((page) => page.status === 'failed').length;
   const aiPages = pages.filter((page) => page.tier === 'ai').length;
@@ -164,16 +166,16 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
   process.stdout.write(
     `\n  ${written} written, ${pages.length - written - failed} unchanged${failed > 0 ? `, ${c.red(`${failed} failed`)}` : ''}` +
       `${tier === 'ai' ? `, ${aiPages} AI-enhanced${fellBack > 0 ? `, ${c.yellow(`${fellBack} fell back on fidelity`)}` : ''}` : ''}` +
-      ` ${c.gray(`in ${result.durationMs}ms`)}\n`,
+      ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
-  process.stdout.write(`  ${c.gray(`Output: ${relative(process.cwd(), result.generate.publicDir) || result.generate.publicDir}`)}\n`);
+  process.stdout.write(`  ${c.gray(`Output: ${relative(process.cwd(), report.generate.publicDir) || report.generate.publicDir}`)}\n`);
 
-  const crawlWarnings = result.warnings.filter((w) => !w.includes('.opengeo-proposed'));
+  const crawlWarnings = report.warnings.filter((w) => !w.includes('.opengeo-proposed'));
   if (crawlWarnings.length > 0) {
     process.stdout.write(`${heading('Notes')}\n`);
     for (const warning of crawlWarnings) process.stdout.write(`  ${c.yellow('warn')} ${warning}\n`);
   }
-  for (const file of result.files) {
+  for (const file of report.files) {
     if (file.status === 'proposed' && file.message) {
       process.stdout.write(`\n${indent(file.message)}\n`);
     }

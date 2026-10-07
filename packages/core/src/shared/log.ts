@@ -40,3 +40,38 @@ export const SYM = {
 export function heading(text: string): string {
   return `\n${c.bold(text)}\n${c.gray('-'.repeat(Math.max(text.length, 8)))}`;
 }
+
+/**
+ * Bytes a terminal would act on rather than print: C0 controls other than newline and tab (ESC,
+ * BEL, carriage return), DEL, the C1 block (0x9b is a one-byte CSI), and the bidi overrides that
+ * make text read in a different order from the order it is in.
+ */
+const TERMINAL_UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩]/g;
+
+/**
+ * Remote text, made printable.
+ *
+ * A tested page, a provider's error body and a model's answer can all carry escape sequences that
+ * set the window title, write the clipboard, erase lines or hide everything after them. Dropping
+ * the control bytes leaves the rest as inert, readable text.
+ */
+export function terminalText(text: string): string {
+  return text.replace(TERMINAL_UNSAFE, '');
+}
+
+/**
+ * {@link terminalText} over every string in a result, as a copy.
+ *
+ * This is the render boundary: each renderer cleans what it was handed before adding any colour of
+ * its own, so one call covers every field and a new field is covered without anyone remembering.
+ * Only plain objects and arrays are walked. JSON output does not come through here, because
+ * `JSON.stringify` already escapes control characters and the data should stay exact.
+ */
+export function terminalSafe<T>(value: T): T {
+  if (typeof value === 'string') return terminalText(value) as T;
+  if (Array.isArray(value)) return value.map((item) => terminalSafe(item)) as T;
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, terminalSafe(item)])) as T;
+  }
+  return value;
+}

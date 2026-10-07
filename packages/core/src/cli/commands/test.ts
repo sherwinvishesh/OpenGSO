@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { resolveBots } from '../../shared/bots.js';
-import { c } from '../../shared/log.js';
+import { c, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
 import { internalDirPath } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
@@ -171,6 +171,8 @@ function progressPrinter(verbose: boolean, history: History): { onProgress: (eve
 }
 
 function writeContent(result: SuiteResult): void {
+  // A provider's error body can end up in contentError, and it is the provider's text, not ours.
+  result = terminalSafe(result);
   if (result.mode === 'content' && result.discovery) {
     process.stdout.write(renderDiscovery(result.discovery));
   }

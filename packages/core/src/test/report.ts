@@ -1,4 +1,4 @@
-import { c, SYM, heading } from '../shared/log.js';
+import { c, SYM, heading, terminalSafe } from '../shared/log.js';
 import { meter, lockedMeter, sparkline } from '../cli/tui/widgets.js';
 import { scoreInk, bandColour, ink } from '../cli/tui/theme.js';
 import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
@@ -43,6 +43,7 @@ export interface ReportOptions {
 }
 
 export function renderReport(result: TestResult, options: ReportOptions = {}): string {
+  result = terminalSafe(result);
   const lines: string[] = [];
   const { checks, score } = result;
   const width = options.width ?? terminalWidth();
@@ -161,6 +162,7 @@ function renderLocked(blocked: CheckResult[], score: Score, width: number): stri
  * implementation of "how many points is this worth" is exactly how the two start disagreeing.
  */
 export function renderSetupScore(result: TestResult, options: ReportOptions = {}): string {
+  result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
   const lines = [renderScore(result.url, result.score, options)];
   lines.push(...renderNextSteps(result.checks, result.score, width));
@@ -406,6 +408,7 @@ export function suiteJson(result: SuiteResult): string {
  * nothing here is added to, subtracted from, or averaged into the one above it.
  */
 export function renderQuality(review: QualityReview, options: { heading?: string } = {}): string {
+  review = terminalSafe(review);
   const lines: string[] = [];
   lines.push(heading(options.heading ?? 'Content quality (AI review, separate from the score above)'));
   lines.push(`  ${c.gray(`${review.provider} ${review.model}`)}`);
@@ -488,6 +491,8 @@ function priorityTag(priority: Priority): string {
  * the per-document detail follows.
  */
 export function renderContentReport(review: ContentReview, discovery?: DiscoveryResult): string {
+  review = terminalSafe(review);
+  discovery = terminalSafe(discovery);
   const lines: string[] = [];
   const reviewed = review.documents.filter((doc) => doc.review);
   const failed = review.documents.filter((doc) => doc.error);
@@ -607,6 +612,7 @@ function bar(score: number, width: number): string {
  * run turns up nothing, because "which documents did you even look at" is the first question.
  */
 export function renderDiscovery(discovery: DiscoveryResult): string {
+  discovery = terminalSafe(discovery);
   const lines: string[] = [];
   lines.push(heading(`Markdown documents found (${discovery.twins.length})`));
   for (const twin of discovery.twins) {
