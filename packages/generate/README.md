@@ -92,7 +92,8 @@ on unless you pass `--force`.
 ## The crawl
 
 Same-origin breadth-first search over real `<a href>` links, starting from the URL you give it.
-Depth and page caps come from your config (`crawl.maxDepth`, `crawl.maxPages`). Assets, anchors and
+Depth and page caps come from your config (`crawl.maxDepth`, `crawl.maxPages`). The page cap counts
+every request the crawl makes, a 404 or a redirect off the site included. Assets, anchors and
 query-only variants of a page already seen are skipped. `extraRoutes` in the config adds pages that
 nothing links to. An entry with a `.` or `..` segment is skipped with a warning, and no twin is ever
 written outside `public/md/`. A page that redirects to another origin is skipped rather than written

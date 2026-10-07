@@ -330,6 +330,29 @@ describe('crawlSite', () => {
     });
   });
 
+  it('counts every request against the page cap, not only the ones that succeeded', async () => {
+    const { createServer } = await import('node:http');
+    const { crawlSite } = await import('@opengeo/core/generate');
+    let requests = 0;
+    const links = Array.from({ length: 50 }, (_, i) => `<a href="/missing-${i}">x</a>`).join('');
+    const server = createServer((req, res) => {
+      requests += 1;
+      if (req.url === '/') res.writeHead(200, { 'content-type': 'text/html' }).end(`<html><body>${links}</body></html>`);
+      else res.writeHead(404, { 'content-type': 'text/html' }).end('<html><body>nope</body></html>');
+    });
+    await /** @type {Promise<void>} */ (new Promise((resolve) => server.listen(0, '127.0.0.1', resolve)));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+    try {
+      const result = await crawlSite({ site: `http://127.0.0.1:${port}`, maxPages: 5 });
+      expect(requests).toBe(5);
+      expect(result.pages).toHaveLength(1);
+      expect(result.warnings.join(' ')).toContain('maxPages');
+    } finally {
+      await /** @type {Promise<void>} */ (new Promise((resolve) => server.close(() => resolve())));
+    }
+  });
+
   it('stops at the depth cap and says so', async () => {
     const { crawlSite } = await import('@opengeo/core/generate');
     await withServer(async (base) => {

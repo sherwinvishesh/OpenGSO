@@ -128,15 +128,19 @@ export async function crawlSite(options) {
 
   let cappedPages = false;
   let cappedDepth = false;
+  // The cap is a request budget. Counting only successes let a page full of dead links make
+  // hundreds of requests against a cap of five.
+  let requests = 0;
 
   while (queue.length > 0) {
     options.signal?.throwIfAborted();
-    const next = queue.shift();
-    if (!next) break;
-    if (pages.length >= maxPages) {
+    if (requests >= maxPages) {
       cappedPages = true;
       break;
     }
+    const next = queue.shift();
+    if (!next) break;
+    requests += 1;
 
     const url = new URL(next.route, origin).toString();
     options.onProgress?.({ route: next.route, depth: next.depth, found: queued.size, visited: pages.length });
@@ -188,7 +192,7 @@ export async function crawlSite(options) {
 
   if (cappedPages) {
     warnings.push(
-      `Stopped at the ${maxPages}-page cap with ${queue.length} route${queue.length === 1 ? '' : 's'} still queued. Raise crawl.maxPages in opengeo.config.json to go further.`,
+      `Stopped at the ${maxPages}-page cap (every request counts, failed ones too) with ${queue.length} route${queue.length === 1 ? '' : 's'} still queued. Raise crawl.maxPages in opengeo.config.json to go further.`,
     );
   }
   if (cappedDepth) {
