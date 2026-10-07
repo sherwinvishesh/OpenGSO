@@ -5,8 +5,8 @@ Turns a live site into the files AI agents actually want: a clean Markdown twin 
 
 - **The free tier needs no API key** and is the default. It is algorithmic, deterministic, and
   produces the markdown that everything else is measured against.
-- **The AI tier is bring-your-own-key** and is fidelity-checked: if the model drops or alters a
-  single number, date or price, the output is thrown away and the algorithmic version is used
+- **The AI tier is bring-your-own-key** and is fidelity-checked: if the model drops, alters or adds
+  a single number, date or price, the output is thrown away and the algorithmic version is used
   instead.
 - Never overwrites a file it did not write.
 
@@ -146,11 +146,16 @@ The prompt is fidelity-locked: reproduce the structure and text faithfully, neve
 paraphrase, never alter names, dates, prices or numbers.
 
 Prompts are not a guarantee, so the output is verified rather than trusted. Every number, date,
-price, currency amount and percentage in the algorithmic extraction must survive into the AI output.
-If any one of them does not, the AI result is **discarded**, the algorithmic markdown is written
-instead, and you get a warning naming the fact that went missing.
+price, currency amount and percentage in the algorithmic extraction must survive into the AI output,
+with its sign and scale (`-4%` is not `4%`, `$1.2 million` is not `$1.2 billion`), and the AI output
+may not state one the extraction does not. If either check fails, or the output is much shorter than
+the page, the AI result is **discarded**, the algorithmic markdown is written instead, and you get a
+warning naming the fact that went missing or appeared.
 
-This makes "never alters your facts" a property the code enforces, not a promise the prompt makes.
+This makes "never alters your numbers" a property the code enforces, not a promise the prompt
+makes. It is narrower than "never alters your facts": names and other words are not checked, a
+model that swaps two figures the page states gets past it, and so does added prose with no numbers
+in it. For those, the prompt is all there is, so read an AI twin before you ship it.
 
 A call you pay for is not repeated for nothing. A rewrite that stopped at the model's output cap is
 refused rather than accepted. A page too long to fit in that cap is never sent at all. And a page
@@ -173,7 +178,7 @@ Adding one OpenGEO does not ship with is three lines of config:
 [docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
 
 The fidelity check runs on all of them. A cheaper model is a safe experiment here precisely because
-a model that mangles a price gets its output thrown away rather than written to disk.
+a model that mangles or invents a price gets its output thrown away rather than written to disk.
 
 ### The key
 

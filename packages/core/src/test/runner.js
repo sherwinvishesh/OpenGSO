@@ -930,7 +930,7 @@ function checkDrift(e) {
     // The hash says something changed. How much is a different question, and it is the one the
     // reader actually has: a typo fix and a rewritten page both break the hash, and only one of them
     // is serving agents wrong information. Fidelity compares the facts, so it can tell them apart.
-    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4 });
+    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false });
     if (drift.ok) {
       return partial(
         'B14',
@@ -953,7 +953,7 @@ function checkDrift(e) {
   // No hash anywhere: a hand-written twin, or one produced by something other than OpenGEO. Fall back
   // to comparing the facts on the live page against the facts in the twin, which is slower to
   // reason about but works without any bookkeeping.
-  const report = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4 });
+  const report = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false });
   if (report.ok) {
     return pass(
       'B14',

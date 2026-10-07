@@ -17,8 +17,10 @@ import { verifyFidelity } from './fidelity.js';
  * 1. The prompt asks for transcription, not writing. Every instruction pushes the model toward
  *    reproducing what is on the page rather than improving it, because a subtly reworded price is
  *    worse than a rough-but-correct algorithmic extraction.
- * 2. Nothing is trusted on the model's word. Whatever comes back goes through the fidelity guard in
- *    fidelity.js, and a failed check silently keeps the algorithmic markdown instead.
+ * 2. The numbers are not taken on the model's word. Whatever comes back goes through the fidelity
+ *    guard in fidelity.js, which checks numbers, dates, prices and percentages in both directions
+ *    and the overall length, and a failed check keeps the algorithmic markdown, with a warning.
+ *    Words are not checked: see fidelity.js for what gets past it.
  * 3. The key is used for exactly one thing: an HTTPS call to the provider the user picked. It is
  *    never logged, never attached to any other request, and there is no telemetry anywhere in this
  *    package to attach it to (§11).

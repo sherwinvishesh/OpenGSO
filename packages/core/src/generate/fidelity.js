@@ -1,10 +1,17 @@
+import { ERRORS } from '../shared/errors.js';
+
 /**
  * The fidelity guard behind §6's promise that the AI tier "never alters facts".
  *
  * A prompt asking a model not to change numbers is a hope, not a guarantee. This turns it into a
- * property that is actually checked: every number, date, price and percentage in the algorithmic
- * extraction has to survive into the AI output. If one goes missing, the AI output is thrown away
- * and the algorithmic markdown is written instead, with a warning saying why.
+ * property that is actually checked, in both directions: every number, date, price and percentage
+ * in the algorithmic extraction has to survive into the AI output, sign and scale included, and the
+ * AI output may not state one the extraction does not. If either fails, the AI output is thrown
+ * away and the algorithmic markdown is written instead, with a warning saying why.
+ *
+ * What it does not check: names and other words, and which number sits next to which. A model that
+ * swaps two figures the page states, or appends prose with no numbers in it, gets past this guard.
+ * The length check catches a summary, not an addition.
  *
  * The bias is deliberately toward false alarms. Falling back costs the user some prose polish;
  * shipping a twin that quietly says 2023 where the page says 2024 costs them the whole point of
@@ -23,7 +30,7 @@
 
 /**
  * @typedef {object} FidelityIssue
- * @property {'missing-fact' | 'dropped-occurrences' | 'too-short' | 'missing-heading' | 'empty-output'} code
+ * @property {'missing-fact' | 'invented-fact' | 'dropped-occurrences' | 'too-short' | 'missing-heading' | 'empty-output'} code
  * @property {'error' | 'warning'} severity
  * @property {string} message
  */
@@ -47,6 +54,9 @@
  *   occurrences (catches dropped tables).
  * @property {number} [maxReported] How many missing facts to name in the warning before saying "and
  *   N more".
+ * @property {boolean} [rejectInvented] Fail on a fact the candidate states and the source does not.
+ *   On by default, for an AI rewrite. test's drift check turns it off: a hand-written twin may
+ *   carry context the page does not, and a changed fact is already caught as a missing one.
  */
 
 /** @type {Record<string, number>} */
@@ -69,6 +79,11 @@ const MONTH_ALTERNATION = Object.keys(MONTH_NAMES).sort((a, b) => b.length - a.l
 // Thousands separators only where they belong, so the trailing comma in "$12,500, a 42% rise" is
 // punctuation rather than part of the number.
 const NUMBER = String.raw`\d+(?:,\d{3})*(?:\.\d+)?`;
+// A minus is part of the fact, so -4% and 4% differ. Only a minus that starts a token counts: the
+// hyphen in 2019-2024 or COVID-19 is not a sign.
+const SIGN = String.raw`(?:(?<![\w.,\-−])[-−])?`;
+// So is the scale: $1.2 million and $1.2 billion are different facts, as are $5M and $5B.
+const SCALE = String.raw`(?:\s?(?:thousand|million|billion|trillion|bn)\b|[kmb]\b)?`;
 const CURRENCY_CODES = 'USD|EUR|GBP|JPY|CAD|AUD|CHF|SEK|NOK|DKK|ISK|INR|CNY|NZD|BRL|MXN|ZAR|PLN|CZK|SGD|HKD|KRW';
 
 /**
@@ -84,11 +99,11 @@ const FACT_PATTERNS = [
   { kind: 'date', source: String.raw`\d{1,2}(?:st|nd|rd|th)?\s+(?:${MONTH_ALTERNATION})\.?,?\s+\d{4}` },
   { kind: 'date', source: String.raw`(?:${MONTH_ALTERNATION})\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}` },
   { kind: 'date', source: String.raw`(?:${MONTH_ALTERNATION})\.?\s+\d{4}` },
-  { kind: 'currency', source: String.raw`[$£€¥₹]\s?${NUMBER}` },
-  { kind: 'currency', source: String.raw`${NUMBER}\s?(?:${CURRENCY_CODES})\b` },
-  { kind: 'percent', source: String.raw`${NUMBER}\s?%` },
-  { kind: 'percent', source: String.raw`${NUMBER}\s?percent\b` },
-  { kind: 'number', source: NUMBER },
+  { kind: 'currency', source: String.raw`${SIGN}[$£€¥₹]\s?${NUMBER}${SCALE}` },
+  { kind: 'currency', source: String.raw`${SIGN}${NUMBER}${SCALE}\s?(?:${CURRENCY_CODES})\b` },
+  { kind: 'percent', source: String.raw`${SIGN}${NUMBER}\s?%` },
+  { kind: 'percent', source: String.raw`${SIGN}${NUMBER}\s?percent\b` },
+  { kind: 'number', source: `${SIGN}${NUMBER}${SCALE}` },
 ];
 
 const FACT_REGEX = new RegExp(FACT_PATTERNS.map((p) => `(${p.source})`).join('|'), 'gi');
@@ -103,6 +118,9 @@ const FACT_REGEX = new RegExp(FACT_PATTERNS.map((p) => `(${p.source})`).join('|'
 export function normalizeForFacts(markdown) {
   return markdown
     .replace(/```[\s\S]*?```/g, (block) => block.replace(/`/g, ' '))
+    // Ordered-list numbering is formatting, not a fact. Without this, turning a bulleted list into a
+    // numbered one would read as invented numbers.
+    .replace(/^[ \t]{0,3}\d{1,3}[.)][ \t]+/gm, '')
     .replace(/[*_~`>#|]/g, ' ')
     .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '$1')
     .replace(/\s+/g, ' ');
@@ -141,6 +159,7 @@ export function canonicalize(value, kind) {
     if (iso) return iso;
   }
   return flat
+    .replace(/−/g, '-')
     .replace(/percent/g, '%')
     .replace(/[,\s]/g, '')
     .replace(/\.$/, '');
@@ -256,6 +275,20 @@ export function verifyFidelity(source, candidate, options = {}) {
       severity: 'error',
       message: `The model's version drops or changes ${missing.length} fact${missing.length === 1 ? '' : 's'} from the page: ${named}${rest}.`,
     });
+  }
+
+  // The other direction: a fact the page never states is one the model made up, however many of
+  // the real ones it also kept.
+  /** @type {Map<string, FactToken>} */
+  const inventedByCanonical = new Map();
+  for (const fact of candidateFacts) {
+    if (!sourceTotals.has(fact.canonical) && !inventedByCanonical.has(fact.canonical)) inventedByCanonical.set(fact.canonical, fact);
+  }
+  const invented = [...inventedByCanonical.values()];
+  if (invented.length > 0 && options.rejectInvented !== false) {
+    const named = invented.slice(0, maxReported).map((fact) => `"${fact.value}"`).join(', ');
+    const rest = invented.length > maxReported ? ` and ${invented.length - maxReported} more` : '';
+    issues.push({ code: 'invented-fact', severity: 'error', message: ERRORS.aiInventedFacts(invented.length, `${named}${rest}`) });
   }
 
   const sourceOccurrences = sourceFacts.length;

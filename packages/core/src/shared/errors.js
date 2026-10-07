@@ -468,6 +468,13 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
+  /**
+   * @param {number} count
+   * @param {string} named
+   */
+  aiInventedFacts: (count, named) =>
+    `The model's version states ${count} fact${count === 1 ? '' : 's'} the page does not: ${named}.`,
+
   /** @param {string} provider */
   aiOutputTruncated: (provider) =>
     `${provider} stopped at the output cap before the page was finished, so the cut-off rewrite was not used.`,
