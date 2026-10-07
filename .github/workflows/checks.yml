@@ -19,9 +19,6 @@ jobs:
     name: Node ${{ matrix.node }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    # Windows has never had this suite run against it. It reports here without failing the build
-    # until a green run says it can be held to the same bar.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:
