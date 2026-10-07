@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { writeFileAtomic } from '../shared/fs.js';
 import { ERRORS } from '../shared/errors.js';
 import type { AiBot } from '../shared/bots.js';
 import { findBot } from '../shared/bots.js';
@@ -100,8 +101,7 @@ export function writeGuarded(path: string, name: SiteFileName, contents: string,
 
     if (existing !== undefined && !MARKER_LINE.test(existing) && !force) {
       const proposedPath = `${path}${PROPOSED_SUFFIX}`;
-      mkdirSync(dirname(proposedPath), { recursive: true });
-      writeFileSync(proposedPath, contents, 'utf8');
+      writeFileAtomic(proposedPath, contents);
       return { name, path: proposedPath, status: 'proposed', message: ERRORS.wouldOverwrite(name) };
     }
 
@@ -109,8 +109,7 @@ export function writeGuarded(path: string, name: SiteFileName, contents: string,
       return { name, path, status: 'unchanged' };
     }
 
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, contents, 'utf8');
+    writeFileAtomic(path, contents);
     return { name, path, status: 'written' };
   } catch (error) {
     return {

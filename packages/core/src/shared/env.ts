@@ -1,4 +1,5 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileAtomic } from './fs.js';
 import { join } from 'node:path';
 import type { AiProvider } from './providers.js';
 import { ERRORS } from './errors.js';
@@ -152,7 +153,7 @@ export function writeEnvVars(root: string, vars: Record<string, string | undefin
   }
   const output = `${lines.join('\n').replace(/\n+$/, '')}\n`;
   // The mode only applies when the file is created. An existing .env keeps whatever its owner chose.
-  writeFileSync(path, output, { encoding: 'utf8', mode: 0o600 });
+  writeFileAtomic(path, output, { mode: 0o600 });
   return path;
 }
 

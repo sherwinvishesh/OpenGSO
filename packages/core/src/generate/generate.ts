@@ -1,16 +1,17 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
 import type { LoadedConfig } from '../shared/config.js';
 import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
+import { writeFileAtomic } from '../shared/fs.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
 import type { GenerationTier, Manifest, ManifestEntry } from './manifest.js';
-import { emptyManifest, readManifest, writeManifest } from './manifest.js';
+import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js';
 
 export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
 
@@ -96,6 +97,8 @@ export interface GenerateResult {
   manifest: Manifest;
   manifestPath: string;
   publicDir: string;
+  /** Problems with the run as a whole rather than with one page. */
+  warnings: string[];
   durationMs: number;
 }
 
@@ -111,7 +114,7 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
   const publicDir = publicDirPath(loaded);
   const internalDir = internalDirPath(loaded);
 
-  const previous = readManifest(internalDir, site);
+  const { manifest: previous, problem } = readManifestChecked(internalDir, site);
   const manifest = emptyManifest(site);
   if (options.merge) manifest.pages = { ...previous.pages };
   const pages: GeneratePageResult[] = [];
@@ -248,8 +251,7 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
           markdown,
         );
 
-        mkdirSync(dirname(absPath), { recursive: true });
-        writeFileSync(absPath, contents, 'utf8');
+        writeFileAtomic(absPath, contents);
 
         manifest.pages[route] = {
           route,
@@ -297,6 +299,7 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
     manifest,
     manifestPath,
     publicDir,
+    warnings: problem ? [problem] : [],
     durationMs: Date.now() - started,
   };
 }

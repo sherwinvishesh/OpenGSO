@@ -1,5 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ERRORS } from '../shared/errors.js';
+import { writeFileAtomic } from '../shared/fs.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 
 /**
@@ -67,22 +69,34 @@ export function manifestPath(internalDir: string): string {
 }
 
 export function readManifest(internalDir: string, site = ''): Manifest {
+  return readManifestChecked(internalDir, site).manifest;
+}
+
+/**
+ * The manifest, or an empty one and the reason the file on disk could not be used.
+ *
+ * An empty manifest is the right thing to carry on with, and the wrong thing to carry on with in
+ * silence: it means every page is regenerated and nothing a failed fetch would have kept is kept.
+ * A missing file is a first run and not a problem.
+ */
+export function readManifestChecked(internalDir: string, site = ''): { manifest: Manifest; problem?: string } {
   const path = manifestPath(internalDir);
-  if (!existsSync(path)) return emptyManifest(site);
+  if (!existsSync(path)) return { manifest: emptyManifest(site) };
+  let parsed: Manifest;
   try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as Manifest;
-    if (parsed.version !== MANIFEST_VERSION || typeof parsed.pages !== 'object') {
-      return emptyManifest(site);
-    }
-    return parsed;
-  } catch {
-    return emptyManifest(site);
+    parsed = JSON.parse(readFileSync(path, 'utf8')) as Manifest;
+  } catch (error) {
+    return { manifest: emptyManifest(site), problem: ERRORS.manifestUnreadable(path, error instanceof Error ? error.message : String(error)) };
   }
+  if (parsed?.version !== MANIFEST_VERSION || typeof parsed.pages !== 'object' || parsed.pages === null) {
+    const why = parsed?.version === MANIFEST_VERSION ? 'it has no page table' : `it is manifest version ${String(parsed?.version)}, not ${MANIFEST_VERSION}`;
+    return { manifest: emptyManifest(site), problem: ERRORS.manifestUnreadable(path, why) };
+  }
+  return { manifest: parsed };
 }
 
 export function writeManifest(internalDir: string, manifest: Manifest): string {
   const path = manifestPath(internalDir);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  writeFileAtomic(path, `${JSON.stringify(manifest, null, 2)}\n`);
   return path;
 }

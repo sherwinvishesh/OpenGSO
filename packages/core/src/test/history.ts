@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { writeFileAtomic } from '../shared/fs.js';
 import type { SuiteResult } from './suite.js';
 import type { TestMode } from './suite.js';
 
@@ -73,9 +74,8 @@ export function readHistory(internalDir: string): History {
 
 export function writeHistory(internalDir: string, history: History): string {
   const path = historyPath(internalDir);
-  mkdirSync(dirname(path), { recursive: true });
   const trimmed: History = { version: HISTORY_VERSION, entries: history.entries.slice(-HISTORY_LIMIT) };
-  writeFileSync(path, `${JSON.stringify(trimmed, null, 2)}\n`, 'utf8');
+  writeFileAtomic(path, `${JSON.stringify(trimmed, null, 2)}\n`);
   return path;
 }
 

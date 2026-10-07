@@ -222,6 +222,18 @@ describe('one bad page cannot take the run down with it', () => {
   });
 });
 
+describe('a manifest that cannot be read', () => {
+  it('is reported, not silently treated as a first run', async () => {
+    const loaded = project();
+    mkdirSync(join(loaded.root, '.opengeo'), { recursive: true });
+    writeFileSync(join(loaded.root, '.opengeo', 'manifest.json'), '{"version":1,"pages":{"/about":');
+    const { generateSite } = await import('@opengeo/core/generate');
+    const result = await generateSite({ target: site, loaded });
+    expect(result.warnings.some((warning) => warning.includes('manifest.json') && /could not be read/i.test(warning))).toBe(true);
+    expect(Object.keys(readManifest(join(loaded.root, '.opengeo'), site).pages)).toHaveLength(3);
+  });
+});
+
 describe('generateSite', () => {
   it('crawls, writes a twin per page, and writes the three site files from the same crawl', async () => {
     const { generateSite } = await import('@opengeo/core/generate');

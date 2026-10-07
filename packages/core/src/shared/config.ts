@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { writeFileAtomic } from './fs.js';
 import { dirname, join, resolve, sep } from 'node:path';
 import type { CustomBotInput } from './bots.js';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
@@ -211,7 +212,7 @@ export function saveConfig(root: string, config: OpenGeoConfig): string {
   const problem = projectDirProblem(root, config);
   if (problem) throw new ConfigError(problem);
   const path = join(root, CONFIG_FILENAME);
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+  writeFileAtomic(path, `${JSON.stringify(config, null, 2)}\n`);
   return path;
 }
 

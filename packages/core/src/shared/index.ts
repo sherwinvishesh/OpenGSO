@@ -3,6 +3,7 @@ export * from './bots.js';
 export * from './config.js';
 export * from './env.js';
 export * from './errors.js';
+export * from './fs.js';
 export * from './hash.js';
 export * from './http.js';
 export * from './log.js';

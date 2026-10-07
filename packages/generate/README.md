@@ -66,7 +66,9 @@ step. `.opengeo/manifest.json` holds the route table, token counts, content hash
 
 A page that fails to fetch keeps the entry it had, so a 503 during a run never stops a twin being
 served. If no page can be fetched at all, say because the dev server is not running, the whole
-manifest is kept as it was and the run says so.
+manifest is kept as it was and the run says so. Every file OpenGEO writes is written whole or not
+at all, so a run stopped part way never leaves half a manifest behind, and a manifest that cannot
+be read is reported rather than quietly treated as a first run.
 
 ### Frontmatter
 

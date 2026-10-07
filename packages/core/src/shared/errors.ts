@@ -324,6 +324,9 @@ export const ERRORS = {
 
   pageCrashed: (message: string) => `Could not generate this page: ${message}. The rest of the run carried on.`,
 
+  manifestUnreadable: (path: string, why: string) =>
+    `${path} could not be read (${why}), so this run started without it: every page is regenerated and nothing from the last run is carried forward. It is rewritten when the run finishes.`,
+
   siteUnreachableKept:
     'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
 

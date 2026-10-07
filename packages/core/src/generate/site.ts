@@ -153,7 +153,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
     crawl,
     generate,
     files,
-    warnings,
+    warnings: [...generate.warnings, ...warnings],
     durationMs: Date.now() - started,
   };
 }
