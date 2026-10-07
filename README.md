@@ -1,5 +1,7 @@
 # Open Generative Engine Optimization (OpenGEO)
 
+> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+
 An open-source, framework-agnostic npm toolkit that makes any website readable by AI agents.
 
 AI agents like ChatGPT, Claude, Gemini, and Perplexity strongly prefer clean markdown over full HTML/CSS/JS. It's cheaper to read, and many agents don't execute JavaScript at all, so client-rendered content is often invisible to them. OpenGEO fixes that across three pillars in one toolchain:

@@ -1,5 +1,7 @@
 # opengeo-cli
 
+> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+
 All three OpenGEO pillars behind one command: `test`, `generate`, `prod test`, and `settings`.
 
 This is the package to install if you want the whole toolchain from the terminal and do not need the

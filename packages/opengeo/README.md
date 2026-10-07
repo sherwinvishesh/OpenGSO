@@ -1,5 +1,7 @@
 # opengeo
 
+> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+
 The whole toolkit: `test`, `generate`, `prod test`, `settings`, and the local dashboard.
 
 This is the package to install if you want everything, including the GUI. If you only want the

@@ -1,5 +1,7 @@
 # opengeo-generate
 
+> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+
 Turns a live site into the files AI agents actually want: a clean Markdown twin of every page, plus
 `robots.txt`, `llms.txt` and `sitemap.xml`, all from a single crawl.
 
