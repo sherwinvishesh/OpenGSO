@@ -98,7 +98,9 @@ query-only variants of a page already seen are skipped. `extraRoutes` in the con
 nothing links to. An entry with a `.` or `..` segment is skipped with a warning, and no twin is ever
 written outside `public/md/`. A page that redirects to another origin is skipped rather than written
 as your twin, and a start URL that does (apex to `www`, `http` to `https`) is reported with the
-address to run against instead.
+address to run against instead. Two routes that would share a twin file, `/` and `/index`, or
+`/About` and `/about` (one file on macOS and Windows), get one twin: the first is written and the
+other is reported, never written over it.
 
 It is not a router adapter and never will be. Reading a framework's route manifest means one
 integration per framework, forever, and OpenGEO is framework-agnostic on purpose. If a page is

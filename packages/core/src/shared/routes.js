@@ -52,6 +52,18 @@ export function routeToMdRelPath(route) {
 }
 
 /**
+ * Two routes with the same key would write the same twin file: `/` and `/index` always, and
+ * `/About` and `/about` on a case-insensitive filesystem. Case is folded everywhere, not only on the
+ * machine that generates, because `public/` is committed and checked out on macOS and Windows too.
+ *
+ * @param {string} route
+ * @returns {string}
+ */
+export function twinFileKey(route) {
+  return routeToMdRelPath(route).toLowerCase();
+}
+
+/**
  * `/` -> `/index.md`, `/resume` -> `/resume.md`.
  *
  * @param {string} route

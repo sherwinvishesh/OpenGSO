@@ -513,6 +513,13 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
 
+  /**
+   * @param {string} file
+   * @param {string} otherRoute
+   */
+  twinFileCollision: (file, otherRoute) =>
+    `Its twin would be ${file}, the same file as ${otherRoute}'s, so it was skipped rather than overwrite that one. "/" and "/index", or two routes that differ only in letter case, cannot both have a twin.`,
+
   /** @param {number} maxBytes */
   pageTooLarge: (maxBytes) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
 

@@ -4,7 +4,7 @@ import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
-import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
+import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath, twinFileKey } from '../shared/routes.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
@@ -121,6 +121,12 @@ export async function generatePages(options) {
 
   const twinDir = resolve(publicDir, MD_DIR);
 
+  // Which route owns each twin file. Seeded from the entries a merge keeps, so a single-page run
+  // cannot overwrite a twin some other route is being served from.
+  /** @type {Map<string, string>} */
+  const claimed = new Map();
+  for (const route of Object.keys(manifest.pages)) claimed.set(twinFileKey(route), route);
+
   let manifestPath = '';
   try {
     for (const route of unique) {
@@ -139,6 +145,12 @@ export async function generatePages(options) {
           pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
           continue;
         }
+        const owner = claimed.get(twinFileKey(route));
+        if (owner !== undefined && owner !== route) {
+          pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.twinFileCollision(routeToMdRelPath(route), owner) });
+          continue;
+        }
+        claimed.set(twinFileKey(route), route);
         let html = options.sources?.get(route);
 
         if (html === undefined) {
