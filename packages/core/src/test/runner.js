@@ -58,14 +58,28 @@ export const TWIN_FLOOR_RATIO = 0.08;
  * @returns {CheckResult[]}
  */
 export function runChecks(evidence) {
+  const page = rawDocument(evidence);
+  try {
+    return runAll(evidence, page.get);
+  } finally {
+    page.close();
+  }
+}
+
+/**
+ * @param {Evidence} evidence
+ * @param {() => Document} doc
+ * @returns {CheckResult[]}
+ */
+function runAll(evidence, doc) {
   return collapseTwinCascade([
     checkRobots(evidence),
     checkLlmsTxt(evidence),
     checkSitemap(evidence),
-    checkJsonLd(evidence),
+    checkJsonLd(evidence, doc),
     checkSsrExtractable(evidence),
     checkTtfb(evidence),
-    checkNoAi(evidence),
+    checkNoAi(evidence, doc),
     checkHttps(evidence),
     checkTwinReachable(evidence),
     checkTwinContentType(evidence),
@@ -82,6 +96,26 @@ export function runChecks(evidence) {
     checkHtmlUnaffected(evidence),
     checkDrift(evidence),
   ], evidence);
+}
+
+/**
+ * A4 and A7 both read the live page's markup as it arrived, without changing it, so they share one
+ * parse. It is made on first use, so a run with no HTML body never parses, and closed when the run
+ * ends. Extraction cannot share it: it strips the document as it goes.
+ *
+ * @param {Evidence} e
+ * @returns {{ get: () => Document; close: () => void }}
+ */
+function rawDocument(e) {
+  /** @type {JSDOM | undefined} */
+  let dom;
+  return {
+    get: () => {
+      dom ??= new JSDOM(e.html.body, { url: e.target.toString() });
+      return dom.window.document;
+    },
+    close: () => dom?.window.close(),
+  };
 }
 
 /**
@@ -415,9 +449,10 @@ function locPath(loc, base) {
 
 /**
  * @param {Evidence} e
+ * @param {() => Document} doc
  * @returns {CheckResult}
  */
-function checkJsonLd(e) {
+function checkJsonLd(e, doc) {
   if (!e.html.ok || !e.html.body)
     return fail(
       'A4',
@@ -425,10 +460,8 @@ function checkJsonLd(e) {
       undefined,
       'Get the page returning HTML first; this check reads the markup for a JSON-LD block (+2).',
     );
-  const dom = new JSDOM(e.html.body, { url: e.target.toString() });
-  const blocks = Array.from(dom.window.document.querySelectorAll('script[type="application/ld+json"]'));
+  const blocks = Array.from(doc().querySelectorAll('script[type="application/ld+json"]'));
   if (blocks.length === 0) {
-    dom.window.close();
     return fail(
       'A4',
       'No Schema.org JSON-LD found. Agents have no structured description of what this page is.',
@@ -448,7 +481,6 @@ function checkJsonLd(e) {
       broken.push(error instanceof Error ? error.message : String(error));
     }
   }
-  dom.window.close();
 
   if (broken.length > 0) {
     return partial('A4', 1, `A JSON-LD block is present but does not parse: ${broken[0]}`, {
@@ -553,9 +585,10 @@ function checkTtfb(e) {
 
 /**
  * @param {Evidence} e
+ * @param {() => Document} doc
  * @returns {CheckResult}
  */
-function checkNoAi(e) {
+function checkNoAi(e, doc) {
   /** @type {string[]} */
   const found = [];
   const headerValue = e.html.headers.get(HEADERS.robotsTag) ?? '';
@@ -563,8 +596,7 @@ function checkNoAi(e) {
   if (/\bnoimageai\b/i.test(headerValue)) found.push(`X-Robots-Tag: ${headerValue}`);
 
   if (e.html.body) {
-    const dom = new JSDOM(e.html.body, { url: e.target.toString() });
-    for (const meta of Array.from(dom.window.document.querySelectorAll('meta[name], meta[property]'))) {
+    for (const meta of Array.from(doc().querySelectorAll('meta[name], meta[property]'))) {
       const name = (meta.getAttribute('name') ?? meta.getAttribute('property') ?? '').toLowerCase();
       const content = meta.getAttribute('content') ?? '';
       if (!['robots', 'googlebot'].includes(name) && !name.includes('ai')) continue;
@@ -572,7 +604,6 @@ function checkNoAi(e) {
         found.push(`<meta name="${name}" content="${content}">`);
       }
     }
-    dom.window.close();
   }
 
   if (found.length > 0) {
