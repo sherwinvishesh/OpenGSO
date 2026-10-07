@@ -12,6 +12,8 @@ Unlike existing tools, which each solve one piece and are usually locked to a si
 
 ## Quickstart
 
+Needs Node.js 22 or later.
+
 ```bash
 npm install --save-dev opengeo
 

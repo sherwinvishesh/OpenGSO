@@ -14,7 +14,7 @@ export default defineConfig([
   {
     entry: { prod: 'src/prod.js', 'prod-next': 'src/prod-next.js' },
     format: ['esm'],
-    target: 'node20',
+    target: 'node22',
     platform: 'neutral',
     // tsup strips `node:` prefixes by default, and a neutral platform has no builtin list, so both
     // halves are set here: keep the prefix, and tell esbuild those specifiers are external.
@@ -30,7 +30,7 @@ export default defineConfig([
   {
     entry: { cli: 'src/cli.js' },
     format: ['esm'],
-    target: 'node20',
+    target: 'node22',
     platform: 'node',
     clean: false,
     dts: false,

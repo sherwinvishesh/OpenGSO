@@ -21,7 +21,7 @@
     "url": "https://github.com/sherwinvishesh/OpenGEO/issues"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "bin": {
     "opengeo": "./dist/cli.js"

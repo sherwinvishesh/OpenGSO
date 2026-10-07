@@ -6,7 +6,7 @@
   "description": "OpenGEO monorepo root. Never published.",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "workspaces": [
     "packages/*",

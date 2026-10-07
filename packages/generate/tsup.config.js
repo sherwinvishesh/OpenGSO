@@ -8,7 +8,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: { cli: 'src/cli.js' },
   format: ['esm'],
-  target: 'node20',
+  target: 'node22',
   platform: 'node',
   clean: true,
   dts: false,

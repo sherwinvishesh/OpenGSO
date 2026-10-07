@@ -157,7 +157,7 @@ async function handle(request, response, options, host) {
     url = new URL(request.url ?? '/', `http://${request.headers.host ?? host}`);
   } catch {
     // An absolute-form target such as `http://x:99999/` passes the Host check and then fails here.
-    // Not `URL.parse`, which Node 20 does not have.
+    // Not `URL.parse`, which the early Node 22 releases the engines range allows do not have.
     return send(response, 400, 'text/plain; charset=utf-8', ERRORS.badRequestTarget());
   }
 
