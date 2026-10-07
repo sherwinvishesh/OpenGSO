@@ -12,8 +12,8 @@
  * Fields:
  * - `last_updated`: ISO timestamp. The staleness signal test reads and the product UI surfaces (§6).
  * - `tokens`: Precomputed so prod never has to count anything at request time (§7).
- * - `source_hash`: Hash of the source HTML this twin was generated from - powers caching and drift
- *   detection.
+ * - `source_hash`: Hash of the markdown extracted from the page, not of its raw HTML, which changes
+ *   on every rebuild. Powers caching and drift detection; see ManifestEntry.sourceHash.
  * - `generated_by`: Which tier produced it. A hand-edited file can be marked by setting this to
  *   "manual".
  *
