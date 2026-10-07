@@ -5,7 +5,6 @@ import { resolveAiCall } from '../../shared/ai-call.js';
 import { internalDirPath } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
-import type { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js';
 import {
   buildFixPrompt,
   readHistory,
@@ -20,8 +19,12 @@ import {
 } from '../../test/index.js';
 import { parseArgs } from '../args.js';
 import { createProgress } from '../progress.js';
-import type { CommandContext } from '../index.js';
 import { resolveProject, resolveTarget } from '../project.js';
+
+/**
+ * @import { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js'
+ * @import { CommandContext } from '../index.js'
+ */
 
 /**
  * `opengeo test` in three shapes (§5).
@@ -35,13 +38,17 @@ import { resolveProject, resolveTarget } from '../project.js';
  * the loop where you are editing the Markdown and do not need to re-hear that the headers are fine.
  */
 
-const SPEC = {
+const SPEC = /** @type {const} */ ({
   booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'structure', 'offline', 'content'],
   strings: ['project', 'out', 'timeout', 'provider', 'model', 'max-docs'],
   alias: { v: 'verbose', q: 'quality', nq: 'no-quality' },
-} as const;
+});
 
-export async function testCommand(ctx: CommandContext): Promise<number> {
+/**
+ * @param {CommandContext} ctx
+ * @returns {Promise<number>}
+ */
+export async function testCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
   const unknown = args.unknown();
   if (unknown.length > 0) {
@@ -103,7 +110,7 @@ export async function testCommand(ctx: CommandContext): Promise<number> {
   return suiteExitCode(result);
 }
 
-type ModeChoice = TestMode | { error: string };
+/** @typedef {TestMode | { error: string }} ModeChoice */
 
 /**
  * Flags to a mode.
@@ -111,8 +118,11 @@ type ModeChoice = TestMode | { error: string };
  * `-q` and `-nq` are kept as the pair people already type, and are defined in terms of the modes
  * rather than as a third switch: `-nq` is exactly `--structure`, and `-q` is the full run with the
  * content pass promoted from "if a key happens to exist" to "required".
+ *
+ * @param {{ bool: (name: string) => boolean }} args
+ * @returns {ModeChoice}
  */
-export function resolveMode(args: { bool: (name: string) => boolean }): ModeChoice {
+export function resolveMode(args) {
   const structure = args.bool('structure') || args.bool('offline') || args.bool('no-quality');
   const content = args.bool('content');
   if (structure && content) {
@@ -123,7 +133,13 @@ export function resolveMode(args: { bool: (name: string) => boolean }): ModeChoi
   return 'full';
 }
 
-function writeOut(text: string, out: string | undefined, code: number): number {
+/**
+ * @param {string} text
+ * @param {string | undefined} out
+ * @param {number} code
+ * @returns {number}
+ */
+function writeOut(text, out, code) {
   if (out) {
     writeFileSync(out, text, 'utf8');
     process.stdout.write(`${c.gray(`Wrote ${out}`)}\n`);
@@ -139,10 +155,15 @@ function writeOut(text: string, out: string | undefined, code: number): number {
  * The structural probe is a dozen requests and the content pass is one provider call per document,
  * so both spend long enough that silence reads as a hang. On a terminal this is one block that
  * redraws; everywhere else it is the same append-only lines it always was.
+ *
+ * @param {boolean} verbose
+ * @param {History} history
+ * @returns {{ onProgress: (event: SuiteProgress) => void; close: () => void }}
  */
-function progressPrinter(verbose: boolean, history: History): { onProgress: (event: SuiteProgress) => void; close: () => void } {
+function progressPrinter(verbose, history) {
   const progress = createProgress();
-  const onProgress = (event: SuiteProgress) => {
+  /** @param {SuiteProgress} event */
+  const onProgress = (event) => {
     switch (event.phase) {
       case 'structure':
         progress.phase('Auditing the live URL');
@@ -170,7 +191,11 @@ function progressPrinter(verbose: boolean, history: History): { onProgress: (eve
   return { onProgress, close: () => progress.done() };
 }
 
-function writeContent(result: SuiteResult): void {
+/**
+ * @param {SuiteResult} result
+ * @returns {void}
+ */
+function writeContent(result) {
   // A provider's error body can end up in contentError, and it is the provider's text, not ours.
   result = terminalSafe(result);
   if (result.mode === 'content' && result.discovery) {
@@ -187,11 +212,12 @@ function writeContent(result: SuiteResult): void {
   }
 }
 
-interface AiChoice {
-  ai?: SuiteAi;
-  /** A flag the user got wrong. Fatal, unlike a missing key, which the suite reports in context. */
-  error?: string;
-}
+/**
+ * @typedef {object} AiChoice
+ * @property {SuiteAi} [ai]
+ * @property {string} [error] A flag the user got wrong. Fatal, unlike a missing key, which the suite
+ *   reports in context.
+ */
 
 /**
  * Credentials and provider for the content pass (§11).
@@ -199,8 +225,12 @@ interface AiChoice {
  * A missing key is deliberately *not* an error here. The suite decides what a missing key means,
  * because it depends on the mode: a note in `full`, a refusal in `content`. What is fatal is a flag
  * that cannot be honoured: a provider that does not exist, or one whose only key belongs to another.
+ *
+ * @param {ReturnType<typeof parseArgs>} args
+ * @param {ReturnType<typeof resolveProject>} loaded
+ * @returns {AiChoice}
  */
-function resolveAi(args: ReturnType<typeof parseArgs>, loaded: ReturnType<typeof resolveProject>): AiChoice {
+function resolveAi(args, loaded) {
   if (isCI()) return {};
 
   const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });

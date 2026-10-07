@@ -5,63 +5,105 @@
  * positionals in any position.
  */
 
-export interface ArgSpec {
-  /** Options that never take a value. */
-  booleans?: readonly string[];
-  /** Options that always take a value. */
-  strings?: readonly string[];
-  /** Short name -> long name, e.g. `{ p: 'port' }`. */
-  alias?: Readonly<Record<string, string>>;
-}
+/**
+ * @typedef {object} ArgSpec
+ * @property {readonly string[]} [booleans] Options that never take a value.
+ * @property {readonly string[]} [strings] Options that always take a value.
+ * @property {Readonly<Record<string, string>>} [alias] Short name -> long name, e.g. `{ p: 'port' }`.
+ */
 
 export class Args {
-  constructor(
-    readonly positionals: readonly string[],
-    private readonly values: ReadonlyMap<string, string | boolean>,
-    readonly rest: readonly string[],
-    private readonly known: ReadonlySet<string>,
-  ) {}
+  /** @readonly @type {readonly string[]} */
+  positionals;
+  /** @private @readonly @type {ReadonlyMap<string, string | boolean>} */
+  values;
+  /** @readonly @type {readonly string[]} */
+  rest;
+  /** @private @readonly @type {ReadonlySet<string>} */
+  known;
 
-  has(name: string): boolean {
+  /**
+   * @param {readonly string[]} positionals
+   * @param {ReadonlyMap<string, string | boolean>} values
+   * @param {readonly string[]} rest
+   * @param {ReadonlySet<string>} known
+   */
+  constructor(positionals, values, rest, known) {
+    this.positionals = positionals;
+    this.values = values;
+    this.rest = rest;
+    this.known = known;
+  }
+
+  /**
+   * @param {string} name
+   * @returns {boolean}
+   */
+  has(name) {
     return this.values.has(name);
   }
 
-  bool(name: string): boolean {
+  /**
+   * @param {string} name
+   * @returns {boolean}
+   */
+  bool(name) {
     const value = this.values.get(name);
     if (value === undefined) return false;
     if (typeof value === 'boolean') return value;
     return value !== 'false' && value !== '0';
   }
 
-  str(name: string): string | undefined {
+  /**
+   * @param {string} name
+   * @returns {string | undefined}
+   */
+  str(name) {
     const value = this.values.get(name);
     return typeof value === 'string' ? value : undefined;
   }
 
-  num(name: string): number | undefined {
+  /**
+   * @param {string} name
+   * @returns {number | undefined}
+   */
+  num(name) {
     const value = this.str(name);
     if (value === undefined) return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
 
-  /** Option names the command never declared, so the CLI can say "unknown flag" instead of ignoring. */
-  unknown(): string[] {
+  /**
+   * Option names the command never declared, so the CLI can say "unknown flag" instead of ignoring.
+   *
+   * @returns {string[]}
+   */
+  unknown() {
     return [...this.values.keys()].filter((name) => !this.known.has(name));
   }
 }
 
-export function parseArgs(argv: readonly string[], spec: ArgSpec = {}): Args {
-  const booleans: ReadonlySet<string> = new Set(spec.booleans ?? []);
+/**
+ * @param {readonly string[]} argv
+ * @param {ArgSpec} [spec]
+ * @returns {Args}
+ */
+export function parseArgs(argv, spec = {}) {
+  /** @type {ReadonlySet<string>} */
+  const booleans = new Set(spec.booleans ?? []);
   const strings = new Set(spec.strings ?? []);
   const alias = spec.alias ?? {};
 
-  const positionals: string[] = [];
-  const values = new Map<string, string | boolean>();
-  const rest: string[] = [];
+  /** @type {string[]} */
+  const positionals = [];
+  /** @type {Map<string, string | boolean>} */
+  const values = new Map();
+  /** @type {string[]} */
+  const rest = [];
 
   for (let i = 0; i < argv.length; i += 1) {
-    const token = argv[i] as string;
+    const token = /** @type {string} */ (argv[i]);
 
     if (token === '--') {
       rest.push(...argv.slice(i + 1));

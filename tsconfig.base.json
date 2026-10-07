@@ -45,10 +45,10 @@
         "./packages/core/src/server/index.js"
       ],
       "@opengeo/core/cli": [
-        "./packages/core/src/cli/index.ts"
+        "./packages/core/src/cli/index.js"
       ],
       "@opengeo/core/cli/commands/*": [
-        "./packages/core/src/cli/commands/*.ts"
+        "./packages/core/src/cli/commands/*.js"
       ]
     },
     "allowJs": true,

@@ -2,8 +2,9 @@ import { resolve } from 'node:path';
 import { c } from '../../shared/log.js';
 import { parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
-import type { CommandContext } from '../index.js';
 import { runOnboarding } from '../onboarding.js';
+
+/** @import { CommandContext } from '../index.js' */
 
 /**
  * `opengeo settings` (§11, §12): the menu of everything in `opengeo.config.json`.
@@ -21,13 +22,17 @@ import { runOnboarding } from '../onboarding.js';
  * same five steps, which is what stops them drifting apart.
  */
 
-const SPEC = {
+const SPEC = /** @type {const} */ ({
   booleans: ['yes'],
   strings: ['project'],
   alias: { y: 'yes' },
-} as const;
+});
 
-export async function settingsCommand(ctx: CommandContext): Promise<number> {
+/**
+ * @param {CommandContext} ctx
+ * @returns {Promise<number>}
+ */
+export async function settingsCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
   const unknown = args.unknown();
   if (unknown.length > 0) {

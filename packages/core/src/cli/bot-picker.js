@@ -1,7 +1,10 @@
-import type { AiBot, BotKind, CustomBotInput } from '../shared/bots.js';
 import { BOT_KINDS, normalizeCustomBot } from '../shared/bots.js';
 import { c } from '../shared/log.js';
-import type { Prompter } from './prompt.js';
+
+/**
+ * @import { AiBot, BotKind, CustomBotInput } from '../shared/bots.js'
+ * @import { Prompter } from './prompt.js'
+ */
 
 /**
  * The by-hand crawler picker behind the `custom` option in `opengeo start` and `opengeo settings`.
@@ -16,27 +19,27 @@ import type { Prompter } from './prompt.js';
  * against both the bot name and its robots.txt token, because "gptbot" is what a person types.
  */
 
-export interface BotPickerOptions {
-  prompter: Prompter;
-  out: (text: string) => void;
-  /** The full list to choose from, built-ins plus any custom crawlers already in the config. */
-  bots: readonly AiBot[];
-  /** Names selected when the picker opens. */
-  selected: readonly string[];
-  /** Wording differs between "who gets markdown" and "who gets disallowed in robots.txt". */
-  verb: string;
-  /** When false, robots.txt-only tokens are hidden: they can never be routed by User-Agent. */
-  routableOnly: boolean;
-  /** Blocking is a robots.txt list, and inventing a crawler for it makes no sense. */
-  allowAdd: boolean;
-}
+/**
+ * @typedef {object} BotPickerOptions
+ * @property {Prompter} prompter
+ * @property {(text: string) => void} out
+ * @property {readonly AiBot[]} bots The full list to choose from, built-ins plus any custom crawlers
+ *   already in the config.
+ * @property {readonly string[]} selected Names selected when the picker opens.
+ * @property {string} verb Wording differs between "who gets markdown" and "who gets disallowed in
+ *   robots.txt".
+ * @property {boolean} routableOnly When false, robots.txt-only tokens are hidden: they can never be
+ *   routed by User-Agent.
+ * @property {boolean} allowAdd Blocking is a robots.txt list, and inventing a crawler for it makes no
+ *   sense.
+ */
 
-export interface BotPickerResult {
-  /** Names the user ended up with, in the order the list presents them. */
-  selected: string[];
-  /** Crawlers defined during this session, ready to be merged into `bots.custom`. */
-  added: CustomBotInput[];
-}
+/**
+ * @typedef {object} BotPickerResult
+ * @property {string[]} selected Names the user ended up with, in the order the list presents them.
+ * @property {CustomBotInput[]} added Crawlers defined during this session, ready to be merged into
+ *   `bots.custom`.
+ */
 
 /**
  * A hard ceiling on the loop. Every prompt answers with its default once the input stream ends, and
@@ -44,12 +47,18 @@ export interface BotPickerResult {
  */
 const MAX_ROUNDS = 500;
 
-export async function pickBots(options: BotPickerOptions): Promise<BotPickerResult> {
+/**
+ * @param {BotPickerOptions} options
+ * @returns {Promise<BotPickerResult>}
+ */
+export async function pickBots(options) {
   const { prompter, out, verb } = options;
   const catalogue = [...options.bots];
-  const added: CustomBotInput[] = [];
-  const canonical = (name: string) => catalogue.find((bot) => bot.name.toLowerCase() === name.toLowerCase())?.name;
-  const chosen = new Set(options.selected.map(canonical).filter((name): name is string => Boolean(name)));
+  /** @type {CustomBotInput[]} */
+  const added = [];
+  /** @param {string} name */
+  const canonical = (name) => catalogue.find((bot) => bot.name.toLowerCase() === name.toLowerCase())?.name;
+  const chosen = new Set(options.selected.map(canonical).filter(/** @returns {name is string} */ (name) => Boolean(name)));
   // A name in the config that matches nothing on the list is left exactly as it was found. It is
   // far more likely to be a crawler this version has not heard of than a mistake to clean up.
   const unrecognised = options.selected.filter((name) => !canonical(name));
@@ -123,18 +132,25 @@ export async function pickBots(options: BotPickerOptions): Promise<BotPickerResu
   return { selected, added };
 }
 
-function resolveToken(token: string, list: readonly AiBot[]): AiBot | undefined {
+/**
+ * @param {string} token
+ * @param {readonly AiBot[]} list
+ * @returns {AiBot | undefined}
+ */
+function resolveToken(token, list) {
   if (/^\d+$/.test(token)) return list[Number(token) - 1];
   const lowered = token.toLowerCase();
   return list.find((bot) => bot.name.toLowerCase() === lowered || bot.robotsToken.toLowerCase() === lowered);
 }
 
-function render(
-  out: (text: string) => void,
-  list: readonly AiBot[],
-  chosen: ReadonlySet<string>,
-  options: Pick<BotPickerOptions, 'allowAdd'>,
-): void {
+/**
+ * @param {(text: string) => void} out
+ * @param {readonly AiBot[]} list
+ * @param {ReadonlySet<string>} chosen
+ * @param {Pick<BotPickerOptions, 'allowAdd'>} options
+ * @returns {void}
+ */
+function render(out, list, chosen, options) {
   const width = Math.max(...list.map((bot) => bot.name.length), 4);
   const numberWidth = String(list.length).length;
   out('\n');
@@ -152,12 +168,15 @@ function render(
   out(`\n  ${c.gray(`${chosen.size} of ${list.length} selected.`)}\n`);
 }
 
-/** Ask for a new crawler. A blank name is how the user backs out, so it is never an error. */
-async function addCustomBot(
-  prompter: Prompter,
-  out: (text: string) => void,
-  existing: readonly AiBot[],
-): Promise<AiBot | undefined> {
+/**
+ * Ask for a new crawler. A blank name is how the user backs out, so it is never an error.
+ *
+ * @param {Prompter} prompter
+ * @param {(text: string) => void} out
+ * @param {readonly AiBot[]} existing
+ * @returns {Promise<AiBot | undefined>}
+ */
+async function addCustomBot(prompter, out, existing) {
   out(`\n  ${c.bold('Add a crawler')}\n`);
   out(`  ${c.gray('Everything except the name is optional and is guessed from it. Blank name cancels.')}\n\n`);
 
@@ -174,14 +193,14 @@ async function addCustomBot(
   const vendor = await prompter.ask('  Who runs it', 'Custom');
   const patterns = await prompter.ask('  User-Agent contains', name.toLowerCase());
   const robotsToken = await prompter.ask('  robots.txt token', name);
-  const kind = await prompter.choose<BotKind>(
+  const kind = await prompter.choose(
     '  What does it do?',
     [
       { value: 'assistant', label: 'assistant', note: 'Fetches a page because a person asked about it, right now.' },
       { value: 'search', label: 'search', note: 'Indexes pages to answer search queries later.' },
       { value: 'training', label: 'training', note: 'Collects pages as training data.' },
     ],
-    'assistant',
+    /** @type {BotKind} */ ('assistant'),
   );
 
   return normalizeCustomBot({

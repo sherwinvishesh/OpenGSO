@@ -1,5 +1,7 @@
-import { createInterface, type Interface } from 'node:readline';
+import { createInterface } from 'node:readline';
 import { c } from '../shared/log.js';
+
+/** @import { Interface } from 'node:readline' */
 
 /**
  * The prompts `opengeo start` and `opengeo settings` need, and nothing else.
@@ -20,62 +22,61 @@ import { c } from '../shared/log.js';
  */
 export const DEFAULT_LABEL = 'default: ';
 
-export interface Prompter {
-  ask(question: string, fallback?: string): Promise<string>;
-  choose<T extends string>(question: string, options: ChoiceOption<T>[], fallback: T): Promise<T>;
-  secret(question: string): Promise<string>;
-  confirm(question: string, fallback: boolean): Promise<boolean>;
-  close(): void;
-  /**
-   * Where in a multi-step flow the next question sits.
-   *
-   * Optional because it is a drawing concern and most prompters have no drawing to do: the readline
-   * prompter below ignores it entirely and `runSetup`'s own `heading()` lines already say the same
-   * thing in scrollback. The full-screen stepper is the one implementation that needs it, and this
-   * is how it finds out without setup having to know which prompter it got.
-   */
-  stage?(label: string, index: number, total: number): void;
-  /**
-   * No more questions.
-   *
-   * A prompter that took the screen over gives it back here, so everything setup says afterwards -
-   * the summary, where the key lives, the closing score - lands in normal scrollback where it can be
-   * scrolled and copied like any other command's output. Called once, before the last thing setup
-   * prints rather than after it, so the tail is written live instead of appearing all at once.
-   *
-   * Optional for the same reason `stage` is: the readline prompter never held the screen and has
-   * nothing to hand back.
-   */
-  settle?(): void;
-  /**
-   * Nothing to answer here, but something to read.
-   *
-   * Step 3 of setup asks no question: it explains that blocking is a lever separate from routing and
-   * that OpenGEO leaves it empty (§7). In scrollback that prints and the flow moves on, which is
-   * right, because the words stay on the screen. On a display that repaints, "prints and moves on"
-   * means the next question wipes them before anybody has read one, so a prompter that draws frames
-   * holds here for a keypress instead.
-   *
-   * Optional, and ignored by the readline prompter for exactly that reason.
-   */
-  pause?(): Promise<void>;
-}
+/**
+ * @typedef {object} Prompter
+ * @property {(question: string, fallback?: string) => Promise<string>} ask
+ * @property {<T extends string>(question: string, options: ChoiceOption<T>[], fallback: T) => Promise<T>} choose
+ * @property {(question: string) => Promise<string>} secret
+ * @property {(question: string, fallback: boolean) => Promise<boolean>} confirm
+ * @property {() => void} close
+ * @property {(label: string, index: number, total: number) => void} [stage] Where in a multi-step flow
+ *   the next question sits.
+ *
+ *   Optional because it is a drawing concern and most prompters have no drawing to do: the readline
+ *   prompter below ignores it entirely and `runSetup`'s own `heading()` lines already say the same
+ *   thing in scrollback. The full-screen stepper is the one implementation that needs it, and this
+ *   is how it finds out without setup having to know which prompter it got.
+ * @property {() => void} [settle] No more questions.
+ *
+ *   A prompter that took the screen over gives it back here, so everything setup says afterwards -
+ *   the summary, where the key lives, the closing score - lands in normal scrollback where it can be
+ *   scrolled and copied like any other command's output. Called once, before the last thing setup
+ *   prints rather than after it, so the tail is written live instead of appearing all at once.
+ *
+ *   Optional for the same reason `stage` is: the readline prompter never held the screen and has
+ *   nothing to hand back.
+ * @property {() => Promise<void>} [pause] Nothing to answer here, but something to read.
+ *
+ *   Step 3 of setup asks no question: it explains that blocking is a lever separate from routing and
+ *   that OpenGEO leaves it empty (§7). In scrollback that prints and the flow moves on, which is
+ *   right, because the words stay on the screen. On a display that repaints, "prints and moves on"
+ *   means the next question wipes them before anybody has read one, so a prompter that draws frames
+ *   holds here for a keypress instead.
+ *
+ *   Optional, and ignored by the readline prompter for exactly that reason.
+ */
 
-export interface ChoiceOption<T extends string> {
-  value: T;
-  label: string;
-  note?: string;
-}
+/**
+ * @template {string} T
+ * @typedef {object} ChoiceOption
+ * @property {T} value
+ * @property {string} label
+ * @property {string} [note]
+ */
 
-export interface PrompterOptions {
-  /** When true, every question resolves to its default without printing a prompt. */
-  autoAccept?: boolean;
-  /** Injected by tests. Supplying either one also means "this is interactive", TTY or not. */
-  input?: NodeJS.ReadableStream;
-  output?: NodeJS.WritableStream;
-}
+/**
+ * @typedef {object} PrompterOptions
+ * @property {boolean} [autoAccept] When true, every question resolves to its default without printing a prompt.
+ * @property {NodeJS.ReadableStream} [input] Injected by tests. Supplying either one also means "this is
+ *   interactive", TTY or not.
+ * @property {NodeJS.WritableStream} [output]
+ */
 
-export function createPrompter(options: PrompterOptions = {}): Prompter {
+/**
+ * @param {PrompterOptions} [options]
+ * @returns {Prompter}
+ */
+export function createPrompter(options = {}) {
   const injected = Boolean(options.input || options.output);
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
@@ -83,17 +84,21 @@ export function createPrompter(options: PrompterOptions = {}): Prompter {
   // waiting for input nobody can type would hang the process forever.
   const auto = options.autoAccept || (!injected && !process.stdin.isTTY);
   let muted = false;
-  let rl: Interface | undefined;
+  /** @type {Interface | undefined} */
+  let rl;
   // Set when the input stream ends: Ctrl-D, or a pipe that ran out of answers. From that point on
   // there is nobody left to ask, so every prompt takes its default rather than waiting forever.
   let ended = false;
 
-  const iface = (): Interface => {
+  /** @returns {Interface} */
+  const iface = () => {
     if (rl) return rl;
     rl = createInterface({ input, output, terminal: true });
-    const internal = rl as unknown as { _writeToOutput(text: string): void; output: NodeJS.WritableStream };
+    const internal = /** @type {{ _writeToOutput(text: string): void; output: NodeJS.WritableStream }} */ (
+      /** @type {unknown} */ (rl)
+    );
     const original = internal._writeToOutput.bind(internal);
-    internal._writeToOutput = (text: string) => {
+    internal._writeToOutput = (text) => {
       if (!muted) return original(text);
       // One asterisk per keystroke, so the length of the key is the only thing on screen.
       internal.output.write(text.includes('\n') ? '\n' : '*');
@@ -101,7 +106,11 @@ export function createPrompter(options: PrompterOptions = {}): Prompter {
     return rl;
   };
 
-  const question = (text: string): Promise<string> =>
+  /**
+   * @param {string} text
+   * @returns {Promise<string>}
+   */
+  const question = (text) =>
     new Promise((resolve) => {
       if (ended) return resolve('');
       const active = iface();
@@ -141,7 +150,7 @@ export function createPrompter(options: PrompterOptions = {}): Prompter {
         const raw = (await question(`${c.gray('  choose a number ')}${hint} `)).trim();
         if (!raw || ended) return fallback;
         const index = Number(raw) - 1;
-        if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index]!.value;
+        if (Number.isInteger(index) && index >= 0 && index < choices.length) return choices[index].value;
         output.write(`  ${c.yellow(`Pick a number between 1 and ${choices.length}.`)}\n`);
       }
     },

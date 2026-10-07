@@ -1,14 +1,17 @@
 import { c } from '../shared/log.js';
 import { SetupAbort } from './configure.js';
-import type { ChoiceOption, Prompter } from './prompt.js';
 import { confirm, field, pause, select } from './tui/interact.js';
-import type { KeyReader } from './tui/keys.js';
 import { readKeys } from './tui/keys.js';
 import { glyphs, stripAnsi, terminalWidth, truncate, wrap } from './tui/paint.js';
-import type { Screen, ScreenOptions } from './tui/screen.js';
 import { canUseTui, openScreen } from './tui/screen.js';
 import { ink } from './tui/theme.js';
 import { box, wordmark } from './tui/widgets.js';
+
+/**
+ * @import { ChoiceOption, Prompter } from './prompt.js'
+ * @import { KeyReader } from './tui/keys.js'
+ * @import { ScreenOptions } from './tui/screen.js'
+ */
 
 /**
  * Setup as a full-screen stepper, without a second implementation of setup.
@@ -32,37 +35,51 @@ import { box, wordmark } from './tui/widgets.js';
  * once you are in it.
  */
 
-export interface Stepper {
-  prompter: Prompter;
-  /** Where `runSetup`'s narration goes. Buffered, drawn above the next question, flushed on close. */
-  write(text: string): void;
-  close(): void;
-}
+/**
+ * @typedef {object} Stepper
+ * @property {Prompter} prompter
+ * @property {(text: string) => void} write Where `runSetup`'s narration goes. Buffered, drawn above the
+ *   next question, flushed on close.
+ * @property {() => void} close
+ */
 
-export interface StepperOptions extends ScreenOptions {
-  /** Shown as the tag in the top right of the frame, e.g. `opengeo 0.1.0`. */
-  tag?: string;
-  /** The title in the frame's top edge. Defaults to the wordmark. */
-  title?: string;
-}
+/**
+ * @typedef {ScreenOptions & {
+ *   tag?: string; // Shown as the tag in the top right of the frame, e.g. `opengeo 0.1.0`.
+ *   title?: string; // The title in the frame's top edge. Defaults to the wordmark.
+ * }} StepperOptions
+ */
 
 /** How many buffered lines a frame will show. Beyond this the oldest are dropped, not the newest. */
 const CONTEXT_LINES = 12;
 
-export function openStepper(options: StepperOptions = {}): Stepper | undefined {
+/**
+ * @param {StepperOptions} [options]
+ * @returns {Stepper | undefined}
+ */
+export function openStepper(options = {}) {
   if (!canUseTui(options)) return undefined;
   const output = options.output ?? process.stdout;
   const keys = readKeys(options.input ?? process.stdin);
   // `framed` is the whole state machine: false means writes go to scrollback and no screen exists,
   // true means they are buffered into the next frame. `stage()` turns it on, `settle()` turns it off.
   const state = { label: '', index: 0, total: 0, buffer: '', framed: false };
-  let screen: Screen | undefined;
+  /** @type {Screen | undefined} */
+  let screen;
 
-  /** Opened on the first question, not before. See the note at the top of the file. */
-  const ensureScreen = (): Screen => (screen ??= openScreen(options));
+  /**
+   * Opened on the first question, not before. See the note at the top of the file.
+   *
+   * @returns {Screen}
+   */
+  const ensureScreen = () => (screen ??= openScreen(options));
 
-  /** Hands the terminal back and lets whatever was still buffered land in scrollback. */
-  const settle = (): void => {
+  /**
+   * Hands the terminal back and lets whatever was still buffered land in scrollback.
+   *
+   * @returns {void}
+   */
+  const settle = () => {
     state.framed = false;
     screen?.close();
     screen = undefined;
@@ -71,15 +88,19 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
     if (tail.trim().length > 0) output.write(tail.endsWith('\n') ? tail : `${tail}\n`);
   };
 
-  /** The frame every question is drawn inside: rail, then whatever has been narrated since. */
-  const header = (): string[] => {
+  /**
+   * The frame every question is drawn inside: rail, then whatever has been narrated since.
+   *
+   * @returns {string[]}
+   */
+  const header = () => {
     const width = Math.min(ensureScreen().size().columns, 96);
     const rail = state.total > 0 ? stepRail(state.label, state.index, state.total, width - 4) : [c.bold(state.label || 'Setup')];
     const lines = box(rail, { title: options.title ?? wordmark(), tag: options.tag, width });
     const context = state.buffer.split('\n');
     // Trailing blanks are an artefact of how the flat flow spaces itself for scrollback, and on a
     // repainting screen they only push the question down.
-    while (context.length > 0 && context[context.length - 1]!.trim() === '') context.pop();
+    while (context.length > 0 && /** @type {string} */ (context[context.length - 1]).trim() === '') context.pop();
     if (context.length > CONTEXT_LINES) context.splice(0, context.length - CONTEXT_LINES);
     return context.length > 0 ? [...lines, '', ...context.map((line) => `  ${line}`)] : lines;
   };
@@ -89,13 +110,21 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
    *
    * A declaration rather than a `const`, because that is what lets the compiler see that the lines
    * after each call are unreachable and stop asking the caller to handle an `undefined` answer.
+   *
+   * @returns {never}
    */
-  function cancelled(): never {
+  function cancelled() {
     throw new SetupAbort('Setup was cancelled. Nothing was written.');
   }
 
-  const prompter: Prompter = {
-    stage(label: string, index: number, total: number) {
+  /** @type {Prompter} */
+  const prompter = {
+    /**
+     * @param {string} label
+     * @param {number} index
+     * @param {number} total
+     */
+    stage(label, index, total) {
       state.label = label;
       state.index = index;
       state.total = total;
@@ -103,7 +132,12 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
       state.buffer = '';
       state.framed = true;
     },
-    async ask(question: string, fallback?: string): Promise<string> {
+    /**
+     * @param {string} question
+     * @param {string} [fallback]
+     * @returns {Promise<string>}
+     */
+    async ask(question, fallback) {
       const answer = await field(ensureScreen(), keys, {
         header: header(),
         label: question.trim(),
@@ -114,9 +148,17 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
       state.buffer = '';
       return answer === '' ? fallback ?? '' : answer;
     },
-    async choose<T extends string>(question: string, choices: ChoiceOption<T>[], fallback: T): Promise<T> {
+    /**
+     * @template {string} T
+     * @param {string} question
+     * @param {ChoiceOption<T>[]} choices
+     * @param {T} fallback
+     * @returns {Promise<T>}
+     */
+    async choose(question, choices, fallback) {
       const width = Math.min(terminalWidth(), 96);
-      const answer = await select<T>(ensureScreen(), keys, {
+      /** @type {T | undefined} */
+      const answer = await select(ensureScreen(), keys, {
         header: [...header(), '', `  ${c.bold(question.trim())}`],
         items: choices.map((choice) => ({ value: choice.value, label: choice.label, note: noteFor(choice, width) })),
         selected: Math.max(0, choices.findIndex((choice) => choice.value === fallback)),
@@ -126,7 +168,11 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
       state.buffer = '';
       return answer;
     },
-    async secret(question: string): Promise<string> {
+    /**
+     * @param {string} question
+     * @returns {Promise<string>}
+     */
+    async secret(question) {
       const answer = await field(ensureScreen(), keys, {
         header: header(),
         label: stripAnsi(question).replace(/:\s*$/, '').trim(),
@@ -137,13 +183,19 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
       state.buffer = '';
       return answer;
     },
-    async confirm(question: string, fallback: boolean): Promise<boolean> {
+    /**
+     * @param {string} question
+     * @param {boolean} fallback
+     * @returns {Promise<boolean>}
+     */
+    async confirm(question, fallback) {
       const answer = await confirm(ensureScreen(), keys, { header: header(), question: question.trim(), fallback });
       if (answer === undefined) cancelled();
       state.buffer = '';
       return answer;
     },
-    async pause(): Promise<void> {
+    /** @returns {Promise<void>} */
+    async pause() {
       // The frame is already showing what there is to read; all this adds is the reason to stop.
       const carryOn = await pause(ensureScreen(), keys, { header: header(), hint: 'next step' });
       if (!carryOn) cancelled();
@@ -158,7 +210,8 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
 
   return {
     prompter,
-    write(text: string) {
+    /** @param {string} text */
+    write(text) {
       if (state.framed) state.buffer += text;
       // Outside the frame there is nothing to draw it above, and no screen in the way of printing
       // it: the intro before the first question, and everything after the last one.
@@ -178,8 +231,14 @@ export function openStepper(options: StepperOptions = {}): Stepper | undefined {
  * A rail rather than a percentage: setup has four steps, they are not the same size, and a bar that
  * claimed 25% after the first question would be measuring the wrong thing. Dots say how many are
  * left, which is the only number anybody wants at a prompt.
+ *
+ * @param {string} label
+ * @param {number} index
+ * @param {number} total
+ * @param {number} [width]
+ * @returns {string[]}
  */
-export function stepRail(label: string, index: number, total: number, width = terminalWidth()): string[] {
+export function stepRail(label, index, total, width = terminalWidth()) {
   const g = glyphs();
   const dots = Array.from({ length: total }, (_, position) => {
     if (position + 1 < index) return ink.ok(g.dot);
@@ -189,8 +248,15 @@ export function stepRail(label: string, index: number, total: number, width = te
   return [truncate(`${dots}   ${c.bold(`Step ${index} of ${total}`)}  ${label}`, Math.max(8, width))];
 }
 
-/** Choice notes wrap under the label rather than running off the frame. */
-function noteFor<T extends string>(choice: ChoiceOption<T>, width: number): string | undefined {
+/**
+ * Choice notes wrap under the label rather than running off the frame.
+ *
+ * @template {string} T
+ * @param {ChoiceOption<T>} choice
+ * @param {number} width
+ * @returns {string | undefined}
+ */
+function noteFor(choice, width) {
   if (!choice.note) return undefined;
   const room = Math.max(20, width - stripAnsi(choice.label).length - 10);
   const [first] = wrap(choice.note, room);
@@ -198,5 +264,8 @@ function noteFor<T extends string>(choice: ChoiceOption<T>, width: number): stri
   return first.length < choice.note.length ? `${first.replace(/\s+\S*$/, '')}...` : first;
 }
 
-/** Exported for the tests: a screen the stepper can be driven against without a terminal. */
-export type { Screen };
+/**
+ * Exported for the tests: a screen the stepper can be driven against without a terminal.
+ *
+ * @typedef {import('./tui/screen.js').Screen} Screen
+ */

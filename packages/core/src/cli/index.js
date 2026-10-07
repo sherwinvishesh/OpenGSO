@@ -1,8 +1,9 @@
-import type { CommandName } from '../shared/errors.js';
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
 import { c } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
 import { runHome } from './home.js';
+
+/** @import { CommandName } from '../shared/errors.js' */
 
 export * from './args.js';
 export * from './project.js';
@@ -15,32 +16,40 @@ export * from './project.js';
  * package to add, which is the whole point of shipping narrow packages.
  */
 
-export interface CommandContext {
-  /** Argv after the command name, e.g. `['http://localhost:3000', '--json']`. */
-  argv: string[];
-  packageName: string;
-  version: string;
-}
+/**
+ * @typedef {object} CommandContext
+ * @property {string[]} argv Argv after the command name, e.g. `['http://localhost:3000', '--json']`.
+ * @property {string} packageName
+ * @property {string} version
+ */
 
-export type CommandHandler = (ctx: CommandContext) => Promise<number>;
+/** @typedef {(ctx: CommandContext) => Promise<number>} CommandHandler */
 
-export interface CliOptions {
-  packageName: string;
-  version: string;
-  commands: Partial<Record<CommandName, CommandHandler>>;
-  argv?: string[];
-}
+/**
+ * @typedef {object} CliOptions
+ * @property {string} packageName
+ * @property {string} version
+ * @property {Partial<Record<CommandName, CommandHandler>>} commands
+ * @property {string[]} [argv]
+ */
 
-const ALL_COMMANDS: CommandName[] = ['test', 'generate', 'prod test', 'settings', 'start'];
+/** @type {CommandName[]} */
+const ALL_COMMANDS = ['test', 'generate', 'prod test', 'settings', 'start'];
 
 /**
  * `setup` was the name until the flow split into `start` (set up, then open the dashboard) and
  * `settings` (change something later). It stays as an alias forever: it is in every README written
  * before the rename, and a renamed command that answers "unknown command" is just a broken link.
+ *
+ * @type {Record<string, CommandName>}
  */
-const ALIASES: Record<string, CommandName> = { setup: 'settings' };
+const ALIASES = { setup: 'settings' };
 
-export async function runCli(options: CliOptions): Promise<number> {
+/**
+ * @param {CliOptions} options
+ * @returns {Promise<number>}
+ */
+export async function runCli(options) {
   const argv = options.argv ?? process.argv.slice(2);
   const available = ALL_COMMANDS.filter((name) => options.commands[name]);
 
@@ -101,19 +110,31 @@ export async function runCli(options: CliOptions): Promise<number> {
   }
 }
 
-/** `prod test` is the one two-word command, so matching is explicit rather than a prefix search. */
-function matchCommand(argv: string[]): { command?: CommandName; rest: string[] } {
+/**
+ * `prod test` is the one two-word command, so matching is explicit rather than a prefix search.
+ *
+ * @param {string[]} argv
+ * @returns {{ command?: CommandName; rest: string[] }}
+ */
+function matchCommand(argv) {
   if (argv[0] === 'prod' && argv[1] === 'test') return { command: 'prod test', rest: argv.slice(2) };
   const first = argv[0];
-  if (first && (ALL_COMMANDS as string[]).includes(first)) {
-    return { command: first as CommandName, rest: argv.slice(1) };
+  if (first && /** @type {string[]} */ (ALL_COMMANDS).includes(first)) {
+    return { command: /** @type {CommandName} */ (first), rest: argv.slice(1) };
   }
   if (first && ALIASES[first]) return { command: ALIASES[first], rest: argv.slice(1) };
   return { rest: argv.slice(1) };
 }
 
-function renderHelp(packageName: string, version: string, available: CommandName[]): string {
-  const lines: string[] = [];
+/**
+ * @param {string} packageName
+ * @param {string} version
+ * @param {CommandName[]} available
+ * @returns {string}
+ */
+function renderHelp(packageName, version, available) {
+  /** @type {string[]} */
+  const lines = [];
   lines.push('');
   lines.push(`${c.bold('OpenGEO')} ${c.gray(`${packageName} ${version}`)}`);
   lines.push(c.gray('Make your site readable by AI agents, and prove it.'));
@@ -160,9 +181,12 @@ function renderHelp(packageName: string, version: string, available: CommandName
  * It exists because "which AI tools does this work with" and "can I use mine" are the two questions
  * that decide whether someone can use the AI features at all, and neither should require reading
  * the source or a website. The answer to the second is always yes, and the steps are here.
+ *
+ * @returns {string}
  */
-export function renderProvidersHelp(): string {
-  const lines: string[] = [];
+export function renderProvidersHelp() {
+  /** @type {string[]} */
+  const lines = [];
   const width = Math.max(...PROVIDERS.map((provider) => provider.id.length)) + 2;
   // Measured, not guessed: two labels in the table are long enough to swallow the gap before the
   // note when the column is a fixed number.
@@ -227,8 +251,10 @@ export function renderProvidersHelp(): string {
  * Per-command help. Kept here rather than in each command module so `opengeo <cmd> --help` works
  * even in an install that doesn't ship that command - the user gets the flags and the "install X"
  * message, not one or the other.
+ *
+ * @type {Record<CommandName, string[]>}
  */
-const COMMAND_HELP: Record<CommandName, string[]> = {
+const COMMAND_HELP = {
   test: [
     'Usage: opengeo test <url> [options]',
     '',
@@ -332,11 +358,20 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
   ],
 };
 
-function renderCommandHelp(command: CommandName): string {
+/**
+ * @param {CommandName} command
+ * @returns {string}
+ */
+function renderCommandHelp(command) {
   return `\n${COMMAND_HELP[command].join('\n')}\n\n`;
 }
 
-/** Entry point wrapper every package's `bin` uses. */
-export async function main(options: CliOptions): Promise<void> {
+/**
+ * Entry point wrapper every package's `bin` uses.
+ *
+ * @param {CliOptions} options
+ * @returns {Promise<void>}
+ */
+export async function main(options) {
   process.exitCode = await runCli(options);
 }

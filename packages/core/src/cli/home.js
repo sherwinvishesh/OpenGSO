@@ -1,21 +1,24 @@
 import { basename } from 'node:path';
 import { readManifest } from '../generate/manifest.js';
 import { internalDirPath, loadConfig } from '../shared/config.js';
-import type { CommandName } from '../shared/errors.js';
 import { readCredentials } from '../shared/env.js';
 import { c } from '../shared/log.js';
 import { PALETTE, ink } from './tui/theme.js';
 import { deltaFor, lastScored, readHistory, relativeAge, scoreTrend } from '../test/history.js';
-import type { CommandHandler } from './index.js';
 import { field, select } from './tui/interact.js';
-import type { KeyReader } from './tui/keys.js';
 import { readKeys } from './tui/keys.js';
 import { padEnd, terminalWidth, truncate } from './tui/paint.js';
-import type { Screen } from './tui/screen.js';
 import { canUseTui, openScreen } from './tui/screen.js';
-import type { ListItem } from './tui/widgets.js';
 import { box, keyHints, lockedMeter, meter, sparkline, wordmark } from './tui/widgets.js';
 import { createPrompter } from './prompt.js';
+
+/**
+ * @import { CommandName } from '../shared/errors.js'
+ * @import { CommandHandler } from './index.js'
+ * @import { KeyReader } from './tui/keys.js'
+ * @import { Screen } from './tui/screen.js'
+ * @import { ListItem } from './tui/widgets.js'
+ */
 
 /**
  * `opengeo` on its own: the application, rather than a wall of flags.
@@ -32,30 +35,32 @@ import { createPrompter } from './prompt.js';
  * implementation of every command: the home screen is a launcher, not a second front end.
  */
 
-export type HomeAction = 'test' | 'generate' | 'prod' | 'dashboard' | 'settings' | 'setup' | 'quit';
+/** @typedef {'test' | 'generate' | 'prod' | 'dashboard' | 'settings' | 'setup' | 'quit'} HomeAction */
 
-export interface HomeOptions {
-  packageName: string;
-  version: string;
-  /** Whatever this install actually ships. An entry with no handler is drawn dim, not hidden. */
-  commands: Partial<Record<CommandName, CommandHandler>>;
-  root?: string;
-  input?: NodeJS.ReadStream;
-  output?: NodeJS.WriteStream;
-}
+/**
+ * @typedef {object} HomeOptions
+ * @property {string} packageName
+ * @property {string} version
+ * @property {Partial<Record<CommandName, CommandHandler>>} commands Whatever this install actually
+ *   ships. An entry with no handler is drawn dim, not hidden.
+ * @property {string} [root]
+ * @property {NodeJS.ReadStream} [input]
+ * @property {NodeJS.WriteStream} [output]
+ */
 
-/** Everything the header knows, read once per repaint. Separated out so the rendering is testable. */
-export interface HomeStatus {
-  /** The directory name, which is what a person calls their project. */
-  project: string;
-  root: string;
-  configured: boolean;
-  site?: string;
-  score?: { value: number; at: string; delta?: number; trend: number[]; lockedPoints?: number };
-  provider?: { id: string; source: string };
-  twins: number;
-  generatedAt?: string;
-}
+/**
+ * Everything the header knows, read once per repaint. Separated out so the rendering is testable.
+ *
+ * @typedef {object} HomeStatus
+ * @property {string} project The directory name, which is what a person calls their project.
+ * @property {string} root
+ * @property {boolean} configured
+ * @property {string} [site]
+ * @property {{ value: number; at: string; delta?: number; trend: number[]; lockedPoints?: number }} [score]
+ * @property {{ id: string; source: string }} [provider]
+ * @property {number} twins
+ * @property {string} [generatedAt]
+ */
 
 /**
  * Read the project's current state.
@@ -63,11 +68,15 @@ export interface HomeStatus {
  * Every source here is best-effort and every one of them is allowed to be missing: an unconfigured
  * directory, a project that has never generated, one with no key. A home screen that throws because
  * a file it wanted to summarise is absent would be worse than no home screen.
+ *
+ * @param {string} root
+ * @returns {HomeStatus}
  */
-export function readHomeStatus(root: string): HomeStatus {
+export function readHomeStatus(root) {
   const loaded = safely(() => loadConfig(root));
   const configured = Boolean(loaded?.exists);
-  const status: HomeStatus = { project: basename(root) || root, root, configured, twins: 0 };
+  /** @type {HomeStatus} */
+  const status = { project: basename(root) || root, root, configured, twins: 0 };
   if (!loaded) return status;
 
   // Only a site the user actually chose. `defaultConfig()` fills in localhost:3000, and showing
@@ -107,7 +116,12 @@ export function readHomeStatus(root: string): HomeStatus {
   return status;
 }
 
-function safely<T>(read: () => T): T | undefined {
+/**
+ * @template T
+ * @param {() => T} read
+ * @returns {T | undefined}
+ */
+function safely(read) {
   try {
     return read();
   } catch {
@@ -115,10 +129,18 @@ function safely<T>(read: () => T): T | undefined {
   }
 }
 
-/** The header box: what this project is, and where it stands. */
-export function homeHeader(status: HomeStatus, version: string, width = terminalWidth()): string[] {
+/**
+ * The header box: what this project is, and where it stands.
+ *
+ * @param {HomeStatus} status
+ * @param {string} version
+ * @param {number} [width]
+ * @returns {string[]}
+ */
+export function homeHeader(status, version, width = terminalWidth()) {
   const inner = Math.max(24, Math.min(width, 96) - 4);
-  const body: string[] = [];
+  /** @type {string[]} */
+  const body = [];
   body.push(`${c.bold(status.project)}  ${ink.faint(status.site ?? 'no site configured yet')}`);
   body.push('');
   for (const row of statusRows(status, inner)) body.push(row);
@@ -127,10 +149,18 @@ export function homeHeader(status: HomeStatus, version: string, width = terminal
 
 const LABEL_WIDTH = 10;
 
-/** The three status rows, each of which says "unknown" honestly rather than not appearing. */
-export function statusRows(status: HomeStatus, width: number): string[] {
-  const rows: string[] = [];
-  const label = (text: string) => ink.faint(padEnd(text, LABEL_WIDTH));
+/**
+ * The three status rows, each of which says "unknown" honestly rather than not appearing.
+ *
+ * @param {HomeStatus} status
+ * @param {number} width
+ * @returns {string[]}
+ */
+export function statusRows(status, width) {
+  /** @type {string[]} */
+  const rows = [];
+  /** @param {string} text */
+  const label = (text) => ink.faint(padEnd(text, LABEL_WIDTH));
 
   if (!status.configured) {
     rows.push(`${label('Setup')}${ink.warn('not configured')}  ${ink.faint('press s to answer four questions')}`);
@@ -175,13 +205,16 @@ export function statusRows(status: HomeStatus, width: number): string[] {
  * An install that does not ship a command still shows its row, dimmed and unselectable. Hiding it
  * would make two installs look like the same product with a different number of features, when the
  * honest reading is that this one is narrower and the row says which package widens it.
+ *
+ * @param {Partial<Record<CommandName, CommandHandler>>} commands
+ * @param {HomeStatus} status
+ * @returns {Array<ListItem<HomeAction>>}
  */
-export function homeEntries(
-  commands: Partial<Record<CommandName, CommandHandler>>,
-  status: HomeStatus,
-): Array<ListItem<HomeAction>> {
-  const has = (name: CommandName) => Boolean(commands[name]);
-  const entries: Array<ListItem<HomeAction>> = [];
+export function homeEntries(commands, status) {
+  /** @param {CommandName} name */
+  const has = (name) => Boolean(commands[name]);
+  /** @type {Array<ListItem<HomeAction>>} */
+  const entries = [];
 
   if (!status.configured && has('settings')) {
     entries.push({ value: 'setup', label: 'Set up this project', note: 'four questions, then you are done' });
@@ -195,7 +228,8 @@ export function homeEntries(
   return entries;
 }
 
-const SHORTCUTS: Record<string, HomeAction> = {
+/** @type {Record<string, HomeAction>} */
+const SHORTCUTS = {
   t: 'test',
   g: 'generate',
   p: 'prod',
@@ -210,8 +244,11 @@ const SHORTCUTS: Record<string, HomeAction> = {
  * Returns a process exit code, which is always 0 for a normal quit: the home screen is a launcher,
  * and the exit code of the last thing launched is not the exit code of the launcher. A test that
  * scored 40 should not make `opengeo` itself look like it crashed.
+ *
+ * @param {HomeOptions} options
+ * @returns {Promise<number>}
  */
-export async function runHome(options: HomeOptions): Promise<number> {
+export async function runHome(options) {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   const root = options.root ?? process.cwd();
@@ -219,14 +256,16 @@ export async function runHome(options: HomeOptions): Promise<number> {
   if (!canUseTui({ input, output })) return runFlatHome(options, root);
 
   const screen = openScreen({ input, output });
-  let keys: KeyReader = readKeys(input);
+  /** @type {KeyReader} */
+  let keys = readKeys(input);
   const stopResize = screen.onResize(() => undefined);
 
   try {
     for (;;) {
       const status = readHomeStatus(root);
       const header = homeHeader(status, `${options.packageName} ${options.version}`, screen.size().columns);
-      const action = await select<HomeAction>(screen, keys, {
+      /** @type {HomeAction | undefined} */
+      const action = await select(screen, keys, {
         header: ['', ...header],
         items: homeEntries(options.commands, status),
         shortcuts: SHORTCUTS,
@@ -259,20 +298,27 @@ export async function runHome(options: HomeOptions): Promise<number> {
   }
 }
 
-/** Which handler an action runs, and under what name it is announced. */
-function commandFor(action: HomeAction): CommandName {
+/**
+ * Which handler an action runs, and under what name it is announced.
+ *
+ * @param {HomeAction} action
+ * @returns {CommandName}
+ */
+function commandFor(action) {
   if (action === 'prod') return 'prod test';
   if (action === 'dashboard') return 'start';
   if (action === 'setup') return 'settings';
-  return action as CommandName;
+  return /** @type {CommandName} */ (action);
 }
 
-async function runInScrollback(
-  options: HomeOptions,
-  action: HomeAction,
-  argv: string[],
-  output: NodeJS.WriteStream,
-): Promise<void> {
+/**
+ * @param {HomeOptions} options
+ * @param {HomeAction} action
+ * @param {string[]} argv
+ * @param {NodeJS.WriteStream} output
+ * @returns {Promise<void>}
+ */
+async function runInScrollback(options, action, argv, output) {
   const name = commandFor(action);
   const handler = options.commands[name];
   if (!handler) return;
@@ -291,14 +337,15 @@ async function runInScrollback(
  * Only the two questions that change the answer are asked. Everything else has a flag and a sane
  * default, and a menu that re-asked every flag would be slower than typing the command. Returns
  * undefined when the user backed out, which must not be read as "run it with no arguments".
+ *
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {HomeAction} action
+ * @param {HomeStatus} status
+ * @param {string} version
+ * @returns {Promise<string[] | undefined>}
  */
-async function composeArgs(
-  screen: Screen,
-  keys: KeyReader,
-  action: HomeAction,
-  status: HomeStatus,
-  version: string,
-): Promise<string[] | undefined> {
+async function composeArgs(screen, keys, action, status, version) {
   const header = ['', ...homeHeader(status, version, screen.size().columns)];
   const site = status.site ?? '';
 
@@ -311,7 +358,8 @@ async function composeArgs(
   }
 
   if (action === 'test') {
-    const mode = await select<'full' | 'structure' | 'content'>(screen, keys, {
+    /** @type {'full' | 'structure' | 'content' | undefined} */
+    const mode = await select(screen, keys, {
       header,
       items: [
         { value: 'structure', label: 'Structure', note: 'the 22 checks and the 0-100 score. Free, no key.' },
@@ -327,7 +375,8 @@ async function composeArgs(
   }
 
   if (action === 'generate') {
-    const tier = await select<'free' | 'ai'>(screen, keys, {
+    /** @type {'free' | 'ai' | undefined} */
+    const tier = await select(screen, keys, {
       header,
       items: [
         { value: 'free', label: 'Free', note: 'algorithmic extraction. No key, no cost.' },
@@ -344,13 +393,15 @@ async function composeArgs(
   return [];
 }
 
-async function askUrl(
-  screen: Screen,
-  keys: KeyReader,
-  header: string[],
-  site: string,
-  label: string,
-): Promise<string | undefined> {
+/**
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {string[]} header
+ * @param {string} site
+ * @param {string} label
+ * @returns {Promise<string | undefined>}
+ */
+async function askUrl(screen, keys, header, site, label) {
   return await field(screen, keys, {
     header: [...header, '', `  ${c.bold(label)}`],
     label: 'URL',
@@ -361,7 +412,11 @@ async function askUrl(
   });
 }
 
-function isUrlish(value: string): boolean {
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
+function isUrlish(value) {
   try {
     const url = new URL(value);
     return url.protocol === 'http:' || url.protocol === 'https:';
@@ -376,8 +431,12 @@ function isUrlish(value: string): boolean {
  * Called from inside `suspend`, so the terminal is back in cooked mode and this is a plain "press
  * Enter". Trying to read a single raw keypress here would mean turning raw mode back on while the
  * report is still on screen, which is how a terminal ends up echoing nothing after a Ctrl-C.
+ *
+ * @param {NodeJS.ReadStream} input
+ * @param {NodeJS.WriteStream} output
+ * @returns {Promise<void>}
  */
-function waitForKey(input: NodeJS.ReadStream, output: NodeJS.WriteStream): Promise<void> {
+function waitForKey(input, output) {
   return new Promise((resolve) => {
     output.write(`\n${ink.faint('Press Enter to go back to the menu.')} `);
     const done = () => {
@@ -396,8 +455,12 @@ function waitForKey(input: NodeJS.ReadStream, output: NodeJS.WriteStream): Promi
  * `NO_COLOR`, `TERM=dumb`, `CI` and a piped stdin all land here. It is numbered rather than
  * arrow-driven because there is no raw mode to read arrows with, and it is the same list in the
  * same order so that describing one describes both.
+ *
+ * @param {HomeOptions} options
+ * @param {string} root
+ * @returns {Promise<number>}
  */
-async function runFlatHome(options: HomeOptions, root: string): Promise<number> {
+async function runFlatHome(options, root) {
   const output = options.output ?? process.stdout;
   const input = options.input ?? process.stdin;
   // Nobody is there to answer. A menu would either hang or silently pick its own default, and both
@@ -416,12 +479,13 @@ async function runFlatHome(options: HomeOptions, root: string): Promise<number> 
     // stdin echoes every keystroke, including the API key `settings` is masking, and a Ctrl-D meant
     // for the command would close it too.
     const prompter = createPrompter({ input, output });
-    let action: HomeAction;
+    /** @type {HomeAction} */
+    let action;
     try {
-      action = await prompter.choose<HomeAction>(
+      action = await prompter.choose(
         'What would you like to do?',
         entries.map((entry) => ({ value: entry.value, label: entry.label, note: entry.note })),
-        'quit',
+        /** @type {HomeAction} */ ('quit'),
       );
     } finally {
       prompter.close();
@@ -433,8 +497,13 @@ async function runFlatHome(options: HomeOptions, root: string): Promise<number> 
   }
 }
 
-/** The status rows with no colour and no meters, for the flat menu. */
-export function plainStatus(status: HomeStatus): string[] {
+/**
+ * The status rows with no colour and no meters, for the flat menu.
+ *
+ * @param {HomeStatus} status
+ * @returns {string[]}
+ */
+export function plainStatus(status) {
   if (!status.configured) return ['  not configured yet'];
   const rows = [
     status.score ? `  score    ${status.score.value}/100, ${relativeAge(status.score.at)}` : '  score    never tested',
@@ -444,8 +513,14 @@ export function plainStatus(status: HomeStatus): string[] {
   return rows;
 }
 
-/** No form in the flat menu: it takes the configured site and the defaults, or it needs a flag. */
-function flatArgs(action: HomeAction, status: HomeStatus): string[] {
+/**
+ * No form in the flat menu: it takes the configured site and the defaults, or it needs a flag.
+ *
+ * @param {HomeAction} action
+ * @param {HomeStatus} status
+ * @returns {string[]}
+ */
+function flatArgs(action, status) {
   if (action === 'settings' || action === 'setup') return [];
   if (action === 'dashboard') return status.configured ? ['--no-setup'] : [];
   return status.site ? [status.site] : [];

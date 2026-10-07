@@ -3,14 +3,15 @@ import { resolveBots } from '../../shared/bots.js';
 import { c } from '../../shared/log.js';
 import { prodVerificationToJson, renderProdVerification, verifyProd } from '../../prod/index.js';
 import { parseArgs } from '../args.js';
-import type { CommandContext } from '../index.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
-const SPEC = {
+/** @import { CommandContext } from '../index.js' */
+
+const SPEC = /** @type {const} */ ({
   booleans: ['json', 'verbose'],
   strings: ['bot', 'project', 'out', 'timeout'],
   alias: { v: 'verbose' },
-} as const;
+});
 
 /**
  * `opengeo prod test <url>` (§7).
@@ -18,8 +19,11 @@ const SPEC = {
  * The exit code follows the failures, not the warnings. A warning here is a real finding, but it
  * is the kind a CDN can cause and a user may knowingly accept; failing the command on it would
  * teach people to stop reading the output.
+ *
+ * @param {CommandContext} ctx
+ * @returns {Promise<number>}
  */
-export async function prodTestCommand(ctx: CommandContext): Promise<number> {
+export async function prodTestCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
   const unknown = args.unknown();
   if (unknown.length > 0) {

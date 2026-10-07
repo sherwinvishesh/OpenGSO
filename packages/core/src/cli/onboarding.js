@@ -4,14 +4,16 @@ import { c } from '../shared/log.js';
 import { recordRun } from '../test/history.js';
 import { renderSetupScore } from '../test/report.js';
 import { runTestSuite } from '../test/suite.js';
-import type { SetupMode, SetupResult } from './configure.js';
 import { runSetup } from './configure.js';
-import type { Prompter } from './prompt.js';
 import { createPrompter } from './prompt.js';
 import { previewSite } from '../shared/site-probe.js';
-import type { Stepper } from './stepper.js';
 import { openStepper } from './stepper.js';
 import { canUseTui } from './tui/screen.js';
+
+/**
+ * @import { SetupMode, SetupResult } from './configure.js'
+ * @import { Prompter } from './prompt.js'
+ */
 
 /**
  * The one place that decides what setup looks like, shared by `start`, `settings` and the home
@@ -29,24 +31,29 @@ import { canUseTui } from './tui/screen.js';
  * onboarding flow.
  */
 
-export interface OnboardingOptions {
-  root: string;
-  mode: SetupMode;
-  /** `--yes`. Takes every default without asking, so it also skips the probe and the closing test. */
-  autoAccept?: boolean;
-  /** What the frame's top-right corner says, e.g. `opengeo 0.4.0`. */
-  tag?: string;
-  input?: NodeJS.ReadStream;
-  output?: NodeJS.WriteStream;
-}
+/**
+ * @typedef {object} OnboardingOptions
+ * @property {string} root
+ * @property {SetupMode} mode
+ * @property {boolean} [autoAccept] `--yes`. Takes every default without asking, so it also skips the
+ *   probe and the closing test.
+ * @property {string} [tag] What the frame's top-right corner says, e.g. `opengeo 0.4.0`.
+ * @property {NodeJS.ReadStream} [input]
+ * @property {NodeJS.WriteStream} [output]
+ */
 
-export async function runOnboarding(options: OnboardingOptions): Promise<SetupResult> {
+/**
+ * @param {OnboardingOptions} options
+ * @returns {Promise<SetupResult>}
+ */
+export async function runOnboarding(options) {
   const { root, mode, autoAccept } = options;
   const interactive = !autoAccept;
   const stepper = interactive ? openStepper({ input: options.input, output: options.output, tag: options.tag }) : undefined;
-  const prompter: Prompter = stepper?.prompter ?? createPrompter({ autoAccept, input: options.input, output: options.output });
+  /** @type {Prompter} */
+  const prompter = stepper?.prompter ?? createPrompter({ autoAccept, input: options.input, output: options.output });
   const output = options.output ?? process.stdout;
-  const write = stepper ? (text: string) => stepper.write(text) : (text: string) => void output.write(text);
+  const write = stepper ? (/** @type {string} */ text) => stepper.write(text) : (/** @type {string} */ text) => void output.write(text);
 
   try {
     return await runSetup({
@@ -78,8 +85,13 @@ export async function runOnboarding(options: OnboardingOptions): Promise<SetupRe
  *
  * A failed run is not an error. The site may not be running yet - the probe two steps earlier will
  * already have said so - and setup has finished successfully either way.
+ *
+ * @param {SetupResult} result
+ * @param {(text: string) => void} write
+ * @param {boolean} framed
+ * @returns {Promise<void>}
  */
-async function scoreOnFinish(result: SetupResult, write: (text: string) => void, framed: boolean): Promise<void> {
+async function scoreOnFinish(result, write, framed) {
   const { config, root } = result;
   write(`\n${c.bold('Where you stand')}\n`);
   write(`  ${c.gray(`Running the structural test against ${config.site}. Nothing is uploaded.`)}\n`);
@@ -102,4 +114,4 @@ async function scoreOnFinish(result: SetupResult, write: (text: string) => void,
 
 /** Re-exported so a caller only has to know about this module to know whether it will draw a frame. */
 export { canUseTui };
-export type { Stepper };
+/** @typedef {import('./stepper.js').Stepper} Stepper */

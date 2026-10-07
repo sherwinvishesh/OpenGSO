@@ -1,7 +1,8 @@
 import { c } from '../shared/log.js';
 import { twinUrl } from '../shared/routes.js';
-import type { SitePreview } from '../shared/site-probe.js';
 import { ink } from './tui/theme.js';
+
+/** @import { SitePreview } from '../shared/site-probe.js' */
 
 /**
  * The probe as two or three lines under the URL prompt.
@@ -9,8 +10,11 @@ import { ink } from './tui/theme.js';
  * Written so that every line is either a fact about the response or a consequence of it. "Reachable"
  * on its own is not worth the round trip; "reachable, Next.js, and the content is in the HTML" tells
  * somebody that generate is going to work before they run it.
+ *
+ * @param {SitePreview} preview
+ * @returns {string[]}
  */
-export function previewLines(preview: SitePreview): string[] {
+export function previewLines(preview) {
   if (preview.error) {
     return [
       ink.warn(`Could not reach ${preview.url}: ${preview.error}`),

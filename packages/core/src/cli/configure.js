@@ -1,12 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import type { CustomBotInput } from '../shared/bots.js';
 import { resolveBots, resolveRoutableBots } from '../shared/bots.js';
-import type { OpenGeoConfig } from '../shared/config.js';
 import { CONFIG_FILENAME, defaultConfig, loadConfig, projectDirProblem, saveConfig } from '../shared/config.js';
-import type { AiProvider, ProviderApi } from '../shared/providers.js';
 import { PROVIDERS, providerInfo } from '../shared/providers.js';
-import type { GitignoreResult } from '../shared/env.js';
 import {
   BASE_URL_VAR,
   ENV_FILENAME,
@@ -20,9 +16,17 @@ import {
 import { parseUrl } from '../shared/http.js';
 import { c, heading } from '../shared/log.js';
 import { pickBots } from './bot-picker.js';
-import type { Prompter } from './prompt.js';
-import { detectWebRoot, type SitePreview, type WebRootGuess } from '../shared/site-probe.js';
+import { detectWebRoot } from '../shared/site-probe.js';
 import { previewLines } from './setup-preview.js';
+
+/**
+ * @import { CustomBotInput } from '../shared/bots.js'
+ * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { AiProvider, ProviderApi } from '../shared/providers.js'
+ * @import { GitignoreResult } from '../shared/env.js'
+ * @import { Prompter } from './prompt.js'
+ * @import { SitePreview, WebRootGuess } from '../shared/site-probe.js'
+ */
 
 /**
  * The interactive configuration flow, behind both `opengeo start` and `opengeo settings` (§11, §12).
@@ -46,7 +50,7 @@ import { previewLines } from './setup-preview.js';
 
 const MAX_URL_ATTEMPTS = 5;
 
-export type SetupMode = 'first-run' | 'settings';
+/** @typedef {'first-run' | 'settings'} SetupMode */
 
 /**
  * Which of the two a directory should get, asked the same way by every caller.
@@ -55,8 +59,11 @@ export type SetupMode = 'first-run' | 'settings';
  * running a command from a subdirectory and wrong here: finding somebody else's project two levels
  * up and silently editing it is a surprise, and inheriting their answers as defaults is worse. A
  * directory with nothing of its own is being set up, so it gets the walkthrough.
+ *
+ * @param {string} root
+ * @returns {SetupMode}
  */
-export function setupMode(root: string): SetupMode {
+export function setupMode(root) {
   const found = loadConfig(root);
   return found.exists && found.root === root ? 'settings' : 'first-run';
 }
@@ -64,40 +71,38 @@ export function setupMode(root: string): SetupMode {
 /** A setup that stopped on purpose. The message is already user-facing; the CLI just prints it. */
 export class SetupAbort extends Error {}
 
-export interface SetupOptions {
-  root: string;
-  prompter: Prompter;
-  /** Defaults to first-run. `settings` re-frames the same questions as edits (§12). */
-  mode?: SetupMode;
-  /** Where the flow narrates itself. Injected so the whole thing is testable without a terminal. */
-  out?: (text: string) => void;
-  /**
-   * Fetches the site URL as it is entered, so the answer can be checked while it is still cheap to
-   * change. Injected rather than imported, because configure.ts should not decide on every caller's
-   * behalf that setup makes a network request: the CLI passes `previewSite`, tests pass a stub, and
-   * a caller that wants four silent questions passes nothing and gets exactly what it always got.
-   */
-  preview?: (url: string) => Promise<SitePreview | undefined>;
-  /**
-   * Runs after the config is saved, to end setup on a real number instead of three commands to go
-   * and try. Injected for the same reason and one more: `test` pulls in jsdom and the AI providers,
-   * and configure.ts is imported by packages that ship neither.
-   */
-  finish?: (result: SetupResult, write: (text: string) => void) => Promise<void>;
-}
+/**
+ * @typedef {object} SetupOptions
+ * @property {string} root
+ * @property {Prompter} prompter
+ * @property {SetupMode} [mode] Defaults to first-run. `settings` re-frames the same questions as edits
+ *   (§12).
+ * @property {(text: string) => void} [out] Where the flow narrates itself. Injected so the whole thing
+ *   is testable without a terminal.
+ * @property {(url: string) => Promise<SitePreview | undefined>} [preview] Fetches the site URL as it is
+ *   entered, so the answer can be checked while it is still cheap to change. Injected rather than
+ *   imported, because configure.ts should not decide on every caller's behalf that setup makes a
+ *   network request: the CLI passes `previewSite`, tests pass a stub, and a caller that wants four
+ *   silent questions passes nothing and gets exactly what it always got.
+ * @property {(result: SetupResult, write: (text: string) => void) => Promise<void>} [finish] Runs after
+ *   the config is saved, to end setup on a real number instead of three commands to go and try.
+ *   Injected for the same reason and one more: `test` pulls in jsdom and the AI providers, and
+ *   configure.ts is imported by packages that ship neither.
+ */
 
-export interface SetupResult {
-  root: string;
-  configPath: string;
-  config: OpenGeoConfig;
-  createdConfig: boolean;
-  /** Crawlers the user defined during this run, already merged into `config.bots.custom`. */
-  addedBots: CustomBotInput[];
-  /** Set only when a key was actually written, which is also the only time .gitignore is touched. */
-  keyWritten?: { provider: AiProvider; envPath: string; gitignore: GitignoreResult };
-}
+/**
+ * @typedef {object} SetupResult
+ * @property {string} root
+ * @property {string} configPath
+ * @property {OpenGeoConfig} config
+ * @property {boolean} createdConfig
+ * @property {CustomBotInput[]} addedBots Crawlers the user defined during this run, already merged into
+ *   `config.bots.custom`.
+ * @property {{ provider: AiProvider; envPath: string; gitignore: GitignoreResult }} [keyWritten] Set
+ *   only when a key was actually written, which is also the only time .gitignore is touched.
+ */
 
-type RoutingChoice = 'all' | 'assistants' | 'none' | 'custom';
+/** @typedef {'all' | 'assistants' | 'none' | 'custom'} RoutingChoice */
 
 /**
  * What OpenGEO is, in the six lines somebody who just typed `opengeo` will actually read.
@@ -105,8 +110,11 @@ type RoutingChoice = 'all' | 'assistants' | 'none' | 'custom';
  * A bare `opengeo` lands here, so this is the product's first screen for most people. It says what
  * the problem is before it says what the tool does, because "Markdown twin" means nothing until you
  * have been told that agents are reading HTML written for browsers and getting it wrong.
+ *
+ * @param {(text: string) => void} write
+ * @returns {void}
  */
-function writeIntro(write: (text: string) => void): void {
+function writeIntro(write) {
   write(`\n${c.bold('What this is')}\n`);
   write(`  ${c.gray('AI agents read your site by scraping pages built for browsers, and they lose things:')}\n`);
   write(`  ${c.gray('nav chrome, scripts and layout come through, prices and dates sometimes do not.')}\n`);
@@ -118,18 +126,25 @@ function writeIntro(write: (text: string) => void): void {
   write(`  ${c.gray('Four questions and you are set up. Nothing is uploaded and there is no account.')}\n`);
 }
 
-/** Everything a step needs to ask its question. Passed around so the steps stay independent. */
-interface StepContext {
-  root: string;
-  prompter: Prompter;
-  write: (text: string) => void;
-  /** Framing only. In settings mode every default is the current value, never a recommendation. */
-  settings: boolean;
-  hasConfig: boolean;
-  preview?: SetupOptions['preview'];
-}
+/**
+ * Everything a step needs to ask its question. Passed around so the steps stay independent.
+ *
+ * @typedef {object} StepContext
+ * @property {string} root
+ * @property {Prompter} prompter
+ * @property {(text: string) => void} write
+ * @property {boolean} settings Framing only. In settings mode every default is the current value, never
+ *   a recommendation.
+ * @property {boolean} hasConfig
+ * @property {SetupOptions['preview']} [preview]
+ */
 
-async function askSiteUrl(ctx: StepContext, current: string): Promise<string> {
+/**
+ * @param {StepContext} ctx
+ * @param {string} current
+ * @returns {Promise<string>}
+ */
+async function askSiteUrl(ctx, current) {
   // Bounded, because a prompter whose input has ended answers every question the same way and an
   // unbounded retry loop would spin forever on it.
   for (let attempt = 1; ; attempt += 1) {
@@ -151,8 +166,12 @@ async function askSiteUrl(ctx: StepContext, current: string): Promise<string> {
  * Never a gate. A site that is not running yet is a completely normal thing to be setting OpenGEO up
  * against, and refusing the URL over it would be wrong. The probe is here so that a typo, a wrong
  * port or a client-rendered page is visible now rather than three commands later.
+ *
+ * @param {StepContext} ctx
+ * @param {string} url
+ * @returns {Promise<void>}
  */
-async function reportSite(ctx: StepContext, url: string): Promise<void> {
+async function reportSite(ctx, url) {
   if (!ctx.preview) return;
   const preview = await ctx.preview(url).catch(() => undefined);
   if (!preview) return;
@@ -166,13 +185,18 @@ async function reportSite(ctx: StepContext, url: string): Promise<void> {
  * answer already in `opengeo.config.json` is a decision somebody made. On a fresh directory the
  * guess becomes the default, and the reason is printed beside it so it can be overruled on sight
  * rather than accepted because it was there.
+ *
+ * @param {StepContext} ctx
+ * @param {string} current
+ * @returns {Promise<string>}
  */
-async function askWebRoot(ctx: StepContext, current: string): Promise<string> {
+async function askWebRoot(ctx, current) {
   // `current` on a project with no config of its own is `defaultConfig().publicDir`, which nobody
   // typed, so the detector is free to replace it. Once opengeo.config.json exists the same string
   // is an answer somebody gave, and a guess about a convention does not get to overrule that.
   const configured = ctx.hasConfig ? current : '';
-  const guess: WebRootGuess = detectWebRoot(ctx.root);
+  /** @type {WebRootGuess} */
+  const guess = detectWebRoot(ctx.root);
   if (!configured && guess.found) ctx.write(`  ${c.gray(`Detected ${guess.dir}/ - ${guess.why}.`)}\n`);
   let answer = await ctx.prompter.ask('  Web root (generated files land here)', configured || guess.dir);
   // The detector's guess is always a folder below the root, so offering it again cannot loop, and a
@@ -184,21 +208,32 @@ async function askWebRoot(ctx: StepContext, current: string): Promise<string> {
   return answer;
 }
 
-function webRootProblem(root: string, publicDir: string): string | undefined {
+/**
+ * @param {string} root
+ * @param {string} publicDir
+ * @returns {string | undefined}
+ */
+function webRootProblem(root, publicDir) {
   return projectDirProblem(root, { publicDir, internalDir: defaultConfig().internalDir });
 }
 
-interface RoutingAnswer {
-  markdownRouting: string[];
-  addedBots: CustomBotInput[];
-}
+/**
+ * @typedef {object} RoutingAnswer
+ * @property {string[]} markdownRouting
+ * @property {CustomBotInput[]} addedBots
+ */
 
-async function askRouting(ctx: StepContext, config: OpenGeoConfig): Promise<RoutingAnswer> {
+/**
+ * @param {StepContext} ctx
+ * @param {OpenGeoConfig} config
+ * @returns {Promise<RoutingAnswer>}
+ */
+async function askRouting(ctx, config) {
   const routableBots = resolveRoutableBots(config.bots.custom);
   const everyone = routableBots.map((bot) => bot.name);
   const assistantsAndSearch = routableBots.filter((bot) => bot.kind !== 'training').map((bot) => bot.name);
 
-  const routingChoice = await ctx.prompter.choose<RoutingChoice>(
+  const routingChoice = await ctx.prompter.choose(
     '  Route markdown to:',
     [
       {
@@ -239,7 +274,12 @@ async function askRouting(ctx: StepContext, config: OpenGeoConfig): Promise<Rout
   return { markdownRouting: picked.selected, addedBots: picked.added };
 }
 
-async function askBlocked(ctx: StepContext, config: OpenGeoConfig): Promise<string[]> {
+/**
+ * @param {StepContext} ctx
+ * @param {OpenGeoConfig} config
+ * @returns {Promise<string[]>}
+ */
+async function askBlocked(ctx, config) {
   const picked = await pickBots({
     prompter: ctx.prompter,
     out: ctx.write,
@@ -253,10 +293,11 @@ async function askBlocked(ctx: StepContext, config: OpenGeoConfig): Promise<stri
   return picked.selected;
 }
 
-interface ProviderAnswer {
-  ai: OpenGeoConfig['ai'];
-  keyWritten?: SetupResult['keyWritten'];
-}
+/**
+ * @typedef {object} ProviderAnswer
+ * @property {OpenGeoConfig['ai']} ai
+ * @property {SetupResult['keyWritten']} [keyWritten]
+ */
 
 /**
  * Step 4, and the only step that writes a file of its own.
@@ -264,8 +305,12 @@ interface ProviderAnswer {
  * Returns undefined when nothing should change, which covers three different answers: "skip",
  * an endpoint the user did not finish giving, and an empty key. None of them should overwrite what
  * is already configured.
+ *
+ * @param {StepContext} ctx
+ * @param {OpenGeoConfig} config
+ * @returns {Promise<ProviderAnswer | undefined>}
  */
-async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<ProviderAnswer | undefined> {
+async function askProvider(ctx, config) {
   const { prompter, write, root } = ctx;
   const found = readCredentials(root);
   if (found) {
@@ -278,7 +323,7 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
 
   // The catalogue drives the list, so adding a provider is a row in one file and nothing here
   // changes. `custom` is last on purpose: it is the answer for people who already know they need it.
-  const providerChoice = await prompter.choose<AiProvider | 'skip'>(
+  const providerChoice = await prompter.choose(
     found ? '  Replace it?' : '  Add a key?',
     [
       {
@@ -292,7 +337,7 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
         note: providerNote(provider.id),
       })),
     ],
-    'skip',
+    /** @type {AiProvider | 'skip'} */ ('skip'),
   );
   if (providerChoice === 'skip') return undefined;
 
@@ -324,7 +369,8 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
   const sameProvider = config.ai.provider === providerChoice;
   const model = await prompter.ask('  Model', endpoint.model || (sameProvider ? config.ai.model : undefined) || info.defaultModel);
   // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
-  const vars: Record<string, string | undefined> = {
+  /** @type {Record<string, string | undefined>} */
+  const vars = {
     [PROVIDER_VAR]: providerChoice,
     [MODEL_VAR]: model,
     [BASE_URL_VAR]: endpoint.baseUrl || undefined,
@@ -334,7 +380,8 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
 
   // The endpoint is an address, not a secret, so it also goes in the committed config where the
   // rest of the team can see which gateway this project talks to.
-  const ai: OpenGeoConfig['ai'] = { provider: providerChoice, model };
+  /** @type {OpenGeoConfig['ai']} */
+  const ai = { provider: providerChoice, model };
   if (endpoint.baseUrl) ai.baseUrl = endpoint.baseUrl;
   if (endpoint.api) ai.api = endpoint.api;
   if (endpoint.keyless) {
@@ -344,14 +391,25 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
   return { ai, keyWritten: { provider: providerChoice, envPath, gitignore } };
 }
 
-function writeKeyLocation(write: (text: string) => void, root: string, anyKey: boolean): void {
+/**
+ * @param {(text: string) => void} write
+ * @param {string} root
+ * @param {boolean} anyKey
+ * @returns {void}
+ */
+function writeKeyLocation(write, root, anyKey) {
   write(`\n${c.bold('Where your key lives')}\n`);
   write(`  ${c.gray(join(root, ENV_FILENAME))}${anyKey ? '' : c.gray('  (nothing there yet)')}\n`);
   write(`  ${c.gray('It is read from that file and sent to the provider you chose, and nowhere else. OpenGEO')}\n`);
   write(`  ${c.gray('has no telemetry, no analytics and no cloud sync, so there is nothing else to audit.')}\n`);
 }
 
-function writeAddedBots(write: (text: string) => void, addedBots: CustomBotInput[]): void {
+/**
+ * @param {(text: string) => void} write
+ * @param {CustomBotInput[]} addedBots
+ * @returns {void}
+ */
+function writeAddedBots(write, addedBots) {
   if (addedBots.length === 0) return;
   write(`\n${c.bold('Crawlers you added')}\n`);
   for (const bot of addedBots) {
@@ -360,18 +418,23 @@ function writeAddedBots(write: (text: string) => void, addedBots: CustomBotInput
   write(`  ${c.gray(`Stored in bots.custom in ${CONFIG_FILENAME}. Restart your site for prod to pick them up.`)}\n`);
 }
 
-export async function runSetup(options: SetupOptions): Promise<SetupResult> {
+/**
+ * @param {SetupOptions} options
+ * @returns {Promise<SetupResult>}
+ */
+export async function runSetup(options) {
   // Settings is a different shape of interaction, not a re-worded walkthrough: you arrive knowing
   // the one thing you came to change. It gets its own driver over the same four steps.
   if ((options.mode ?? 'first-run') === 'settings') return runSettings(options);
 
   const { root, prompter } = options;
-  const write = options.out ?? ((text: string) => process.stdout.write(text));
+  const write = options.out ?? ((/** @type {string} */ text) => process.stdout.write(text));
   const existing = loadConfig(root);
   // Only reuse a config that belongs to this directory. Walking up found someone else's project.
   const hasConfig = existing.exists && existing.root === root;
   const base = hasConfig ? existing.config : defaultConfig();
-  const ctx: StepContext = { root, prompter, write, settings: false, hasConfig, preview: options.preview };
+  /** @type {StepContext} */
+  const ctx = { root, prompter, write, settings: false, hasConfig, preview: options.preview };
 
   /**
    * One step announced two ways, and never both at once.
@@ -379,8 +442,13 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
    * A prompter that draws a rail is already showing "Step 2 of 4  Blocking" at the top of the frame,
    * and the underlined `2/4  Blocking` three lines below it is the same four words again. The flat
    * flow has no rail, so there the heading is the only thing saying where you are.
+   *
+   * @param {number} index
+   * @param {string} label
+   * @param {string} title
+   * @returns {void}
    */
-  const step = (index: number, label: string, title: string): void => {
+  const step = (index, label, title) => {
     prompter.stage?.(label, index, 4);
     if (!prompter.stage) write(heading(title));
   };
@@ -428,7 +496,8 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   prompter.settle?.();
 
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
-  const config: OpenGeoConfig = {
+  /** @type {OpenGeoConfig} */
+  const config = {
     ...base,
     site,
     publicDir,
@@ -450,7 +519,8 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   writeAddedBots(write, routing.addedBots);
   writeKeyLocation(write, root, Boolean(provider?.keyWritten) || Boolean(readCredentials(root)));
 
-  const result: SetupResult = { root, configPath, config, createdConfig, addedBots: routing.addedBots, keyWritten: provider?.keyWritten };
+  /** @type {SetupResult} */
+  const result = { root, configPath, config, createdConfig, addedBots: routing.addedBots, keyWritten: provider?.keyWritten };
 
   // A number beats a homework list. When the caller can run the structural test it does so here and
   // setup ends on the score the site has right now, which is also the only honest way to show what
@@ -468,7 +538,7 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   return result;
 }
 
-type SettingKey = 'site' | 'webroot' | 'routing' | 'blocked' | 'provider' | 'done';
+/** @typedef {'site' | 'webroot' | 'routing' | 'blocked' | 'provider' | 'done'} SettingKey */
 
 /**
  * `opengeo settings` - the menu (§12).
@@ -481,20 +551,27 @@ type SettingKey = 'site' | 'webroot' | 'routing' | 'blocked' | 'provider' | 'don
  *
  * Each edit is saved as it is made rather than at the end. There is no "discard" here because there
  * is nothing accumulating to discard: the menu is a list of finished actions, not a form.
+ *
+ * @param {SetupOptions} options
+ * @returns {Promise<SetupResult>}
  */
-export async function runSettings(options: SetupOptions): Promise<SetupResult> {
+export async function runSettings(options) {
   const { root, prompter } = options;
-  const write = options.out ?? ((text: string) => process.stdout.write(text));
+  const write = options.out ?? ((/** @type {string} */ text) => process.stdout.write(text));
   const existing = loadConfig(root);
   const hasConfig = existing.exists && existing.root === root;
   const before = hasConfig ? existing.config : defaultConfig();
-  const ctx: StepContext = { root, prompter, write, settings: true, hasConfig, preview: options.preview };
+  /** @type {StepContext} */
+  const ctx = { root, prompter, write, settings: true, hasConfig, preview: options.preview };
 
-  let config: OpenGeoConfig = { ...before, bots: { ...before.bots }, ai: { ...before.ai } };
+  /** @type {OpenGeoConfig} */
+  let config = { ...before, bots: { ...before.bots }, ai: { ...before.ai } };
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
   let configPath = join(root, CONFIG_FILENAME);
-  const addedBots: CustomBotInput[] = [];
-  let keyWritten: SetupResult['keyWritten'];
+  /** @type {CustomBotInput[]} */
+  const addedBots = [];
+  /** @type {SetupResult['keyWritten']} */
+  let keyWritten;
   let saved = false;
 
   // Before the header, so a prompter that draws a frame has these three lines as its first context
@@ -506,7 +583,7 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
 
   for (;;) {
     const found = readCredentials(root);
-    const choice = await prompter.choose<SettingKey>(`\n${c.bold('  Settings')}`, menuOptions(config, found?.provider), 'done');
+    const choice = await prompter.choose(`\n${c.bold('  Settings')}`, menuOptions(config, found?.provider), /** @type {SettingKey} */ ('done'));
     if (choice === 'done') break;
 
     write('\n');
@@ -559,9 +636,15 @@ export async function runSettings(options: SetupOptions): Promise<SetupResult> {
   return { root, configPath, config, createdConfig: createdConfig && saved, addedBots, keyWritten };
 }
 
-/** What the frame is called while one setting is being edited. */
-function menuLabel(choice: Exclude<SettingKey, 'done'>): string {
-  const labels: Record<Exclude<SettingKey, 'done'>, string> = {
+/**
+ * What the frame is called while one setting is being edited.
+ *
+ * @param {Exclude<SettingKey, 'done'>} choice
+ * @returns {string}
+ */
+function menuLabel(choice) {
+  /** @type {Record<Exclude<SettingKey, 'done'>, string>} */
+  const labels = {
     site: 'Site URL',
     webroot: 'Web root',
     routing: 'Markdown routing',
@@ -571,9 +654,19 @@ function menuLabel(choice: Exclude<SettingKey, 'done'>): string {
   return labels[choice];
 }
 
-/** The menu itself: every setting on one screen, with what it is set to right now beside it. */
-function menuOptions(config: OpenGeoConfig, keyProvider: string | undefined): Array<{ value: SettingKey; label: string; note?: string }> {
-  const label = (name: string, value: string) => `${name.padEnd(20)}${c.gray(value)}`;
+/**
+ * The menu itself: every setting on one screen, with what it is set to right now beside it.
+ *
+ * @param {OpenGeoConfig} config
+ * @param {string | undefined} keyProvider
+ * @returns {Array<{ value: SettingKey; label: string; note?: string }>}
+ */
+function menuOptions(config, keyProvider) {
+  /**
+   * @param {string} name
+   * @param {string} value
+   */
+  const label = (name, value) => `${name.padEnd(20)}${c.gray(value)}`;
   const model = config.ai.model ? ` ${config.ai.model}` : '';
   // A key for another provider is never sent to this one, so calling it "the key" would be wrong.
   const key = !keyProvider
@@ -594,20 +687,26 @@ function menuOptions(config: OpenGeoConfig, keyProvider: string | undefined): Ar
   ];
 }
 
-/** The one line under a provider in the picker: what it costs you to choose it. */
-function providerNote(id: AiProvider): string {
+/**
+ * The one line under a provider in the picker: what it costs you to choose it.
+ *
+ * @param {AiProvider} id
+ * @returns {string}
+ */
+function providerNote(id) {
   const info = providerInfo(id);
   if (info.userDefined) return 'Any endpoint speaking the OpenAI, Anthropic or Gemini API. You give the URL.';
   if (info.keyless) return `Runs on this machine at ${info.baseUrl}. No key, no account, nothing sent off the box.`;
   return `${info.defaultModel}${info.keysUrl ? `  -  keys: ${info.keysUrl}` : ''}`;
 }
 
-interface EndpointAnswer {
-  baseUrl?: string;
-  api?: ProviderApi;
-  model?: string;
-  keyless: boolean;
-}
+/**
+ * @typedef {object} EndpointAnswer
+ * @property {string} [baseUrl]
+ * @property {ProviderApi} [api]
+ * @property {string} [model]
+ * @property {boolean} keyless
+ */
 
 /**
  * The sub-flow for a provider OpenGEO does not ship with, and the escape hatch for one it does.
@@ -616,13 +715,14 @@ interface EndpointAnswer {
  * the order somebody reading their gateway's docs would find them: the URL, the wire format, then
  * the model id. Getting the wire format wrong is the failure that produces the most confusing HTTP
  * error, so it is a pick list rather than free text.
+ *
+ * @param {Prompter} prompter
+ * @param {(text: string) => void} write
+ * @param {AiProvider} provider
+ * @param {OpenGeoConfig} base
+ * @returns {Promise<EndpointAnswer | undefined>}
  */
-async function askEndpoint(
-  prompter: Prompter,
-  write: (text: string) => void,
-  provider: AiProvider,
-  base: OpenGeoConfig,
-): Promise<EndpointAnswer | undefined> {
+async function askEndpoint(prompter, write, provider, base) {
   const info = providerInfo(provider);
   if (!info.userDefined) return { keyless: Boolean(info.keyless) };
 
@@ -634,14 +734,14 @@ async function askEndpoint(
     return undefined;
   }
 
-  const api = await prompter.choose<ProviderApi>(
+  const api = await prompter.choose(
     '  Which API shape does it speak?',
     [
       { value: 'openai', label: 'OpenAI-compatible', note: 'It has POST /chat/completions. Almost everything does.' },
       { value: 'anthropic', label: 'Anthropic', note: 'POST /messages, with an x-api-key header.' },
       { value: 'gemini', label: 'Gemini', note: 'POST /models/<model>:generateContent.' },
     ],
-    base.ai.api ?? 'openai',
+    /** @type {ProviderApi} */ (base.ai.api ?? 'openai'),
   );
 
   const model = (await prompter.ask('  Model id your endpoint expects', base.ai.model || '')).trim();
@@ -655,13 +755,14 @@ async function askEndpoint(
  * On a first run the answer is always `all`, because that is OpenGEO's recommendation rather than a
  * report of anything. In settings mode the default has to be whatever is currently true, or pressing
  * Enter through the flow would quietly widen a list the user had deliberately narrowed.
+ *
+ * @param {readonly string[]} routing
+ * @param {readonly string[]} everyone
+ * @param {readonly string[]} assistantsAndSearch
+ * @param {boolean} settings
+ * @returns {RoutingChoice}
  */
-function currentRoutingChoice(
-  routing: readonly string[],
-  everyone: readonly string[],
-  assistantsAndSearch: readonly string[],
-  settings: boolean,
-): RoutingChoice {
+function currentRoutingChoice(routing, everyone, assistantsAndSearch, settings) {
   if (!settings) return 'all';
   if (sameNames(routing, everyone)) return 'all';
   if (routing.length === 0) return 'none';
@@ -669,21 +770,35 @@ function currentRoutingChoice(
   return 'custom';
 }
 
-function sameNames(a: readonly string[], b: readonly string[]): boolean {
+/**
+ * @param {readonly string[]} a
+ * @param {readonly string[]} b
+ * @returns {boolean}
+ */
+function sameNames(a, b) {
   if (a.length !== b.length) return false;
   const left = [...a].map((name) => name.toLowerCase()).sort();
   const right = [...b].map((name) => name.toLowerCase()).sort();
   return left.every((name, index) => name === right[index]);
 }
 
-/** What settings mode prints instead of a tutorial: the diff, or the fact that there is not one. */
-function describeChanges(
-  before: OpenGeoConfig,
-  after: OpenGeoConfig,
-  keyWritten: SetupResult['keyWritten'],
-): string[] {
-  const lines: string[] = [];
-  const changed = (label: string, from: string, to: string) => {
+/**
+ * What settings mode prints instead of a tutorial: the diff, or the fact that there is not one.
+ *
+ * @param {OpenGeoConfig} before
+ * @param {OpenGeoConfig} after
+ * @param {SetupResult['keyWritten']} keyWritten
+ * @returns {string[]}
+ */
+function describeChanges(before, after, keyWritten) {
+  /** @type {string[]} */
+  const lines = [];
+  /**
+   * @param {string} label
+   * @param {string} from
+   * @param {string} to
+   */
+  const changed = (label, from, to) => {
     if (from !== to) lines.push(`${c.green('changed')} ${label} ${c.gray(from)} ${c.gray('->')} ${to}`);
   };
 
@@ -708,6 +823,10 @@ function describeChanges(
   return lines;
 }
 
-function describeList(names: readonly string[]): string {
+/**
+ * @param {readonly string[]} names
+ * @returns {string}
+ */
+function describeList(names) {
   return names.length === 0 ? 'nobody' : names.join(', ');
 }

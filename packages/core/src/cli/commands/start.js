@@ -7,14 +7,15 @@ import { CONFIG_FILENAME } from '../../shared/config.js';
 import { c } from '../../shared/log.js';
 import { parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
-import type { CommandContext } from '../index.js';
 import { runOnboarding } from '../onboarding.js';
 
-const SPEC = {
+/** @import { CommandContext } from '../index.js' */
+
+const SPEC = /** @type {const} */ ({
   booleans: ['no-open', 'no-setup', 'setup', 'yes'],
   strings: ['port', 'project', 'host', 'web'],
   alias: { p: 'port', y: 'yes' },
-} as const;
+});
 
 /**
  * `opengeo start` - set the project up, then open the local dashboard (§8, §11).
@@ -29,8 +30,11 @@ const SPEC = {
  * The dashboard itself is a GUI over exactly the same core functions the CLI calls, served from
  * 127.0.0.1 by a dependency-free `node:http` server. Nothing is uploaded, nothing is synced, and the
  * only network calls it ever makes are the ones the user explicitly triggers from the UI.
+ *
+ * @param {CommandContext} ctx
+ * @returns {Promise<number>}
  */
-export async function startCommand(ctx: CommandContext): Promise<number> {
+export async function startCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
   const unknown = args.unknown();
   if (unknown.length > 0) {
@@ -41,7 +45,7 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
   const projectDir = args.str('project');
   const root = projectDir ? resolve(process.cwd(), projectDir) : process.cwd();
   const port = args.num('port') ?? 4321;
-  const webRoot = args.str('web') ? resolve(process.cwd(), args.str('web')!) : findWebRoot();
+  const webRoot = args.str('web') ? resolve(process.cwd(), /** @type {string} */ (args.str('web'))) : findWebRoot();
 
   const mode = setupMode(root);
   // `--setup` re-runs the questions on purpose; `--no-setup` is the escape hatch for a script that
@@ -64,7 +68,8 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
     process.stdout.write(`\n${c.gray('Opening the dashboard.')}\n`);
   }
 
-  let running: Awaited<ReturnType<typeof startServer>>;
+  /** @type {Awaited<ReturnType<typeof startServer>>} */
+  let running;
   try {
     running = await startServer({
       port,
@@ -98,7 +103,7 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
   } else {
     // The loopback promise above is false here, so it is not printed. What replaces it says what is
     // actually exposed: a page that can write an API key, over plain HTTP.
-    const where = args.str('host')!;
+    const where = /** @type {string} */ (args.str('host'));
     process.stdout.write(`\n  ${c.yellow(`Reachable from the network on ${where}, not just this machine.`)}\n`);
     process.stdout.write(`  ${c.gray('Every request needs the token in the URL above. It is new on every launch. From another')}\n`);
     process.stdout.write(`  ${c.gray("machine, use this one's address with the same ?token=.")}\n`);
@@ -111,14 +116,14 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
 
   // Resolves on Ctrl-C. Without this the command would return and the process would exit while the
   // server is still listening.
-  await new Promise<void>((resolveWait) => {
+  await /** @type {Promise<void>} */ (new Promise((resolveWait) => {
     const stop = () => {
       process.stdout.write(`\n${c.gray('Stopped.')}\n`);
       void running.close().then(resolveWait, resolveWait);
     };
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
-  });
+  }));
   return 0;
 }
 
@@ -128,8 +133,10 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
  * At runtime this module is bundled into `<package>/dist/cli.js`, so `./web/` beside it is the
  * published location. The clone layout is checked too, so `node packages/opengeo/dist/cli.js start`
  * works from a source checkout without an install.
+ *
+ * @returns {string}
  */
-function findWebRoot(): string {
+function findWebRoot() {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
     join(here, 'web'),
@@ -137,11 +144,16 @@ function findWebRoot(): string {
     // Running from source (vitest, tsx): packages/core/src/cli/commands -> packages/opengeo/dist/web
     join(here, '..', '..', '..', '..', 'opengeo', 'dist', 'web'),
   ];
-  return candidates.find((candidate) => existsSync(join(candidate, 'index.html'))) ?? candidates[0]!;
+  return candidates.find((candidate) => existsSync(join(candidate, 'index.html'))) ?? candidates[0];
 }
 
-/** Best-effort. A dashboard that fails to open a browser is still a dashboard at a printed URL. */
-function openBrowser(url: string): void {
+/**
+ * Best-effort. A dashboard that fails to open a browser is still a dashboard at a printed URL.
+ *
+ * @param {string} url
+ * @returns {void}
+ */
+function openBrowser(url) {
   const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {

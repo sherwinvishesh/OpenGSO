@@ -1,24 +1,31 @@
 import { relative } from 'node:path';
 import { c, heading, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
-import type { AiProvider } from '../../shared/providers.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import { createAiEnhancer } from '../../generate/ai.js';
 import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
-import type { EnhanceInput, EnhanceOutput } from '../../generate/generate.js';
 import { parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
-import type { CommandContext } from '../index.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
-const SPEC = {
+/**
+ * @import { AiProvider } from '../../shared/providers.js'
+ * @import { EnhanceInput, EnhanceOutput } from '../../generate/generate.js'
+ * @import { CommandContext } from '../index.js'
+ */
+
+const SPEC = /** @type {const} */ ({
   booleans: ['force', 'json', 'single', 'skip-files'],
   strings: ['project', 'tier', 'timeout', 'max-pages', 'depth', 'provider', 'model'],
-} as const;
+});
 
-export async function generateCommand(ctx: CommandContext): Promise<number> {
+/**
+ * @param {CommandContext} ctx
+ * @returns {Promise<number>}
+ */
+export async function generateCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
   const unknown = args.unknown();
   if (unknown.length > 0) {
@@ -35,9 +42,10 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     process.stderr.write(`Unknown tier "${tierFlag}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).\n`);
     return 1;
   }
-  const tier = (tierFlag as 'free' | 'ai' | undefined) ?? loaded.config.generate.tier;
+  const tier = /** @type {'free' | 'ai' | undefined} */ (tierFlag) ?? loaded.config.generate.tier;
 
-  let enhance: ((input: EnhanceInput) => Promise<EnhanceOutput>) | undefined;
+  /** @type {((input: EnhanceInput) => Promise<EnhanceOutput>) | undefined} */
+  let enhance;
   if (tier === 'ai') {
     const built = buildEnhancer(args, loaded);
     if ('error' in built) {
@@ -64,7 +72,7 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
     single,
     maxPages: args.num('max-pages'),
     maxDepth: args.num('depth'),
-    timeoutMs: args.num('timeout') !== undefined ? args.num('timeout')! * 1000 : undefined,
+    timeoutMs: args.num('timeout') !== undefined ? /** @type {number} */ (args.num('timeout')) * 1000 : undefined,
     skipSiteFiles: args.bool('skip-files'),
     enhance,
     onProgress: (event) => {
@@ -188,28 +196,34 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
   return failed > 0 ? 1 : 0;
 }
 
-function indent(text: string): string {
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+function indent(text) {
   return text
     .split('\n')
     .map((line) => (line ? `  ${line}` : line))
     .join('\n');
 }
 
-interface EnhancerReady {
-  enhance: (input: EnhanceInput) => Promise<EnhanceOutput>;
-  provider: AiProvider;
-  model: string;
-  source: string;
-}
+/**
+ * @typedef {object} EnhancerReady
+ * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} enhance
+ * @property {AiProvider} provider
+ * @property {string} model
+ * @property {string} source
+ */
 
 /**
  * Resolve the key and build the AI enhancer, or produce the exact §13 message explaining what is
  * missing. The key is read from the project's own `.env` and never printed, only its origin is.
+ *
+ * @param {ReturnType<typeof parseArgs>} args
+ * @param {ReturnType<typeof resolveProject>} loaded
+ * @returns {EnhancerReady | { error: string }}
  */
-function buildEnhancer(
-  args: ReturnType<typeof parseArgs>,
-  loaded: ReturnType<typeof resolveProject>,
-): EnhancerReady | { error: string } {
+function buildEnhancer(args, loaded) {
   if (isCI()) return { error: ERRORS.ciBlocked("generate's AI tier") };
 
   const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });

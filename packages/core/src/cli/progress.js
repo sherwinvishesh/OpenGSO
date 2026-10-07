@@ -26,27 +26,25 @@ const CSI = `${String.fromCharCode(27)}[`;
 const FRAME_MS = 90;
 const METER_WIDTH = 18;
 
-export interface ProgressOptions {
-  output?: NodeJS.WriteStream;
-  /** Force the append-only transcript, whatever the terminal claims. */
-  plain?: boolean;
-}
+/**
+ * @typedef {object} ProgressOptions
+ * @property {NodeJS.WriteStream} [output]
+ * @property {boolean} [plain] Force the append-only transcript, whatever the terminal claims.
+ */
 
-export interface Progress {
-  /** Start a new phase. Resets the counter and, in plain mode, prints a heading. */
-  phase(label: string): void;
-  /** Advance within the phase. A `total` of 0 means the size is not known yet. */
-  step(done: number, total: number, label?: string): void;
-  /** A line that survives into scrollback in both modes, with the block redrawn under it. */
-  note(text: string): void;
-  /**
-   * End the current phase: clear the block, write `text` if there is one, and go quiet until the
-   * next `phase()`. This is what a run with several timed stages uses between them.
-   */
-  finish(text?: string): void;
-  /** `finish`, and stop for good. Nothing paints after this. */
-  done(summary?: string): void;
-}
+/**
+ * @typedef {object} Progress
+ * @property {(label: string) => void} phase Start a new phase. Resets the counter and, in plain mode,
+ *   prints a heading.
+ * @property {(done: number, total: number, label?: string) => void} step Advance within the phase. A
+ *   `total` of 0 means the size is not known yet.
+ * @property {(text: string) => void} note A line that survives into scrollback in both modes, with the
+ *   block redrawn under it.
+ * @property {(text?: string) => void} finish End the current phase: clear the block, write `text` if
+ *   there is one, and go quiet until the next `phase()`. This is what a run with several timed stages
+ *   uses between them.
+ * @property {(summary?: string) => void} done `finish`, and stop for good. Nothing paints after this.
+ */
 
 /**
  * Whether the live block is appropriate here.
@@ -54,21 +52,33 @@ export interface Progress {
  * Unlike `canUseTui` this does not ask about stdin: nothing here reads a key, so a command being
  * fed from a pipe can still redraw its own output perfectly well. Everything else is the same
  * question, and `colourDepth()` already folds in `NO_COLOR`, `FORCE_COLOR` and `TERM=dumb`.
+ *
+ * @param {NodeJS.WriteStream} [output]
+ * @returns {boolean}
  */
-export function canRedraw(output: NodeJS.WriteStream = process.stdout): boolean {
+export function canRedraw(output = process.stdout) {
   if (!output.isTTY) return false;
   if (process.env.CI) return false;
   if (process.env.OPENGEO_NO_TUI) return false;
   return colourDepth() > 0;
 }
 
-export function createProgress(options: ProgressOptions = {}): Progress {
+/**
+ * @param {ProgressOptions} [options]
+ * @returns {Progress}
+ */
+export function createProgress(options = {}) {
   const output = options.output ?? process.stdout;
   return !options.plain && canRedraw(output) ? liveProgress(output) : plainProgress(output);
 }
 
-/** The old behaviour, kept: a heading per phase, a line per item, nothing redrawn. */
-function plainProgress(output: NodeJS.WriteStream): Progress {
+/**
+ * The old behaviour, kept: a heading per phase, a line per item, nothing redrawn.
+ *
+ * @param {NodeJS.WriteStream} output
+ * @returns {Progress}
+ */
+function plainProgress(output) {
   return {
     phase(label) {
       output.write(`\n  ${c.gray(label)}\n`);
@@ -89,7 +99,11 @@ function plainProgress(output: NodeJS.WriteStream): Progress {
   };
 }
 
-function liveProgress(output: NodeJS.WriteStream): Progress {
+/**
+ * @param {NodeJS.WriteStream} output
+ * @returns {Progress}
+ */
+function liveProgress(output) {
   let label = '';
   let subject = '';
   let done = 0;
@@ -106,7 +120,8 @@ function liveProgress(output: NodeJS.WriteStream): Progress {
     painted = 0;
   };
 
-  const frame = (): string[] => {
+  /** @returns {string[]} */
+  const frame = () => {
     // The stream being written to, not `process.stdout`: they are the same in production and are
     // not in a test, and a block that overflows its own stream is the one bug this module cannot
     // be allowed to have.
@@ -128,7 +143,8 @@ function liveProgress(output: NodeJS.WriteStream): Progress {
 
   // Named rather than inlined on the returned object, so `done` can call it without depending on
   // `this` surviving a destructure.
-  const finishBlock = (text?: string) => {
+  /** @param {string} [text] */
+  const finishBlock = (text) => {
     if (closed) return;
     clear();
     // An empty label is what makes `paint()` a no-op, so the timer can keep ticking harmlessly
@@ -178,7 +194,12 @@ function liveProgress(output: NodeJS.WriteStream): Progress {
 /** How wide the live block draws its bar. Exported so a test can assert the frame's shape. */
 export const PROGRESS_METER_WIDTH = METER_WIDTH;
 
-/** The printable width of a rendered frame line, escape codes excluded. */
-export function progressLineWidth(text: string): number {
+/**
+ * The printable width of a rendered frame line, escape codes excluded.
+ *
+ * @param {string} text
+ * @returns {number}
+ */
+export function progressLineWidth(text) {
   return visibleWidth(text);
 }
