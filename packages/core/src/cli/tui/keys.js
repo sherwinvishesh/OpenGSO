@@ -99,6 +99,12 @@ export function decode(chunk) {
   return { name: 'unknown', value: '' };
 }
 
+/** How long a lone ESC waits for the rest of a sequence. Short enough not to feel like lag. */
+const ESCAPE_WAIT_MS = 50;
+
+/** ESC alone, or ESC [ or ESC O without the final byte that ends the sequence. */
+const INCOMPLETE = new RegExp(`^${ESC}([[O][^A-Za-z~]*)?$`);
+
 /**
  * @param {NodeJS.ReadStream} [input]
  * @returns {KeyReader}
@@ -117,12 +123,35 @@ export function readKeys(input = process.stdin) {
     else queue.push(key);
   };
 
+  // An escape sequence cut off at the end of a chunk, held until the rest arrives or the wait ends.
+  let pending = '';
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+
+  const flush = () => {
+    timer = undefined;
+    const text = pending;
+    pending = '';
+    for (const part of splitChunks(text)) push(decode(part));
+  };
+
   /** @param {Buffer | string} data */
   const onData = (data) => {
-    const text = typeof data === 'string' ? data : data.toString('utf8');
+    const text = pending + (typeof data === 'string' ? data : data.toString('utf8'));
+    pending = '';
+    if (timer) clearTimeout(timer);
+    timer = undefined;
     // One chunk can hold several keys when input arrives faster than the loop drains it, or when
     // somebody pastes. Splitting on ESC keeps each escape sequence whole.
-    for (const part of splitChunks(text)) push(decode(part));
+    const parts = splitChunks(text);
+    // Over ssh or a slow pty an arrow can arrive as ESC and then [B. Read at once, that is escape,
+    // which quits the menu, followed by two typed characters. A key that really is escape on its
+    // own is read when nothing follows it within the wait.
+    if (INCOMPLETE.test(parts[parts.length - 1] ?? '')) {
+      pending = /** @type {string} */ (parts.pop());
+      timer = setTimeout(flush, ESCAPE_WAIT_MS);
+    }
+    for (const part of parts) push(decode(part));
   };
 
   input.setEncoding('utf8');
@@ -141,6 +170,7 @@ export function readKeys(input = process.stdin) {
     close() {
       if (closed) return;
       closed = true;
+      if (timer) clearTimeout(timer);
       input.off('data', onData);
       input.pause();
       // Anything still awaiting a key is told the input ended, so no caller is left hanging.

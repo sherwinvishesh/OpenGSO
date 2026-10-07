@@ -13,7 +13,7 @@ import {
   visibleWidth,
   wrap,
 } from '../src/cli/tui/paint.js';
-import { decode, splitChunks } from '../src/cli/tui/keys.js';
+import { decode, readKeys, splitChunks } from '../src/cli/tui/keys.js';
 import { openScreen, restoreScreens } from '../src/cli/tui/screen.js';
 import { c } from '../src/shared/log.js';
 import { box, listView, lockedMeter, meter, sparkline, textField } from '../src/cli/tui/widgets.js';
@@ -291,6 +291,35 @@ describe('key decoding', () => {
 
   it('never reads a mouse report as typed text', () => {
     expect(decode(`${ESC}[<0;10;5M`).name).toBe('unknown');
+  });
+});
+
+describe('reading keys as they arrive', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('joins an arrow key the terminal sent in two writes, instead of reading the first as escape', async () => {
+    vi.useFakeTimers();
+    const input = new PassThrough();
+    const keys = readKeys(/** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (input)));
+    input.write(ESC);
+    await vi.advanceTimersByTimeAsync(5);
+    input.write('[B');
+    await vi.advanceTimersByTimeAsync(5);
+    expect((await keys.next()).name).toBe('down');
+    keys.close();
+  });
+
+  it('still reads escape on its own, once nothing follows it', async () => {
+    vi.useFakeTimers();
+    const input = new PassThrough();
+    const keys = readKeys(/** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (input)));
+    const next = keys.next();
+    input.write(ESC);
+    await vi.advanceTimersByTimeAsync(100);
+    expect((await next).name).toBe('escape');
+    keys.close();
   });
 });
 
