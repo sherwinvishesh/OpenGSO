@@ -8,6 +8,8 @@ import {
   crossOriginDenial,
   errorReply,
   hostDenial,
+  isLoopbackBind,
+  launchToken,
   resolveStaticPath,
   sseFrame,
   startServer,
@@ -77,13 +79,21 @@ describe('same-origin enforcement', () => {
 });
 
 /** A raw request, because `fetch` will not let a caller choose the Host header. */
-function rawRequest(port: number, path: string, headers: Record<string, string>): Promise<number> {
-  return new Promise((resolveStatus, rejectStatus) => {
+async function rawRequest(port: number, path: string, headers: Record<string, string>): Promise<number> {
+  return (await rawResponse(port, path, headers)).status;
+}
+
+function rawResponse(
+  port: number,
+  path: string,
+  headers: Record<string, string>,
+): Promise<{ status: number; headers: Record<string, string | string[] | undefined> }> {
+  return new Promise((resolveResponse, rejectResponse) => {
     const request = httpRequest({ host: '127.0.0.1', port, path, headers, setHost: false }, (response) => {
       response.resume();
-      resolveStatus(response.statusCode ?? 0);
+      resolveResponse({ status: response.statusCode ?? 0, headers: response.headers });
     });
-    request.on('error', rejectStatus);
+    request.on('error', rejectResponse);
     request.end();
   });
 }
@@ -131,6 +141,78 @@ describe('the Host gate, as a function', () => {
     expect(hostDenial('my-laptop.local:4321', { host: 'my-laptop.local', port: 4321 })).toBeUndefined();
     expect(hostDenial('[::1]:4321', { host: '127.0.0.1', port: 4321 })).toBeUndefined();
     expect(hostDenial('0.0.0.0:4321', { host: '0.0.0.0', port: 4321 })).toBeDefined();
+  });
+});
+
+/**
+ * A bind the network can reach has no Host name to check and no loopback interface to hide behind,
+ * so it gets a token instead. The server is started on 127.0.0.1 with a token handed to it, which is
+ * the same gate without asking this machine's firewall to open a port to the network for a test.
+ */
+describe('the launch token, for a bind the network can reach', () => {
+  let running: RunningServer;
+  let port: number;
+  let host: { host: string };
+
+  beforeEach(async () => {
+    const webRoot = join(root, 'web');
+    mkdirSync(webRoot);
+    writeFileSync(join(webRoot, 'index.html'), '<!doctype html><title>dash</title>');
+    running = await startServer({ ...OPTIONS, root, port: 0, webRoot, token: 'launch-token' });
+    port = running.port;
+    host = { host: `127.0.0.1:${port}` };
+  });
+
+  afterEach(async () => {
+    await running.close();
+  });
+
+  it('refuses the page and the API alike without it', async () => {
+    expect(await rawRequest(port, '/api/state', host)).toBe(401);
+    expect(await rawRequest(port, '/', host)).toBe(401);
+    expect(await rawRequest(port, '/?token=wrong', host)).toBe(401);
+    expect(await rawRequest(port, '/api/state', { ...host, cookie: `opengeo_token_${port}=wrong` })).toBe(401);
+  });
+
+  it('trades the printed URL for a cookie and takes the token out of the address bar', async () => {
+    expect(running.token).toBe('launch-token');
+    expect(running.url).toBe(`http://127.0.0.1:${port}/?token=launch-token`);
+
+    const exchange = await rawResponse(port, '/?token=launch-token', host);
+    expect(exchange.status).toBe(303);
+    expect(exchange.headers.location).toBe('/');
+    const cookie = String(exchange.headers['set-cookie']);
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Strict');
+
+    const pair = cookie.split(';')[0]!;
+    expect(await rawRequest(port, '/', { ...host, cookie: pair })).toBe(200);
+    expect(await rawRequest(port, '/api/state', { ...host, cookie: `other=1; ${pair}` })).toBe(200);
+  });
+
+  it('takes it as a bearer token too, for curl', async () => {
+    expect(await rawRequest(port, '/api/state', { ...host, authorization: 'Bearer launch-token' })).toBe(200);
+    expect(await rawRequest(port, '/api/state', { ...host, authorization: 'Bearer launch-tokeN' })).toBe(401);
+  });
+});
+
+describe('which binds get a token', () => {
+  it('treats only the loopback interface as private', () => {
+    for (const bind of ['127.0.0.1', '127.0.0.2', 'localhost', '::1', '[::1]']) expect(isLoopbackBind(bind)).toBe(true);
+    for (const bind of ['0.0.0.0', '::', '192.168.1.5', 'my-laptop.local']) expect(isLoopbackBind(bind)).toBe(false);
+  });
+
+  it('gives a loopback launch none and a network launch a fresh one every time', () => {
+    expect(launchToken('127.0.0.1')).toBeUndefined();
+    const first = launchToken('0.0.0.0');
+    expect(first).toMatch(/^[A-Za-z0-9_-]{32,}$/);
+    expect(launchToken('0.0.0.0')).not.toBe(first);
+  });
+
+  it('lets a wildcard bind answer to any name only while a token stands in for the name check', () => {
+    expect(hostDenial('192.168.1.5:4321', { host: '0.0.0.0', port: 4321 })).toBeDefined();
+    expect(hostDenial('192.168.1.5:4321', { host: '0.0.0.0', port: 4321 }, true)).toBeUndefined();
+    expect(hostDenial('192.168.1.5:4322', { host: '0.0.0.0', port: 4321 }, true)).toBeDefined();
   });
 });
 

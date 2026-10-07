@@ -281,6 +281,15 @@ export const ERRORS = {
       `is how a website tries to talk to a local server through DNS rebinding.`,
     ].join('\n'),
 
+  tokenRequired: () =>
+    [
+      `Refused: this dashboard is reachable from the network, so every request needs the token it was`,
+      `started with, and this one had none or the wrong one.`,
+      ``,
+      `Open the full URL that \`opengeo start\` printed, including ?token=. The token changes every time`,
+      `the dashboard starts, so a URL from an earlier launch no longer works.`,
+    ].join('\n'),
+
   providerFailed: (provider: string, status: number, body: string) =>
     [
       `The ${provider} API returned ${status}.`,

@@ -37,7 +37,7 @@ Serves the dashboard on `http://127.0.0.1:4321` and opens it. Options:
 | Flag | Meaning |
 | --- | --- |
 | `-p, --port <n>` | Port to listen on. Default `4321`. |
-| `--host <addr>` | Interface to bind. Default `127.0.0.1`. |
+| `--host <addr>` | Interface to bind. Default `127.0.0.1`. Anything else requires a launch token, below. |
 | `--project <dir>` | Project root. Default the current directory. |
 | `--no-open` | Do not launch a browser. |
 | `--setup` | Ask the four questions even though the project is already configured. On a configured project they arrive as settings, with your current values as the defaults. |
@@ -68,8 +68,14 @@ any request that arrives with a cross-origin `Origin` header. Both are deliberat
 internet can POST to a port on your machine, and the refusal has to happen before the body is
 parsed, not after.
 
-`--host 0.0.0.0` exists for the container case. Only reach for it if you understand that it exposes
-a key-writing API to your network.
+`--host 0.0.0.0` exists for the container case. Any address other than loopback makes the dashboard
+reachable from your network, so it then requires a token, new on every launch. The URL `opengeo
+start` prints carries it as `?token=`; opening that URL swaps it for a cookie and drops it from the
+address bar. Without the token every request, page or API, gets a 401. Scripts can send it as
+`Authorization: Bearer <token>`.
+
+The traffic is still plain HTTP, so anyone who can watch it can read the token and any API key you
+save through the dashboard. Only do this on a network you trust.
 
 ### It is a wrapper, not a second implementation
 

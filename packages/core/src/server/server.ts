@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -13,7 +14,8 @@ import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
  * dependency at all.
  *
  * It binds to 127.0.0.1 by design. A dashboard that can write an API key to disk should not be
- * reachable from the network the laptop happens to be on.
+ * reachable from the network the laptop happens to be on. `--host` can still put it there, for the
+ * container case, and then every request has to carry a token minted for that launch.
  */
 
 export interface StartOptions extends ApiOptions {
@@ -21,11 +23,15 @@ export interface StartOptions extends ApiOptions {
   host?: string;
   /** Directory of built dashboard assets. */
   webRoot: string;
+  /** Required on every request when set. Defaults to `launchToken(host)`. */
+  token?: string;
 }
 
 export interface RunningServer {
+  /** What to open. Carries `?token=` when there is one, so it is the only URL that gets in. */
   url: string;
   port: number;
+  token?: string;
   server: Server;
   close(): Promise<void>;
 }
@@ -79,16 +85,26 @@ const HEARTBEAT_MS = 15_000;
 
 export async function startServer(options: StartOptions): Promise<RunningServer> {
   const host = options.host ?? '127.0.0.1';
+  const token = options.token ?? launchToken(host);
   // The real port is only known once listening, and `--port 0` is legal. Nothing is served before
   // `listen` resolves, so the handler never reads the placeholder.
   const bound = { host, port: options.port };
   const server = createServer((request, response) => {
-    const denial = hostDenial(request.headers.host, bound);
-    if (denial) {
-      const api = (request.url ?? '').startsWith('/api/');
-      return api
-        ? send(response, 403, 'application/json; charset=utf-8', JSON.stringify({ error: denial }))
-        : send(response, 403, 'text/plain; charset=utf-8', denial);
+    const api = (request.url ?? '').startsWith('/api/');
+    const refuse = (status: number, message: string) =>
+      api
+        ? send(response, status, 'application/json; charset=utf-8', JSON.stringify({ error: message }))
+        : send(response, status, 'text/plain; charset=utf-8', message);
+
+    const denial = hostDenial(request.headers.host, bound, token !== undefined);
+    if (denial) return refuse(403, denial);
+    if (token !== undefined) {
+      const verdict = tokenVerdict(request, token, tokenCookie(bound.port));
+      if (verdict === 'refused') return refuse(401, ERRORS.tokenRequired());
+      if (verdict !== 'ok') {
+        response.writeHead(303, { ...SECURITY_HEADERS, Location: verdict.location, 'Set-Cookie': verdict.cookie, 'Content-Length': 0 });
+        return response.end();
+      }
     }
     handle(request, response, options, host).catch((error) => {
       const reply = errorReply(error);
@@ -99,10 +115,11 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
 
   const port = await listen(server, options.port, host);
   bound.port = port;
-  const url = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
+  const base = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
   return {
-    url,
+    url: token === undefined ? base : `${base}/?token=${token}`,
     port,
+    token,
     server,
     close: () =>
       new Promise<void>((resolveClose, rejectClose) => {
@@ -206,7 +223,6 @@ export function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-/** Every name that reaches this machine's loopback interface without asking DNS. */
 /**
  * What a request that threw sends back. A `ConfigError` was written for the user and says which file
  * to fix, so it goes through, flagged so the dashboard stops blaming the network. Anything else is a
@@ -217,6 +233,7 @@ export function errorReply(error: unknown): { status: number; body: { error: str
   return { status: 500, body: { error: ERRORS.serverFailed() } };
 }
 
+/** Every name that reaches this machine's loopback interface without asking DNS. */
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 /** Binding addresses that mean "every interface". They are not a name anybody can be addressed by. */
@@ -230,8 +247,17 @@ const WILDCARD_BINDS = new Set(['0.0.0.0', '[::]']);
  * `Host: evil.example` and a matching `Origin`. Same-origin by every rule the browser knows. The one
  * thing the attacker cannot choose is the name this server was started on, so the Host header has to
  * be one of those, on this port, or nothing is answered.
+ *
+ * A wildcard bind has no such name: a machine on the network reaches it by whatever address that
+ * machine knows it by. It only ever runs with a launch token, and the token is what a rebound page
+ * cannot have, since the cookie that carries it belongs to the name it was set under. So there, and
+ * only while a token is in force, any name on the right port is let through to the token check.
  */
-export function hostDenial(hostHeader: string | undefined, bound: { host: string; port: number }): string | undefined {
+export function hostDenial(
+  hostHeader: string | undefined,
+  bound: { host: string; port: number },
+  tokenGated = false,
+): string | undefined {
   if (!hostHeader) return ERRORS.hostRefused(undefined);
   let parsed: URL;
   try {
@@ -240,10 +266,73 @@ export function hostDenial(hostHeader: string | undefined, bound: { host: string
     return ERRORS.hostRefused(hostHeader);
   }
   const boundName = bound.host.includes(':') ? `[${bound.host}]` : bound.host;
-  const nameOk = LOOPBACK_NAMES.has(parsed.hostname) || (!WILDCARD_BINDS.has(boundName) && parsed.hostname === boundName);
+  const nameOk =
+    LOOPBACK_NAMES.has(parsed.hostname) ||
+    (WILDCARD_BINDS.has(boundName) ? tokenGated : parsed.hostname === boundName);
   // `URL` drops the default port, so a server on 80 is addressed with an empty one.
   const portOk = (parsed.port || '80') === String(bound.port);
   return nameOk && portOk ? undefined : ERRORS.hostRefused(hostHeader);
+}
+
+/** Whether a bind address is the loopback interface, which nothing on the network can reach. */
+export function isLoopbackBind(host: string): boolean {
+  const name = host.replace(/^\[(.*)\]$/, '$1').toLowerCase();
+  return name === 'localhost' || name === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(name);
+}
+
+/**
+ * The token a launch on `host` needs, or none for loopback. A new one every launch, so a URL left in
+ * a shell history or a screenshot stops working the moment that dashboard is stopped.
+ */
+export function launchToken(host: string): string | undefined {
+  return isLoopbackBind(host) ? undefined : randomBytes(24).toString('base64url');
+}
+
+/** Per port, so two dashboards open on one machine do not log each other out. */
+function tokenCookie(port: number): string {
+  return `opengeo_token_${port}`;
+}
+
+/**
+ * Whether a request carries the launch token, and what to do about it.
+ *
+ * The printed URL carries it in the query once. That request is answered with a cookie and a
+ * redirect to the same address without it, so the token does not sit in the address bar, the
+ * history or a `Referer`. The cookie is HttpOnly, so the page's own script never holds it, and
+ * SameSite=Strict, so no other site's request ever arrives with it. A bearer header is accepted too,
+ * for curl and scripts.
+ */
+function tokenVerdict(
+  request: IncomingMessage,
+  token: string,
+  cookieName: string,
+): 'ok' | 'refused' | { location: string; cookie: string } {
+  const url = new URL(request.url ?? '/', 'http://placeholder');
+  const offered = url.searchParams.get('token');
+  if (offered !== null) {
+    if (!sameSecret(offered, token)) return 'refused';
+    url.searchParams.delete('token');
+    return {
+      location: url.pathname + url.search,
+      cookie: `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict`,
+    };
+  }
+
+  const bearer = /^Bearer (.+)$/.exec(request.headers.authorization ?? '')?.[1];
+  if (bearer !== undefined && sameSecret(bearer, token)) return 'ok';
+  const cookie = (request.headers.cookie ?? '')
+    .split(';')
+    .map((pair) => pair.trim())
+    .find((pair) => pair.startsWith(`${cookieName}=`))
+    ?.slice(cookieName.length + 1);
+  return cookie !== undefined && sameSecret(cookie, token) ? 'ok' : 'refused';
+}
+
+/** Compared in constant time, so a guess cannot be refined by how long the refusal took. */
+function sameSecret(offered: string, expected: string): boolean {
+  const a = Buffer.from(offered);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**

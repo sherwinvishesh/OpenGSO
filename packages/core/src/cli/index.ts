@@ -323,7 +323,7 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     'Options',
     '  --port, -p <n>     port to listen on (default: 4321)',
     '  --project <dir>    project directory to open (default: cwd)',
-    '  --host <addr>      interface to bind (default: 127.0.0.1, loopback only)',
+    '  --host <addr>      interface to bind (default: 127.0.0.1; any other needs the printed token)',
     '  --web <dir>        directory of built dashboard assets (default: beside this binary)',
     '  --no-open          do not open a browser window',
     '  --setup            run the setup questions even if the project is already configured',

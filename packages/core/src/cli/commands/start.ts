@@ -92,8 +92,19 @@ export async function startCommand(ctx: CommandContext): Promise<number> {
   if (!wantsSetup) {
     process.stdout.write(`  ${c.gray('settings: `opengeo settings`, or the Settings tab in the dashboard')}\n`);
   }
-  process.stdout.write(`\n  ${c.gray('Runs on your machine only. Nothing is uploaded and no key ever leaves this computer')}\n`);
-  process.stdout.write(`  ${c.gray('except in the calls you trigger to the AI provider you chose.')}\n`);
+  if (running.token === undefined) {
+    process.stdout.write(`\n  ${c.gray('Runs on your machine only. Nothing is uploaded and no key ever leaves this computer')}\n`);
+    process.stdout.write(`  ${c.gray('except in the calls you trigger to the AI provider you chose.')}\n`);
+  } else {
+    // The loopback promise above is false here, so it is not printed. What replaces it says what is
+    // actually exposed: a page that can write an API key, over plain HTTP.
+    const where = args.str('host')!;
+    process.stdout.write(`\n  ${c.yellow(`Reachable from the network on ${where}, not just this machine.`)}\n`);
+    process.stdout.write(`  ${c.gray('Every request needs the token in the URL above. It is new on every launch. From another')}\n`);
+    process.stdout.write(`  ${c.gray("machine, use this one's address with the same ?token=.")}\n`);
+    process.stdout.write(`  ${c.gray('The traffic is plain HTTP: anyone who can see it can read the token and any API key')}\n`);
+    process.stdout.write(`  ${c.gray('saved through it. Use this only on a network you trust.')}\n`);
+  }
   process.stdout.write(`\n  ${c.gray('Ctrl-C to stop.')}\n\n`);
 
   if (!args.bool('no-open')) openBrowser(running.url);
