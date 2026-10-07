@@ -49,6 +49,13 @@
  */
 
 /**
+ * Every check id in the catalogue. Spelled out so a table keyed by id (the fix prompt's remedies)
+ * is a `Record<CheckId, string>`, and a check added without an entry is a type error, not a gap.
+ *
+ * @typedef {'A1' | 'A2' | 'A3' | 'A4' | 'A5' | 'A6' | 'A7' | 'A8' | 'B1' | 'B2' | 'B3' | 'B4' | 'B5' | 'B6' | 'B7' | 'B8' | 'B9' | 'B10' | 'B11' | 'B12' | 'B13' | 'B14'} CheckId
+ */
+
+/**
  * @typedef {object} CheckDefinition
  * @property {string} id
  * @property {CheckCategory} category
@@ -72,18 +79,19 @@
  * @property {string} reason The specific reason this check passed, failed, or did not apply. Never a generic string.
  * @property {string} [detail] Optional extra context: an observed header value, a measured number.
  * @property {string} [fix] The next step, for anything short of a pass.
- * @property {number} [price] Score points (of 100) this check would add if it passed. Set on a fail or partial once the
- *   run is scored, because a check's weight is out of 122 and is not the headline's unit.
  *
  *   Written as an instruction and priced, e.g. "Add `Vary: Accept` to the HTML response too (+2)".
  *   The report's ranked footer is built from these, which is why a `fix` that only restates the
  *   problem is worse than none at all.
+ * @property {number} [price] Score points (of 100) this check would add if it passed. Set on a fail or partial once the
+ *   run is scored, because a check's weight is out of 122 and is not the headline's unit.
  * @property {string} [lockedBy] `locked` only: the id of the check that has to pass before this one can be measured.
  */
 
 /** @typedef {CheckDefinition & CheckOutcome} CheckResult */
 
-/** @type {readonly CheckDefinition[]} */
+// Narrowed to CheckId here, so an id in the table that the union does not name fails the typecheck.
+/** @type {readonly (CheckDefinition & { id: CheckId })[]} */
 export const CHECKS = [
   // ---- A. General AI-discoverability -------------------------------------------------------
   { id: 'A1', category: 'A', importance: 'required', weight: 9, title: 'robots.txt exists and does not disallow known AI bots' },
@@ -118,6 +126,7 @@ export const CHECKS = [
   },
 ];
 
+/** @type {Map<string, CheckDefinition>} */
 const BY_ID = new Map(CHECKS.map((c) => [c.id, c]));
 
 /**

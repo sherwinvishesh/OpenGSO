@@ -5,6 +5,7 @@ import { resolveAiCall } from '../../shared/ai-call.js';
 import { internalDirPath } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
+import { MD_DIR } from '../../shared/routes.js';
 import {
   buildFixPrompt,
   readHistory,
@@ -69,7 +70,10 @@ export async function testCommand(ctx) {
   // also structural by definition - a model's opinion is not a checklist an agent can work through.
   if (args.bool('prompt')) {
     const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting });
-    const prompt = buildFixPrompt(result, { command: `opengeo test ${target.toString()}` });
+    const prompt = buildFixPrompt(result, {
+      command: `opengeo test ${target.toString()}`,
+      twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/${MD_DIR}/`,
+    });
     return writeOut(prompt, args.str('out'), result.score.counts.fail === 0 ? 0 : 1);
   }
 

@@ -1,8 +1,9 @@
 import { terminalText } from '../shared/log.js';
+import { MD_DIR } from '../shared/routes.js';
 import { scoreGain } from './score.js';
 
 /**
- * @import { CheckResult } from './checks.js'
+ * @import { CheckId, CheckResult } from './checks.js'
  * @import { Framework, FrameworkId } from './framework.js'
  * @import { TestResult } from './run.js'
  */
@@ -54,6 +55,8 @@ function quoted(text) {
 /**
  * @typedef {object} FixPromptOptions
  * @property {string} [command] The command the user ran, echoed so they can re-run it after the fix.
+ * @property {string} [twinDir] Where generate writes the twins in this project, e.g. `public/md/`. Read from the config by
+ *   the caller; without it the prompt describes the folder rather than guessing a path.
  */
 
 /**
@@ -79,9 +82,11 @@ const PLACEMENT = {
 };
 
 /**
- * Per-check remediation. Keyed by check id so a new check cannot silently ship without one.
+ * Per-check remediation. Typed by CheckId, so a check added without one fails the typecheck.
  *
- * @type {Record<string, string>}
+ * `{twin}` is the twin's path and `{twinDir}` the folder generate writes twins to.
+ *
+ * @type {Record<CheckId, string>}
  */
 const REMEDY = {
   A1: 'Write a robots.txt that does not disallow AI user agents at /. `opengeo generate` writes one; if the file is hand-maintained, remove the Disallow rules for the agents named above.',
@@ -91,9 +96,10 @@ const REMEDY = {
   A5: 'Move the page content into the server-rendered HTML. An agent that does not run JavaScript sees only what is in the raw response, so client-only rendering makes the page invisible to it.',
   A6: 'Reduce time to first byte for this route: cache the response, or move slow work out of the request path.',
   A7: 'Remove the noai / noimageai meta tag or X-Robots-Tag directive, unless blocking AI is intentional.',
+  A8: 'Serve the site over HTTPS and send `Strict-Transport-Security` on the HTML response. Set this on the host or CDN in front of the app, since that is where TLS terminates.',
   B1: 'Install and mount `opengeo-prod`, then run `opengeo generate <site>` so the twin exists on disk for it to serve.',
   B2: 'Set Content-Type to exactly `text/markdown; charset=utf-8` on the markdown response. `opengeo-prod` sets this; a static file handler answering before the middleware will not.',
-  B3: 'The twin URL answers but the body is empty. Re-run `opengeo generate` and confirm the file under public/md/ has content.',
+  B3: 'The twin URL answers but the body is empty or far shorter than the page. Re-run `opengeo generate` and confirm the twin under {twinDir} carries the page content.',
   B4: 'Send X-Markdown-Tokens with the token estimate. `opengeo generate` records it at build time so nothing is computed per request.',
   B5: 'Send X-Content-Type-Options: nosniff on the markdown response.',
   B6: 'Send X-Robots-Tag: noindex on the twin, so search engines do not treat it as duplicate content.',
@@ -159,7 +165,7 @@ export function buildFixPrompt(result, options = {}) {
   if (failures.length > 0) {
     lines.push(`## Failed checks (${failures.length})`);
     lines.push('');
-    for (const check of failures) lines.push(...renderFailure(check, result));
+    for (const check of failures) lines.push(...renderFailure(check, result, options));
   }
 
   if (partials.length > 0) {
@@ -167,7 +173,7 @@ export function buildFixPrompt(result, options = {}) {
     lines.push('');
     lines.push('These already do most of what they should. Each one names the remaining step and what it is worth.');
     lines.push('');
-    for (const check of partials) lines.push(...renderPartial(check, result));
+    for (const check of partials) lines.push(...renderPartial(check, result, options));
   }
 
   if (blocked.length > 0) {
@@ -181,7 +187,7 @@ export function buildFixPrompt(result, options = {}) {
     '  twin at the same URL as a rewrite rather than a redirect, and sets every response header the',
     '  failed B checks above are asking for. It needs no API key and does no work per request beyond',
     '  a map lookup.',
-    '- `opengeo generate <url>` produces the twins under public/md/, plus robots.txt, llms.txt and',
+    `- \`opengeo generate <url>\` produces the twins under ${twinDirFor(options)}, plus robots.txt, llms.txt and`,
     '  sitemap.xml. It runs on a developer machine, never in CI and never per request.',
     '- `opengeo test <url>` re-runs exactly this audit, so you can verify each change.',
   );
@@ -214,9 +220,10 @@ export function buildFixPrompt(result, options = {}) {
 /**
  * @param {CheckResult} check
  * @param {TestResult} result
+ * @param {FixPromptOptions} options
  * @returns {string[]}
  */
-function renderFailure(check, result) {
+function renderFailure(check, result, options) {
   /** @type {string[]} */
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
@@ -224,8 +231,15 @@ function renderFailure(check, result) {
   lines.push(`- Points lost: ${scoreGain(result.score, check.weight)} of 100 (${check.importance})`);
   lines.push(`- What happened: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
-  const remedy = REMEDY[check.id];
-  if (remedy) lines.push(`- Fix: ${remedy.replace('{twin}', new URL(result.twinUrl).pathname)}`);
+  // The check's own fix first: it names the cause it observed (an HTML page at the twin URL, a
+  // directory rule in robots.txt), where the remedy describes building the thing from scratch.
+  const remedy = remedyFor(check, result, options);
+  if (check.fix) {
+    lines.push(`- Fix: ${check.fix}`);
+    lines.push(`- Background: ${remedy}`);
+  } else {
+    lines.push(`- Fix: ${remedy}`);
+  }
   lines.push('');
   return lines;
 }
@@ -240,9 +254,10 @@ function renderFailure(check, result) {
  *
  * @param {CheckResult} check
  * @param {TestResult} result
+ * @param {FixPromptOptions} options
  * @returns {string[]}
  */
-function renderPartial(check, result) {
+function renderPartial(check, result, options) {
   /** @type {string[]} */
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
@@ -251,8 +266,7 @@ function renderPartial(check, result) {
   lines.push(`- Points still available: ${scoreGain(result.score, check.weight - check.earned)} of 100`);
   lines.push(`- Where it stands: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
-  const remedy = check.fix ?? REMEDY[check.id];
-  if (remedy) lines.push(`- Fix: ${remedy.replace('{twin}', new URL(result.twinUrl).pathname)}`);
+  lines.push(`- Fix: ${check.fix ?? remedyFor(check, result, options)}`);
   lines.push('');
   return lines;
 }
@@ -287,6 +301,27 @@ function renderLockedSection(blocked, result) {
   for (const check of blocked) lines.push(`- ${check.id} (weight ${check.weight}) - ${check.title}`);
   lines.push('');
   return lines;
+}
+
+/**
+ * The static remedy for a check, with the twin's path and folder filled in.
+ *
+ * @param {CheckResult} check
+ * @param {TestResult} result
+ * @param {FixPromptOptions} options
+ * @returns {string}
+ */
+function remedyFor(check, result, options) {
+  const remedy = REMEDY[/** @type {CheckId} */ (check.id)] ?? check.title;
+  return remedy.replace('{twin}', new URL(result.twinUrl).pathname).replace('{twinDir}', twinDirFor(options));
+}
+
+/**
+ * @param {FixPromptOptions} options
+ * @returns {string}
+ */
+function twinDirFor(options) {
+  return options.twinDir ?? `the \`${MD_DIR}/\` folder of the web root (\`publicDir\` in opengeo.config.json)`;
 }
 
 /**

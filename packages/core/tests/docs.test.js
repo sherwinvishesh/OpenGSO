@@ -151,6 +151,7 @@ describe('docs/checks.md', () => {
   });
 
   it('never invents a check id that does not exist', () => {
+    /** @type {Set<string>} */
     const ids = new Set(CHECKS.map((c) => c.id));
     for (const [, id] of doc.matchAll(/^### ([AB]\d+) - /gm)) {
       expect(ids.has(id), `docs/checks.md documents "${id}", which is not a real check`).toBe(true);

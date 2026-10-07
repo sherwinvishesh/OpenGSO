@@ -172,6 +172,35 @@ describe('the fix prompt', () => {
     expect(prompt).toContain('What I need from you');
   });
 
+  it('gives every check in the catalogue a Fix line when it fails, A8 included', () => {
+    for (const definition of CHECKS) {
+      /** @type {CheckResult} */
+      const failed = { ...definition, status: 'fail', earned: 0, reason: 'Observed.' };
+      const prompt = buildFixPrompt(resultWith([failed, PASS]));
+      expect(prompt, definition.id).toMatch(/- Fix: .{20,}/);
+    }
+  });
+
+  it('leads with the fix the check wrote for the cause it saw, not only the generic remedy', () => {
+    /** @type {CheckResult} */
+    const htmlTwin = {
+      ...FAILURE,
+      id: 'B1',
+      weight: 10,
+      title: 'Markdown twin URL is reachable and returns 2xx',
+      reason: 'The twin URL answered with an HTML page.',
+      fix: 'Route /resume.md to the markdown twin, ahead of the page renderer (+15).',
+    };
+    const prompt = buildFixPrompt(resultWith([htmlTwin, PASS]));
+    expect(prompt).toContain('- Fix: Route /resume.md to the markdown twin, ahead of the page renderer');
+  });
+
+  it('names the twin folder from the project config instead of assuming public/md/', () => {
+    expect(buildFixPrompt(result, { twinDir: 'web/md/' })).toContain('web/md/');
+    expect(buildFixPrompt(result, { twinDir: 'web/md/' })).not.toContain('public/md/');
+    expect(buildFixPrompt(result)).not.toContain('public/md/');
+  });
+
   it('collapses locked checks into one blocked section instead of a dozen fixes', () => {
     /** @type {CheckResult[]} */
     const locked = [
