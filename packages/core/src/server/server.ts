@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
+import { ConfigError } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { handleApi, type ApiOptions, type ApiProgress } from './api.js';
 
@@ -74,7 +75,9 @@ export async function startServer(options: StartOptions): Promise<RunningServer>
         : send(response, 403, 'text/plain; charset=utf-8', denial);
     }
     handle(request, response, options, host).catch((error) => {
-      send(response, 500, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
+      const reply = errorReply(error);
+      if (!(error instanceof ConfigError)) console.error(error);
+      send(response, reply.status, 'application/json; charset=utf-8', JSON.stringify(reply.body));
     });
   });
 
@@ -184,6 +187,16 @@ export function sseFrame(event: string, data: unknown): string {
 }
 
 /** Every name that reaches this machine's loopback interface without asking DNS. */
+/**
+ * What a request that threw sends back. A `ConfigError` was written for the user and says which file
+ * to fix, so it goes through, flagged so the dashboard stops blaming the network. Anything else is a
+ * bug, and its text can carry absolute paths and stack frames: that stays in the terminal.
+ */
+export function errorReply(error: unknown): { status: number; body: { error: string; configBroken?: true } } {
+  if (error instanceof ConfigError) return { status: 500, body: { error: error.message, configBroken: true } };
+  return { status: 500, body: { error: ERRORS.serverFailed() } };
+}
+
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 /** Binding addresses that mean "every interface". They are not a name anybody can be addressed by. */

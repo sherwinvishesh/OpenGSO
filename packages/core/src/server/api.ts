@@ -11,6 +11,7 @@ import { normalizeCustomBot, resolveBots } from '../shared/bots.js';
 import type { OpenGeoConfig } from '../shared/config.js';
 import {
   CONFIG_FILENAME,
+  configPatchProblem,
   internalDirPath,
   loadConfig,
   mergeConfig,
@@ -238,8 +239,9 @@ function readState(options: ApiOptions): StateResponse {
 // -- config --------------------------------------------------------------------------------------
 
 function saveConfigPatch(body: unknown, options: ApiOptions): ApiResponse {
-  let patch = body as Partial<OpenGeoConfig> | null;
-  if (!patch || typeof patch !== 'object') return bad('Expected a config object.');
+  const shape = configPatchProblem(body);
+  if (shape) return bad(shape);
+  let patch = body as Partial<OpenGeoConfig>;
 
   // The key is in .env and goes wherever `ai` says. Only /api/key may move it, because it checks
   // the endpoint and takes the key in the same request; the dashboard never sends `ai` here.

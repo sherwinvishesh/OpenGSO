@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateFrame, handleApi, readGeneratedFile, testFrame, type StateResponse } from '../src/server/api.js';
 import {
   crossOriginDenial,
+  errorReply,
   hostDenial,
   resolveStaticPath,
   sseFrame,
@@ -13,7 +14,7 @@ import {
   type RunningServer,
 } from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
-import { CONFIG_FILENAME, defaultConfig, loadConfig } from '../src/shared/config.js';
+import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
 import type { Evidence, TestResult } from '../src/test/index.js';
 
@@ -378,6 +379,72 @@ describe('reading generated files', () => {
     expect(readGeneratedFile(root, '.env')).toBeUndefined();
     expect(readGeneratedFile(root, 'secrets.json')).toBeUndefined();
     expect(readGeneratedFile(root, 'md/.hidden/x.md')).toBeUndefined();
+  });
+});
+
+describe('a config patch is checked before it is saved', () => {
+  it('refuses wrong types, unknown values and unbounded numbers, and writes nothing', async () => {
+    for (const patch of [
+      [1, 2],
+      { crawl: 5 },
+      { crawl: { maxPages: 'lots' } },
+      { crawl: { maxPages: 1e12 } },
+      { crawl: { maxDepth: -1 } },
+      { crawl: { exclude: '/admin' } },
+      { generate: { tier: 'gold' } },
+      { generate: { minWords: 2.5 } },
+      { bots: { markdownRouting: 'GPTBot' } },
+      { bots: { blocked: [42] } },
+      { extraRoutes: '/a' },
+      { site: 5 },
+    ]) {
+      const response = await post('/api/config', patch);
+      expect(response.status, JSON.stringify(patch)).toBe(400);
+    }
+    expect(existsSync(join(root, CONFIG_FILENAME))).toBe(false);
+  });
+
+  it('still saves a well-formed patch', async () => {
+    const response = await post('/api/config', { crawl: { maxPages: 50, maxDepth: 2, exclude: ['/admin'] }, generate: { tier: 'ai' } });
+    expect(response.status).toBe(200);
+  });
+
+  it('refuses the same mistakes in a hand-edited file, as a ConfigError', () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ crawl: { maxPages: 'lots' } }));
+    expect(() => loadConfig(root)).toThrow(ConfigError);
+    expect(() => loadConfig(root)).toThrow(/crawl\.maxPages/);
+  });
+});
+
+describe('what an error tells the browser', () => {
+  let running: RunningServer;
+
+  beforeEach(async () => {
+    const webRoot = join(root, 'web');
+    mkdirSync(webRoot);
+    writeFileSync(join(webRoot, 'index.html'), '<!doctype html><title>dash</title>');
+    running = await startServer({ ...OPTIONS, root, port: 0, webRoot });
+  });
+
+  afterEach(async () => {
+    await running.close();
+  });
+
+  /** It used to be a bare 500 that the dashboard reported as "Cannot reach the local server". */
+  it('names a broken config file as the problem, so the dashboard can say so', async () => {
+    writeFileSync(join(root, CONFIG_FILENAME), '{"site":');
+    const response = await fetch(`${running.url}/api/state`);
+    const body = (await response.json()) as { error: string; configBroken?: boolean };
+    expect(response.status).toBe(500);
+    expect(body.configBroken).toBe(true);
+    expect(body.error).toContain(CONFIG_FILENAME);
+  });
+
+  it('keeps the detail of an unexpected failure in the terminal', () => {
+    const reply = errorReply(new TypeError("Cannot read properties of undefined (reading 'x') at /Users/someone/project"));
+    expect(reply.status).toBe(500);
+    expect(reply.body.error).not.toContain('/Users/someone');
+    expect(reply.body.error).not.toContain('TypeError');
   });
 });
 

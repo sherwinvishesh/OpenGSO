@@ -117,6 +117,10 @@ hand.
 }
 ```
 
+Every command checks the file when it loads it and names the field that is wrong rather than failing
+later: lists have to be lists, `generate.tier` is `free` or `ai`, `crawl.maxPages` is a whole number
+from 1 to 100000, `crawl.maxDepth` from 0 to 100 and `generate.minWords` from 0 to 100000.
+
 The `ai` block takes four more optional fields when you point OpenGEO at a gateway or an endpoint it
 does not ship with: `baseUrl`, `api` (`openai`, `anthropic` or `gemini`), `auth` and `headers`. See
 [Add your own AI tool](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md#add-your-own-ai-tool).

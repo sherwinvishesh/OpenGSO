@@ -38,6 +38,7 @@ export function App() {
   // crawler list makes "everyone" look like a hand-picked selection.
   const [bots, setBots] = useState<AiBot[]>();
   const [error, setError] = useState<string>();
+  const [configBroken, setConfigBroken] = useState(false);
   const [lastTest, setLastTest] = useState<TestResponse>();
   const [theme, setTheme] = useState<'light' | 'dark'>(readTheme);
   const [onboarded, setOnboarded] = useState(false);
@@ -47,8 +48,10 @@ export function App() {
       const next = await api.state();
       setState(next);
       setError(undefined);
+      setConfigBroken(false);
     } catch (thrown) {
       setError(thrown instanceof ApiError ? thrown.message : String(thrown));
+      setConfigBroken(thrown instanceof ApiError && thrown.extra.configBroken === true);
     }
   }, []);
 
@@ -80,6 +83,20 @@ export function App() {
       // A browser with storage disabled still gets the theme, it just forgets it on reload.
     }
   }, [theme]);
+
+  // The server answered, so saying it cannot be reached would send somebody to restart a process
+  // that is fine. The message names the file and what is wrong with it.
+  if (error && configBroken) {
+    return (
+      <div className="onboarding">
+        <Card className="card-pad onboarding-card">
+          <Banner tone="fail" title="opengeo.config.json needs fixing">
+            <span className="pre-wrap">{error}</span> Reload this page once it is fixed.
+          </Banner>
+        </Card>
+      </div>
+    );
+  }
 
   if (error && !state) {
     return (

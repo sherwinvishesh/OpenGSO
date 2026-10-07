@@ -109,14 +109,85 @@ export function findConfigFile(startDir = process.cwd()): string | undefined {
   }
 }
 
+/**
+ * A config file or patch OpenGEO will not use. The message is written for the person who has to fix
+ * it, so unlike an arbitrary exception it is safe to hand to the dashboard as it is.
+ */
+export class ConfigError extends Error {
+  override name = 'ConfigError';
+}
+
 export function loadConfig(startDir = process.cwd()): LoadedConfig {
   const path = findConfigFile(startDir);
   if (!path) return { config: defaultConfig(), root: resolve(startDir), exists: false };
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as ConfigPatch;
-  const config = mergeConfig(defaultConfig(), raw);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    throw new ConfigError(CONFIG_ERRORS.unreadable(path, error instanceof Error ? error.message : String(error)));
+  }
+  const shape = configPatchProblem(raw);
+  if (shape) throw new ConfigError(shape);
+  const config = mergeConfig(defaultConfig(), raw as ConfigPatch);
   const problem = projectDirProblem(dirname(path), config);
-  if (problem) throw new Error(problem);
+  if (problem) throw new ConfigError(problem);
   return { config, root: dirname(path), path, exists: true };
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isString = (value: unknown) => typeof value === 'string';
+const isStringList = (value: unknown) => Array.isArray(value) && value.every(isString);
+const whole = (min: number, max: number) => (value: unknown) =>
+  Number.isInteger(value) && (value as number) >= min && (value as number) <= max;
+
+/**
+ * Every field a patch may set, with what it has to be. The bounds are wide on purpose: they are there
+ * to catch a typo like a `maxPages` of 1e12, which removes the cap on a large site, and nothing more.
+ * `opengeo-prod` loads this file on boot and never crawls, so a tight bound here would be a way to
+ * take a site down over a setting prod does not even read. `ai.provider`
+ * is only checked for being a string here, because naming the providers would mean importing the
+ * catalogue into a module `opengeo-prod` loads; the catalogue refuses an unknown one when it is used.
+ */
+const FIELD_RULES: Array<[section: string | undefined, key: string, expected: string, ok: (value: unknown) => boolean]> = [
+  [undefined, 'site', 'a URL string', isString],
+  [undefined, 'publicDir', 'a folder name', isString],
+  [undefined, 'internalDir', 'a folder name', isString],
+  [undefined, 'extraRoutes', 'a list of paths', isStringList],
+  ['crawl', 'maxPages', 'a whole number from 1 to 100000', whole(1, 100_000)],
+  ['crawl', 'maxDepth', 'a whole number from 0 to 100', whole(0, 100)],
+  ['crawl', 'exclude', 'a list of path prefixes', isStringList],
+  ['generate', 'tier', '"free" or "ai"', (value) => value === 'free' || value === 'ai'],
+  ['generate', 'minWords', 'a whole number from 0 to 100000', whole(0, 100_000)],
+  ['bots', 'markdownRouting', 'a list of crawler names', isStringList],
+  ['bots', 'blocked', 'a list of crawler names', isStringList],
+  ['bots', 'custom', 'a list of crawlers', Array.isArray],
+  ['ai', 'provider', 'a provider id', isString],
+  ['ai', 'model', 'a model id', isString],
+  ['ai', 'baseUrl', 'a URL string', isString],
+  ['ai', 'api', 'an API shape', isString],
+  ['ai', 'auth', 'an auth style', isString],
+  ['ai', 'headers', 'an object of header names to string values', (value) => isObject(value) && Object.values(value).every(isString)],
+];
+
+/**
+ * Why a config file or an API patch is not one OpenGEO can use, or nothing if it is. Only the fields
+ * present are checked, so a patch of one field is fine; unknown fields are left alone, so a config
+ * written by a newer version still loads. Directory confinement is `projectDirProblem`'s job.
+ */
+export function configPatchProblem(patch: unknown): string | undefined {
+  if (!isObject(patch)) return CONFIG_ERRORS.badField('The config', 'a JSON object', patch);
+  for (const section of ['crawl', 'generate', 'bots', 'ai']) {
+    if (patch[section] !== undefined && !isObject(patch[section])) {
+      return CONFIG_ERRORS.badField(section, 'an object', patch[section]);
+    }
+  }
+  for (const [section, key, expected, ok] of FIELD_RULES) {
+    const holder = section ? (patch[section] as Record<string, unknown> | undefined) : patch;
+    const value = holder?.[key];
+    if (value !== undefined && !ok(value)) return CONFIG_ERRORS.badField(section ? `${section}.${key}` : key, expected, value);
+  }
+  return undefined;
 }
 
 /**
@@ -138,7 +209,7 @@ export function projectDirProblem(root: string, config: Pick<OpenGeoConfig, 'pub
 
 export function saveConfig(root: string, config: OpenGeoConfig): string {
   const problem = projectDirProblem(root, config);
-  if (problem) throw new Error(problem);
+  if (problem) throw new ConfigError(problem);
   const path = join(root, CONFIG_FILENAME);
   writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
   return path;

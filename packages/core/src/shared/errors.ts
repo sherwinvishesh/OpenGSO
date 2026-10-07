@@ -20,6 +20,16 @@ export const CONFIG_ERRORS = {
       `It has to be a relative path to a folder below ${root}, such as "public". The project root`,
       `itself is refused too: it holds .env, and anything OpenGEO can read or write there is too much.`,
     ].join('\n'),
+
+  badField: (field: string, expected: string, value: unknown) =>
+    `${field} in opengeo.config.json has to be ${expected}, and it is ${JSON.stringify(value) ?? String(value)}.`,
+
+  unreadable: (path: string, reason: string) =>
+    [
+      `${path} could not be read: ${reason}`,
+      ``,
+      `Fix the file by hand, or delete it and run \`opengeo settings\` to write a fresh one.`,
+    ].join('\n'),
 } as const;
 
 export type CommandName ='test' | 'generate' | 'settings' | 'start' | 'prod test';
@@ -240,6 +250,14 @@ export const ERRORS = {
       ``,
       `.env holds one variable per line, and a line break would let the value write a second one.`,
       `Paste it again without the trailing newline.`,
+    ].join('\n'),
+
+  serverFailed: () =>
+    [
+      `Something went wrong inside the dashboard server.`,
+      ``,
+      `The details are in the terminal running \`opengeo start\`. They stay there rather than being`,
+      `sent to the browser, because they can carry file paths from this machine.`,
     ].join('\n'),
 
   aiViaConfigRefused: () =>
