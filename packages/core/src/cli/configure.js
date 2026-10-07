@@ -744,7 +744,8 @@ async function askEndpoint(prompter, write, provider, base) {
     /** @type {ProviderApi} */ (base.ai.api ?? 'openai'),
   );
 
-  const model = (await prompter.ask('  Model id your endpoint expects', base.ai.model || '')).trim();
+  const own = base.ai.provider === provider ? base.ai.model : '';
+  const model = (await prompter.ask('  Model id your endpoint expects', own || '')).trim();
   const keyless = await prompter.confirm('  Does it run without a key?', false);
   return { baseUrl, api, model, keyless };
 }

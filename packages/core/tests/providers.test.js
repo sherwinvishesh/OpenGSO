@@ -316,6 +316,19 @@ describe('resolveAiCall', () => {
     expect(call(resolveAiCall(root, gateway, { model: 'gpt-y' })).model).toBe('gpt-y');
   });
 
+  it("uses the configured provider's own default model when the config names a provider and no model", () => {
+    // A hand-written `"ai": { "provider": "openai" }` used to inherit the Anthropic default from the
+    // merge, and that Claude model id was then sent to OpenAI.
+    env(['OPENAI_API_KEY=sk-openai']);
+    const loaded = mergeConfig(defaultConfig(), { ai: /** @type {OpenGeoConfig['ai']} */ ({ provider: 'openai' }) });
+    expect(call(resolveAiCall(root, loaded)).model).toBe(DEFAULT_MODELS.openai);
+  });
+
+  it('keeps a model the same patch names alongside the new provider', () => {
+    const merged = mergeConfig(defaultConfig(), { ai: { provider: 'openai', model: 'gpt-x' } });
+    expect(merged.ai.model).toBe('gpt-x');
+  });
+
   it('says a key is missing, rather than erroring, when there is none at all', () => {
     expect(resolveAiCall(root, config())).toEqual({ missing: 'anthropic' });
     expect(resolveAiCall(root, config(), { provider: 'openai' })).toEqual({ missing: 'openai' });

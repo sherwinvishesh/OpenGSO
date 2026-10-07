@@ -593,6 +593,27 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       const saved = /** @type {{ ai: { provider: string; model: string } }} */ (JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')));
       expect(saved.ai).toMatchObject({ provider: 'openai', model: DEFAULT_MODELS.openai });
     });
+
+    it("does not offer the old provider's model to a custom endpoint", async () => {
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5' } }),
+        'utf8',
+      );
+      const prompter = scripted({
+        // Enter on both model questions: whatever they offered is what gets saved.
+        ask: ['https://gateway.example.com/v1'],
+        choose: ['provider', 'custom', 'openai'],
+        confirm: [false],
+        secret: 'sk-test-not-a-real-key',
+      });
+
+      await runSetup({ root, prompter, mode: 'settings', out: silent });
+
+      const saved = /** @type {{ ai: { provider: string; model: string } }} */ (JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')));
+      expect(saved.ai.provider).toBe('custom');
+      expect(saved.ai.model).not.toBe('claude-sonnet-5');
+    });
   });
 
   describe('which of the two modes a directory gets', () => {

@@ -19,6 +19,7 @@ import { AI_BOTS } from '../src/shared/bots.js';
 import { CHECKS } from '../src/test/checks.js';
 import { CONFIG_FILENAME, ConfigError, defaultConfig, loadConfig } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
+import { DEFAULT_MODELS } from '../src/shared/providers.js';
 /** @import { StateResponse } from '../src/server/api.js' */
 /** @import { RunningServer } from '../src/server/server.js' */
 /** @import { Evidence, TestResult } from '../src/test/index.js' */
@@ -290,6 +291,12 @@ describe('the API', () => {
     expect(structuralBand(state.bands.structural.good - 1)).toBe('fair');
     expect(structuralBand(state.bands.structural.fair - 1)).toBe('poor');
     expect(state.defaultBot).toBe('ClaudeBot');
+  });
+
+  it("shows a config that names a provider but no model with that provider's default model", async () => {
+    writeFileSync(join(root, CONFIG_FILENAME), JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'openai' } }), 'utf8');
+    const state = /** @type {StateResponse} */ ((await get('/api/state')).body);
+    expect(state.config.ai).toMatchObject({ provider: 'openai', model: DEFAULT_MODELS.openai });
   });
 
   it('serves the bot list the config UI is built from', async () => {

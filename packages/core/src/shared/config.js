@@ -267,6 +267,9 @@ function mergeAi(base, patch) {
   /** @type {OpenGeoConfig['ai']} */
   const merged = { ...base, ...patch };
   if (patch.provider && patch.provider !== base.provider) {
+    // The old provider's model id means nothing to the new one. Blank reads as "the provider's own
+    // default" everywhere a model is resolved; the catalogue holding it cannot be imported here.
+    if (patch.model === undefined) merged.model = '';
     if (patch.baseUrl === undefined) delete merged.baseUrl;
     if (patch.api === undefined) delete merged.api;
     if (patch.auth === undefined) delete merged.auth;

@@ -198,7 +198,10 @@ function readState(options) {
     root: loaded.root,
     configPath: join(loaded.root, CONFIG_FILENAME),
     configExists: loaded.exists,
-    config: loaded.config,
+    // A blank model means the provider's default, and the forms need the id itself to prefill.
+    config: loaded.config.ai.model
+      ? loaded.config
+      : { ...loaded.config, ai: { ...loaded.config.ai, model: DEFAULT_MODELS[loaded.config.ai.provider] ?? '' } },
     version: options.version,
     packageName: options.packageName,
     key: {
