@@ -6,15 +6,40 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request makes the older run's answer irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    # Windows has never had this suite run against it. It reports here without failing the build
+    # until a green run says it can be held to the same bar.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both ends of the supported range (engines >=22). The other systems run the floor only.
+        os: [ubuntu-latest]
+        node: [22, 24]
+        include:
+          - os: macos-latest
+            node: 22
+          - os: windows-latest
+            node: 22
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - run: npm install
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
