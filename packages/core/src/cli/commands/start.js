@@ -13,7 +13,8 @@ import { runOnboarding } from '../onboarding.js';
 
 const SPEC = /** @type {const} */ ({
   booleans: ['no-open', 'no-setup', 'setup', 'yes'],
-  strings: ['port', 'project', 'host', 'web'],
+  strings: ['project', 'host', 'web'],
+  numbers: { port: { min: 1, max: 65535, integer: true } },
   alias: { p: 'port', y: 'yes' },
 });
 
@@ -36,9 +37,9 @@ const SPEC = /** @type {const} */ ({
  */
 export async function startCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
-  const unknown = args.unknown();
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown option${unknown.length === 1 ? '' : 's'}: ${unknown.map((n) => `--${n}`).join(', ')}\n`);
+  const problem = args.problem();
+  if (problem) {
+    process.stderr.write(`${problem}\n`);
     return 1;
   }
 

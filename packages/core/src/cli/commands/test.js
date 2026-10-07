@@ -41,7 +41,8 @@ import { resolveProject, resolveTarget } from '../project.js';
 
 const SPEC = /** @type {const} */ ({
   booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'structure', 'offline', 'content'],
-  strings: ['project', 'out', 'timeout', 'provider', 'model', 'max-docs'],
+  strings: ['project', 'out', 'provider', 'model'],
+  numbers: { timeout: { min: 0, exclusive: true }, 'max-docs': { min: 1, integer: true } },
   alias: { v: 'verbose', q: 'quality', nq: 'no-quality' },
 });
 
@@ -51,9 +52,9 @@ const SPEC = /** @type {const} */ ({
  */
 export async function testCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
-  const unknown = args.unknown();
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown option${unknown.length === 1 ? '' : 's'}: ${unknown.map((n) => `--${n}`).join(', ')}\n`);
+  const problem = args.problem();
+  if (problem) {
+    process.stderr.write(`${problem}\n`);
     return 1;
   }
 

@@ -10,7 +10,8 @@ import { resolveProject, resolveTarget } from '../project.js';
 
 const SPEC = /** @type {const} */ ({
   booleans: ['json', 'verbose'],
-  strings: ['bot', 'project', 'out', 'timeout'],
+  strings: ['bot', 'project', 'out'],
+  numbers: { timeout: { min: 0, exclusive: true } },
   alias: { v: 'verbose' },
 });
 
@@ -26,9 +27,9 @@ const SPEC = /** @type {const} */ ({
  */
 export async function prodTestCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
-  const unknown = args.unknown();
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown option${unknown.length === 1 ? '' : 's'}: ${unknown.map((n) => `--${n}`).join(', ')}\n`);
+  const problem = args.problem();
+  if (problem) {
+    process.stderr.write(`${problem}\n`);
     return 1;
   }
 

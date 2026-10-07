@@ -240,6 +240,28 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   invalidUrl: (value) =>
     `"${value}" isn't a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000 or https://your-site.com.`,
 
+  /** @param {string[]} flags */
+  unknownOptions: (flags) => `Unknown option${flags.length === 1 ? '' : 's'}: ${flags.join(', ')}`,
+
+  /** @param {string} flag */
+  optionNeedsValue: (flag) => `${flag} needs a value, as in \`${flag} <value>\`.`,
+
+  /**
+   * @param {string} flag
+   * @param {string} value
+   * @param {{ min: number; max?: number; integer?: boolean; exclusive?: boolean }} rule
+   */
+  optionNotInRange: (flag, value, rule) => {
+    const kind = rule.integer ? 'a whole number' : 'a number';
+    const range =
+      rule.max !== undefined
+        ? `from ${rule.min} to ${rule.max}`
+        : rule.exclusive
+          ? `above ${rule.min}`
+          : `of ${rule.min} or more`;
+    return `${flag} takes ${kind} ${range}, and "${value}" is not one.`;
+  },
+
   /**
    * @param {string} url
    * @param {string} reason

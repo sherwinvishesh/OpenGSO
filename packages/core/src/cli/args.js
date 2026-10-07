@@ -1,15 +1,27 @@
+import { ERRORS } from '../shared/errors.js';
+
 /**
- * A ~90-line argv parser, so the CLI has no runtime dependency for something this small.
+ * A small argv parser, so the CLI has no runtime dependency for something this small.
  *
- * Supports `--flag`, `--key value`, `--key=value`, single-dash aliases, `--` to stop parsing, and
- * positionals in any position.
+ * Supports `--flag`, `--key value`, `--key=value`, single-dash aliases, `--` to stop parsing (what
+ * follows is positional), and positionals in any position.
  */
 
 /**
  * @typedef {object} ArgSpec
  * @property {readonly string[]} [booleans] Options that never take a value.
  * @property {readonly string[]} [strings] Options that always take a value.
+ * @property {Readonly<Record<string, NumberRule>>} [numbers] Options that take a number, and the range
+ *   it has to be in. Each is value-taking, whether or not it is also listed in `strings`.
  * @property {Readonly<Record<string, string>>} [alias] Short name -> long name, e.g. `{ p: 'port' }`.
+ */
+
+/**
+ * @typedef {object} NumberRule
+ * @property {number} min
+ * @property {number} [max]
+ * @property {boolean} [integer]
+ * @property {boolean} [exclusive] `min` itself is not allowed, e.g. a timeout above 0.
  */
 
 export class Args {
@@ -21,18 +33,26 @@ export class Args {
   rest;
   /** @private @readonly @type {ReadonlySet<string>} */
   known;
+  /** @private @readonly @type {ReadonlySet<string>} */
+  missing;
+  /** @private @readonly @type {Readonly<Record<string, NumberRule>>} */
+  numbers;
 
   /**
    * @param {readonly string[]} positionals
    * @param {ReadonlyMap<string, string | boolean>} values
    * @param {readonly string[]} rest
    * @param {ReadonlySet<string>} known
+   * @param {ReadonlySet<string>} [missing] Value-taking options that were given no value at all.
+   * @param {Readonly<Record<string, NumberRule>>} [numbers]
    */
-  constructor(positionals, values, rest, known) {
+  constructor(positionals, values, rest, known, missing = new Set(), numbers = {}) {
     this.positionals = positionals;
     this.values = values;
     this.rest = rest;
     this.known = known;
+    this.missing = missing;
+    this.numbers = numbers;
   }
 
   /**
@@ -69,7 +89,8 @@ export class Args {
    */
   num(name) {
     const value = this.str(name);
-    if (value === undefined) return undefined;
+    // `Number('')` is 0, which is how a bare `--port` used to bind a random port.
+    if (value === undefined || value.trim() === '') return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
@@ -82,6 +103,47 @@ export class Args {
   unknown() {
     return [...this.values.keys()].filter((name) => !this.known.has(name));
   }
+
+  /**
+   * Everything wrong with the command line, as the message to print, or undefined when nothing is.
+   * Unknown options, a value-taking option given no value, and a number that is not one or is out
+   * of range are all refused here, so no command quietly runs on a default the user did not pick.
+   *
+   * @returns {string | undefined}
+   */
+  problem() {
+    const unknown = this.unknown();
+    if (unknown.length > 0) return ERRORS.unknownOptions(unknown.map((name) => `--${name}`));
+    /** @type {string[]} */
+    const problems = [];
+    for (const name of this.values.keys()) {
+      if (this.missing.has(name)) {
+        problems.push(ERRORS.optionNeedsValue(`--${name}`));
+        continue;
+      }
+      const rule = this.numbers[name];
+      const value = this.str(name);
+      if (rule && value !== undefined && !fitsRule(value, rule)) {
+        problems.push(ERRORS.optionNotInRange(`--${name}`, value, rule));
+      }
+    }
+    return problems.length > 0 ? problems.join('\n') : undefined;
+  }
+}
+
+/**
+ * Plain decimal digits only. `Number()` would also take `0x50`, `1e3` and padding, none of which
+ * anybody means as a port or a page count.
+ *
+ * @param {string} value
+ * @param {NumberRule} rule
+ * @returns {boolean}
+ */
+function fitsRule(value, rule) {
+  if (!(rule.integer ? /^\d+$/ : /^\d+(\.\d+)?$/).test(value)) return false;
+  const parsed = Number(value);
+  if (rule.exclusive ? parsed <= rule.min : parsed < rule.min) return false;
+  return rule.max === undefined || parsed <= rule.max;
 }
 
 /**
@@ -92,7 +154,8 @@ export class Args {
 export function parseArgs(argv, spec = {}) {
   /** @type {ReadonlySet<string>} */
   const booleans = new Set(spec.booleans ?? []);
-  const strings = new Set(spec.strings ?? []);
+  const numbers = spec.numbers ?? {};
+  const strings = new Set([...(spec.strings ?? []), ...Object.keys(numbers)]);
   const alias = spec.alias ?? {};
 
   /** @type {string[]} */
@@ -101,12 +164,15 @@ export function parseArgs(argv, spec = {}) {
   const values = new Map();
   /** @type {string[]} */
   const rest = [];
+  /** @type {Set<string>} */
+  const missing = new Set();
 
   for (let i = 0; i < argv.length; i += 1) {
     const token = /** @type {string} */ (argv[i]);
 
     if (token === '--') {
       rest.push(...argv.slice(i + 1));
+      positionals.push(...rest);
       break;
     }
     if (!token.startsWith('-') || token === '-') {
@@ -122,6 +188,7 @@ export function parseArgs(argv, spec = {}) {
 
     if (inlineValue !== undefined) {
       values.set(name, inlineValue);
+      if (inlineValue === '' && strings.has(name)) missing.add(name);
       continue;
     }
     if (strings.has(name)) {
@@ -131,13 +198,14 @@ export function parseArgs(argv, spec = {}) {
         i += 1;
         continue;
       }
-      // Declared as taking a value but given none: record it as present so the command can
-      // complain with a specific message instead of silently using a default.
+      // Declared as taking a value but given none: recorded as present, and `problem()` refuses it
+      // rather than letting the command silently use a default.
       values.set(name, '');
+      missing.add(name);
       continue;
     }
     values.set(name, true);
   }
 
-  return new Args(positionals, values, rest, new Set([...booleans, ...strings]));
+  return new Args(positionals, values, rest, new Set([...booleans, ...strings]), missing, numbers);
 }

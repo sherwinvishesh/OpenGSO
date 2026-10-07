@@ -19,7 +19,12 @@ import { resolveProject, resolveTarget } from '../project.js';
 
 const SPEC = /** @type {const} */ ({
   booleans: ['force', 'json', 'single', 'skip-files', 'prune'],
-  strings: ['project', 'tier', 'timeout', 'max-pages', 'depth', 'provider', 'model'],
+  strings: ['project', 'tier', 'provider', 'model'],
+  numbers: {
+    timeout: { min: 0, exclusive: true },
+    'max-pages': { min: 1, integer: true },
+    depth: { min: 0, integer: true },
+  },
 });
 
 /**
@@ -28,9 +33,9 @@ const SPEC = /** @type {const} */ ({
  */
 export async function generateCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
-  const unknown = args.unknown();
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown option${unknown.length === 1 ? '' : 's'}: ${unknown.map((n) => `--${n}`).join(', ')}\n`);
+  const problem = args.problem();
+  if (problem) {
+    process.stderr.write(`${problem}\n`);
     return 1;
   }
 

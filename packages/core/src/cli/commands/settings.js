@@ -34,9 +34,9 @@ const SPEC = /** @type {const} */ ({
  */
 export async function settingsCommand(ctx) {
   const args = parseArgs(ctx.argv, SPEC);
-  const unknown = args.unknown();
-  if (unknown.length > 0) {
-    process.stderr.write(`Unknown option${unknown.length === 1 ? '' : 's'}: ${unknown.map((n) => `--${n}`).join(', ')}\n`);
+  const problem = args.problem();
+  if (problem) {
+    process.stderr.write(`${problem}\n`);
     return 1;
   }
 

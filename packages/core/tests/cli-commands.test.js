@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateCommand } from '../src/cli/commands/generate.js';
-import { openBrowser } from '../src/cli/commands/start.js';
+import { openBrowser, startCommand } from '../src/cli/commands/start.js';
 import { testCommand } from '../src/cli/commands/test.js';
 import { runOnboarding } from '../src/cli/onboarding.js';
 /** @import { Server } from 'node:http' */
@@ -179,5 +179,34 @@ describe('opengeo test --out', () => {
     expect(written).toContain('/100');
     expect(stdout).not.toContain('OpenGEO test');
     expect(stdout).toContain(`Wrote ${file}`);
+  });
+});
+
+describe('a command line that cannot mean what it says', () => {
+  it('refuses a bare --port instead of binding a random one', async () => {
+    const { code, stderr } = await run(startCommand, ['--port', '--no-open', '--project', root]);
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('--port needs a value');
+  });
+
+  it('refuses a port that is not a port', async () => {
+    for (const port of ['abc', '70000', '0']) {
+      const { code, stderr } = await run(startCommand, ['-p', port, '--no-open', '--project', root]);
+      expect(code, port).not.toBe(0);
+      expect(stderr, port).toContain('--port takes a whole number from 1 to 65535');
+    }
+  });
+
+  it('refuses a non-numeric timeout rather than silently using the default', async () => {
+    const { code, stderr } = await run(testCommand, [site, '--timeout', 'soon', '--project', root]);
+    expect(code).not.toBe(0);
+    expect(stderr).toContain('"soon"');
+  });
+
+  it('reads a URL given after --', async () => {
+    const file = join(root, 'report.txt');
+    const { code } = await run(testCommand, ['--structure', '--out', file, '--project', root, '--', site]);
+    expect(code).not.toBe(2);
+    expect(readFileSync(file, 'utf8')).toContain(site);
   });
 });
