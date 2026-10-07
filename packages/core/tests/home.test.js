@@ -406,15 +406,17 @@ describe('the flat menu and a pipe', () => {
 });
 
 describe('the full-screen menu after a command', () => {
-  /** @type {string | undefined} */
-  let force;
+  /** @type {NodeJS.ProcessEnv} */
+  let saved;
   beforeEach(() => {
-    force = process.env.FORCE_COLOR;
+    saved = { ...process.env };
     process.env.FORCE_COLOR = '1';
+    // The gate closes on either, and a CI runner sets the first, so the suite would test nothing there.
+    delete process.env.CI;
+    delete process.env.OPENGEO_NO_TUI;
   });
   afterEach(() => {
-    if (force === undefined) delete process.env.FORCE_COLOR;
-    else process.env.FORCE_COLOR = force;
+    process.env = saved;
   });
 
   it('quits cleanly when the input ends at the go-back prompt, rather than hanging', async () => {
