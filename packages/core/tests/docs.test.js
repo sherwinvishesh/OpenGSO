@@ -233,3 +233,25 @@ describe('docs/providers.md', () => {
     }
   });
 });
+
+/** Spelled-out counts, for prose that says "five probes" rather than "5 probes". */
+const COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+/** @param {string} word */
+const capitalized = (word) => `${word[0].toUpperCase()}${word.slice(1)}`;
+
+describe('`opengeo prod test`', () => {
+  const verify = read('packages/core/src/prod/verify.js');
+  const probes = new Set([...verify.matchAll(/^\s+id: '([a-z-]+)',$/gm)].map(([, id]) => id));
+
+  it('says in its help how many probes it sends', () => {
+    // The help lives in the CLI source and is not exported, so it is read as text.
+    expect(probes.size).toBeGreaterThan(3);
+    expect(read('packages/core/src/cli/index.js')).toContain(
+      `Probes a deployed opengeo-prod middleware ${COUNT_WORDS[probes.size]} ways`,
+    );
+  });
+
+  it('says the same in the opengeo-prod README', () => {
+    expect(read('packages/prod/README.md')).toContain(`${capitalized(COUNT_WORDS[probes.size])} probes,`);
+  });
+});

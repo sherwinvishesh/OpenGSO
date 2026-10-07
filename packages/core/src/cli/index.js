@@ -332,8 +332,9 @@ const COMMAND_HELP = {
   'prod test': [
     'Usage: opengeo prod test <url> [options]',
     '',
-    'Probes a deployed opengeo-prod middleware four ways - allowed bot UA, ordinary browser UA,',
-    'Accept: text/markdown, and an Accept header that excludes both - and reports each separately.',
+    'Probes a deployed opengeo-prod middleware five ways - a routed bot UA, a bot UA nobody has',
+    'heard of, an ordinary browser UA, Accept: text/markdown, and an Accept header that excludes',
+    'both - and reports each separately.',
     '',
     'Options',
     '  --bot <name>       user agent to impersonate (default: ClaudeBot)',
