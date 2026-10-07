@@ -105,6 +105,13 @@ async function run(command, argv) {
   }
 }
 
+/**
+ * `run` for a call that builds its own context, such as `runCli` with a command table.
+ *
+ * @param {() => Promise<number>} thunk
+ */
+const capture = (thunk) => run(() => thunk(), []);
+
 /** @param {string[]} argv */
 const ctx = (argv) => ({ argv, packageName: 'opengeo', version: '0.0.0-test' });
 
