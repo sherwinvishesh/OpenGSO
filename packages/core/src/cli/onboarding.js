@@ -97,7 +97,11 @@ async function scoreOnFinish(result, write, framed) {
   write(`  ${c.gray(`Running the structural test against ${config.site}. Nothing is uploaded.`)}\n`);
 
   try {
-    const suite = await runTestSuite(config.site, { mode: 'structure', bots: resolveBots(config.bots.custom) });
+    const suite = await runTestSuite(config.site, {
+      mode: 'structure',
+      bots: resolveBots(config.bots.custom),
+      markdownRouting: config.bots.markdownRouting,
+    });
     if (!suite.structure) return;
     // Recorded like any other run, so the home screen has a score to show the moment setup ends and
     // the next test can print a delta against this one.
