@@ -7,7 +7,7 @@ Status: **not built.** This is step 8 of §18, which puts it last on purpose.
 `extract.js` constructs `new JSDOM(html, { url })`. jsdom's default is `runScripts: undefined`,
 which means **no script on the page ever executes**. jsdom is used here as a spec-compliant HTML
 parser and nothing more. The same is true of `crawl.js`, which discovers routes from `<a href>` in
-the parsed-but-not-executed DOM, and of `test/runner.js`.
+the parsed-but-not-executed DOM, and of `test/live-page.js`, which parses the page for the test checks.
 
 So for a purely client-rendered page, OpenGEO today sees `<div id="root"></div>` and says so:
 

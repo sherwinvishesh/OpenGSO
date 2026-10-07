@@ -36,6 +36,10 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  */
 const read = (relative) => readFileSync(join(repoRoot, relative), 'utf8');
 
+/** Every file a check is implemented in, as one string, so a check that moves is still found. */
+const checkSources = () =>
+  ['checks-site.js', 'checks-twin.js', 'drift.js', 'cascade.js', 'runner.js'].map((name) => read(`packages/core/src/test/${name}`)).join('\n');
+
 describe('docs/checks.md', () => {
   const doc = read('docs/checks.md');
 
@@ -90,7 +94,7 @@ describe('docs/checks.md', () => {
   it('names a partial band for every check that can award one', () => {
     // Derived from the source rather than from a list kept here, because a list kept here is a
     // second place to forget. Any `partial('B6', ...)` in the runner has to have a documented band.
-    const runner = read('packages/core/src/test/runner.js');
+    const runner = checkSources();
     const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id));
     expect(graded.size).toBeGreaterThan(0);
     for (const id of graded) {
@@ -110,7 +114,7 @@ describe('docs/checks.md', () => {
   });
 
   it('says how many checks are graded', () => {
-    const runner = read('packages/core/src/test/runner.js');
+    const runner = checkSources();
     const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id));
     const words = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen'];
     expect(doc).toContain(`${words[graded.size]} checks are graded rather than binary`);
