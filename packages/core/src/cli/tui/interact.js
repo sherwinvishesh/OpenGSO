@@ -52,7 +52,10 @@ export async function select(screen, keys, options) {
     const key = await keys.next();
     if (key.name === 'ctrl-c' || key.name === 'ctrl-d' || key.name === 'escape') return undefined;
     if (key.name === 'char' && options.shortcuts && key.value.toLowerCase() in options.shortcuts) {
-      return options.shortcuts[key.value.toLowerCase()];
+      const target = options.shortcuts[key.value.toLowerCase()];
+      // A dimmed row is unselectable however it is reached, or the shortcut runs what the install lacks.
+      if (!items.some((item) => item.value === target && item.disabled)) return target;
+      continue;
     }
     if (key.name === 'up') index = clampToEnabled(items, index - 1, -1);
     else if (key.name === 'down') index = clampToEnabled(items, index + 1, 1);
@@ -61,10 +64,6 @@ export async function select(screen, keys, options) {
     else if (key.name === 'enter') {
       const chosen = items[index];
       if (chosen && !chosen.disabled) return chosen.value;
-    } else if (key.name === 'char' && /^[1-9]$/.test(key.value)) {
-      const target = Number(key.value) - 1;
-      const item = items[target];
-      if (item && !item.disabled) return item.value;
     }
   }
 }
