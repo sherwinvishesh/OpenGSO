@@ -46,6 +46,15 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
       ``,
       `Fix the file by hand, or delete it and run \`opengeo settings\` to write a fresh one.`,
     ].join('\n'),
+
+  /**
+   * The one line opengeo-prod logs at boot instead of crashing the site. One line, because it lands
+   * in a hosting platform's deploy log next to everything else.
+   *
+   * @param {string} problem A message from one of the entries above.
+   */
+  prodFailedOpen: (problem) =>
+    `[opengeo-prod] markdown is off, and every request passes through to the normal site, until opengeo.config.json is fixed: ${problem.split('\n')[0]}`,
 });
 
 /** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */

@@ -1,12 +1,14 @@
 import { resolveBots } from '../../shared/bots.js';
-import { loadConfig } from '../../shared/config.js';
+import { ConfigError, loadConfig } from '../../shared/config.js';
+import { CONFIG_ERRORS } from '../../shared/errors.js';
 import { createProdHandler } from '../middleware.js';
 import { logStartupStatus } from '../startup.js';
-import { createFsStore } from '../store.js';
+import { createFsStore, createMemoryStore } from '../store.js';
 
 /**
  * @import { ProdContext, ProdDecision, RequestLike } from '../middleware.js'
  * @import { MarkdownStore } from '../store.js'
+ * @import { LoadedConfig } from '../../shared/config.js'
  */
 
 /**
@@ -50,7 +52,20 @@ import { createFsStore } from '../store.js';
 /** @param {NextAdapterOptions} [options] */
 export function createNextMiddleware(options = {}) {
   const root = options.root ?? process.cwd();
-  const loaded = loadConfig(root);
+  /** @type {LoadedConfig} */
+  let loaded;
+  try {
+    loaded = loadConfig(root);
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    // This runs at module scope in the user's middleware.ts, so a throw here would take every page
+    // down with it. A config prod cannot use costs the site its markdown and nothing else.
+    console.error(CONFIG_ERRORS.prodFailedOpen(error.message));
+    const passthrough = createProdHandler({ store: createMemoryStore([]), markdownRouting: [] });
+    return function openGeoNextMiddleware(/** @type {RequestLike} */ request) {
+      return { headers: {}, decision: passthrough(request) };
+    };
+  }
   const store =
     options.store ??
     createFsStore({

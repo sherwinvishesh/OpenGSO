@@ -154,6 +154,11 @@ There is a module-scoped guard, so this happens at startup and never per request
 missing it says so and names the command that would create it. Pass `logStartup: false` to silence
 it.
 
+If `opengeo.config.json` is broken (malformed JSON, a field of the wrong type, a `publicDir` outside
+the project), the Next adapter does not throw. It logs one `[opengeo-prod]` line to stderr naming the
+problem, serves no markdown, and passes every request through to the normal site until the file is
+fixed. A broken config costs you the markdown, never the site.
+
 ## The two levers
 
 `opengeo-prod` implements exactly one of OpenGEO's two bot settings.
