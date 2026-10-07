@@ -404,28 +404,32 @@ async function runFlatHome(options: HomeOptions, root: string): Promise<number> 
   // are worse than the help page the old bare invocation printed.
   if (!input.isTTY) return -1;
 
-  const prompter = createPrompter();
-  try {
-    for (;;) {
-      const status = readHomeStatus(root);
-      output.write(`\n${c.bold('OpenGEO')} ${c.gray(`${options.packageName} ${options.version}`)}\n`);
-      output.write(`${status.project}  ${c.gray(status.site ?? 'no site configured yet')}\n`);
-      for (const row of plainStatus(status)) output.write(`${row}\n`);
-      output.write('\n');
+  for (;;) {
+    const status = readHomeStatus(root);
+    output.write(`\n${c.bold('OpenGEO')} ${c.gray(`${options.packageName} ${options.version}`)}\n`);
+    output.write(`${status.project}  ${c.gray(status.site ?? 'no site configured yet')}\n`);
+    for (const row of plainStatus(status)) output.write(`${row}\n`);
+    output.write('\n');
 
-      const entries = homeEntries(options.commands, status).filter((entry) => !entry.disabled);
-      const action = await prompter.choose<HomeAction>(
+    const entries = homeEntries(options.commands, status).filter((entry) => !entry.disabled);
+    // One reader per question, closed before the command starts. A menu reader left attached to
+    // stdin echoes every keystroke, including the API key `settings` is masking, and a Ctrl-D meant
+    // for the command would close it too.
+    const prompter = createPrompter({ input, output });
+    let action: HomeAction;
+    try {
+      action = await prompter.choose<HomeAction>(
         'What would you like to do?',
         entries.map((entry) => ({ value: entry.value, label: entry.label, note: entry.note })),
         'quit',
       );
-      if (action === 'quit') return 0;
-
-      const argv = flatArgs(action, status);
-      await runInScrollback(options, action, argv, output);
+    } finally {
+      prompter.close();
     }
-  } finally {
-    prompter.close();
+    if (action === 'quit') return 0;
+
+    const argv = flatArgs(action, status);
+    await runInScrollback(options, action, argv, output);
   }
 }
 

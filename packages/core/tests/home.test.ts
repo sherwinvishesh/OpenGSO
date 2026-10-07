@@ -1,20 +1,22 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CommandHandler } from '@opengeo/core/cli';
 import type { CommandName } from '@opengeo/core/shared';
 import type { HomeStatus } from '../src/cli/home.js';
-import { homeEntries, homeHeader, plainStatus, readHomeStatus, statusRows } from '../src/cli/home.js';
+import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRows } from '../src/cli/home.js';
+import { createPrompter } from '../src/cli/prompt.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
 
 /**
  * The home screen, read as text.
  *
  * Everything asserted here is a pure function over a project directory, which is the reason the
- * screen was split this way in the first place: the loop needs a real terminal and cannot be tested
- * without a pty, but what it says about a project can be, and that is the part that can be wrong in
- * a way a user would notice.
+ * screen was split this way in the first place: the full-screen loop needs a real terminal and cannot
+ * be tested without a pty, but what it says about a project can be, and that is the part that can be
+ * wrong in a way a user would notice. The flat menu needs no terminal, so it is driven end to end.
  *
  * The rule the whole file is really guarding is at the bottom: the API key never reaches the screen.
  * The provider's name and the file it lives in are the most that may be shown.
@@ -284,5 +286,64 @@ describe('the flat menu, for terminals that cannot do any of this', () => {
 
   it('has one line for an unconfigured directory', () => {
     expect(plainStatus({ project: 'demo', root: '/tmp/demo', configured: false, twins: 0 })).toEqual(['  not configured yet']);
+  });
+});
+
+/**
+ * The flat menu, driven as a person would drive it.
+ *
+ * The menu's own readline and the command it launches share one stdin. If the menu's is still
+ * attached while `settings` asks for a key, it echoes every keystroke the masked prompt is hiding,
+ * and a Ctrl-D meant for the command closes the menu's reader too.
+ */
+describe('the flat menu hands stdin to the command it runs', () => {
+  function terminal() {
+    const input = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => input }) as unknown as NodeJS.ReadStream;
+    const output = Object.assign(new PassThrough(), { isTTY: false, columns: 100 }) as unknown as NodeJS.WriteStream;
+    let seen = '';
+    output.on('data', (chunk: Buffer) => {
+      seen += chunk.toString();
+    });
+    const shown = () => stripAnsi(seen);
+    const count = (needle: string) => shown().split(needle).length - 1;
+    const waitFor = async (needle: string, times = 1) => {
+      for (let tries = 0; count(needle) < times; tries += 1) {
+        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)} x${times}:\n${shown()}`);
+        await new Promise((done) => setTimeout(done, 5));
+      }
+    };
+    const numberOf = (label: string) => new RegExp(`(\\d+)\\) ${label}`).exec(shown())?.[1] ?? '';
+    return { input, output, shown, waitFor, numberOf };
+  }
+
+  async function drive(answer: string) {
+    const term = terminal();
+    const settings: CommandHandler = async () => {
+      const prompter = createPrompter({ input: term.input, output: term.output });
+      await prompter.secret('API key:');
+      prompter.close();
+      return 0;
+    };
+    const done = runHome({ packageName: 'opengeo', version: '0.0.0', commands: { settings }, root: project(), input: term.input, output: term.output });
+
+    await term.waitFor('choose a number');
+    term.input.write(`${term.numberOf('Settings')}\n`);
+    await term.waitFor('API key:');
+    term.input.write(answer);
+    await term.waitFor('choose a number', 2);
+    term.input.write(`${term.numberOf('Quit')}\n`);
+    return { code: await done, shown: term.shown() };
+  }
+
+  it('shows nothing of a key but the asterisks', async () => {
+    const { code, shown } = await drive('sk-ECHO\n');
+    expect(code).toBe(0);
+    const typed = shown.slice(shown.indexOf('API key:') + 'API key:'.length).split('\n')[0];
+    expect(typed).toMatch(/^[\s*]*$/);
+  });
+
+  it('comes back to the menu after a Ctrl-D inside the command', async () => {
+    const { code } = await drive('\u0004');
+    expect(code).toBe(0);
   });
 });
