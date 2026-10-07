@@ -48,7 +48,7 @@
     "build": "tsup && npm run build:web",
     "build:web": "tsc --noEmit -p web/tsconfig.json && vite build --config web/vite.config.ts",
     "dev:web": "vite --config web/vite.config.ts",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "dependencies": {
     "jsdom": "^26.1.0"
