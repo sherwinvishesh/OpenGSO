@@ -101,7 +101,7 @@ async function scoreOnFinish(result, write, framed) {
     if (!suite.structure) return;
     // Recorded like any other run, so the home screen has a score to show the moment setup ends and
     // the next test can print a delta against this one.
-    recordRun(internalDirPath({ root, config }), suite);
+    recordRun(internalDirPath({ root, config }), suite, { onWarning: (message) => write(`  ${c.yellow(message)}\n`) });
     // Inside the frame the buffer is 12 lines, and the report is longer than that; the stepper
     // flushes whatever is left to scrollback on close, so this is written once and read there.
     write(renderSetupScore(suite.structure, { width: framed ? 80 : undefined }));

@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { ERRORS } from '../shared/errors.js';
 import { writeFileAtomic } from '../shared/fs.js';
 
 /** @import { SuiteResult, TestMode } from './suite.js' */
@@ -24,14 +25,22 @@ import { writeFileAtomic } from '../shared/fs.js';
  *
  * It is a convenience, never a source of truth. Every read is best-effort: a corrupt or
  * hand-edited file yields an empty history rather than an exception, because a broken cache must
- * never be able to stop a test from running.
+ * never be able to stop a test from running. Writing is not that relaxed: a file that cannot be
+ * read is moved aside before a new one is written, so a bad read never turns into lost data.
  */
 
 export const HISTORY_FILENAME = 'history.json';
 export const HISTORY_VERSION = 1;
 
-/** How many runs to keep. Enough for a sparkline and a week of work, small enough to stay hand-readable. */
+/**
+ * How many runs to keep per URL. Enough for a sparkline and a week of work. Per URL because a
+ * global cap let twenty runs against production evict every run of localhost, and with it the
+ * trend the project was watching.
+ */
 export const HISTORY_LIMIT = 20;
+
+/** A ceiling across every URL, so a script that tests a thousand pages cannot grow the file without bound. */
+export const HISTORY_TOTAL_LIMIT = HISTORY_LIMIT * 10;
 
 /**
  * @param {string} internalDir
@@ -53,11 +62,19 @@ export function emptyHistory() {
  * @returns {History}
  */
 export function readHistory(internalDir) {
+  return loadHistory(internalDir).history;
+}
+
+/**
+ * @param {string} internalDir
+ * @returns {{ history: History; unreadable: boolean }} `unreadable` means a file is there and is not a history.
+ */
+function loadHistory(internalDir) {
   const path = historyPath(internalDir);
-  if (!existsSync(path)) return emptyHistory();
+  if (!existsSync(path)) return { history: emptyHistory(), unreadable: false };
   try {
     const parsed = /** @type {Partial<History>} */ (JSON.parse(readFileSync(path, 'utf8')));
-    if (!parsed || !Array.isArray(parsed.entries)) return emptyHistory();
+    if (!parsed || !Array.isArray(parsed.entries)) return { history: emptyHistory(), unreadable: true };
     // A file written by a future version is read for what is recognisable rather than discarded:
     // the entries are additive, and losing a week of scores to a version bump would be rude.
     const entries = parsed.entries.filter(
@@ -69,10 +86,31 @@ export function readHistory(internalDir) {
         return Boolean(entry) && typeof entry.at === 'string' && typeof entry.url === 'string';
       },
     );
-    return { version: HISTORY_VERSION, entries: entries.slice(-HISTORY_LIMIT) };
+    return { history: { version: HISTORY_VERSION, entries: trimEntries(entries) }, unreadable: false };
   } catch {
-    return emptyHistory();
+    return { history: emptyHistory(), unreadable: true };
   }
+}
+
+/**
+ * The newest `HISTORY_LIMIT` runs of each URL, in their original order, within the overall ceiling.
+ *
+ * @param {HistoryEntry[]} entries
+ * @returns {HistoryEntry[]}
+ */
+function trimEntries(entries) {
+  /** @type {Map<string, number>} */
+  const perUrl = new Map();
+  /** @type {HistoryEntry[]} */
+  const kept = [];
+  for (let index = entries.length - 1; index >= 0 && kept.length < HISTORY_TOTAL_LIMIT; index -= 1) {
+    const entry = /** @type {HistoryEntry} */ (entries[index]);
+    const seen = perUrl.get(entry.url) ?? 0;
+    if (seen >= HISTORY_LIMIT) continue;
+    perUrl.set(entry.url, seen + 1);
+    kept.push(entry);
+  }
+  return kept.reverse();
 }
 
 /**
@@ -83,7 +121,7 @@ export function readHistory(internalDir) {
 export function writeHistory(internalDir, history) {
   const path = historyPath(internalDir);
   /** @type {History} */
-  const trimmed = { version: HISTORY_VERSION, entries: history.entries.slice(-HISTORY_LIMIT) };
+  const trimmed = { version: HISTORY_VERSION, entries: trimEntries(history.entries) };
   writeFileAtomic(path, `${JSON.stringify(trimmed, null, 2)}\n`);
   return path;
 }
@@ -111,21 +149,36 @@ export function entryFromSuite(result, at = new Date()) {
 }
 
 /**
+ * @typedef {object} RecordOptions
+ * @property {Date} [at]
+ * @property {(message: string) => void} [onWarning] Told when an unreadable file was moved aside, so the user knows where it went.
+ */
+
+/**
  * Append a run, best-effort.
  *
  * Recording a score is never worth failing a test run over, so every filesystem error here is
  * swallowed: a read-only checkout, a `.opengeo` owned by root from a container mount, a full disk.
  * The caller gets `undefined` and carries on printing the report.
  *
+ * A file that is there but cannot be read is renamed to `history.corrupt-<time>.json` first. If
+ * that rename fails, nothing is written, so the file is never replaced by a history of one run.
+ *
  * @param {string} internalDir
  * @param {SuiteResult} result
- * @param {Date} [at]
+ * @param {RecordOptions} [options]
  * @returns {HistoryEntry | undefined}
  */
-export function recordRun(internalDir, result, at = new Date()) {
+export function recordRun(internalDir, result, options = {}) {
   try {
-    const history = readHistory(internalDir);
-    const entry = entryFromSuite(result, at);
+    const { history, unreadable } = loadHistory(internalDir);
+    if (unreadable) {
+      const path = historyPath(internalDir);
+      const aside = join(internalDir, `history.corrupt-${Date.now()}.json`);
+      renameSync(path, aside);
+      options.onWarning?.(ERRORS.historySetAside(path, aside));
+    }
+    const entry = entryFromSuite(result, options.at);
     history.entries.push(entry);
     writeHistory(internalDir, history);
     return entry;

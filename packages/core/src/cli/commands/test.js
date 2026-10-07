@@ -102,7 +102,8 @@ export async function testCommand(ctx) {
   printer?.close();
   // Best-effort and last: a run that scored is worth remembering, and a filesystem that will not
   // take the file is not worth failing a passing audit over. `recordRun` swallows its own errors.
-  recordRun(internalDir, result);
+  // Its one warning goes to stderr, so a --json run's stdout stays clean.
+  recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
   if (json) return writeOut(`${suiteJson(result)}\n`, args.str('out'), suiteExitCode(result));
 

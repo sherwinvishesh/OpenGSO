@@ -466,6 +466,13 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   manifestUnreadable: (path, why) =>
     `${path} could not be read (${why}), so this run started without it: every page is regenerated and nothing from the last run is carried forward. It is rewritten when the run finishes.`,
 
+  /**
+   * @param {string} path
+   * @param {string} aside
+   */
+  historySetAside: (path, aside) =>
+    `${path} could not be read, so it was moved to ${aside} rather than written over, and the score history starts again from this run.`,
+
   siteUnreachableKept:
     'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
 

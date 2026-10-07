@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -215,12 +215,54 @@ describe('reading and writing', () => {
 describe('recording a run', () => {
   it('appends to what is already there', () => {
     const dir = scratch();
-    recordRun(dir, suite({ checks: [fail('A2', 'missing')] }), new Date('2026-01-01T00:00:00.000Z'));
-    const second = recordRun(dir, suite({ checks: [pass('A2', 'there')] }), new Date('2026-01-02T00:00:00.000Z'));
+    recordRun(dir, suite({ checks: [fail('A2', 'missing')] }), { at: new Date('2026-01-01T00:00:00.000Z') });
+    const second = recordRun(dir, suite({ checks: [pass('A2', 'there')] }), { at: new Date('2026-01-02T00:00:00.000Z') });
 
     const entries = readHistory(dir).entries;
     expect(entries).toHaveLength(2);
     expect(entries.at(-1)).toEqual(second);
+  });
+
+  it('sets a file it cannot read aside instead of writing over it, and says where', () => {
+    const dir = scratch();
+    mkdirSync(dir, { recursive: true });
+    // What a crash in the middle of a non-atomic write, or a hand edit gone wrong, leaves behind.
+    const truncated = JSON.stringify({ version: 1, entries: [entry(), entry({ score: 60 })] }).slice(0, 70);
+    writeFileSync(historyPath(dir), truncated, 'utf8');
+
+    /** @type {string[]} */
+    const warnings = [];
+    const recorded = recordRun(dir, suite(), { onWarning: (message) => warnings.push(message) });
+
+    expect(recorded).toBeDefined();
+    expect(readHistory(dir).entries).toEqual([recorded]);
+    const aside = readdirSync(dir).filter((name) => name.startsWith('history.corrupt-'));
+    expect(aside).toHaveLength(1);
+    expect(readFileSync(join(dir, /** @type {string} */ (aside[0])), 'utf8')).toBe(truncated);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(/** @type {string} */ (aside[0]));
+  });
+
+  it('says nothing when there was simply no file yet', () => {
+    const dir = scratch();
+    /** @type {string[]} */
+    const warnings = [];
+    recordRun(dir, suite(), { onWarning: (message) => warnings.push(message) });
+
+    expect(warnings).toEqual([]);
+    expect(readdirSync(dir)).toEqual(['history.json']);
+  });
+
+  it(`keeps ${HISTORY_LIMIT} runs per URL, so testing production does not evict localhost's trend`, () => {
+    const dir = scratch();
+    const local = Array.from({ length: 5 }, (_, index) => entry({ url: 'http://localhost:3000/', score: index }));
+    const prod = Array.from({ length: HISTORY_LIMIT + 3 }, (_, index) => entry({ url: 'https://example.com/', score: 50 + index }));
+    writeHistory(dir, { version: 1, entries: [...local, ...prod] });
+
+    const back = readHistory(dir);
+    expect(scoreTrend(back, 'http://localhost:3000/', 99)).toEqual([0, 1, 2, 3, 4]);
+    expect(scoreTrend(back, 'https://example.com/', 99)).toHaveLength(HISTORY_LIMIT);
+    expect(scoreTrend(back, 'https://example.com/', 99).at(-1)).toBe(50 + HISTORY_LIMIT + 2);
   });
 
   // A read-only folder is how this test breaks the cache, and Windows ignores the mode bits.

@@ -124,7 +124,7 @@ export async function handleApi(request, options) {
     case 'GET /api/state':
       return ok(readState(options));
     case 'GET /api/history':
-      // Capped at 20 runs by the writer, so there is no pagination to design here.
+      // Capped by the writer at 20 runs per URL and 200 overall, so there is no pagination to design here.
       return ok(readHistory(internalDirPath(loadConfig(options.root))));
     case 'GET /api/bots':
       // The resolved list, so the dashboard's crawler table shows a project's own agents beside
@@ -382,7 +382,8 @@ async function runTest(body, options) {
     signal: options.signal,
     onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event)) : undefined,
   });
-  recordRun(internalDir, result);
+  // The dashboard has nowhere to show this, so it goes to the terminal `opengeo start` is running in.
+  recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
   return ok({
     mode: result.mode,
