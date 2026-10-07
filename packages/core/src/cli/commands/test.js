@@ -5,6 +5,7 @@ import { resolveAiCall } from '../../shared/ai-call.js';
 import { internalDirPath } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
+import { AI_PROVIDERS, isAiProvider } from '../../shared/providers.js';
 import { MD_DIR } from '../../shared/routes.js';
 import {
   buildFixPrompt,
@@ -259,6 +260,10 @@ function writeContent(result, write) {
  * @returns {AiChoice}
  */
 function resolveAi(args, loaded) {
+  // Before the CI skip: a provider that does not exist is a mistyped command line wherever it runs,
+  // and skipping the content pass there must not turn it into a passing build.
+  const provider = args.str('provider');
+  if (provider && !isAiProvider(provider)) return { error: ERRORS.unknownProvider(provider, AI_PROVIDERS), usage: true };
   if (isCI()) return {};
 
   const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });
