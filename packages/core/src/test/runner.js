@@ -239,7 +239,7 @@ function checkRobots(e) {
       'A1',
       6,
       `robots.txt allows every assistant and search agent. Bulk training crawlers (${blockedTraining.join(', ')}) are disallowed, which reads as a deliberate opt-out rather than a mistake.`,
-      { fix: `Allow ${blockedTraining.join(', ')} as well if the opt-out was not intended (+3). If it was, this is the right configuration and the 3 points are the price of it.` },
+      { fix: `Allow ${blockedTraining.join(', ')} as well if the opt-out was not intended (+3). If it was, this is the right configuration and those points are the price of it.` },
     );
   }
   return pass('A1', 'robots.txt is present and does not disallow any known AI bot.');

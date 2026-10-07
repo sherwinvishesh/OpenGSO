@@ -65,11 +65,15 @@ with a price on it rather than as twelve separate shrugs.
 ```
 Locked (12)
 -----------
-  46 points waiting behind B1
+  up to +3 points waiting behind B1
     Serve a markdown twin at the .md URL and every one of these becomes measurable.
 
-  B2 5  B3 5  B4 3  B5 3  B6 3  B12 2  B14 4  B7 4  B8 3  B9 6  B10 6  B11 2
+  B2 5  B3 5  B4 3  B5 3  B6 3  B12 2  B14 4  B7 4  B8 3  B9 6  B10 6  B11 2  (check weights)
 ```
+
+The headline figure is in score points, the 0-100 unit, and counts only what the twelve could add
+once B1 passes, so it is not added to B1's own price twice. The ids carry their check weights, which
+total 46.
 
 ### What the numbers are calibrated against
 
@@ -387,6 +391,12 @@ sentence.
 
 The report ends with **Do this next**: every available fix ranked by the points it recovers, so the
 top line is always the most valuable edit you can make to the page.
+
+Every price the report prints, the `(+N)` on a fix, the `-N pts` on a failed row and the **Do this
+next** column, is in score points: how far that one fix would move the 0 to 100 headline. A check's
+weight is not that number. The weights total 122 and only the ones that apply are in the
+denominator, so on a page scoring 78/100 the 10-weight B1 is worth +15. The `2 of 4` on a partial is
+the exception, and stays in weight, because it is the check's own arithmetic rather than a price.
 
 `--prompt` turns that same list into a fix prompt you can paste into a coding agent, partials and
 the one locked-by fix included. It names only `opengeo-prod` and OpenGEO's own documentation.

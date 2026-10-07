@@ -72,6 +72,8 @@
  * @property {string} reason The specific reason this check passed, failed, or did not apply. Never a generic string.
  * @property {string} [detail] Optional extra context: an observed header value, a measured number.
  * @property {string} [fix] The next step, for anything short of a pass.
+ * @property {number} [price] Score points (of 100) this check would add if it passed. Set on a fail or partial once the
+ *   run is scored, because a check's weight is out of 122 and is not the headline's unit.
  *
  *   Written as an instruction and priced, e.g. "Add `Vary: Accept` to the HTML response too (+2)".
  *   The report's ranked footer is built from these, which is why a `fix` that only restates the

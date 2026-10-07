@@ -1,4 +1,5 @@
 import { terminalText } from '../shared/log.js';
+import { scoreGain } from './score.js';
 
 /**
  * @import { CheckResult } from './checks.js'
@@ -142,7 +143,7 @@ export function buildFixPrompt(result, options = {}) {
   lines.push('');
   lines.push(`- Site URL audited: ${quoted(result.url)}`);
   lines.push(`- Expected markdown twin URL: ${quoted(result.twinUrl)}`);
-  lines.push(`- Current score: ${result.score.value}/100 (${result.score.earned} of ${result.score.possible} points)`);
+  lines.push(`- Current score: ${result.score.value}/100 (${result.score.earned} of ${result.score.possible} by check weight)`);
   lines.push(`- Detected framework: ${describeFramework(result.framework)}`);
   if (options.command) lines.push(`- Command that produced this: ${quoted(options.command)}`);
   lines.push('');
@@ -220,7 +221,7 @@ function renderFailure(check, result) {
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
-  lines.push(`- Points lost: ${check.weight} (${check.importance})`);
+  lines.push(`- Points lost: ${scoreGain(result.score, check.weight)} of 100 (${check.importance})`);
   lines.push(`- What happened: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
   const remedy = REMEDY[check.id];
@@ -247,7 +248,7 @@ function renderPartial(check, result) {
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
   lines.push(`- Earned so far: ${check.earned} of ${check.weight} (${check.importance})`);
-  lines.push(`- Points still available: ${check.weight - check.earned}`);
+  lines.push(`- Points still available: ${scoreGain(result.score, check.weight - check.earned)} of 100`);
   lines.push(`- Where it stands: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
   const remedy = check.fix ?? REMEDY[check.id];
@@ -269,11 +270,12 @@ function renderPartial(check, result) {
  * @returns {string[]}
  */
 function renderLockedSection(blocked, result) {
-  const points = blocked.reduce((sum, check) => sum + check.weight, 0);
   const blocker = blocked[0]?.lockedBy ?? 'B1';
   /** @type {string[]} */
   const lines = [];
-  lines.push(`## Blocked behind ${blocker} (${blocked.length} checks, ${points} points)`);
+  // Unpriced: these are worth nothing until the blocker passes, and the blocker's own section has
+  // its price. What they add after that depends on how they score once measured.
+  lines.push(`## Blocked behind ${blocker} (${blocked.length} checks)`);
   lines.push('');
   lines.push(
     `Nothing was measured for these: they all inspect the markdown response at ${quoted(result.twinUrl)}, which`,
@@ -282,7 +284,7 @@ function renderLockedSection(blocked, result) {
     'afterwards rather than guessing which of them still need work.',
   );
   lines.push('');
-  for (const check of blocked) lines.push(`- ${check.id} (${check.weight} pts) - ${check.title}`);
+  for (const check of blocked) lines.push(`- ${check.id} (weight ${check.weight}) - ${check.title}`);
   lines.push('');
   return lines;
 }

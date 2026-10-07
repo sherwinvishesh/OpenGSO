@@ -785,7 +785,7 @@ function structuralResult() {
       possible: 67,
       counts: { pass: 5, partial: 3, fail: 1, locked: 12, na: 1 },
       lost: [{ id: 'B1', points: 10 }],
-      locked: { count: 12, points: 46, unlockedBy: ['B1'] },
+      locked: { count: 12, points: 46, gain: 9, unlockedBy: ['B1'] },
     },
     evidence,
   };

@@ -51,7 +51,7 @@ const FAILURE = {
 };
 
 /** @type {CheckResult} */
-const PASS = { ...FAILURE, id: 'B13', status: 'pass', reason: 'Fine.', detail: undefined };
+const PASS = { ...FAILURE, id: 'B13', status: 'pass', earned: FAILURE.weight, reason: 'Fine.', detail: undefined };
 
 describe('framework detection', () => {
   /** @type {Array<[string, string, string]>} */
@@ -104,7 +104,8 @@ describe('the fix prompt', () => {
   it('gives each failed check its id, points, reason and a fix', () => {
     const prompt = buildFixPrompt(result);
     expect(prompt).toContain('### B9 - Accept: text/markdown receives markdown, not HTML');
-    expect(prompt).toContain('Points lost: 8 (required)');
+    // In score points, the headline's unit: B9 is half the weight of this two-check page.
+    expect(prompt).toContain('Points lost: 50 of 100 (required)');
     expect(prompt).toContain('Asking for text/markdown returned text/html');
     expect(prompt).toContain('Response was 200 with an HTML body.');
     expect(prompt).toMatch(/- Fix: .{20,}/);
@@ -156,7 +157,8 @@ describe('the fix prompt', () => {
     const prompt = buildFixPrompt(resultWith([partial, PASS]));
     expect(prompt).toContain('## Partly working (1)');
     expect(prompt).toContain('Earned so far: 2 of 4');
-    expect(prompt).toContain('Points still available: 2');
+    // 2 of 12 weight is 17 points of the headline (10/12 is 83, 12/12 is 100).
+    expect(prompt).toContain('Points still available: 17 of 100');
     // The check's own fix, not the generic remedy: the header is already on one response, so
     // "send Vary: Accept on both" would be describing work that is half done.
     expect(prompt).toContain('Add `Vary: Accept` to the HTML response');
@@ -179,8 +181,8 @@ describe('the fix prompt', () => {
     /** @type {CheckResult} */
     const blocker = { ...FAILURE, id: 'B1', weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
     const prompt = buildFixPrompt(resultWith([blocker, ...locked]));
-    expect(prompt).toContain('## Blocked behind B1 (2 checks, 8 points)');
-    expect(prompt).toContain('- B2 (5 pts)');
+    expect(prompt).toContain('## Blocked behind B1 (2 checks)');
+    expect(prompt).toContain('- B2 (weight 5)');
     // One section, so no locked check gets its own "fix this header" heading against a 404.
     expect(prompt).not.toContain('### B2');
     expect(prompt).not.toContain('### B4');

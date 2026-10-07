@@ -4,6 +4,7 @@ import { scoreInk, bandColour, ink } from '../cli/tui/theme.js';
 import { fg, terminalWidth, wrap as wrapText } from '../cli/tui/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from './history.js';
 import { areaWeight, qualityBand } from './quality.js';
+import { scoreGain } from './score.js';
 
 /**
  * @import { History } from './history.js'
@@ -67,21 +68,21 @@ export function renderReport(result, options = {}) {
 
   if (failedRequired.length > 0) {
     lines.push(heading(`Failed - required (${failedRequired.length})`));
-    for (const check of failedRequired) lines.push(...renderCheck(check, width));
+    for (const check of failedRequired) lines.push(...renderCheck(check, score, width));
   }
   if (failedRecommended.length > 0) {
     lines.push(heading(`Failed - recommended (${failedRecommended.length})`));
-    for (const check of failedRecommended) lines.push(...renderCheck(check, width));
+    for (const check of failedRecommended) lines.push(...renderCheck(check, score, width));
   }
   if (partly.length > 0) {
     lines.push(heading(`Partly there (${partly.length})`));
-    for (const check of partly) lines.push(...renderCheck(check, width));
+    for (const check of partly) lines.push(...renderCheck(check, score, width));
   }
   if (blocked.length > 0) lines.push(...renderLocked(blocked, score, width));
   if (passed.length > 0) {
     if (options.verbose) {
       lines.push(heading(`Passed (${passed.length})`));
-      for (const check of passed) lines.push(...renderCheck(check, width));
+      for (const check of passed) lines.push(...renderCheck(check, score, width));
     } else {
       lines.push(heading(`Passed (${passed.length})`));
       lines.push(`  ${c.gray(passed.map((check) => check.id).join(' '))}`);
@@ -109,11 +110,16 @@ export function renderReport(result, options = {}) {
  * measurement, and anything short of a pass carries its `fix` line last, since that is the part the
  * reader is going to act on.
  *
+ * A fail is priced in score points, the headline's unit, not by its weight: a check's weight is out
+ * of 122 and the headline is out of 100. A partial's `2 of 4` stays in weight, because it is the
+ * check's own arithmetic rather than a price.
+ *
  * @param {CheckResult} check
+ * @param {Score} score
  * @param {number} width
  * @returns {string[]}
  */
-function renderCheck(check, width) {
+function renderCheck(check, score, width) {
   const symbol =
     check.status === 'pass' ? SYM.pass()
     : check.status === 'fail' ? SYM.fail()
@@ -122,7 +128,7 @@ function renderCheck(check, width) {
     : SYM.na();
 
   const tail =
-    check.status === 'fail' ? c.gray(`  -${check.weight} pts`)
+    check.status === 'fail' ? c.gray(`  -${check.price ?? scoreGain(score, check.weight)} pts`)
     : check.status === 'partial'
       ? `  ${meter((check.earned / check.weight) * 100, 8)} ${c.yellow(`${check.earned} of ${check.weight}`)}`
       : '';
@@ -149,9 +155,9 @@ function renderCheck(check, width) {
 function renderLocked(blocked, score, width) {
   /** @type {string[]} */
   const lines = [];
-  const points = score.locked.points;
+  const points = score.locked.gain;
   lines.push(heading(`Locked (${blocked.length})`));
-  lines.push(`  ${c.bold(fg(bandColour('fair'), `${points} points`))} ${c.gray('waiting behind')} ${c.bold(score.locked.unlockedBy.join(' and ') || 'one fix')}`);
+  lines.push(`  ${c.bold(fg(bandColour('fair'), `up to +${points} points`))} ${c.gray('waiting behind')} ${c.bold(score.locked.unlockedBy.join(' and ') || 'one fix')}`);
 
   // One sentence naming the fix, taken from the check that is actually blocking, so this stays
   // correct if the cascade is ever keyed on something other than B1.
@@ -161,9 +167,9 @@ function renderLocked(blocked, score, width) {
   }
   lines.push('');
   // The ids and their weights on one line: enough to see the shape of what is waiting without
-  // twelve paragraphs of it.
+  // twelve paragraphs of it. Labelled as weights, since the line above is in score points.
   const priced = blocked.map((check) => `${c.bold(check.id)} ${c.gray(String(check.weight))}`).join('  ');
-  lines.push(`  ${priced}`);
+  lines.push(`  ${priced}  ${c.gray('(check weights)')}`);
   return lines;
 }
 
@@ -204,28 +210,30 @@ function renderNextSteps(checks, score, width) {
   /** @type {string[]} */
   const lines = [''];
   const byId = new Map(checks.map((check) => [check.id, check]));
-  /** @type {Array<{ id: string; points: number; text: string }>} */
+  /** @type {Array<{ id: string; points: number; recovered: number; text: string }>} */
   const steps = [];
 
+  // Every number here is score points, through scoreGain, so the list is in the headline's unit.
   for (const entry of score.lost) {
     const check = byId.get(entry.id);
-    let points = entry.points;
+    let points = scoreGain(score, entry.points);
     let text = check?.fix ?? check?.title ?? entry.id;
     // A check that is also holding others hostage is worth its own points plus theirs, and saying
-    // so once beats listing "fix B1 (+10)" above "unlock B2-B14 (+46)" as two separate ideas when
-    // they are the same keystroke.
+    // so once beats listing "fix B1" above "unlock B2-B14" as two separate ideas when they are the
+    // same keystroke.
     if (score.locked.unlockedBy.includes(entry.id)) {
-      points += score.locked.points;
-      text = `${text} That also unlocks ${score.locked.count} check${score.locked.count === 1 ? '' : 's'} worth ${score.locked.points} more.`;
+      points += score.locked.gain;
+      text = `${text} That also unlocks ${score.locked.count} check${score.locked.count === 1 ? '' : 's'}, worth up to ${score.locked.gain} more.`;
     }
-    steps.push({ id: entry.id, points, text });
+    steps.push({ id: entry.id, points, recovered: entry.points, text });
   }
   // A locked block whose blocker is not itself in `lost` (it passed, but something upstream of the
   // cascade still did not run) would otherwise go unmentioned.
   if (score.locked.points > 0 && !score.locked.unlockedBy.some((id) => score.lost.some((entry) => entry.id === id))) {
     steps.push({
       id: score.locked.unlockedBy[0] ?? 'locked',
-      points: score.locked.points,
+      points: score.locked.gain,
+      recovered: 0,
       text: `Serve the markdown twin, which unlocks ${score.locked.count} more checks.`,
     });
   }
@@ -258,7 +266,8 @@ function renderNextSteps(checks, score, width) {
   }
   const rest = steps.slice(MAX_NEXT_STEPS);
   if (rest.length > 0) {
-    const restPoints = rest.reduce((sum, step) => sum + step.points, 0);
+    // Priced together rather than summed, since rounding makes score points not quite additive.
+    const restPoints = scoreGain(score, rest.reduce((sum, step) => sum + step.recovered, 0));
     lines.push(`  ${c.gray(`plus ${rest.length} smaller ${rest.length === 1 ? 'fix' : 'fixes'} worth ${restPoints} between them: ${rest.map((step) => step.id).join(' ')}`)}`);
   }
   lines.push('');
@@ -399,6 +408,7 @@ export function testJson(result) {
       importance: check.importance,
       weight: check.weight,
       earned: check.earned,
+      price: check.price,
       status: check.status,
       reason: check.reason,
       detail: check.detail,

@@ -3,7 +3,7 @@ import { ERRORS } from '../shared/errors.js';
 import { gatherEvidence } from './evidence.js';
 import { detectFrameworkFrom } from './framework.js';
 import { runChecks } from './runner.js';
-import { scoreChecks } from './score.js';
+import { priceFixes, scoreChecks } from './score.js';
 
 /**
  * @import { AiBot } from '../shared/bots.js'
@@ -56,13 +56,14 @@ export async function testUrl(target, options = {}) {
  * @returns {TestResult}
  */
 export function testEvidence(evidence) {
-  const checks = runChecks(evidence);
+  const measured = runChecks(evidence);
+  const score = scoreChecks(measured);
   return {
     url: evidence.target.toString(),
     twinUrl: evidence.twinUrl,
     framework: detectFrameworkFrom(evidence.html),
-    checks,
-    score: scoreChecks(checks),
+    checks: priceFixes(measured, score),
+    score,
     evidence,
   };
 }

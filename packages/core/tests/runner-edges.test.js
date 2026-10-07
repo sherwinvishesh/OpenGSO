@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { parseRobots, robotsAllows, summarizeRobots } from '@opengeo/core/prod';
-import { discoverTwins, sitemapTwins, testUrl } from '@opengeo/core/test';
+import { discoverTwins, renderReport, scoreChecks, scoreGain, sitemapTwins, testUrl } from '@opengeo/core/test';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 /** @import { TestResult } from '@opengeo/core/test' */
@@ -224,6 +224,48 @@ describe('robotsAllows', () => {
       { name: 'GPTBot', vendor: 'OpenAI', uaPatterns: ['GPTBot'], robotsToken: 'GPTBot', kind: 'training' },
     ]);
     expect(summary.blocked).toEqual([]);
+  });
+});
+
+describe('fix prices, in the headline\'s unit', () => {
+  beforeEach(() => {
+    handler = (_req, res, path) => {
+      if (path === '/robots.txt') {
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('User-agent: *\nAllow: /\n');
+        return;
+      }
+      res.writeHead(path === '/docs/page' ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(PAGE);
+    };
+  });
+
+  it('prices each fix as the change it makes to the 0-100 score, not as its check weight', async () => {
+    const result = await testUrl(`${site}/docs/page`);
+    const priced = result.checks.filter((entry) => (entry.status === 'fail' || entry.status === 'partial') && entry.fix);
+    expect(priced.length).toBeGreaterThan(2);
+    for (const entry of priced) {
+      const fixed = result.checks.map((other) => (other.id === entry.id ? { ...other, status: /** @type {const} */ ('pass'), earned: other.weight } : other));
+      const moved = Math.max(1, scoreChecks(fixed).value - result.score.value);
+      expect(entry.fix, entry.id).toContain(`(+${moved})`);
+      expect(entry.fix, entry.id).not.toMatch(/\(\+0\)/);
+    }
+  });
+
+  it('drops the price from a locked check, whose points only exist once its blocker passes', async () => {
+    const result = await testUrl(`${site}/docs/page`);
+    for (const entry of result.checks.filter((other) => other.status === 'locked')) {
+      expect(entry.fix ?? '', entry.id).not.toMatch(/\(\+\d+\)/);
+    }
+  });
+
+  it('ranks the next steps in score points, so B1 is not sold as +56 on a 100-point scale', async () => {
+    const result = await testUrl(`${site}/docs/page`);
+    const report = renderReport(result);
+    const top = scoreGain(result.score, 10, result.score.locked.points);
+    expect(report).toMatch(new RegExp(`\\+${top}\\s+B1`));
+    expect(report).not.toContain(`+${10 + result.score.locked.points}`);
+    expect(result.score.value + top).toBeLessThanOrEqual(100);
   });
 });
 

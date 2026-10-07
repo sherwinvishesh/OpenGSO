@@ -143,7 +143,9 @@ describe('docs/checks.md', () => {
     const weightOf = (id) => CHECKS.find((check) => check.id === id)?.weight ?? 0;
     const points = TWIN_LOCKED_IDS.reduce((total, id) => total + weightOf(id), 0);
     expect(doc).toContain(`Locked (${TWIN_LOCKED_IDS.length})`);
-    expect(doc).toContain(`${points} points waiting behind B1`);
+    // The headline is in score points, which depend on the page; the weights it sums are not.
+    expect(doc).toMatch(/up to \+\d+ points waiting behind B1/);
+    expect(doc).toMatch(new RegExp(`which\\s+total ${points}\\.`));
     // And the id/weight line under it, in the order the report prints them.
     expect(doc).toContain(TWIN_LOCKED_IDS.map((id) => `${id} ${weightOf(id)}`).join('  '));
   });
