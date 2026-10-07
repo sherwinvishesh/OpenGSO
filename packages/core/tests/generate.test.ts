@@ -177,6 +177,51 @@ describe('generatePages', () => {
   });
 });
 
+describe('one bad page cannot take the run down with it', () => {
+  // Thirty characters of Japanese percent-encode to 270 bytes, past the 255 most filesystems allow.
+  const longRoute = `/${encodeURIComponent('日'.repeat(30))}`;
+  // The extractor recurses per element and overflows somewhere past 2,000 levels.
+  const deep = `<!doctype html><html><head><title>Deep</title></head><body><main>${'<div>'.repeat(4000)}deep${'</div>'.repeat(4000)}</main></body></html>`;
+
+  it('fails the page whose twin cannot be written and finishes the rest', async () => {
+    const loaded = project();
+    const result = await generatePages({
+      loaded,
+      site,
+      routes: ['/about', longRoute, '/resume'],
+      sources: new Map([[longRoute, PAGES['/about']!]]),
+    });
+    const status = Object.fromEntries(result.pages.map((page) => [page.route, page.status]));
+    expect(status).toEqual({ '/about': 'written', [longRoute]: 'failed', '/resume': 'written' });
+    expect(result.pages.find((page) => page.route === longRoute)?.reason).toBeTruthy();
+    expect(Object.keys(readManifest(join(loaded.root, '.opengeo'), site).pages).sort()).toEqual(['/about', '/resume']);
+  });
+
+  it('fails a page the extractor cannot handle and finishes the rest', async () => {
+    const loaded = project();
+    const result = await generatePages({ loaded, site, routes: ['/deep', '/resume'], sources: new Map([['/deep', deep]]) });
+    expect(result.pages.find((page) => page.route === '/resume')?.status).toBe('written');
+    expect(readManifest(join(loaded.root, '.opengeo'), site).pages['/resume']).toBeDefined();
+  }, 30_000);
+
+  it('keeps going when the AI step throws instead of returning', async () => {
+    const loaded = project();
+    const result = await generatePages({
+      loaded,
+      site,
+      tier: 'ai',
+      routes: ['/about', '/resume'],
+      enhance: async (input) => {
+        if (input.url.endsWith('/about')) throw new Error('socket hang up');
+        return { markdown: input.algorithmicMarkdown, warnings: [], fellBack: false };
+      },
+    });
+    expect(result.pages.map((page) => page.status)).toEqual(['failed', 'written']);
+    expect(result.pages[0]?.reason).toContain('socket hang up');
+    expect(readManifest(join(loaded.root, '.opengeo'), site).pages['/resume']).toBeDefined();
+  });
+});
+
 describe('generateSite', () => {
   it('crawls, writes a twin per page, and writes the three site files from the same crawl', async () => {
     const { generateSite } = await import('@opengeo/core/generate');

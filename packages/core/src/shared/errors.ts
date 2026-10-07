@@ -322,6 +322,8 @@ export const ERRORS = {
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
+  pageCrashed: (message: string) => `Could not generate this page: ${message}. The rest of the run carried on.`,
+
   siteUnreachableKept:
     'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
 

@@ -121,168 +121,181 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
 
   const twinDir = resolve(publicDir, MD_DIR);
 
-  for (const route of unique) {
-    index += 1;
-    const url = new URL(route, site).toString();
-    // Checked before the fetch as well as before the write: there is no reason to download a page
-    // whose twin could only be written somewhere it must not go.
-    if (hasDotSegment(route)) {
-      pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
-      continue;
-    }
-    let html = options.sources?.get(route);
+  let manifestPath = '';
+  try {
+    for (const route of unique) {
+      index += 1;
+      const url = new URL(route, site).toString();
+      // Each route is its own unit of work. A name the filesystem refuses, markup deep enough to
+      // overflow the extractor, or a provider hook that throws fails that page and nothing else: the
+      // rest of the run, and any AI calls already paid for, still land in the manifest.
+      try {
+        // Checked before the fetch as well as before the write: there is no reason to download a page
+        // whose twin could only be written somewhere it must not go.
+        if (hasDotSegment(route)) {
+          pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
+          continue;
+        }
+        let html = options.sources?.get(route);
 
-    if (html === undefined) {
-      onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
-      const response = await probe(url, { timeoutMs: 20_000 });
-      if (!response.ok || !response.body || response.truncated) {
-        pages.push({
+        if (html === undefined) {
+          onProgress?.({ route, index, total: unique.length, phase: 'fetch' });
+          const response = await probe(url, { timeoutMs: 20_000 });
+          if (!response.ok || !response.body || response.truncated) {
+            pages.push({
+              route,
+              url,
+              status: 'failed',
+              warnings: [],
+              reason: response.truncated ? ERRORS.pageTooLarge(MAX_PROBE_BYTES) : (response.error ?? `HTTP ${response.status}`),
+            });
+            const carried = previous.pages[route];
+            if (carried) manifest.pages[route] = carried;
+            continue;
+          }
+          html = response.body;
+        }
+
+        const relPath = routeToMdRelPath(route);
+        const absPath = resolve(publicDir, relPath);
+        // The last line of defence, whatever a future route source lets through.
+        if (!absPath.startsWith(twinDir + sep)) {
+          pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
+          continue;
+        }
+        const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
+
+        // A manual twin is checked before anything else, because the whole point of the marker is that
+        // OpenGEO does no work on that page at all.
+        if (existing && !force) {
+          const parsed = parseFrontmatter(existing);
+          if (parsed.data.generated_by === 'manual') {
+            pages.push({
+              route,
+              url,
+              status: 'skipped-manual',
+              title: typeof parsed.data.title === 'string' ? parsed.data.title : route,
+              description: typeof parsed.data.description === 'string' ? parsed.data.description : undefined,
+              tier: 'manual',
+              file: relPath,
+              warnings: [],
+              reason: 'Frontmatter says generated_by: manual - left untouched. Use --force to regenerate.',
+            });
+            manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing);
+            continue;
+          }
+        }
+
+        // Extraction runs before the cache check because the hash is taken from what a reader receives,
+        // not from the raw markup around it. See ManifestEntry.sourceHash for why. It is pure local CPU
+        // on HTML already in memory; the expensive things the cache protects (an AI call, a disk write)
+        // still happen only on a real change.
+        onProgress?.({ route, index, total: unique.length, phase: 'extract' });
+        const extracted = extractPage(html, { url, minWords: loaded.config.generate.minWords });
+        const sourceHash = contentHash(extracted.markdown);
+
+        const prior = previous.pages[route];
+        if (existing && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
+          pages.push({
+            route,
+            url,
+            status: 'cached',
+            title: prior.title,
+            description: prior.description,
+            tier: prior.tier,
+            file: relPath,
+            tokens: prior.tokens,
+            wordCount: prior.wordCount,
+            warnings: [],
+            reason: 'Source unchanged since the last run.',
+          });
+          manifest.pages[route] = prior;
+          continue;
+        }
+
+        let markdown = extracted.markdown;
+        const warnings = [...extracted.warnings];
+        let appliedTier: GenerationTier = 'free';
+
+        if (tier === 'ai' && enhance) {
+          onProgress?.({ route, index, total: unique.length, phase: 'ai' });
+          const enhanced = await enhance({
+            url,
+            title: extracted.title,
+            html,
+            algorithmicMarkdown: extracted.markdown,
+          });
+          markdown = enhanced.markdown;
+          warnings.push(...enhanced.warnings);
+          appliedTier = enhanced.fellBack ? 'free' : 'ai';
+        }
+
+        const tokens = estimateTokens(markdown);
+        const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+        const lastUpdated = new Date().toISOString();
+
+        onProgress?.({ route, index, total: unique.length, phase: 'write' });
+        const contents = withFrontmatter(
+          {
+            title: extracted.title,
+            url,
+            last_updated: lastUpdated,
+            tokens,
+            source_hash: sourceHash,
+            generated_by: appliedTier === 'ai' ? 'opengeo-ai' : 'opengeo-free',
+            ...(extracted.description ? { description: extracted.description } : {}),
+          },
+          markdown,
+        );
+
+        mkdirSync(dirname(absPath), { recursive: true });
+        writeFileSync(absPath, contents, 'utf8');
+
+        manifest.pages[route] = {
           route,
           url,
-          status: 'failed',
-          warnings: [],
-          reason: response.truncated ? ERRORS.pageTooLarge(MAX_PROBE_BYTES) : (response.error ?? `HTTP ${response.status}`),
-        });
-        const carried = previous.pages[route];
-        if (carried) manifest.pages[route] = carried;
-        continue;
-      }
-      html = response.body;
-    }
-
-    const relPath = routeToMdRelPath(route);
-    const absPath = resolve(publicDir, relPath);
-    // The last line of defence, whatever a future route source lets through.
-    if (!absPath.startsWith(twinDir + sep)) {
-      pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
-      continue;
-    }
-    const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
-
-    // A manual twin is checked before anything else, because the whole point of the marker is that
-    // OpenGEO does no work on that page at all.
-    if (existing && !force) {
-      const parsed = parseFrontmatter(existing);
-      if (parsed.data.generated_by === 'manual') {
-        pages.push({
-          route,
-          url,
-          status: 'skipped-manual',
-          title: typeof parsed.data.title === 'string' ? parsed.data.title : route,
-          description: typeof parsed.data.description === 'string' ? parsed.data.description : undefined,
-          tier: 'manual',
+          title: extracted.title,
           file: relPath,
-          warnings: [],
-          reason: 'Frontmatter says generated_by: manual - left untouched. Use --force to regenerate.',
+          tokens,
+          wordCount,
+          sourceHash,
+          lastUpdated,
+          tier: appliedTier,
+          ...(extracted.description ? { description: extracted.description } : {}),
+        };
+        pages.push({
+          route,
+          url,
+          status: 'written',
+          title: extracted.title,
+          description: extracted.description,
+          tier: appliedTier,
+          file: relPath,
+          tokens,
+          wordCount,
+          warnings,
         });
-        manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing);
-        continue;
+      } catch (error) {
+        const reason = ERRORS.pageCrashed(error instanceof Error ? error.message : String(error));
+        pages.push({ route, url, status: 'failed', warnings: [], reason });
+        const carried = previous.pages[route];
+        if (carried && !manifest.pages[route]) manifest.pages[route] = carried;
       }
     }
-
-    // Extraction runs before the cache check because the hash is taken from what a reader receives,
-    // not from the raw markup around it. See ManifestEntry.sourceHash for why. It is pure local CPU
-    // on HTML already in memory; the expensive things the cache protects (an AI call, a disk write)
-    // still happen only on a real change.
-    onProgress?.({ route, index, total: unique.length, phase: 'extract' });
-    const extracted = extractPage(html, { url, minWords: loaded.config.generate.minWords });
-    const sourceHash = contentHash(extracted.markdown);
-
-    const prior = previous.pages[route];
-    if (existing && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
-      pages.push({
-        route,
-        url,
-        status: 'cached',
-        title: prior.title,
-        description: prior.description,
-        tier: prior.tier,
-        file: relPath,
-        tokens: prior.tokens,
-        wordCount: prior.wordCount,
-        warnings: [],
-        reason: 'Source unchanged since the last run.',
-      });
-      manifest.pages[route] = prior;
-      continue;
+  } finally {
+    // Written whatever happened above, so a run that does stop part way keeps what it finished.
+    const carried = options.carryForward === 'all' ? Object.keys(previous.pages) : (options.carryForward ?? []);
+    for (const route of carried) {
+      const entry = previous.pages[route];
+      if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
     }
-
-    let markdown = extracted.markdown;
-    const warnings = [...extracted.warnings];
-    let appliedTier: GenerationTier = 'free';
-
-    if (tier === 'ai' && enhance) {
-      onProgress?.({ route, index, total: unique.length, phase: 'ai' });
-      const enhanced = await enhance({
-        url,
-        title: extracted.title,
-        html,
-        algorithmicMarkdown: extracted.markdown,
-      });
-      markdown = enhanced.markdown;
-      warnings.push(...enhanced.warnings);
-      appliedTier = enhanced.fellBack ? 'free' : 'ai';
-    }
-
-    const tokens = estimateTokens(markdown);
-    const wordCount = markdown.split(/\s+/).filter(Boolean).length;
-    const lastUpdated = new Date().toISOString();
-
-    onProgress?.({ route, index, total: unique.length, phase: 'write' });
-    const contents = withFrontmatter(
-      {
-        title: extracted.title,
-        url,
-        last_updated: lastUpdated,
-        tokens,
-        source_hash: sourceHash,
-        generated_by: appliedTier === 'ai' ? 'opengeo-ai' : 'opengeo-free',
-        ...(extracted.description ? { description: extracted.description } : {}),
-      },
-      markdown,
-    );
-
-    mkdirSync(dirname(absPath), { recursive: true });
-    writeFileSync(absPath, contents, 'utf8');
-
-    manifest.pages[route] = {
-      route,
-      url,
-      title: extracted.title,
-      file: relPath,
-      tokens,
-      wordCount,
-      sourceHash,
-      lastUpdated,
-      tier: appliedTier,
-      ...(extracted.description ? { description: extracted.description } : {}),
-    };
-    pages.push({
-      route,
-      url,
-      status: 'written',
-      title: extracted.title,
-      description: extracted.description,
-      tier: appliedTier,
-      file: relPath,
-      tokens,
-      wordCount,
-      warnings,
-    });
+    manifestPath = writeManifest(internalDir, manifest);
   }
-
-  const carried = options.carryForward === 'all' ? Object.keys(previous.pages) : (options.carryForward ?? []);
-  for (const route of carried) {
-    const entry = previous.pages[route];
-    if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
-  }
-
-  const path = writeManifest(internalDir, manifest);
   return {
     site,
     pages,
     manifest,
-    manifestPath: path,
+    manifestPath,
     publicDir,
     durationMs: Date.now() - started,
   };
