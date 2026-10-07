@@ -9,6 +9,7 @@ import { prodTestCommand } from '../src/cli/commands/prod-test.js';
 import { settingsCommand } from '../src/cli/commands/settings.js';
 import { testCommand } from '../src/cli/commands/test.js';
 import { runHome } from '../src/cli/home.js';
+import { EXIT_USAGE } from '../src/cli/args.js';
 import { runCli } from '../src/cli/index.js';
 import { ERRORS } from '../src/shared/errors.js';
 /** @import { Server } from 'node:http' */
@@ -178,7 +179,7 @@ describe('runCli, before any command runs', () => {
 
   it('names the package to install for a command this one does not ship', async () => {
     const { code, stdout, stderr } = await cli(['settings'], { test: testCommand });
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr.length).toBeGreaterThan(0);
   });
@@ -262,38 +263,31 @@ describe('opengeo test, as a script sees it', () => {
 
   it('refuses an unknown option before fetching anything', async () => {
     const { code, stdout, stderr } = await run(testCommand, [site, '--project', root, '--bogus']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr).toContain('--bogus');
   });
 
   it('refuses --structure with --content', async () => {
     const { code, stdout, stderr } = await run(testCommand, [site, '--project', root, '--structure', '--content']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr).toContain('--structure');
   });
 
   it('refuses a missing URL in an unconfigured project, through runCli, with the shared error', async () => {
     const { code, stdout, stderr } = await cli(['test', '--project', root, '--json']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(plain(stderr)).toContain(ERRORS.missingUrl('test').split('\n')[0]);
   });
 
   it('refuses a URL it cannot fetch, through runCli, with the shared error', async () => {
     const { code, stdout, stderr } = await cli(['test', 'ftp://example.invalid', '--project', root, '--json']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(plain(stderr)).toContain(ERRORS.invalidUrl('ftp://example.invalid'));
   });
-
-  // D15: a usage error (bad flag, conflicting flags, missing or invalid URL) should exit 2, so a
-  // script can tell "you called it wrong" from "the site failed". Every one of them exits 1 today.
-  it.todo('exits 2 for an unknown option (D15)');
-  it.todo('exits 2 for --structure with --content (D15)');
-  it.todo('exits 2 for a missing or invalid URL (D15)');
-  it.todo('exits 2 for an unknown command (D15)');
 });
 
 describe('opengeo generate, as a script sees it', () => {
@@ -306,7 +300,7 @@ describe('opengeo generate, as a script sees it', () => {
 
   it('refuses a tier that does not exist', async () => {
     const { code, stdout, stderr } = await run(generateCommand, [site, '--project', root, '--tier', 'premium']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr).toContain('premium');
     expect(existsSync(join(root, '.opengeo'))).toBe(false);
@@ -320,7 +314,6 @@ describe('opengeo generate, as a script sees it', () => {
     expect(existsSync(join(root, '.opengeo'))).toBe(false);
   });
 
-  it.todo('exits 2 for an unknown tier (D15)');
 });
 
 describe('opengeo prod test, as a script sees it', () => {
@@ -343,7 +336,7 @@ describe('opengeo prod test, as a script sees it', () => {
 
   it('refuses an unknown option before probing', async () => {
     const { code, stdout, stderr } = await run(prodTestCommand, [site, '--project', root, '--structure']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr).toContain('--structure');
   });
@@ -360,7 +353,7 @@ describe('opengeo settings with nobody at the keyboard', () => {
 
   it('refuses an unknown option without writing anything', async () => {
     const { code } = await run(settingsCommand, ['--yes', '--project', root, '--colour']);
-    expect(code).toBe(1);
+    expect(code).toBe(EXIT_USAGE);
     expect(existsSync(join(root, 'opengeo.config.json'))).toBe(false);
   });
 });
