@@ -642,6 +642,11 @@ function checkLinkAlternate(e: Evidence): CheckResult {
   if (e.advertisedTwinUrl) {
     return pass('B8', `The HTML response advertises its markdown twin: Link rel="alternate" -> ${e.advertisedTwinUrl}`);
   }
+  if (e.foreignTwinUrl) {
+    return partial('B8', 1, `The HTML response advertises a markdown twin at ${e.foreignTwinUrl}, which is not on this site's origin, so OpenGEO did not fetch it and checked ${e.twinUrl} instead.`, {
+      fix: `Point the Link header at the twin on this origin: \`<${e.twinUrl}>; rel="alternate"; type="text/markdown"\` (+2).`,
+    });
+  }
   const link = e.html.headers.get(HEADERS.link);
   if (link) {
     return partial('B8', 1, `The HTML response has a Link header ("${link}") but no rel="alternate" entry of type text/markdown, so an agent still has to guess the twin URL.`, {

@@ -284,7 +284,9 @@ agent that fetched the HTML discovers there is a better version available, witho
 URL convention.
 
 **Partial: 1** when a `Link` header is present but carries no `rel="alternate"` entry of type
-`text/markdown`.
+`text/markdown`, or when the twin it advertises is on another origin or is not `http` or `https`.
+OpenGEO never fetches an advertised twin like that. It reports the URL and tests the twin at the
+conventional address on the site's own origin instead.
 
 ### B9 - Accept: text/markdown receives markdown, not HTML
 **Required, weight 6.**

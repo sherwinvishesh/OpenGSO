@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { describe, expect, it } from 'vitest';
 import { callProvider, crawlSite } from '@opengeo/core/generate';
 import { MAX_PROBE_BYTES, probe } from '@opengeo/core/shared';
+import { gatherEvidence, testEvidence } from '@opengeo/core/test';
 
 /**
  * What a remote server is allowed to make OpenGEO do.
@@ -133,6 +134,63 @@ describe('a provider call', () => {
     } finally {
       await gateway.close();
       await elsewhere.close();
+    }
+  });
+});
+
+describe('the twin a page advertises', () => {
+  /** A page whose Link header points its markdown twin wherever the test says. */
+  function advertising(link: string) {
+    return (_req: IncomingMessage, res: ServerResponse) => {
+      res.writeHead(200, { 'content-type': 'text/html', link: `<${link}>; rel="alternate"; type="text/markdown"` });
+      res.end('<html><body><main><h1>Hi</h1><p>Words.</p></main></body></html>');
+    };
+  }
+
+  it('is not fetched from another origin', async () => {
+    const hits: string[] = [];
+    const elsewhere = await serve((req, res) => {
+      hits.push(req.url ?? '');
+      res.writeHead(200, { 'content-type': 'text/markdown' }).end('# Not yours');
+    });
+    const site = await serve(advertising(`${elsewhere.base}/twin.md`));
+    try {
+      const evidence = await gatherEvidence(new URL(`${site.base}/page`), { timeoutMs: 5000 });
+      expect(hits).toEqual([]);
+      expect(evidence.advertisedTwinUrl).toBeUndefined();
+      expect(evidence.twinUrl).toBe(`${site.base}/page.md`);
+      const b8 = testEvidence(evidence).checks.find((check) => check.id === 'B8');
+      expect(b8?.status).toBe('partial');
+      expect(b8?.reason).toContain(`${elsewhere.base}/twin.md`);
+      expect(b8?.reason).toMatch(/not on this site/i);
+    } finally {
+      await site.close();
+      await elsewhere.close();
+    }
+  });
+
+  it('is not fetched when it is not http or https', async () => {
+    const site = await serve(advertising('data:text/markdown,%23%20Forged'));
+    try {
+      const evidence = await gatherEvidence(new URL(`${site.base}/page`), { timeoutMs: 5000 });
+      expect(evidence.advertisedTwinUrl).toBeUndefined();
+      expect(evidence.twin.body).not.toContain('Forged');
+    } finally {
+      await site.close();
+    }
+  });
+
+  it('is used when it is on the same origin', async () => {
+    const site = await serve((req, res) => {
+      if (req.url === '/docs/page.md') return void res.writeHead(200, { 'content-type': 'text/markdown' }).end('# Page');
+      advertising('/docs/page.md')(req, res);
+    });
+    try {
+      const evidence = await gatherEvidence(new URL(`${site.base}/page`), { timeoutMs: 5000 });
+      expect(evidence.advertisedTwinUrl).toBe(`${site.base}/docs/page.md`);
+      expect(evidence.twin.body).toBe('# Page');
+    } finally {
+      await site.close();
     }
   });
 });

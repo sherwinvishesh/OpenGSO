@@ -26,6 +26,12 @@ export interface Evidence {
   twin: ProbeResult;
   twinUrl: string;
   advertisedTwinUrl?: string;
+  /**
+   * A twin the HTML advertised on another origin, or with a scheme other than http(s). It is
+   * reported and never fetched: the audit is of this site, and a Link header is not permission to
+   * make OpenGEO request a third party's URL or read a `data:` body as if the site had served it.
+   */
+  foreignTwinUrl?: string;
   /** Same page URL, asking for markdown by content negotiation. */
   acceptMarkdown: ProbeResult;
   /** Same page URL, as a known AI bot, with no markdown preference expressed. */
@@ -53,7 +59,7 @@ export async function gatherEvidence(target: URL, options: GatherOptions = {}): 
     timeoutMs,
   });
 
-  const advertisedTwinUrl = resolveAdvertised(html, target);
+  const { advertisedTwinUrl, foreignTwinUrl } = resolveAdvertised(html, target);
   const canonicalTwinUrl = advertisedTwinUrl ?? twinUrl(target.toString());
 
   const [robots, llms, sitemap, twin, acceptMarkdown, botUa, notAcceptable] = await Promise.all([
@@ -76,6 +82,7 @@ export async function gatherEvidence(target: URL, options: GatherOptions = {}): 
     twin,
     twinUrl: canonicalTwinUrl,
     advertisedTwinUrl,
+    foreignTwinUrl,
     acceptMarkdown,
     botUa,
     notAcceptable,
@@ -83,12 +90,17 @@ export async function gatherEvidence(target: URL, options: GatherOptions = {}): 
   };
 }
 
-function resolveAdvertised(html: ProbeResult, target: URL): string | undefined {
+/** The advertised twin, if it is on this origin; otherwise what was advertised, to report. */
+function resolveAdvertised(html: ProbeResult, target: URL): { advertisedTwinUrl?: string; foreignTwinUrl?: string } {
   const advertised = parseLinkAlternate(html.headers.get('link'));
-  if (!advertised) return undefined;
+  if (!advertised) return {};
+  let url: URL;
   try {
-    return new URL(advertised, target).toString();
+    url = new URL(advertised, target);
   } catch {
-    return undefined;
+    return {};
   }
+  // The same rule discover.ts applies to llms.txt and sitemap links.
+  const sameSite = (url.protocol === 'http:' || url.protocol === 'https:') && url.origin === target.origin;
+  return sameSite ? { advertisedTwinUrl: url.toString() } : { foreignTwinUrl: advertised };
 }
