@@ -1,10 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
-
-const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
-  name: string;
-  version: string;
-};
 
 /**
  * `@opengeo/core` is private and never published, so it must be inlined into this bundle rather
@@ -12,7 +6,7 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
  * is declared as a real dependency.
  */
 export default defineConfig({
-  entry: { cli: 'src/cli.ts' },
+  entry: { cli: 'src/cli.js' },
   format: ['esm'],
   target: 'node20',
   platform: 'node',
@@ -21,8 +15,4 @@ export default defineConfig({
   sourcemap: false,
   noExternal: [/@opengeo\/core/],
   banner: { js: '#!/usr/bin/env node' },
-  define: {
-    __OPENGEO_PACKAGE__: JSON.stringify(pkg.name),
-    __OPENGEO_VERSION__: JSON.stringify(pkg.version),
-  },
 });

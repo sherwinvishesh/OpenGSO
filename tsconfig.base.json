@@ -24,7 +24,7 @@
     "baseUrl": ".",
     "paths": {
       "@opengeo/core": [
-        "./packages/core/src/index.ts"
+        "./packages/core/src/index.js"
       ],
       "@opengeo/core/shared": [
         "./packages/core/src/shared/index.js"
