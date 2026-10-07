@@ -286,9 +286,10 @@ function authHeaders(provider, apiKey) {
  * @param {RequestInit} init
  * @param {number} timeoutMs
  * @param {string} label
+ * @param {string} apiKey Only so it can be taken back out of an error body that echoes it.
  * @returns {Promise<unknown>}
  */
-async function post(url, init, timeoutMs, label) {
+async function post(url, init, timeoutMs, label, apiKey) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -301,8 +302,11 @@ async function post(url, init, timeoutMs, label) {
     }
     const body = await response.text();
     if (!response.ok) {
+      // A gateway that echoes the request back would otherwise put the key in a message that is
+      // printed, kept as a generate warning and sent to the dashboard.
+      const shown = apiKey ? body.split(apiKey).join('[redacted]') : body;
       // The status rides along so a caller with many calls queued can tell a refused key from one bad document.
-      throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, body)), { status: response.status });
+      throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, shown)), { status: response.status });
     }
     // A 200 is no promise of JSON: a proxy or a captive portal in front of the endpoint answers with
     // a page, and a parser error would name a token rather than the endpoint.
@@ -349,6 +353,7 @@ async function callAnthropic(call, provider) {
     },
     call.timeoutMs ?? 120_000,
     provider.label,
+    call.apiKey,
   ));
 
   if (json.stop_reason === 'max_tokens') throw new TruncatedOutputError(provider.label);
@@ -384,6 +389,7 @@ async function callOpenAI(call, provider) {
     },
     call.timeoutMs ?? 120_000,
     provider.label,
+    call.apiKey,
   ));
 
   if (json.choices?.[0]?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
@@ -413,6 +419,7 @@ async function callGemini(call, provider) {
     },
     call.timeoutMs ?? 120_000,
     provider.label,
+    call.apiKey,
   ));
 
   if (json.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new TruncatedOutputError(provider.label);

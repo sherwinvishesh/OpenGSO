@@ -313,6 +313,17 @@ describe('the key in an error message', () => {
     }
   });
 
+  it('is absent even when the endpoint echoes the key back in an error body', async () => {
+    for (const shape of Object.values(SHAPES)) {
+      answer = (request, response) =>
+        json(response, 401, { error: `Invalid key: ${JSON.stringify(request.headers)}` });
+      const error = await failure(call({ provider: shape.provider }));
+      expect(error.message, shape.provider).toContain('401');
+      expect(error.message, shape.provider).toContain('Invalid key');
+      expect(error.message, shape.provider).not.toContain(KEY);
+    }
+  });
+
   it('is absent even when the endpoint echoes the key back in a body that is not JSON', async () => {
     answer = (request, response) => {
       response.writeHead(200, { 'Content-Type': 'text/plain' });
