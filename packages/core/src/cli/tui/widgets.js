@@ -1,5 +1,5 @@
 import { c } from '../../shared/log.js';
-import { centre, fg, glyphs, gradient, mix, padEnd, terminalWidth, truncate, visibleWidth } from './paint.js';
+import { fg, glyphs, gradient, mix, padEnd, terminalWidth, truncate, visibleWidth } from './paint.js';
 import { PALETTE, bandBright, bandColour, contentBand, ink, structuralBand } from './theme.js';
 
 /** @import { Rgb } from './paint.js' */
@@ -254,17 +254,6 @@ function invert(text) {
 }
 
 /**
- * A small coloured label. Used for statuses that are one word.
- *
- * @param {string} text
- * @param {Rgb} colour
- * @returns {string}
- */
-export function badge(text, colour) {
-  return fg(colour, `${text}`);
-}
-
-/**
  * A filled status dot, for a row that is reporting a state rather than a measurement.
  *
  * @param {Rgb} colour
@@ -291,17 +280,6 @@ export function keyHints(pairs) {
  */
 export function wordmark() {
   return gradient('OpenGEO', PALETTE.ok, PALETTE.okBright);
-}
-
-/**
- * Centre a line inside a width, for an empty state or a splash.
- *
- * @param {string} text
- * @param {number} [width]
- * @returns {string}
- */
-export function centred(text, width = terminalWidth()) {
-  return centre(text, width);
 }
 
 /**

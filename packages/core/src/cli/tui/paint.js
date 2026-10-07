@@ -85,19 +85,6 @@ export function fg(colour, text) {
 }
 
 /**
- * @param {Rgb} colour
- * @param {string} text
- * @returns {string}
- */
-export function bg(colour, text) {
-  const depth = colourDepth();
-  if (depth === 0) return text;
-  if (depth === 3) return `${CSI}48;2;${colour.r};${colour.g};${colour.b}m${text}${CSI}49m`;
-  if (depth === 2) return `${CSI}48;5;${cube(colour)}m${text}${CSI}49m`;
-  return `${CSI}${basic(colour) + 10}m${text}${CSI}49m`;
-}
-
-/**
  * Nearest cell in the xterm 6x6x6 cube, or the greyscale ramp when the channels are close enough.
  *
  * @param {Rgb} colour

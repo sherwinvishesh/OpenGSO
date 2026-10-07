@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROGRESS_METER_WIDTH, canRedraw, createProgress, progressLineWidth } from '../src/cli/progress.js';
+import { canRedraw, createProgress } from '../src/cli/progress.js';
 import { stripAnsi, visibleWidth } from '../src/cli/tui/paint.js';
 
 /**
@@ -240,19 +240,18 @@ describe('the frame itself', () => {
     progress.phase('Crawling');
     progress.step(2, 8, '/a');
     const rendered = /** @type {string} */ (out.text().split('\n').at(-2));
-    expect(progressLineWidth(rendered)).toBe(visibleWidth(rendered));
-    expect(progressLineWidth(rendered)).toBeLessThan(rendered.length);
+    expect(visibleWidth(rendered)).toBeLessThan(rendered.length);
     progress.done();
   });
 
-  it('draws the meter at the width it advertises', () => {
+  it('draws the meter at a fixed width', () => {
     const out = fakeStream(true, 120);
     const progress = createProgress({ output: out });
     progress.phase('X');
     progress.step(0, 10, '');
     // At zero the meter is all empty cells, so counting them counts the whole bar.
     const line = /** @type {string} */ (lastFrame(out.text()).at(-1));
-    expect([...line].filter((glyph) => glyph === '░').length).toBe(PROGRESS_METER_WIDTH);
+    expect([...line].filter((glyph) => glyph === '░').length).toBe(18);
     progress.done();
   });
 });

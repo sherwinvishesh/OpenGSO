@@ -183,56 +183,6 @@ export async function field(screen, keys, options) {
 }
 
 /**
- * A multi-select over the same list widget, for the crawler pickers.
- *
- * Space toggles, `a` takes everything, `n` clears, Enter is done. Returns undefined on a cancel so
- * an aborted pick cannot be read as "the user chose none of them".
- *
- * @template T
- * @param {Screen} screen
- * @param {KeyReader} keys
- * @param {{ header: string[]; items: ReadonlyArray<ListItem<T>>; chosen: ReadonlySet<T>; extra?: ReadonlyArray<[string, string]> }} options
- * @returns {Promise<Set<T> | undefined>}
- */
-export async function multiSelect(screen, keys, options) {
-  const chosen = new Set(options.chosen);
-  let index = 0;
-
-  for (;;) {
-    const marked = options.items.map((item) => ({
-      ...item,
-      label: `${chosen.has(item.value) ? ink.ok('[x]') : ink.faint('[ ]')} ${item.label}`,
-    }));
-    screen.paint([
-      ...options.header,
-      '',
-      ...listView(marked, index),
-      '',
-      `  ${ink.faint(`${chosen.size} of ${options.items.length} selected`)}`,
-      '',
-      keyHints([['space', 'toggle'], ['a', 'all'], ['n', 'none'], ['enter', 'done'], ...(options.extra ?? [])]),
-    ]);
-
-    const key = await keys.next();
-    if (key.name === 'ctrl-c' || key.name === 'escape') return undefined;
-    if (key.name === 'enter') return chosen;
-    if (key.name === 'up') index = (index - 1 + options.items.length) % options.items.length;
-    else if (key.name === 'down') index = (index + 1) % options.items.length;
-    else if (key.name === 'space') {
-      const item = options.items[index];
-      if (item) {
-        if (chosen.has(item.value)) chosen.delete(item.value);
-        else chosen.add(item.value);
-      }
-    } else if (key.name === 'char' && key.value.toLowerCase() === 'a') {
-      for (const item of options.items) chosen.add(item.value);
-    } else if (key.name === 'char' && key.value.toLowerCase() === 'n') {
-      chosen.clear();
-    }
-  }
-}
-
-/**
  * Yes or no, drawn as a two-row list so it looks like every other question.
  *
  * @param {Screen} screen

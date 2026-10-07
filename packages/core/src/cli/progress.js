@@ -1,5 +1,5 @@
 import { c } from '../shared/log.js';
-import { colourDepth, terminalWidth, truncate, visibleWidth } from './tui/paint.js';
+import { colourDepth, terminalWidth, truncate } from './tui/paint.js';
 import { ink } from './tui/theme.js';
 import { progressMeter, spinnerFrame } from './tui/widgets.js';
 
@@ -189,17 +189,4 @@ function liveProgress(output) {
       clearInterval(timer);
     },
   };
-}
-
-/** How wide the live block draws its bar. Exported so a test can assert the frame's shape. */
-export const PROGRESS_METER_WIDTH = METER_WIDTH;
-
-/**
- * The printable width of a rendered frame line, escape codes excluded.
- *
- * @param {string} text
- * @returns {number}
- */
-export function progressLineWidth(text) {
-  return visibleWidth(text);
 }

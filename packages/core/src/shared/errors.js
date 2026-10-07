@@ -5,7 +5,7 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
-import { AI_PROVIDERS, PROVIDERS, providerInfo } from './providers.js';
+import { AI_PROVIDERS, providerInfo } from './providers.js';
 
 /** @import { AiProvider } from './providers.js' */
 
@@ -222,20 +222,6 @@ function wrapList(items, width) {
   });
   if (current) lines.push(current.trimEnd());
   return lines;
-}
-
-/**
- * One line per provider, for `--help` and the settings screen.
- *
- * @returns {string[]}
- */
-export function providerListing() {
-  const width = Math.max(...PROVIDERS.map((provider) => provider.id.length));
-  return PROVIDERS.map((provider) => {
-    const info = providerInfo(provider.id);
-    const suffix = info.keyless ? ' (no key, on this machine)' : info.userDefined ? ' (your own endpoint)' : '';
-    return `${provider.id.padEnd(width + 2)}${info.label}${suffix}`;
-  });
 }
 
 export const ERRORS = /* @__PURE__ */ Object.freeze({
