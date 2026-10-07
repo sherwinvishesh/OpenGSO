@@ -74,50 +74,56 @@ export async function generateCommand(ctx) {
   const progress = json ? undefined : createProgress();
   const progressIsLive = canRedraw();
   let lastPhase = '';
-  const result = await generateSite({
-    target: target.toString(),
-    loaded,
-    tier,
-    force: args.bool('force'),
-    single,
-    maxPages: args.num('max-pages'),
-    maxDepth: args.num('depth'),
-    timeoutMs: args.num('timeout') !== undefined ? /** @type {number} */ (args.num('timeout')) * 1000 : undefined,
-    skipSiteFiles: args.bool('skip-files'),
-    prune: args.bool('prune'),
-    enhance,
-    onProgress: (event) => {
-      if (!progress) return;
-      if (event.phase === 'crawl') {
-        if (lastPhase !== 'crawl') {
-          progress.phase('Discovering routes by following links');
-          lastPhase = 'crawl';
+  /** @type {Awaited<ReturnType<typeof generateSite>>} */
+  let result;
+  try {
+    result = await generateSite({
+      target: target.toString(),
+      loaded,
+      tier,
+      force: args.bool('force'),
+      single,
+      maxPages: args.num('max-pages'),
+      maxDepth: args.num('depth'),
+      timeoutMs: args.num('timeout') !== undefined ? /** @type {number} */ (args.num('timeout')) * 1000 : undefined,
+      skipSiteFiles: args.bool('skip-files'),
+      prune: args.bool('prune'),
+      enhance,
+      onProgress: (event) => {
+        if (!progress) return;
+        if (event.phase === 'crawl') {
+          if (lastPhase !== 'crawl') {
+            progress.phase('Discovering routes by following links');
+            lastPhase = 'crawl';
+          }
+          progress.step(event.crawl.visited + 1, event.crawl.found, event.crawl.route);
+          return;
         }
-        progress.step(event.crawl.visited + 1, event.crawl.found, event.crawl.route);
-        return;
-      }
-      if (event.phase === 'generate') {
-        if (lastPhase !== 'generate') {
-          progress.phase('Converting pages');
-          lastPhase = 'generate';
+        if (event.phase === 'generate') {
+          if (lastPhase !== 'generate') {
+            progress.phase('Converting pages');
+            lastPhase = 'generate';
+          }
+          // Every route fires four events (fetch, extract, ai, write) and the live block can show all
+          // of them, but the plain transcript prints a line per event, which is four times the noise
+          // the old code made. So the counter always advances and only the AI pass, the one with a
+          // real per-route cost, gets a line in the transcript.
+          const detail = event.generate.phase === 'ai' ? `${event.generate.route} ${c.gray('(AI)')}` : event.generate.route;
+          if (progressIsLive || event.generate.phase === 'ai') {
+            progress.step(event.generate.index, event.generate.total, detail);
+          }
+          return;
         }
-        // Every route fires four events (fetch, extract, ai, write) and the live block can show all
-        // of them, but the plain transcript prints a line per event, which is four times the noise
-        // the old code made. So the counter always advances and only the AI pass, the one with a
-        // real per-route cost, gets a line in the transcript.
-        const detail = event.generate.phase === 'ai' ? `${event.generate.route} ${c.gray('(AI)')}` : event.generate.route;
-        if (progressIsLive || event.generate.phase === 'ai') {
-          progress.step(event.generate.index, event.generate.total, detail);
+        if (event.phase === 'files') {
+          progress.phase('Writing robots.txt, llms.txt and sitemap.xml');
+          lastPhase = 'files';
         }
-        return;
-      }
-      if (event.phase === 'files') {
-        progress.phase('Writing robots.txt, llms.txt and sitemap.xml');
-        lastPhase = 'files';
-      }
-    },
-  });
-  progress?.done();
+      },
+    });
+  } finally {
+    // Also on a throw: a spinner left running redraws over the error printed after it.
+    progress?.done();
+  }
 
   if (json) {
     process.stdout.write(

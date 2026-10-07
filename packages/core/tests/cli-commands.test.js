@@ -105,6 +105,9 @@ async function run(command, argv) {
   }
 }
 
+/** @param {string[]} argv */
+const ctx = (argv) => ({ argv, packageName: 'opengeo', version: '0.0.0-test' });
+
 describe('opengeo test --timeout', () => {
   it('reads the value as seconds, the unit the help page and every other command use', async () => {
     await run(testCommand, [site, '--project', root, '--structure', '--json', '--timeout', '30']);
@@ -264,5 +267,73 @@ describe('colour, on a terminal, for output that is not going to it', () => {
     );
     expect(stderr).toContain('Error');
     expect(stderr).not.toContain(ESC);
+  });
+});
+
+describe('a run that throws while the spinner is up', () => {
+  const saved = { ...process.env };
+  /** @type {boolean | undefined} */
+  let tty;
+
+  beforeEach(() => {
+    process.env.FORCE_COLOR = '1';
+    delete process.env.NO_COLOR;
+    tty = process.stdout.isTTY;
+    process.stdout.isTTY = true;
+    vi.useFakeTimers();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.doUnmock('../src/test/index.js');
+    vi.doUnmock('../src/generate/site.js');
+    vi.resetModules();
+    process.env = { ...saved };
+    process.stdout.isTTY = /** @type {true} */ (tty);
+  });
+
+  /**
+   * Run the command, let it fail, then let the spinner's timer run: nothing may be drawn after the
+   * error, or the next frame erases it.
+   *
+   * @param {() => Promise<number>} run
+   */
+  const afterTheThrow = async (run) => {
+    let stdout = '';
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    await expect(run()).rejects.toThrow('the network went away');
+    const settled = stdout.length;
+    await vi.advanceTimersByTimeAsync(1000);
+    vi.restoreAllMocks();
+    return stdout.slice(settled);
+  };
+
+  it('stops the spinner in test', async () => {
+    vi.doMock('../src/test/index.js', async (original) => ({
+      .../** @type {object} */ (await original()),
+      runTestSuite: async (/** @type {string} */ _url, /** @type {{ onProgress?: (event: object) => void }} */ options) => {
+        options.onProgress?.({ phase: 'structure' });
+        throw new Error('the network went away');
+      },
+    }));
+    const { testCommand: fresh } = await import('../src/cli/commands/test.js');
+    expect(await afterTheThrow(() => fresh(ctx([site, '--structure', '--project', root])))).toBe('');
+  });
+
+  it('stops the spinner in generate', async () => {
+    vi.doMock('../src/generate/site.js', async (original) => ({
+      .../** @type {object} */ (await original()),
+      generateSite: async (/** @type {{ onProgress?: (event: object) => void }} */ options) => {
+        options.onProgress?.({ phase: 'files' });
+        throw new Error('the network went away');
+      },
+    }));
+    const { generateCommand } = await import('../src/cli/commands/generate.js');
+    expect(await afterTheThrow(() => generateCommand(ctx([site, '--project', root])))).toBe('');
   });
 });

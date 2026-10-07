@@ -102,18 +102,24 @@ export async function testCommand(ctx) {
   /** @type {(text: string) => void} */
   const write = out ? (text) => void report.push(text) : (text) => void process.stdout.write(text);
   const printer = json ? undefined : progressPrinter(args.bool('verbose'), history, write);
-  const result = await runTestSuite(target.toString(), {
-    mode,
-    timeoutMs,
-    bots,
-    markdownRouting,
-    ai: ai.ai,
-    // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.
-    requireContent: args.bool('quality'),
-    maxDocs: args.num('max-docs'),
-    onProgress: printer?.onProgress,
-  });
-  printer?.close();
+  /** @type {SuiteResult} */
+  let result;
+  try {
+    result = await runTestSuite(target.toString(), {
+      mode,
+      timeoutMs,
+      bots,
+      markdownRouting,
+      ai: ai.ai,
+      // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.
+      requireContent: args.bool('quality'),
+      maxDocs: args.num('max-docs'),
+      onProgress: printer?.onProgress,
+    });
+  } finally {
+    // Also on a throw: a spinner left running redraws over the error printed after it.
+    printer?.close();
+  }
   // Best-effort and last: a run that scored is worth remembering, and a filesystem that will not
   // take the file is not worth failing a passing audit over. `recordRun` swallows its own errors.
   // Its one warning goes to stderr, so a --json run's stdout stays clean.
