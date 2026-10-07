@@ -322,6 +322,9 @@ export const ERRORS = {
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
+  // Every caller prints the route beside this, so it is not repeated here.
+  unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
+
   pageTooLarge: (maxBytes: number) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
 
   providerFailed: (provider: string, status: number, body: string) =>

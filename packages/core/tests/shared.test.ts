@@ -22,6 +22,7 @@ import {
   resolveBots,
   resolveRoutableBots,
   routeToMdRelPath,
+  hasDotSegment,
   routeToTwinUrlPath,
   saveConfig,
   twinUrl,
@@ -36,6 +37,15 @@ import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@openge
 const temp = () => mkdtempSync(join(tmpdir(), 'opengeo-test-'));
 
 describe('routes', () => {
+  it('spots a dot segment in any spelling, and nothing else', () => {
+    for (const route of ['/../x', '/a/./b', '/a/..', '/%2e%2e/x', '/%2E./x', '/a\\..\\b']) {
+      expect(hasDotSegment(route), route).toBe(true);
+    }
+    for (const route of ['/', '/resume', '/v1.2/notes', '/.well-known/x', '/a..b', '/...']) {
+      expect(hasDotSegment(route), route).toBe(false);
+    }
+  });
+
   it('normalises paths to a canonical route', () => {
     expect(normalizeRoute('/')).toBe('/');
     expect(normalizeRoute('')).toBe('/');

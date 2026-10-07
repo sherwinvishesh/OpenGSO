@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import type { LoadedConfig } from '../shared/config.js';
 import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
-import { normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
+import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
@@ -109,9 +109,17 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
   const unique = dedupeRoutes(routes);
   let index = 0;
 
+  const twinDir = resolve(publicDir, MD_DIR);
+
   for (const route of unique) {
     index += 1;
     const url = new URL(route, site).toString();
+    // Checked before the fetch as well as before the write: there is no reason to download a page
+    // whose twin could only be written somewhere it must not go.
+    if (hasDotSegment(route)) {
+      pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
+      continue;
+    }
     let html = options.sources?.get(route);
 
     if (html === undefined) {
@@ -133,7 +141,12 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
     }
 
     const relPath = routeToMdRelPath(route);
-    const absPath = join(publicDir, relPath);
+    const absPath = resolve(publicDir, relPath);
+    // The last line of defence, whatever a future route source lets through.
+    if (!absPath.startsWith(twinDir + sep)) {
+      pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
+      continue;
+    }
     const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
 
     // A manual twin is checked before anything else, because the whole point of the marker is that

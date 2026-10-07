@@ -88,7 +88,8 @@ on unless you pass `--force`.
 Same-origin breadth-first search over real `<a href>` links, starting from the URL you give it.
 Depth and page caps come from your config (`crawl.maxDepth`, `crawl.maxPages`). Assets, anchors and
 query-only variants of a page already seen are skipped. `extraRoutes` in the config adds pages that
-nothing links to.
+nothing links to. An entry with a `.` or `..` segment is skipped with a warning, and no twin is ever
+written outside `public/md/`.
 
 It is not a router adapter and never will be. Reading a framework's route manifest means one
 integration per framework, forever, and OpenGEO is framework-agnostic on purpose. If a page is

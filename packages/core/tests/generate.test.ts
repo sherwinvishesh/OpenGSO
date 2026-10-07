@@ -231,6 +231,28 @@ describe('generateSite', () => {
     expect(result.generate.pages.some((p) => p.status === 'written')).toBe(true);
   });
 
+  it('never writes outside the twin directory for a route with dot segments', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    // Fetched as /resume, because the URL parser resolves the dots. The route kept them, and the
+    // twin was written to <root>/resume.md, outside public/.
+    loaded.config.extraRoutes = ['/../../resume'];
+    const result = await generateSite({ target: site, loaded });
+    expect(existsSync(join(loaded.root, 'resume.md'))).toBe(false);
+    expect(result.warnings.join(' ')).toContain('/../../resume');
+    expect(Object.keys(result.generate.manifest.pages).some((route) => route.includes('..'))).toBe(false);
+  });
+
+  it('refuses a dot-segment route handed to generatePages directly', async () => {
+    const loaded = project();
+    // A page that exists, so the fetch succeeds and only the write is left to stop it.
+    const result = await generatePages({ loaded, routes: ['/x/../../../resume', '/resume'], site });
+    const escaped = result.pages.find((page) => page.route.includes('..'));
+    expect(escaped?.status).toBe('failed');
+    expect(existsSync(join(loaded.root, 'resume.md'))).toBe(false);
+    expect(result.pages.find((page) => page.route === '/resume')?.status).toBe('written');
+  });
+
   it('leaves the site files alone when asked for twins only', async () => {
     const { generateSite } = await import('@opengeo/core/generate');
     const loaded = project();

@@ -19,6 +19,18 @@ export function normalizeRoute(pathname: string): string {
   return p === '' ? '/' : p;
 }
 
+/**
+ * True when a route has a `.` or `..` segment, written out or percent-encoded.
+ *
+ * A route becomes a file path, so `/../../x` would be a file outside `public/`. Routes found by
+ * the crawl have been through the URL parser, which resolves dots, so this only ever trips on a
+ * route someone typed: `extraRoutes`, or a caller of the programmatic API. Backslashes count as
+ * separators because they are on Windows.
+ */
+export function hasDotSegment(route: string): boolean {
+  return route.split(/[\\/]/).some((segment) => /^(?:\.|%2e){1,2}$/i.test(segment));
+}
+
 /** `/` -> `md/index.md`, `/resume` -> `md/resume.md`, `/blog/post` -> `md/blog/post.md`. */
 export function routeToMdRelPath(route: string): string {
   const r = normalizeRoute(route);

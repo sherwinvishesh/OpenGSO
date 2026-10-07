@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
-import { normalizeRoute } from '../shared/routes.js';
+import { hasDotSegment, normalizeRoute } from '../shared/routes.js';
 
 /**
  * Route discovery by following real `<a href>` links (§6, and the §17 ceiling on how far
@@ -98,10 +98,14 @@ export async function crawlSite(options: CrawlOptions): Promise<CrawlResult> {
     queue.push({ route, depth });
   };
 
-  for (const route of startRoutes) enqueue(route, 0);
+  for (const route of [...startRoutes, ...extraRoutes].filter(hasDotSegment)) {
+    failures.push({ route, url: new URL(route, origin).toString(), reason: ERRORS.unsafeRoute });
+  }
+
+  for (const route of startRoutes.filter((r) => !hasDotSegment(r))) enqueue(route, 0);
   // Extra routes enter at depth 0 too: they are explicit user intent, so a depth cap must not drop
   // them, and their own links are worth following.
-  for (const route of extraRoutes) enqueue(route, 0);
+  for (const route of extraRoutes.filter((r) => !hasDotSegment(r))) enqueue(route, 0);
 
   let cappedPages = false;
   let cappedDepth = false;
