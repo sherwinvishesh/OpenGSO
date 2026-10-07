@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extractLinks, isCrawlable } from '@opengeo/core/generate';
 import { renderLlmsTxt, renderRobotsTxt, renderSitemapXml, writeSiteFiles, GENERATED_MARKER } from '@opengeo/core/generate';
+import type { AiBot } from '@opengeo/core/shared';
 import type { SitePage } from '@opengeo/core/generate';
 
 const ORIGIN = 'https://example.com';
@@ -96,6 +97,21 @@ describe('renderRobotsTxt', () => {
   it('points at the sitemap', () => {
     expect(renderRobotsTxt(options())).toContain(`Sitemap: ${ORIGIN}/sitemap.xml`);
   });
+
+  it('cannot be made to write a directive by a name with a newline in it', () => {
+    const text = renderRobotsTxt(options({ blocked: ['Evil\nUser-agent: *\nDisallow: /'] }));
+    const lines = text.split('\n');
+    // The only Disallow anywhere would be the injected one, under the wildcard group.
+    expect(lines.filter((line) => line.startsWith('Disallow'))).toEqual([]);
+    expect(lines.filter((line) => line === 'User-agent: *')).toHaveLength(1);
+    expect(text).toMatch(/^# Skipped .*not a valid robots\.txt user-agent token/m);
+  });
+
+  it('checks the token a custom crawler declares, not only the name', () => {
+    const bots: AiBot[] = [{ name: 'Ours', vendor: 'Us', uaPatterns: ['Ours'], robotsToken: 'Ours\nDisallow: /', kind: 'training', custom: true }];
+    const text = renderRobotsTxt(options({ blocked: ['Ours'], bots }));
+    expect(text.split('\n').filter((line) => line.startsWith('Disallow'))).toEqual([]);
+  });
 });
 
 describe('renderLlmsTxt', () => {
@@ -150,6 +166,17 @@ describe('writeSiteFiles', () => {
     expect(readFileSync(join(dir, 'robots.txt'), 'utf8')).toContain('Disallow: /staging');
     expect(existsSync(join(dir, 'robots.txt.opengeo-proposed'))).toBe(true);
     expect(robots?.message).toContain('opengeo-proposed');
+  });
+
+  it('does not take a file for its own just because it mentions the marker', () => {
+    const dir = scratch();
+    const mine = `User-agent: *\nDisallow: /staging\n# The old file was ${GENERATED_MARKER}; this one is not.\n`;
+    writeFileSync(join(dir, 'robots.txt'), mine, 'utf8');
+    writeFileSync(join(dir, 'llms.txt'), `# Mine\n\nNotes on what ${GENERATED_MARKER} does.\n`, 'utf8');
+    const results = writeSiteFiles(options({ publicDir: dir }));
+    expect(results.find((r) => r.name === 'robots.txt')?.status).toBe('proposed');
+    expect(results.find((r) => r.name === 'llms.txt')?.status).toBe('proposed');
+    expect(readFileSync(join(dir, 'robots.txt'), 'utf8')).toBe(mine);
   });
 
   it('overwrites a hand-written file when the user asks with --force', () => {

@@ -154,6 +154,8 @@ an agent OpenGEO has never heard of is never blocked by it. Unknown means unknow
 
 **Lever 2, `bots.blocked`, requests no access.** It is opt-in, empty by default, and expressed only
 through the `robots.txt` that `opengeo generate` writes. It is advisory, as robots.txt always is.
+A name whose robots token is not a plain token (letters, digits, `_`, `-` and `.`) is left out and
+named in a comment in the file, so no entry can add directives of its own.
 
 `opengeo-prod` has **no blocking code path at all**. It cannot block a bot, because there is nothing
 in it that could. Blocking lives in a static file that a crawler chooses to honour, which is where
