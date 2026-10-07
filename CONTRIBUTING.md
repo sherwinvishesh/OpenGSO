@@ -114,16 +114,17 @@ Every user-visible change needs a changeset:
 npm run changeset
 ```
 
-**Known limitation, stated rather than worked around.** §4 assumes Changesets can work out
-which published packages a change to core affects. It cannot: core is private and bundled at build
-time, so from Changesets' point of view no published package depends on it. A change to
-`packages/core` therefore looks like a change to nothing.
+**Known limitation, and how the config absorbs it.** §4 assumes Changesets can work out which
+published packages a change to core affects. It cannot: core is private and bundled at build time,
+so from Changesets' point of view no published package depends on it. A change to `packages/core`
+therefore looks like a change to nothing.
 
-So when you change core, **name every affected package in the changeset yourself.** If you touched
-`core/src/generate`, that is `opengeo-generate`, `opengeo-cli` and `opengeo`. If you touched
-`core/src/shared`, it is probably all five. When in doubt, list all five: an unnecessary patch
-release costs nothing, and a published package silently left on old bundled code is a real bug that
-is hard to spot.
+So the five published packages are one `fixed` group in `.changeset/config.json`: they always share
+a version, and **any changeset that names any one of them bumps all five.** When you change core,
+the changeset still has to name a package, or nothing is released at all, but which one does not
+matter. Name the one your change is about, so the changelog entry lands where a reader would look
+for it. A release of a package whose bundled code did not change costs nothing, and a published
+package silently left on old bundled code is a real bug that is hard to spot.
 
 ## The bot list
 
