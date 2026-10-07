@@ -119,8 +119,10 @@ export function extractPage(html, options) {
   let markdown = blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 
   // The <h1> normally survives inside the content root; only prepend a heading when it didn't, so
-  // a well-marked-up page never ends up with its title twice.
-  if (title && !/^#\s/m.test(markdown.split('\n')[0] ?? '')) {
+  // a well-marked-up page never ends up with its title twice. Asked of the DOM rather than of the
+  // first markdown line, because a breadcrumb above the <h1> is common and is not a missing title.
+  const titleFromRoot = Boolean(root.querySelector('h1')?.textContent?.trim());
+  if (title && !titleFromRoot && !/^#\s/m.test(markdown.split('\n')[0] ?? '')) {
     markdown = `# ${title}\n\n${markdown}`.trim();
   }
 

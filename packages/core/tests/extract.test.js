@@ -123,6 +123,13 @@ describe('extraction keeps the page shape intact', () => {
     expect(result.markdown).toContain('## Second post');
     expect(result.markdown).not.toContain('Home');
   });
+
+  it('does not repeat the <h1> when something precedes it in the content', () => {
+    const html = page(`<main><p>Docs / Guides</p><h1>Install guide</h1><p>${words}</p></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown.match(/^# Install guide$/gm)).toHaveLength(1);
+    expect(markdown).toContain('Docs / Guides');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {
