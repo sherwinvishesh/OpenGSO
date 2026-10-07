@@ -179,11 +179,11 @@ export function partial(id, earned, reason, options = {}) {
 /**
  * Cannot be measured until something else is fixed.
  *
- * The twin cascade is the case this exists for: with no markdown twin at all, thirteen checks about
- * that twin's headers have nothing to inspect. Reporting them as thirteen separate failures would
- * charge the user thirteen times for one missing file; reporting them as `na` (what the code did
- * before) told the reader that a third of the audit simply did not matter. Locked says the true
- * thing: these are worth 45 points and one fix unlocks all of them.
+ * The twin cascade is the case this exists for: with no markdown twin at all, twelve checks about
+ * that twin have nothing to inspect. Reporting them as twelve more failures would charge the user
+ * thirteen times for one missing file; reporting them as `na` (what the code did before) told the
+ * reader that a third of the audit simply did not matter. Locked says the true thing: these are
+ * worth 46 points and one fix unlocks all of them.
  *
  * @param {string} id
  * @param {string} by

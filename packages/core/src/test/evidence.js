@@ -1,4 +1,4 @@
-import { BROWSER_UA, probe } from '../shared/http.js';
+import { BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
 
@@ -16,6 +16,19 @@ import { parseLinkAlternate } from '../prod/headers.js';
 
 /** A User-Agent a site would recognise as a well-known AI crawler. Used for the B10 probe. */
 export const GPTBOT_UA = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.2; +https://openai.com/gptbot';
+
+/**
+ * What the three live-URL probes send, each built so that only one lever can explain a markdown
+ * answer. docs/checks.md quotes these, and docs.test.js holds it to that.
+ */
+export const PROBE_HEADERS = {
+  // B9. OpenGEO's own User-Agent is on no bot list, so only the Accept header can route it.
+  acceptMarkdown: { 'User-Agent': OPENGEO_UA, Accept: 'text/markdown' },
+  // B10. Any type, which is what most crawlers send, and expresses no preference for markdown.
+  botUa: { 'User-Agent': GPTBOT_UA, Accept: '*/*' },
+  // B11. Neither HTML nor markdown.
+  notAcceptable: { Accept: HOSTILE_ACCEPT },
+};
 
 /**
  * @typedef {object} Evidence
@@ -66,9 +79,9 @@ export async function gatherEvidence(target, options = {}) {
     probe(new URL('/llms.txt', origin).toString(), { timeoutMs }),
     probe(new URL('/sitemap.xml', origin).toString(), { timeoutMs }),
     probe(canonicalTwinUrl, { headers: { Accept: 'text/markdown,*/*;q=0.5' }, timeoutMs }),
-    probe(target.toString(), { headers: { Accept: 'text/markdown' }, timeoutMs }),
-    probe(target.toString(), { headers: { 'User-Agent': GPTBOT_UA, Accept: '*/*' }, timeoutMs }),
-    probe(target.toString(), { headers: { Accept: 'application/json' }, timeoutMs }),
+    probe(target.toString(), { headers: PROBE_HEADERS.acceptMarkdown, timeoutMs }),
+    probe(target.toString(), { headers: PROBE_HEADERS.botUa, timeoutMs }),
+    probe(target.toString(), { headers: PROBE_HEADERS.notAcceptable, timeoutMs }),
   ]);
 
   return {

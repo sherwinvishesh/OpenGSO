@@ -1,5 +1,5 @@
 import { AI_BOTS, findBot, identifyBot } from '../shared/bots.js';
-import { BROWSER_UA, cleanUrl, probe } from '../shared/http.js';
+import { BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
 import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
@@ -54,8 +54,6 @@ import { summarizeRobots } from './startup.js';
 
 const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 const MARKDOWN_ACCEPT = 'text/markdown,text/plain;q=0.9';
-/** Accepts neither HTML nor markdown, which is the only case §7 answers with a 406. */
-const HOSTILE_ACCEPT = 'application/pdf';
 
 /**
  * A User-Agent that is deliberately not on the bot list, and must stay that way. It is how the

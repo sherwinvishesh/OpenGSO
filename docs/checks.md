@@ -144,8 +144,8 @@ OpenGEO never overwrites a file it did not write.
 **Recommended, weight 2.**
 
 Looks for `<script type="application/ld+json">` in the HTML and parses it. A block that is present
-but syntactically invalid fails, because that is worse than absent: it looks like structured data
-and delivers none.
+but does not parse earns only half, because it looks like structured data and delivers none: the
+point it keeps is for having put the block there at all.
 
 **Partial: 1** when a block is present but does not parse, or parses and declares no `@type`.
 
@@ -291,8 +291,8 @@ conventional address on the site's own origin instead.
 ### B9 - Accept: text/markdown receives markdown, not HTML
 **Required, weight 6.**
 
-Requests the original URL with `Accept: text/markdown` and a browser User-Agent, so a markdown
-response can only have been caused by the Accept header.
+Requests the original URL with `Accept: text/markdown` and OpenGEO's own User-Agent, which is on no
+bot list, so a markdown response can only have been caused by the Accept header.
 
 This is content negotiation as HTTP defines it, and it is the mechanism that works for agents
 OpenGEO has never heard of.
@@ -300,8 +300,8 @@ OpenGEO has never heard of.
 ### B10 - A known AI bot User-Agent receives markdown without an Accept header
 **Required, weight 6.**
 
-Requests the original URL with an AI bot User-Agent and a browser-typical Accept header, so a
-markdown response can only have been caused by the User-Agent.
+Requests the original URL with a GPTBot User-Agent and `Accept: */*`, the header most crawlers send,
+so a markdown response can only have been caused by the User-Agent.
 
 The two probes are deliberately separated. Together they tell you which lever is working; a single
 combined probe would tell you only that something is.
@@ -309,8 +309,8 @@ combined probe would tell you only that something is.
 ### B11 - An Accept header excluding HTML and markdown returns 406
 **Recommended, weight 2.**
 
-Sends `Accept: application/pdf` and expects `406 Not Acceptable` rather than a cheerful 200 with the
-wrong type.
+Sends `Accept: application/pdf`, the same request `opengeo prod test` makes, and expects
+`406 Not Acceptable` rather than a cheerful 200 with the wrong type.
 
 ### B12 - X-AEO-Version advertises the spec version implemented
 **Recommended, weight 2.**

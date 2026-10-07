@@ -48,6 +48,12 @@ export const BROWSER_UA =
 export const OPENGEO_UA = 'OpenGEO/1.0 (+https://github.com/sherwinvishesh/OpenGEO)';
 
 /**
+ * Accepts neither HTML nor markdown, which is the only case §7 answers with a 406. Shared so that
+ * `opengeo test` (B11) and `opengeo prod test` ask the site the same question.
+ */
+export const HOSTILE_ACCEPT = 'application/pdf';
+
+/**
  * @param {string} url
  * @param {ProbeOptions} [options]
  * @returns {Promise<ProbeResult>}

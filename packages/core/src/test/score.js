@@ -9,8 +9,8 @@
  *
  * Two statuses are outside the denominator, for different reasons. `na` is out because the question
  * does not apply here and never will. `locked` is out because the question cannot be *asked* yet:
- * with no markdown twin there is nothing to inspect for a Content-Type on, and charging thirteen
- * separate failures for one missing file would take a site from 80 to 38 for a single fix. What the
+ * with no markdown twin there is nothing to inspect for a Content-Type on, and charging B1 plus
+ * twelve more failures for one missing file would take a site from 80 to 38 for a single fix. What the
  * score does instead is carry those points as a number the report can show: `locked.points` is what
  * comes into play the moment the prerequisite passes.
  *

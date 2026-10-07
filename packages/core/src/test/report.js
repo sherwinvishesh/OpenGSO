@@ -137,8 +137,8 @@ function renderCheck(check, width) {
 /**
  * The twin cascade, as one priced block.
  *
- * This is the section the whole `locked` status exists for. Thirteen paragraphs each explaining
- * that a document which does not exist cannot be inspected is not information; the same thirteen
+ * This is the section the whole `locked` status exists for. Twelve paragraphs each explaining
+ * that a document which does not exist cannot be inspected is not information; the same twelve
  * checks, summed and labelled with the single thing that unlocks them, is.
  *
  * @param {CheckResult[]} blocked
@@ -161,7 +161,7 @@ function renderLocked(blocked, score, width) {
   }
   lines.push('');
   // The ids and their weights on one line: enough to see the shape of what is waiting without
-  // thirteen paragraphs of it.
+  // twelve paragraphs of it.
   const priced = blocked.map((check) => `${c.bold(check.id)} ${c.gray(String(check.weight))}`).join('  ');
   lines.push(`  ${priced}`);
   return lines;
@@ -193,7 +193,7 @@ export function renderSetupScore(result, options = {}) {
  *
  * Replaces a single line suggesting `--prompt`. The ranking is the useful part: `lost` carries a
  * partial's shortfall rather than its weight, so a check two points from full does not outrank one
- * that earned nothing, and the locked block is priced as a single entry rather than thirteen.
+ * that earned nothing, and the locked block is priced as a single entry rather than twelve.
  *
  * @param {readonly CheckResult[]} checks
  * @param {Score} score

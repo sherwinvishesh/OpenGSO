@@ -13,6 +13,8 @@ import {
   TWIN_LOCKED_IDS,
 } from '../src/test/runner.js';
 import { QUALITY_AREAS, QUALITY_TOTAL_WEIGHT } from '../src/test/quality.js';
+import { GPTBOT_UA, PROBE_HEADERS } from '../src/test/evidence.js';
+import { BROWSER_UA, HOSTILE_ACCEPT, OPENGEO_UA } from '../src/shared/http.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { PROVIDERS } from '../src/shared/providers.js';
 import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../src/shared/version.js';
@@ -103,6 +105,37 @@ describe('docs/checks.md', () => {
     expect(section('A6')).toContain(`**${TTFB_FAST_MS}ms**`);
     expect(section('A6')).toContain(`**${TTFB_SLOW_MS}ms**`);
     expect(section('B3')).toContain(`from ${TWIN_FLOOR_RATIO * 100}% up to ${TWIN_FULL_RATIO * 100}%`);
+  });
+
+  it('says how many checks are graded', () => {
+    const runner = read('packages/core/src/test/runner.js');
+    const graded = new Set([...runner.matchAll(/partial\(\s*'([AB]\d+)'/g)].map(([, id]) => id));
+    const words = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen'];
+    expect(doc).toContain(`${words[graded.size]} checks are graded rather than binary`);
+  });
+
+  it('describes the requests B9, B10 and B11 actually send', () => {
+    // How each User-Agent the probes can send is described in prose.
+    /** @type {Record<string, string>} */
+    const described = { [OPENGEO_UA]: "OpenGEO's own User-Agent", [BROWSER_UA]: 'a browser User-Agent', [GPTBOT_UA]: 'a GPTBot User-Agent' };
+    /** @type {Array<[string, Record<string, string>]>} */
+    const probes = [
+      ['B9', PROBE_HEADERS.acceptMarkdown],
+      ['B10', PROBE_HEADERS.botUa],
+      ['B11', PROBE_HEADERS.notAcceptable],
+    ];
+    for (const [id, headers] of probes) {
+      expect(section(id), `${id} does not quote the Accept header it sends`).toContain(`\`Accept: ${headers.Accept}\``);
+      const ua = headers['User-Agent'];
+      if (ua) expect(section(id), `${id} does not say which User-Agent it sends`).toContain(described[ua]);
+    }
+    // prod test probes the same 406 case, and the two must not ask different questions.
+    expect(PROBE_HEADERS.notAcceptable.Accept).toBe(HOSTILE_ACCEPT);
+  });
+
+  it('does not call a broken JSON-LD block a failure when A4 scores it as a partial', () => {
+    expect(section('A4')).toContain('**Partial: 1** when a block is present but does not parse');
+    expect(section('A4')).not.toMatch(/invalid fails/);
   });
 
   it('prices the locked block with the weights the cascade actually removes', () => {

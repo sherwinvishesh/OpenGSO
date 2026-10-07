@@ -1,6 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
+import { HOSTILE_ACCEPT } from '../shared/http.js';
 import { parseRobots } from '../prod/startup.js';
 import { varyIncludesAccept } from '../prod/headers.js';
 import { extractPage } from '../generate/extract.js';
@@ -97,7 +98,7 @@ export function runChecks(evidence) {
  * between them is one line in the report instead of twelve.
  *
  * They leave as `locked`, not as `na`. That distinction is the entire difference between a report
- * that says "thirteen things do not apply to you" and one that says "thirteen things worth 46
+ * that says "twelve things do not apply to you" and one that says "twelve things worth 46
  * points are waiting behind a single missing file". The arithmetic is identical; only one of them
  * tells the reader what to do next.
  *
@@ -817,7 +818,7 @@ function checkNotAcceptable(e) {
   }
   return fail(
     'B11',
-    `An Accept: application/json request returned HTTP ${e.notAcceptable.status || 'nothing'} instead of 406 Not Acceptable.`,
+    `An Accept: ${HOSTILE_ACCEPT} request returned HTTP ${e.notAcceptable.status || 'nothing'} instead of 406 Not Acceptable.`,
     undefined,
     'Return 406 when the Accept header asks for a format the page cannot produce (+2).',
   );
