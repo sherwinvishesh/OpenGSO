@@ -37,7 +37,7 @@ Options
   --single           only the URL given, leaving every other page in the manifest alone
   --max-pages <n>    override crawl.maxPages
   --depth <n>        override crawl.maxDepth
-  --force            overwrite hand-written robots/llms/sitemap and manual .md files
+  --force            overwrite hand-written robots/llms/sitemap and .md files
   --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone
   --provider <name>  which AI provider to use. `opengeo help providers` lists them (AI tier only)
   --model <name>     model id for the AI tier
@@ -114,6 +114,12 @@ public/robots.txt.opengeo-proposed    <- diff this, merge what you want
 ```
 
 with a warning naming both paths. `--force` overwrites instead.
+
+Twins follow the same rule. A file in `public/md/` is OpenGEO's only when its frontmatter says
+`generated_by: opengeo-free` or `opengeo-ai`. One with no frontmatter, or another tool's, is left
+alone, the new twin goes to `<name>.md.opengeo-proposed`, and the page stays out of the manifest so
+prod never serves a file OpenGEO cannot vouch for. Mark it `generated_by: manual` to have yours
+served, or pass `--force` to replace it.
 
 A tool that silently rewrites `robots.txt` is a tool that eventually takes a site off the internet.
 

@@ -225,6 +225,9 @@ export const ERRORS = {
       `Run it on your own machine, review the result, and commit the output.`,
     ].join('\n'),
 
+  twinNotOurs: (file: string) =>
+    `${file} already exists and OpenGEO did not write it, so it was left alone and the twin went to ${file}.opengeo-proposed. Add generated_by: manual to its frontmatter to serve yours, or use --force to replace it.`,
+
   wouldOverwrite: (file: string) =>
     [
       `${file} already exists and wasn't written by OpenGEO - leaving it alone.`,

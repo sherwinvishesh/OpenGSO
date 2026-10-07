@@ -274,7 +274,7 @@ const COMMAND_HELP: Record<CommandName, string[]> = {
     '  --single           only the URL given, leaving every other page in the manifest alone',
     '  --max-pages <n>    override crawl.maxPages',
     '  --depth <n>        override crawl.maxDepth',
-    '  --force            overwrite hand-written robots/llms/sitemap and manual .md files',
+    '  --force            overwrite hand-written robots/llms/sitemap and .md files',
     '  --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone',
     "  --provider <name>  which AI tool to use. `opengeo help providers` lists them all.",
     '  --model <name>     model id for the AI tier',

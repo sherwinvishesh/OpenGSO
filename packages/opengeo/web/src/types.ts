@@ -170,7 +170,7 @@ export type ApiProgress =
   | { phase: 'generate'; route: string; index: number; total: number; step: 'fetch' | 'extract' | 'ai' | 'write' }
   | { phase: 'files' };
 
-export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
+export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'proposed' | 'failed';
 
 export interface GeneratePage {
   route: string;

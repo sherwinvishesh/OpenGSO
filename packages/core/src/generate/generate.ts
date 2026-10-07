@@ -4,16 +4,16 @@ import type { LoadedConfig } from '../shared/config.js';
 import { internalDirPath, publicDirPath } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
-import { writeFileAtomic } from '../shared/fs.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath } from '../shared/routes.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
+import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
 import type { GenerationTier, Manifest, ManifestEntry } from './manifest.js';
 import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js';
 
-export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'failed';
+export type PageStatus = 'written' | 'cached' | 'skipped-manual' | 'proposed' | 'failed';
 
 export interface GeneratePageResult {
   route: string;
@@ -167,6 +167,9 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
           continue;
         }
         const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
+        // A twin is ours when its frontmatter says OpenGEO generated it. A file with no frontmatter,
+        // or with another tool's, is somebody's own work that happens to sit where the twin goes.
+        const owned = existing === undefined || isOpenGeoTwin(parseFrontmatter(existing).data);
 
         // A manual twin is checked before anything else, because the whole point of the marker is that
         // OpenGEO does no work on that page at all.
@@ -198,7 +201,7 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
         const sourceHash = contentHash(extracted.markdown);
 
         const prior = previous.pages[route];
-        if (existing && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
+        if (existing && owned && !force && prior && prior.sourceHash === sourceHash && prior.tier === tier) {
           pages.push({
             route,
             url,
@@ -251,7 +254,21 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
           markdown,
         );
 
-        writeFileAtomic(absPath, contents);
+        const written = writeOrPropose(absPath, contents, owned, force);
+        if (written.proposed) {
+          // Not recorded in the manifest: prod serves what the manifest lists, and the manifest must
+          // not vouch for a file OpenGEO did not write.
+          pages.push({
+            route,
+            url,
+            status: 'proposed',
+            title: extracted.title,
+            file: `${relPath}${PROPOSED_SUFFIX}`,
+            warnings,
+            reason: ERRORS.twinNotOurs(relPath),
+          });
+          continue;
+        }
 
         manifest.pages[route] = {
           route,
@@ -302,6 +319,10 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
     warnings: problem ? [problem] : [],
     durationMs: Date.now() - started,
   };
+}
+
+function isOpenGeoTwin(data: Record<string, unknown>): boolean {
+  return data.generated_by === 'opengeo-free' || data.generated_by === 'opengeo-ai';
 }
 
 /**

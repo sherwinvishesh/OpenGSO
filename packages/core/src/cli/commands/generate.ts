@@ -129,7 +129,9 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
           ? c.gray('cached ')
           : page.status === 'skipped-manual'
             ? c.yellow('manual ')
-            : c.red('failed ');
+            : page.status === 'proposed'
+              ? c.yellow('kept   ')
+              : c.red('failed ');
     const detail =
       page.status === 'written'
         ? c.gray(`${page.tokens} tokens  ${twinUrlFor(site, page.route)}`)
@@ -160,11 +162,13 @@ export async function generateCommand(ctx: CommandContext): Promise<number> {
   const pages = report.generate.pages;
   const written = pages.filter((page) => page.status === 'written').length;
   const failed = pages.filter((page) => page.status === 'failed').length;
+  const proposed = pages.filter((page) => page.status === 'proposed').length;
   const aiPages = pages.filter((page) => page.tier === 'ai').length;
   const fellBack = pages.filter((page) => page.warnings.some((w) => w.startsWith('Kept the algorithmic version'))).length;
 
   process.stdout.write(
-    `\n  ${written} written, ${pages.length - written - failed} unchanged${failed > 0 ? `, ${c.red(`${failed} failed`)}` : ''}` +
+    `\n  ${written} written, ${pages.length - written - failed - proposed} unchanged` +
+      `${proposed > 0 ? `, ${c.yellow(`${proposed} kept as yours`)}` : ''}${failed > 0 ? `, ${c.red(`${failed} failed`)}` : ''}` +
       `${tier === 'ai' ? `, ${aiPages} AI-enhanced${fellBack > 0 ? `, ${c.yellow(`${fellBack} fell back on fidelity`)}` : ''}` : ''}` +
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );

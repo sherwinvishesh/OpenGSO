@@ -121,6 +121,36 @@ describe('generatePages', () => {
     expect(forced.pages[0]?.status).toBe('written');
   });
 
+  it('never overwrites a file in public/md/ that OpenGEO did not write', async () => {
+    const loaded = project();
+    await generatePages({ site, routes: ['/about', '/resume'], loaded });
+    const file = join(loaded.root, 'public', 'md', 'about.md');
+    writeFileSync(file, '# My notes\n\nNo frontmatter, so nothing says OpenGEO owns this.\n', 'utf8');
+
+    const second = await generatePages({ site, routes: ['/about', '/resume'], loaded });
+    const about = second.pages.find((page) => page.route === '/about');
+    expect(about?.status).toBe('proposed');
+    expect(about?.reason).toContain('md/about.md');
+    expect(readFileSync(file, 'utf8')).toContain('# My notes');
+    expect(parseFrontmatter(readFileSync(`${file}.opengeo-proposed`, 'utf8')).data.generated_by).toBe('opengeo-free');
+    // The manifest is what prod serves from, and it must not vouch for a file OpenGEO did not write.
+    expect(Object.keys(readManifest(join(loaded.root, '.opengeo'), site).pages).sort()).toEqual(['/resume']);
+
+    const forced = await generatePages({ site, routes: ['/about'], loaded, force: true });
+    expect(forced.pages[0]?.status).toBe('written');
+    expect(readFileSync(file, 'utf8')).not.toContain('# My notes');
+  });
+
+  it('treats frontmatter from another tool as not OpenGEO\'s either', async () => {
+    const loaded = project();
+    const file = join(loaded.root, 'public', 'md', 'resume.md');
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, withFrontmatter({ title: 'Theirs', url: `${site}/resume`, generated_by: 'some-other-tool' }, '# Theirs'), 'utf8');
+    const result = await generatePages({ site, routes: ['/resume'], loaded });
+    expect(result.pages[0]?.status).toBe('proposed');
+    expect(readFileSync(file, 'utf8')).toContain('# Theirs');
+  });
+
   it('records a failed route without losing the twin it produced last time', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/resume'], loaded });

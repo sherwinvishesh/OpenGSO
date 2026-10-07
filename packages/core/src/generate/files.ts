@@ -98,18 +98,14 @@ export function writeSiteFiles(options: SiteFilesOptions): SiteFileResult[] {
 export function writeGuarded(path: string, name: SiteFileName, contents: string, force: boolean): SiteFileResult {
   try {
     const existing = existsSync(path) ? readFileSync(path, 'utf8') : undefined;
+    const owned = existing === undefined || MARKER_LINE.test(existing);
 
-    if (existing !== undefined && !MARKER_LINE.test(existing) && !force) {
-      const proposedPath = `${path}${PROPOSED_SUFFIX}`;
-      writeFileAtomic(proposedPath, contents);
-      return { name, path: proposedPath, status: 'proposed', message: ERRORS.wouldOverwrite(name) };
-    }
-
-    if (existing !== undefined && stripTimestamps(existing) === stripTimestamps(contents)) {
+    if (owned && existing !== undefined && stripTimestamps(existing) === stripTimestamps(contents)) {
       return { name, path, status: 'unchanged' };
     }
 
-    writeFileAtomic(path, contents);
+    const written = writeOrPropose(path, contents, owned, force);
+    if (written.proposed) return { name, path: written.path, status: 'proposed', message: ERRORS.wouldOverwrite(name) };
     return { name, path, status: 'written' };
   } catch (error) {
     return {
@@ -119,6 +115,24 @@ export function writeGuarded(path: string, name: SiteFileName, contents: string,
       message: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/**
+ * The one writer for a file OpenGEO might not own: twins and site files alike.
+ *
+ * What counts as owned differs (a marker line in a site file, OpenGEO frontmatter in a twin), and
+ * the caller decides that. What happens next does not: a file that is not ours is left exactly as
+ * it is and the new version goes beside it as `<name>.opengeo-proposed`, unless `--force` says
+ * otherwise.
+ */
+export function writeOrPropose(path: string, contents: string, owned: boolean, force: boolean): { path: string; proposed: boolean } {
+  if (!owned && !force) {
+    const proposedPath = `${path}${PROPOSED_SUFFIX}`;
+    writeFileAtomic(proposedPath, contents);
+    return { path: proposedPath, proposed: true };
+  }
+  writeFileAtomic(path, contents);
+  return { path, proposed: false };
 }
 
 /**
