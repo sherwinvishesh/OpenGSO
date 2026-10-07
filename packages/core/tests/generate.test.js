@@ -19,6 +19,8 @@ const PAGES = {
   '/': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><p>A small site used by the OpenGEO test suite. It links to the other two pages so the crawl has something real to follow.</p><a href="/about">About</a><a href="/resume">Resume</a></main></body></html>',
   '/about': '<!doctype html><html><head><title>About</title></head><body><main><h1>About</h1><p>Founded in 2019, three people, one office, and a stubbornly small dependency list that has stayed under ten packages for six years.</p></main></body></html>',
   '/resume': '<!doctype html><html><head><title>Resume</title></head><body><main><h1>Resume</h1><p>Shipped 4 projects in 2024. Contract signed 3 March 2024 for $12,500. Response times improved 42% year over year.</p></main></body></html>',
+  // Not linked from the home page, so a crawl never reaches it; only a single-page run does.
+  '/blog': '<!doctype html><html><head><title>Blog</title><link rel="canonical" href="/blog/"></head><body><main><h1>Blog</h1><p>Notes on building small, dependable tools, published whenever there is something worth writing down.</p></main></body></html>',
 };
 
 /** @type {Server} */
@@ -446,6 +448,16 @@ describe('generateSite', () => {
     await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
     expect(existsSync(join(loaded.root, '.opengeo', 'manifest.json'))).toBe(false);
     expect(existsSync(join(loaded.root, 'public'))).toBe(false);
+  });
+
+  it('lists the canonical URL a page declares in sitemap.xml', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    const result = await generateSite({ target: `${site}/blog`, loaded, single: true });
+    expect(result.generate.manifest.pages['/blog']?.canonical).toBe(`${site}/blog/`);
+    const xml = readFileSync(join(loaded.root, 'public', 'sitemap.xml'), 'utf8');
+    expect(xml).toContain(`<loc>${site}/blog/</loc>`);
+    expect(xml).not.toContain(`<loc>${site}/blog</loc>`);
   });
 
   it('leaves the site files alone when asked for twins only', async () => {

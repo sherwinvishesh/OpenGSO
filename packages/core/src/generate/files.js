@@ -49,6 +49,7 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @typedef {object} SitePage
  * @property {string} route
  * @property {string} url Absolute URL of the human page.
+ * @property {string} [canonical] What the page declares as its canonical URL, if anything.
  * @property {string} title
  * @property {string} [description]
  * @property {number} [tokens]
@@ -252,10 +253,22 @@ export function renderLlmsTxt(options) {
  */
 export function renderSitemapXml(options) {
   const pages = [...options.pages].sort(byRoute);
-  const entries = pages.map((page) => {
+  const origin = new URL(options.site).origin;
+  /** @type {Set<string>} */
+  const listed = new Set();
+  /** @type {string[]} */
+  const entries = [];
+  for (const page of pages) {
+    // The page's own canonical wins: a site that serves /blog/ lists /blog/, not the slashless route
+    // OpenGEO normalised it to. A canonical on another host is not this sitemap's to list (the
+    // protocol only allows its own host), so that page keeps its own URL. Two routes declaring one
+    // canonical are one entry.
+    const loc = page.canonical && sameOrigin(page.canonical, origin) ? page.canonical : page.url;
+    if (listed.has(loc)) continue;
+    listed.add(loc);
     const lastmod = page.lastUpdated ? `\n    <lastmod>${escapeXml(page.lastUpdated)}</lastmod>` : '';
-    return `  <url>\n    <loc>${escapeXml(page.url)}</loc>${lastmod}\n  </url>`;
-  });
+    entries.push(`  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmod}\n  </url>`);
+  }
 
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
@@ -265,6 +278,19 @@ export function renderSitemapXml(options) {
     `</urlset>`,
     ``,
   ].join('\n');
+}
+
+/**
+ * @param {string} url
+ * @param {string} origin
+ * @returns {boolean}
+ */
+function sameOrigin(url, origin) {
+  try {
+    return new URL(url).origin === origin;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -72,6 +72,7 @@ const MAIN_SELECTORS = [
  * @typedef {object} ExtractedPage
  * @property {string} title
  * @property {string} [description]
+ * @property {string} [canonical] Absolute URL from `<link rel="canonical">`, when the page declares one.
  * @property {string} markdown
  * @property {number} wordCount
  * @property {string} contentRoot Which selector supplied the content, so users can debug a bad
@@ -121,6 +122,7 @@ export function extractPage(html, options) {
 
   const title = pickTitle(doc, root);
   const description = pickDescription(doc);
+  const canonical = pickCanonical(doc);
   // baseURI already folds in a <base href>, which a browser resolves every relative link against.
   const blocks = renderChildren(root, { baseUrl: doc.baseURI || options.url });
   let markdown = blocks.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -142,7 +144,16 @@ export function extractPage(html, options) {
   }
 
   dom.window.close();
-  return { title, description, markdown, wordCount, contentRoot: selector, warnings, jsonLd: jsonLd.blocks };
+  return {
+    title,
+    description,
+    ...(canonical ? { canonical } : {}),
+    markdown,
+    wordCount,
+    contentRoot: selector,
+    warnings,
+    jsonLd: jsonLd.blocks,
+  };
 }
 
 /**
@@ -212,6 +223,21 @@ function pickDescription(doc) {
     doc.querySelector('meta[property="og:description"]')?.getAttribute('content');
   const value = meta?.trim();
   return value ? clean(value) : undefined;
+}
+
+/**
+ * @param {Document} doc
+ * @returns {string | undefined}
+ */
+function pickCanonical(doc) {
+  const href = doc.querySelector('link[rel~="canonical" i][href]')?.getAttribute('href')?.trim();
+  if (!href) return undefined;
+  try {
+    const url = new URL(href, doc.baseURI);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

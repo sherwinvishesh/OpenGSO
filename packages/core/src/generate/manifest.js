@@ -50,6 +50,8 @@ export const MANIFEST_VERSION = 1;
  *   tries again.
  * @property {string} [description] Carried so a fully-cached rerun can still write llms.txt without
  *   re-extracting every page.
+ * @property {string} [canonical] The page's own `<link rel="canonical">`, which sitemap.xml lists in
+ *   place of `url` when it is on the same site. Absent when the page declares none.
  */
 
 /**

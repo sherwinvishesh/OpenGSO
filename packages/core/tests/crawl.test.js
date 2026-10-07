@@ -161,6 +161,20 @@ describe('renderSitemapXml', () => {
     expect(xml).toContain('<lastmod>2026-01-02T03:04:05.000Z</lastmod>');
   });
 
+  it('lists the URL the page declares canonical, once, and only on this site', () => {
+    const xml = renderSitemapXml(
+      options({
+        pages: [
+          { route: '/blog', url: `${ORIGIN}/blog`, canonical: `${ORIGIN}/blog/`, title: 'Blog' },
+          { route: '/blog/index', url: `${ORIGIN}/blog/index`, canonical: `${ORIGIN}/blog/`, title: 'Blog' },
+          { route: '/syndicated', url: `${ORIGIN}/syndicated`, canonical: 'https://elsewhere.example/post', title: 'Elsewhere' },
+        ],
+      }),
+    );
+    const locs = [...xml.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
+    expect(locs).toEqual([`${ORIGIN}/blog/`, `${ORIGIN}/syndicated`]);
+  });
+
   it('escapes XML-hostile characters in URLs', () => {
     const xml = renderSitemapXml(
       options({ pages: [{ route: '/a', url: `${ORIGIN}/a?x=1&y=2`, title: 'A' }] }),

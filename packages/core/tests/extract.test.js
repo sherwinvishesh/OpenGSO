@@ -97,6 +97,12 @@ describe('extractPage', () => {
     expect(result.description).toBe('A short summary.');
   });
 
+  it('reads <link rel="canonical"> and resolves it against the page', () => {
+    const body = '<main><p>Some content that is definitely long enough to count as real.</p></main>';
+    expect(extractPage(page(body, '<link rel="canonical" href="/blog/">'), { url: 'https://example.com/blog' }).canonical).toBe('https://example.com/blog/');
+    expect(extractPage(page(body), { url: 'https://example.com/blog' }).canonical).toBeUndefined();
+  });
+
   it('collects JSON-LD blocks without letting a broken one throw', () => {
     const html = page(
       '<main><p>Content long enough to be extracted by the algorithmic tier without warnings.</p></main>',

@@ -145,6 +145,7 @@ export async function generateSite(options) {
     const pages = Object.values(generate.manifest.pages).map((entry) => ({
       route: entry.route,
       url: entry.url,
+      canonical: entry.canonical,
       title: entry.title,
       description: entry.description,
       tokens: entry.tokens,
