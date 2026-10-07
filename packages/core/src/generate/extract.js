@@ -493,7 +493,8 @@ function renderTable(el, ctx) {
   for (const tr of Array.from(el.querySelectorAll('tr'))) {
     const cells = Array.from(tr.children)
       .filter((cell) => ['td', 'th'].includes(cell.tagName.toLowerCase()))
-      .map((cell) => collapse(renderInlineChildren(cell, ctx)).replace(/\|/g, '\\|'));
+      // A GFM row is one line, so a line break inside a cell (a <br>, a list) has to stay HTML.
+      .map((cell) => collapse(renderInlineChildren(cell, ctx)).replace(/\|/g, '\\|').replace(/\n/g, '<br>'));
     if (cells.length > 0) rows.push(cells);
   }
   if (rows.length === 0) return '';

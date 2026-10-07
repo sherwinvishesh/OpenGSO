@@ -145,6 +145,15 @@ describe('extraction keeps the page shape intact', () => {
     expect(markdown).toContain('- One\n- Two');
     expect(markdown).toContain('<https://example.com/posts/two>');
   });
+
+  it('keeps a table row on one line when a cell has a <br> or a list in it', () => {
+    const html = page(`<main><h1>Prices</h1>
+      <table><tr><th>Plan</th><th>Notes</th></tr>
+      <tr><td>Pro<br>yearly</td><td><ul><li>SSO</li><li>Audit log</li></ul></td></tr></table>
+      <p>${words}</p></main>`);
+    const { markdown } = extractPage(html, { url: 'https://example.com/' });
+    expect(markdown).toContain('| Pro<br>yearly | - SSO<br>- Audit log |');
+  });
 });
 
 describe('page text cannot forge markdown in the twin', () => {
