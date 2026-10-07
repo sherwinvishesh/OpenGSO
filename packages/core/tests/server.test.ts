@@ -14,7 +14,7 @@ import {
 } from '../src/server/server.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME, defaultConfig, loadConfig } from '../src/shared/config.js';
-import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
+import { ENV_FILENAME, KEY_VAR, readCredentials } from '../src/shared/env.js';
 import type { Evidence, TestResult } from '../src/test/index.js';
 
 /**
@@ -305,6 +305,22 @@ describe('the key never leaks through the API (§11)', () => {
       expect(JSON.stringify(response.body)).toContain('/api/key');
     }
     expect(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).toBe(before);
+  });
+
+  /**
+   * `.env` outranks the config, so an OPENGEO_BASE_URL left over from a gateway sent the next
+   * provider's key to the gateway. Saving without a base URL has to mean "no base URL", everywhere.
+   */
+  it('forgets the old endpoint when a key is saved without one', async () => {
+    await post('/api/key', { provider: 'custom', apiKey: 'sk-gateway', model: 'm', baseUrl: 'https://gateway.example/v1' });
+    await post('/api/key', { provider: 'openai', apiKey: KEY, model: 'gpt-test' });
+    expect(readFileSync(join(root, ENV_FILENAME), 'utf8')).not.toContain('gateway.example');
+    expect(readCredentials(root)?.baseUrl).toBeUndefined();
+
+    await post('/api/key', { provider: 'openai', apiKey: KEY, model: 'gpt-test', baseUrl: 'https://proxy.example/v1' });
+    await post('/api/key', { provider: 'openai', apiKey: KEY, model: 'gpt-test' });
+    expect(readFileSync(join(root, ENV_FILENAME), 'utf8')).not.toContain('proxy.example');
+    expect(JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')).ai.baseUrl).toBeUndefined();
   });
 
   it('rejects an unknown provider and an empty key without touching the disk', async () => {

@@ -569,14 +569,17 @@ function saveKey(body: unknown, options: ApiOptions): ApiResponse {
   if (!apiKey && !keyless) return bad('No key was provided, so nothing was written.');
 
   const gitignore = ensureEnvGitignored(options.root);
-  const vars: Record<string, string> = { [PROVIDER_VAR]: provider, [MODEL_VAR]: model };
+  // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
+  const vars: Record<string, string | undefined> = {
+    [PROVIDER_VAR]: provider,
+    [MODEL_VAR]: model,
+    [BASE_URL_VAR]: baseUrl || undefined,
+  };
   if (apiKey) vars[KEY_VAR] = apiKey;
-  if (baseUrl) vars[BASE_URL_VAR] = baseUrl;
   const envPath = writeEnvVars(options.root, vars);
 
   const loaded = loadConfig(options.root);
-  const ai: Partial<OpenGeoConfig['ai']> = { provider, model };
-  if (baseUrl) ai.baseUrl = baseUrl;
+  const ai: Partial<OpenGeoConfig['ai']> = { provider, model, baseUrl: baseUrl || undefined };
   if (api) ai.api = api;
   if (auth) ai.auth = auth;
   saveConfig(options.root, mergeConfig(loaded.config, { ai: ai as OpenGeoConfig['ai'] }));

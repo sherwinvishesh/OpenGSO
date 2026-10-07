@@ -27,6 +27,7 @@ import {
   twinUrl,
   twinUrlPathToRoute,
   ERRORS,
+  writeEnvVars,
   unknownCommand,
 } from '@opengeo/core/shared';
 import type { CommandName } from '@opengeo/core/shared';
@@ -217,6 +218,13 @@ describe('API key handling (§11)', () => {
     const root = temp();
     ensureEnvGitignored(root);
     expect(readFileSync(join(root, '.gitignore'), 'utf8')).toContain('.env');
+  });
+
+  it('removes a variable given as undefined and leaves every other line alone', () => {
+    const root = temp();
+    writeFileSync(join(root, '.env'), '# mine\nOPENGEO_BASE_URL=https://old.example/v1\nOTHER=1\n', 'utf8');
+    writeEnvVars(root, { OPENGEO_BASE_URL: undefined, OPENGEO_PROVIDER: 'openai' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\nOTHER=1\nOPENGEO_PROVIDER=openai\n');
   });
 
   it('detects CI, which is what gates every AI-touched feature', () => {

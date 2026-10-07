@@ -111,12 +111,22 @@ export function readCredentials(root: string): Credentials | undefined {
   return undefined;
 }
 
-export function writeEnvVars(root: string, vars: Record<string, string>): string {
+/**
+ * Set each variable in `.env`, or remove it when the value is `undefined`. Removal matters because
+ * `.env` outranks the config: a base URL left behind by an earlier provider would quietly receive
+ * the next provider's key.
+ */
+export function writeEnvVars(root: string, vars: Record<string, string | undefined>): string {
   const path = join(root, ENV_FILENAME);
   const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
-  const lines = existing ? existing.split('\n') : [];
+  let lines = existing ? existing.replace(/\n+$/, '').split('\n') : [];
   for (const [key, value] of Object.entries(vars)) {
-    const index = lines.findIndex((l) => l.trim().startsWith(`${key}=`));
+    const matches = (line: string) => line.trim().startsWith(`${key}=`);
+    if (value === undefined) {
+      lines = lines.filter((line) => !matches(line));
+      continue;
+    }
+    const index = lines.findIndex(matches);
     if (index >= 0) lines[index] = `${key}=${value}`;
     else lines.push(`${key}=${value}`);
   }

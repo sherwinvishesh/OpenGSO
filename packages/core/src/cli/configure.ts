@@ -321,9 +321,13 @@ async function askProvider(ctx: StepContext, config: OpenGeoConfig): Promise<Pro
   }
 
   const model = await prompter.ask('  Model', endpoint.model || config.ai.model || info.defaultModel);
-  const vars: Record<string, string> = { [PROVIDER_VAR]: providerChoice, [MODEL_VAR]: model };
+  // No base URL means none, not "keep the last one": a gateway left in .env would get this key.
+  const vars: Record<string, string | undefined> = {
+    [PROVIDER_VAR]: providerChoice,
+    [MODEL_VAR]: model,
+    [BASE_URL_VAR]: endpoint.baseUrl || undefined,
+  };
   if (key) vars[KEY_VAR] = key;
-  if (endpoint.baseUrl) vars[BASE_URL_VAR] = endpoint.baseUrl;
   const envPath = writeEnvVars(root, vars);
 
   // The endpoint is an address, not a secret, so it also goes in the committed config where the

@@ -169,6 +169,19 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(result.keyWritten?.provider).toBe('anthropic');
     });
 
+    it('drops an old OPENGEO_BASE_URL when the new provider names no endpoint', async () => {
+      writeFileSync(join(root, ENV_FILENAME), `${KEY_VAR}=sk-old\nOPENGEO_BASE_URL=https://gateway.example/v1\n`, 'utf8');
+      const prompter = scripted({
+        ask: ['http://localhost:3000'],
+        choose: ['all', 'anthropic'],
+        secret: 'sk-test-not-a-real-key',
+      });
+
+      await runSetup({ root, prompter, out: silent });
+
+      expect(readFileSync(join(root, ENV_FILENAME), 'utf8')).not.toContain('gateway.example');
+    });
+
     it('leaves an existing .gitignore rule alone rather than duplicating it', async () => {
       writeFileSync(join(root, '.gitignore'), 'node_modules\n.env\n', 'utf8');
       const prompter = scripted({
