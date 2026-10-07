@@ -1,3 +1,4 @@
+import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   centre,
@@ -13,6 +14,7 @@ import {
   wrap,
 } from '../src/cli/tui/paint.js';
 import { decode, splitChunks } from '../src/cli/tui/keys.js';
+import { openScreen, restoreScreens } from '../src/cli/tui/screen.js';
 import { box, listView, lockedMeter, meter, sparkline, textField } from '../src/cli/tui/widgets.js';
 import { PALETTE, contentBand, structuralBand } from '../src/cli/tui/theme.js';
 
@@ -272,5 +274,48 @@ describe('terminalWidth', () => {
   it('stays inside its floor and its cap however wide the window is', () => {
     expect(terminalWidth()).toBeGreaterThanOrEqual(40);
     expect(terminalWidth()).toBeLessThanOrEqual(92);
+  });
+});
+
+describe('the terminal safety net', () => {
+  /** A stdin that reports and remembers raw mode, and a stdout that keeps what was written to it. */
+  function fakeTerminal() {
+    const input = Object.assign(new PassThrough(), {
+      isTTY: true,
+      isRaw: false,
+      /** @param {boolean} mode */
+      setRawMode(mode) {
+        input.isRaw = mode;
+        return input;
+      },
+    });
+    let written = '';
+    const output = Object.assign(new PassThrough(), { isTTY: true, columns: 80, rows: 24 });
+    output.on('data', (chunk) => {
+      written += String(chunk);
+    });
+    return {
+      input: /** @type {NodeJS.ReadStream} */ (/** @type {unknown} */ (input)),
+      output: /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (output)),
+      raw: () => input.isRaw,
+      written: () => written,
+    };
+  }
+
+  it('still restores the outer screen after a screen opened inside it has closed', async () => {
+    const terminal = fakeTerminal();
+    const outer = openScreen(terminal);
+    // What the home screen does for a command that opens a screen of its own (settings, say).
+    await outer.suspend(async () => {
+      openScreen(terminal).close();
+    });
+    expect(terminal.raw()).toBe(true);
+
+    // What a kill or a crash runs.
+    restoreScreens();
+
+    expect(terminal.raw()).toBe(false);
+    expect(terminal.written().endsWith(`${ESC}[?25h${ESC}[?1049l`)).toBe(true);
+    outer.close();
   });
 });

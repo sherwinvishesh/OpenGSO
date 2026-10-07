@@ -62,9 +62,24 @@ export function canUseTui(options = {}) {
   return colourDepth() > 0;
 }
 
-/** @type {(() => void) | undefined} */
-let restore;
+/**
+ * The restore of every screen that currently holds the terminal, innermost last. One slot was not
+ * enough: a command run from the home screen opens a screen of its own, and closing it emptied the
+ * slot while the home screen went back to raw mode with nothing left to undo it.
+ *
+ * @type {Array<() => void>}
+ */
+const openScreens = [];
 let hooked = false;
+
+/**
+ * What the exit hooks run. Exported so the safety net can be exercised without killing anything.
+ *
+ * @returns {void}
+ */
+export function restoreScreens() {
+  for (const leave of [...openScreens].reverse()) leave();
+}
 
 /**
  * Registered once per process, not once per screen.
@@ -78,7 +93,7 @@ let hooked = false;
 function hookExit() {
   if (hooked) return;
   hooked = true;
-  const cleanup = () => restore?.();
+  const cleanup = restoreScreens;
   process.on('exit', cleanup);
   process.on('SIGINT', () => {
     cleanup();
@@ -109,19 +124,22 @@ export function openScreen(options = {}) {
   const enter = () => {
     if (open) return;
     open = true;
+    openScreens.push(leave);
     output.write(ALT_ON + CURSOR_HIDE + CLEAR);
     if (input.isTTY && !input.isRaw) input.setRawMode(true);
   };
 
-  const leave = () => {
+  /** @returns {void} */
+  function leave() {
     if (!open) return;
     open = false;
+    const index = openScreens.lastIndexOf(leave);
+    if (index !== -1) openScreens.splice(index, 1);
     if (input.isTTY && input.isRaw) input.setRawMode(false);
     output.write(CURSOR_SHOW + ALT_OFF);
-  };
+  }
 
   hookExit();
-  restore = leave;
   enter();
 
   const onResize = () => {
@@ -176,7 +194,6 @@ export function openScreen(options = {}) {
       output.off('resize', onResize);
       resizeHandlers.clear();
       leave();
-      if (restore === leave) restore = undefined;
     },
   };
 }
