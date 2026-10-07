@@ -253,6 +253,16 @@ describe('category A bands', () => {
     expect(quick.earned).toBeGreaterThan(slow.earned);
   });
 
+  it('prices a near-full partial from the clamped score, so it never reads (+0)', () => {
+    const evidence = perfect();
+    evidence.html = probe({ ...evidence.html, ttfbMs: 401 });
+    const result = check(evidence, 'A6');
+    expect(result.status).toBe('partial');
+    expect(result.earned).toBe(result.weight - 1);
+    expect(result.fix).toContain('(+1)');
+    expect(result.fix).not.toContain('(+0)');
+  });
+
   it('A8 earns 6 of 9 for HTTPS without HSTS, and nothing for plain HTTP', () => {
     const noHsts = perfect();
     noHsts.html.headers.delete('strict-transport-security');

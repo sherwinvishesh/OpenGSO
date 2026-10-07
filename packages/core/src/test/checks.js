@@ -169,6 +169,9 @@ export function fail(id, reason, detail, fix) {
  * arithmetic ("2 of 4") read as nonsense, and the clamp means a rounding error in a ramp can never
  * produce either.
  *
+ * A `(+N)` price in `fix` is restated from the clamped value for the same reason: a caller pricing
+ * from its own unclamped ramp would otherwise print "(+0)" next to a check that still owes a point.
+ *
  * @param {string} id
  * @param {number} earned
  * @param {string} reason
@@ -178,7 +181,8 @@ export function fail(id, reason, detail, fix) {
 export function partial(id, earned, reason, options = {}) {
   const definition = checkDefinition(id);
   const bounded = Math.min(definition.weight - 1, Math.max(1, Math.round(earned)));
-  return { ...definition, status: 'partial', earned: bounded, reason, detail: options.detail, fix: options.fix };
+  const fix = options.fix?.replace(/\(\+\d+\)/g, `(+${definition.weight - bounded})`);
+  return { ...definition, status: 'partial', earned: bounded, reason, detail: options.detail, fix };
 }
 
 /**
