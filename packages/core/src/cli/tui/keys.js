@@ -12,41 +12,44 @@
 
 const ESC = String.fromCharCode(27);
 
-export type KeyName =
-  | 'up'
-  | 'down'
-  | 'left'
-  | 'right'
-  | 'enter'
-  | 'escape'
-  | 'tab'
-  | 'shift-tab'
-  | 'backspace'
-  | 'delete'
-  | 'home'
-  | 'end'
-  | 'pageup'
-  | 'pagedown'
-  | 'ctrl-c'
-  | 'ctrl-d'
-  | 'ctrl-u'
-  | 'ctrl-w'
-  | 'space'
-  | 'char'
-  | 'unknown';
+/**
+ * @typedef {'up'
+ *   | 'down'
+ *   | 'left'
+ *   | 'right'
+ *   | 'enter'
+ *   | 'escape'
+ *   | 'tab'
+ *   | 'shift-tab'
+ *   | 'backspace'
+ *   | 'delete'
+ *   | 'home'
+ *   | 'end'
+ *   | 'pageup'
+ *   | 'pagedown'
+ *   | 'ctrl-c'
+ *   | 'ctrl-d'
+ *   | 'ctrl-u'
+ *   | 'ctrl-w'
+ *   | 'space'
+ *   | 'char'
+ *   | 'unknown'} KeyName
+ */
 
-export interface Key {
-  name: KeyName;
-  /** Set for `char` and `space`. Empty for everything else. */
-  value: string;
-}
+/**
+ * @typedef {object} Key
+ * @property {KeyName} name
+ * @property {string} value Set for `char` and `space`. Empty for everything else.
+ */
 
-export interface KeyReader {
-  next(): Promise<Key>;
-  close(): void;
-}
+/**
+ * @typedef {object} KeyReader
+ * @property {() => Promise<Key>} next
+ * @property {() => void} close
+ */
 
-const SEQUENCES: Record<string, KeyName> = {
+/** @type {Record<string, KeyName>} */
+const SEQUENCES = {
   '[A': 'up',
   '[B': 'down',
   '[C': 'right',
@@ -65,7 +68,11 @@ const SEQUENCES: Record<string, KeyName> = {
   '[Z': 'shift-tab',
 };
 
-export function decode(chunk: string): Key {
+/**
+ * @param {string} chunk
+ * @returns {Key}
+ */
+export function decode(chunk) {
   if (chunk === '\r' || chunk === '\n') return { name: 'enter', value: '' };
   if (chunk === '\t') return { name: 'tab', value: '' };
   if (chunk === ' ') return { name: 'space', value: ' ' };
@@ -92,18 +99,26 @@ export function decode(chunk: string): Key {
   return { name: 'unknown', value: '' };
 }
 
-export function readKeys(input: NodeJS.ReadStream = process.stdin): KeyReader {
-  const queue: Key[] = [];
-  const waiting: Array<(key: Key) => void> = [];
+/**
+ * @param {NodeJS.ReadStream} [input]
+ * @returns {KeyReader}
+ */
+export function readKeys(input = process.stdin) {
+  /** @type {Key[]} */
+  const queue = [];
+  /** @type {Array<(key: Key) => void>} */
+  const waiting = [];
   let closed = false;
 
-  const push = (key: Key) => {
+  /** @param {Key} key */
+  const push = (key) => {
     const next = waiting.shift();
     if (next) next(key);
     else queue.push(key);
   };
 
-  const onData = (data: Buffer | string) => {
+  /** @param {Buffer | string} data */
+  const onData = (data) => {
     const text = typeof data === 'string' ? data : data.toString('utf8');
     // One chunk can hold several keys when input arrives faster than the loop drains it, or when
     // somebody pastes. Splitting on ESC keeps each escape sequence whole.
@@ -115,13 +130,15 @@ export function readKeys(input: NodeJS.ReadStream = process.stdin): KeyReader {
   input.resume();
 
   return {
-    next(): Promise<Key> {
+    /** @returns {Promise<Key>} */
+    next() {
       const ready = queue.shift();
       if (ready) return Promise.resolve(ready);
       if (closed) return Promise.resolve({ name: 'ctrl-d', value: '' });
       return new Promise((resolve) => waiting.push(resolve));
     },
-    close(): void {
+    /** @returns {void} */
+    close() {
       if (closed) return;
       closed = true;
       input.off('data', onData);
@@ -132,12 +149,18 @@ export function readKeys(input: NodeJS.ReadStream = process.stdin): KeyReader {
   };
 }
 
-/** Split a chunk into one entry per keypress, keeping `ESC [ A` together as one. */
-export function splitChunks(text: string): string[] {
-  const out: string[] = [];
+/**
+ * Split a chunk into one entry per keypress, keeping `ESC [ A` together as one.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function splitChunks(text) {
+  /** @type {string[]} */
+  const out = [];
   let index = 0;
   while (index < text.length) {
-    const ch = text[index]!;
+    const ch = text[index];
     if (ch !== ESC) {
       out.push(ch);
       index += 1;
@@ -146,7 +169,7 @@ export function splitChunks(text: string): string[] {
     let end = index + 1;
     if (text[end] === '[' || text[end] === 'O') {
       end += 1;
-      while (end < text.length && !/[A-Za-z~]/.test(text[end]!)) end += 1;
+      while (end < text.length && !/[A-Za-z~]/.test(text[end])) end += 1;
       if (end < text.length) end += 1;
     }
     out.push(text.slice(index, end));

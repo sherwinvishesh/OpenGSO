@@ -1,10 +1,13 @@
 import { c } from '../../shared/log.js';
-import type { Key, KeyReader } from './keys.js';
-import type { Screen } from './screen.js';
 import { terminalWidth, visibleWidth } from './paint.js';
 import { ink } from './theme.js';
-import type { ListItem } from './widgets.js';
 import { keyHints, listView, rule, textField } from './widgets.js';
+
+/**
+ * @import { Key, KeyReader } from './keys.js'
+ * @import { Screen } from './screen.js'
+ * @import { ListItem } from './widgets.js'
+ */
 
 /**
  * The two interactions every full-screen view is built from: pick one of these, and type this.
@@ -14,16 +17,25 @@ import { keyHints, listView, rule, textField } from './widgets.js';
  * cancel, which every caller has to handle: Escape and Ctrl-C are always a way out.
  */
 
-export interface SelectOptions<T> {
-  header: string[];
-  items: ReadonlyArray<ListItem<T>>;
-  selected?: number;
-  hints?: ReadonlyArray<[string, string]>;
-  /** Single-key shortcuts, e.g. `q` to quit. Checked before the list's own handling. */
-  shortcuts?: Record<string, T>;
-}
+/**
+ * @template T
+ * @typedef {object} SelectOptions
+ * @property {string[]} header
+ * @property {ReadonlyArray<ListItem<T>>} items
+ * @property {number} [selected]
+ * @property {ReadonlyArray<[string, string]>} [hints]
+ * @property {Record<string, T>} [shortcuts] Single-key shortcuts, e.g. `q` to quit. Checked before
+ *   the list's own handling.
+ */
 
-export async function select<T>(screen: Screen, keys: KeyReader, options: SelectOptions<T>): Promise<T | undefined> {
+/**
+ * @template T
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {SelectOptions<T>} options
+ * @returns {Promise<T | undefined>}
+ */
+export async function select(screen, keys, options) {
   const items = options.items;
   const first = items.findIndex((item) => !item.disabled);
   let index = clampToEnabled(items, options.selected ?? (first < 0 ? 0 : first), 1);
@@ -57,8 +69,16 @@ export async function select<T>(screen: Screen, keys: KeyReader, options: Select
   }
 }
 
-/** Step to the next enabled row in `direction`, wrapping, and give up rather than loop if none are. */
-function clampToEnabled<T>(items: ReadonlyArray<ListItem<T>>, start: number, direction: 1 | -1): number {
+/**
+ * Step to the next enabled row in `direction`, wrapping, and give up rather than loop if none are.
+ *
+ * @template T
+ * @param {ReadonlyArray<ListItem<T>>} items
+ * @param {number} start
+ * @param {1 | -1} direction
+ * @returns {number}
+ */
+function clampToEnabled(items, start, direction) {
   if (items.length === 0) return 0;
   let index = ((start % items.length) + items.length) % items.length;
   for (let step = 0; step < items.length; step += 1) {
@@ -68,22 +88,29 @@ function clampToEnabled<T>(items: ReadonlyArray<ListItem<T>>, start: number, dir
   return ((start % items.length) + items.length) % items.length;
 }
 
-export interface FieldOptions {
-  header: string[];
-  label: string;
-  value?: string;
-  placeholder?: string;
-  hint?: string;
-  /** Returns a message when the value is not acceptable yet, or undefined when it is. */
-  validate?: (value: string) => string | undefined;
-  /** Show asterisks instead of the value. For the API key, and nothing else. */
-  secret?: boolean;
-}
+/**
+ * @typedef {object} FieldOptions
+ * @property {string[]} header
+ * @property {string} label
+ * @property {string} [value]
+ * @property {string} [placeholder]
+ * @property {string} [hint]
+ * @property {(value: string) => string | undefined} [validate] Returns a message when the value is
+ *   not acceptable yet, or undefined when it is.
+ * @property {boolean} [secret] Show asterisks instead of the value. For the API key, and nothing else.
+ */
 
-export async function field(screen: Screen, keys: KeyReader, options: FieldOptions): Promise<string | undefined> {
+/**
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {FieldOptions} options
+ * @returns {Promise<string | undefined>}
+ */
+export async function field(screen, keys, options) {
   let value = options.value ?? '';
   let caret = value.length;
-  let error: string | undefined;
+  /** @type {string | undefined} */
+  let error;
 
   for (;;) {
     const shown = options.secret ? '*'.repeat(value.length) : value;
@@ -98,7 +125,8 @@ export async function field(screen: Screen, keys: KeyReader, options: FieldOptio
       keyHints([['enter', 'accept'], ['esc', 'back']]),
     ]);
 
-    const key: Key = await keys.next();
+    /** @type {Key} */
+    const key = await keys.next();
     if (key.name === 'ctrl-c' || key.name === 'escape') return undefined;
     if (key.name === 'enter') {
       const problem = options.validate?.(value.trim());
@@ -137,12 +165,14 @@ export async function field(screen: Screen, keys: KeyReader, options: FieldOptio
  *
  * Space toggles, `a` takes everything, `n` clears, Enter is done. Returns undefined on a cancel so
  * an aborted pick cannot be read as "the user chose none of them".
+ *
+ * @template T
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {{ header: string[]; items: ReadonlyArray<ListItem<T>>; chosen: ReadonlySet<T>; extra?: ReadonlyArray<[string, string]> }} options
+ * @returns {Promise<Set<T> | undefined>}
  */
-export async function multiSelect<T>(
-  screen: Screen,
-  keys: KeyReader,
-  options: { header: string[]; items: ReadonlyArray<ListItem<T>>; chosen: ReadonlySet<T>; extra?: ReadonlyArray<[string, string]> },
-): Promise<Set<T> | undefined> {
+export async function multiSelect(screen, keys, options) {
   const chosen = new Set(options.chosen);
   let index = 0;
 
@@ -180,13 +210,17 @@ export async function multiSelect<T>(
   }
 }
 
-/** Yes or no, drawn as a two-row list so it looks like every other question. */
-export async function confirm(
-  screen: Screen,
-  keys: KeyReader,
-  options: { header: string[]; question: string; fallback?: boolean },
-): Promise<boolean | undefined> {
-  const answer = await select<boolean>(screen, keys, {
+/**
+ * Yes or no, drawn as a two-row list so it looks like every other question.
+ *
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {{ header: string[]; question: string; fallback?: boolean }} options
+ * @returns {Promise<boolean | undefined>}
+ */
+export async function confirm(screen, keys, options) {
+  /** @type {boolean | undefined} */
+  const answer = await select(screen, keys, {
     header: [...options.header, '', `  ${c.bold(options.question)}`],
     items: [
       { value: true, label: 'Yes' },
@@ -209,12 +243,13 @@ export async function confirm(
  * Any key continues, because there is nothing to get wrong here. Ctrl-C still leaves, and answers
  * false so the caller aborts the same way it does from a real question: a screen with no answer on
  * it is a bad place to make Ctrl-C stop working.
+ *
+ * @param {Screen} screen
+ * @param {KeyReader} keys
+ * @param {{ header: string[]; hint?: string }} options
+ * @returns {Promise<boolean>}
  */
-export async function pause(
-  screen: Screen,
-  keys: KeyReader,
-  options: { header: string[]; hint?: string },
-): Promise<boolean> {
+export async function pause(screen, keys, options) {
   screen.paint([...options.header, '', keyHints([['enter', options.hint ?? 'continue']])]);
   for (;;) {
     const key = await keys.next();
@@ -223,7 +258,12 @@ export async function pause(
   }
 }
 
-/** A section divider inside a full-screen view, matching the one the flat report uses. */
-export function section(label: string): string {
+/**
+ * A section divider inside a full-screen view, matching the one the flat report uses.
+ *
+ * @param {string} label
+ * @returns {string}
+ */
+export function section(label) {
   return rule(label);
 }

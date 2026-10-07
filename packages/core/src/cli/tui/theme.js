@@ -1,5 +1,6 @@
-import type { Rgb } from './paint.js';
 import { fg, gradient, hex } from './paint.js';
+
+/** @import { Rgb } from './paint.js' */
 
 /**
  * One palette for the terminal, deliberately the same hues as the dashboard's CSS tokens.
@@ -9,7 +10,7 @@ import { fg, gradient, hex } from './paint.js';
  * `packages/opengeo/web/src/styles.css`, nudged up in lightness: a terminal background is not
  * guaranteed to be dark, and a colour picked for `#131413` disappears on a white profile.
  */
-export const PALETTE = {
+export const PALETTE = /* @__PURE__ */ Object.freeze({
   ok: hex('#4fb07a'),
   okBright: hex('#6cc294'),
   warn: hex('#c99038'),
@@ -21,7 +22,7 @@ export const PALETTE = {
   muted: hex('#8a8a82'),
   faint: hex('#5c5c56'),
   text: hex('#c8c8c4'),
-} as const;
+});
 
 /**
  * The band a 0-100 score falls in.
@@ -30,42 +31,73 @@ export const PALETTE = {
  * checklist and 85 is a reasonable "good", while a model's opinion of prose clusters lower and 75
  * is the honest line. They were already both here, written out four times between `renderScore`,
  * `renderBar` and `scoreColour`. Now they are named, in one place.
+ *
+ * @typedef {'good' | 'fair' | 'poor'} Band
  */
-export type Band = 'good' | 'fair' | 'poor';
 
-export function structuralBand(score: number): Band {
+/**
+ * @param {number} score
+ * @returns {Band}
+ */
+export function structuralBand(score) {
   return score >= 85 ? 'good' : score >= 60 ? 'fair' : 'poor';
 }
 
-export function contentBand(score: number): Band {
+/**
+ * @param {number} score
+ * @returns {Band}
+ */
+export function contentBand(score) {
   return score >= 75 ? 'good' : score >= 50 ? 'fair' : 'poor';
 }
 
-export function bandColour(band: Band): Rgb {
+/**
+ * @param {Band} band
+ * @returns {Rgb}
+ */
+export function bandColour(band) {
   return band === 'good' ? PALETTE.ok : band === 'fair' ? PALETTE.warn : PALETTE.danger;
 }
 
-export function bandBright(band: Band): Rgb {
+/**
+ * @param {Band} band
+ * @returns {Rgb}
+ */
+export function bandBright(band) {
   return band === 'good' ? PALETTE.okBright : band === 'fair' ? PALETTE.warnBright : PALETTE.dangerBright;
 }
 
-/** Paint text in a score's own colour, whichever of the two scales it belongs to. */
-export function scoreInk(score: number, text: string, scale: 'structural' | 'content' = 'structural'): string {
+/**
+ * Paint text in a score's own colour, whichever of the two scales it belongs to.
+ *
+ * @param {number} score
+ * @param {string} text
+ * @param {'structural' | 'content'} [scale]
+ * @returns {string}
+ */
+export function scoreInk(score, text, scale = 'structural') {
   return fg(bandColour(scale === 'structural' ? structuralBand(score) : contentBand(score)), text);
 }
 
-/** A score's headline, ramped from its darker to its brighter shade so the number reads as lit. */
-export function scoreHeadline(score: number, text: string, scale: 'structural' | 'content' = 'structural'): string {
+/**
+ * A score's headline, ramped from its darker to its brighter shade so the number reads as lit.
+ *
+ * @param {number} score
+ * @param {string} text
+ * @param {'structural' | 'content'} [scale]
+ * @returns {string}
+ */
+export function scoreHeadline(score, text, scale = 'structural') {
   const band = scale === 'structural' ? structuralBand(score) : contentBand(score);
   return gradient(text, bandColour(band), bandBright(band));
 }
 
 export const ink = {
-  ok: (text: string) => fg(PALETTE.ok, text),
-  warn: (text: string) => fg(PALETTE.warn, text),
-  danger: (text: string) => fg(PALETTE.danger, text),
-  accent: (text: string) => fg(PALETTE.accent, text),
-  info: (text: string) => fg(PALETTE.info, text),
-  muted: (text: string) => fg(PALETTE.muted, text),
-  faint: (text: string) => fg(PALETTE.faint, text),
+  ok: (/** @type {string} */ text) => fg(PALETTE.ok, text),
+  warn: (/** @type {string} */ text) => fg(PALETTE.warn, text),
+  danger: (/** @type {string} */ text) => fg(PALETTE.danger, text),
+  accent: (/** @type {string} */ text) => fg(PALETTE.accent, text),
+  info: (/** @type {string} */ text) => fg(PALETTE.info, text),
+  muted: (/** @type {string} */ text) => fg(PALETTE.muted, text),
+  faint: (/** @type {string} */ text) => fg(PALETTE.faint, text),
 };

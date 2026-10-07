@@ -20,25 +20,28 @@ const CURSOR_HIDE = `${CSI}?25l`;
 const CURSOR_SHOW = `${CSI}?25h`;
 const CLEAR = `${CSI}2J${CSI}H`;
 
-export interface Size {
-  columns: number;
-  rows: number;
-}
+/**
+ * @typedef {object} Size
+ * @property {number} columns
+ * @property {number} rows
+ */
 
-export interface ScreenOptions {
-  input?: NodeJS.ReadStream;
-  output?: NodeJS.WriteStream;
-}
+/**
+ * @typedef {object} ScreenOptions
+ * @property {NodeJS.ReadStream} [input]
+ * @property {NodeJS.WriteStream} [output]
+ */
 
-export interface Screen {
-  size(): Size;
-  /** Wipe and redraw from the top left. The whole frame is written in one `write` so it cannot tear. */
-  paint(lines: string[]): void;
-  /** Step out to the normal buffer, run something that prints for itself, step back in. */
-  suspend<T>(run: () => Promise<T>): Promise<T>;
-  onResize(handler: () => void): () => void;
-  close(): void;
-}
+/**
+ * @typedef {object} Screen
+ * @property {() => Size} size
+ * @property {(lines: string[]) => void} paint Wipe and redraw from the top left. The whole frame is
+ *   written in one `write` so it cannot tear.
+ * @property {<T>(run: () => Promise<T>) => Promise<T>} suspend Step out to the normal buffer, run
+ *   something that prints for itself, step back in.
+ * @property {(handler: () => void) => () => void} onResize
+ * @property {() => void} close
+ */
 
 /**
  * Whether a full-screen interface is appropriate here at all.
@@ -46,8 +49,11 @@ export interface Screen {
  * Both streams have to be a terminal, because raw mode needs stdin and the alternate buffer needs
  * stdout, and a pipe on either side means somebody is capturing the output rather than reading it.
  * CI is excluded even when it hands us a pty: a build log full of cursor moves is not a build log.
+ *
+ * @param {ScreenOptions} [options]
+ * @returns {boolean}
  */
-export function canUseTui(options: ScreenOptions = {}): boolean {
+export function canUseTui(options = {}) {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   if (!input.isTTY || !output.isTTY) return false;
@@ -56,7 +62,8 @@ export function canUseTui(options: ScreenOptions = {}): boolean {
   return colourDepth() > 0;
 }
 
-let restore: (() => void) | undefined;
+/** @type {(() => void) | undefined} */
+let restore;
 let hooked = false;
 
 /**
@@ -65,8 +72,10 @@ let hooked = false;
  * The home screen opens and closes a screen every time it suspends for a command, and adding a
  * listener on each pass would trip Node's max-listeners warning after ten runs and, worse, would
  * restore the terminal ten times over.
+ *
+ * @returns {void}
  */
-function hookExit(): void {
+function hookExit() {
   if (hooked) return;
   hooked = true;
   const cleanup = () => restore?.();
@@ -86,10 +95,15 @@ function hookExit(): void {
   });
 }
 
-export function openScreen(options: ScreenOptions = {}): Screen {
+/**
+ * @param {ScreenOptions} [options]
+ * @returns {Screen}
+ */
+export function openScreen(options = {}) {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
-  const resizeHandlers = new Set<() => void>();
+  /** @type {Set<() => void>} */
+  const resizeHandlers = new Set();
   let open = false;
 
   const enter = () => {
@@ -116,11 +130,16 @@ export function openScreen(options: ScreenOptions = {}): Screen {
   output.on('resize', onResize);
 
   return {
-    size(): Size {
+    /** @returns {Size} */
+    size() {
       return { columns: output.columns || 80, rows: output.rows || 24 };
     },
 
-    paint(lines: string[]): void {
+    /**
+     * @param {string[]} lines
+     * @returns {void}
+     */
+    paint(lines) {
       const { rows } = this.size();
       // Clipped rather than scrolled. A frame taller than the window would push its own top off the
       // screen, and the top is where the header is.
@@ -129,7 +148,12 @@ export function openScreen(options: ScreenOptions = {}): Screen {
       output.write(`${CSI}H${CSI}J${frame}`);
     },
 
-    async suspend<T>(run: () => Promise<T>): Promise<T> {
+    /**
+     * @template T
+     * @param {() => Promise<T>} run
+     * @returns {Promise<T>}
+     */
+    async suspend(run) {
       leave();
       try {
         return await run();
@@ -138,12 +162,17 @@ export function openScreen(options: ScreenOptions = {}): Screen {
       }
     },
 
-    onResize(handler: () => void): () => void {
+    /**
+     * @param {() => void} handler
+     * @returns {() => void}
+     */
+    onResize(handler) {
       resizeHandlers.add(handler);
       return () => resizeHandlers.delete(handler);
     },
 
-    close(): void {
+    /** @returns {void} */
+    close() {
       output.off('resize', onResize);
       resizeHandlers.clear();
       leave();
