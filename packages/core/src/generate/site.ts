@@ -1,6 +1,7 @@
 import { resolveBots } from '../shared/bots.js';
 import type { LoadedConfig } from '../shared/config.js';
 import { publicDirPath } from '../shared/config.js';
+import { ERRORS } from '../shared/errors.js';
 import { normalizeRoute } from '../shared/routes.js';
 import type { CrawlProgress, CrawlResult } from './crawl.js';
 import { crawlSite } from './crawl.js';
@@ -66,6 +67,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
 
   let crawl: CrawlResult | undefined;
   let routes: string[];
+  let carryForward: readonly string[] | 'all' = [];
   const sources = new Map<string, string>();
 
   if (options.single) {
@@ -88,10 +90,14 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
     for (const failure of crawl.failures) {
       warnings.push(`${failure.route}: ${failure.reason}`);
     }
+    carryForward = crawl.failures.map((failure) => failure.route);
     if (routes.length === 0) {
       // The start page itself failed. Fall through with the single route so the caller gets a real
-      // per-page error rather than a silent empty run.
+      // per-page error rather than a silent empty run, and keep everything generated before, since
+      // a run that reached no page cannot say any of them are gone.
       routes = [normalizeRoute(target.pathname)];
+      carryForward = 'all';
+      warnings.push(ERRORS.siteUnreachableKept);
     }
   }
 
@@ -102,6 +108,7 @@ export async function generateSite(options: GenerateSiteOptions): Promise<Genera
     tier: options.tier,
     force: options.force,
     merge: options.single === true,
+    carryForward,
     sources,
     enhance: options.enhance,
     onProgress: (event) => options.onProgress?.({ phase: 'generate', generate: event }),

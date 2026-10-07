@@ -64,6 +64,10 @@ Everything an agent reads lives under `public/`, so it deploys with your site an
 step. `.opengeo/manifest.json` holds the route table, token counts, content hashes and timestamps.
 `opengeo-prod` loads it once at startup, which is how a request becomes a map lookup.
 
+A page that fails to fetch keeps the entry it had, so a 503 during a run never stops a twin being
+served. If no page can be fetched at all, say because the dev server is not running, the whole
+manifest is kept as it was and the run says so.
+
 ### Frontmatter
 
 ```yaml

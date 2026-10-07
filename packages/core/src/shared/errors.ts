@@ -322,6 +322,9 @@ export const ERRORS = {
       `its new address in ai.baseUrl in opengeo.config.json.`,
     ].join('\n'),
 
+  siteUnreachableKept:
+    'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
+
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
 

@@ -26,6 +26,9 @@ let site: string;
  * simulates a redeploy in which not one word of the page changed.
  */
 let buildId = 'build-1';
+
+/** Paths that answer 503 for now, as a page does while its server restarts. */
+const down = new Set<string>();
 function wrapper(html: string): string {
   return html.replace('<body>', `<body><script src="/_next/static/${buildId}/main.js"></script>`);
 }
@@ -33,6 +36,10 @@ function wrapper(html: string): string {
 beforeAll(async () => {
   server = createServer((req, res) => {
     const path = new URL(req.url ?? '/', 'http://localhost').pathname;
+    if (down.has(path) || down.has('*')) {
+      res.writeHead(503, { 'content-type': 'text/plain' }).end('Service Unavailable');
+      return;
+    }
     const body = PAGES[path] === undefined ? undefined : wrapper(PAGES[path]);
     if (!body) {
       res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
@@ -251,6 +258,37 @@ describe('generateSite', () => {
     expect(escaped?.status).toBe('failed');
     expect(existsSync(join(loaded.root, 'resume.md'))).toBe(false);
     expect(result.pages.find((page) => page.route === '/resume')?.status).toBe('written');
+  });
+
+  it('keeps a page it could not fetch this time in the manifest and the sitemap', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    await generateSite({ target: site, loaded });
+    down.add('/about');
+    try {
+      const second = await generateSite({ target: site, loaded });
+      expect(Object.keys(second.generate.manifest.pages).sort()).toEqual(['/', '/about', '/resume']);
+      expect(readFileSync(join(loaded.root, 'public', 'sitemap.xml'), 'utf8')).toContain(`${site}/about`);
+      expect(second.warnings.join(' ')).toContain('/about');
+    } finally {
+      down.clear();
+    }
+  });
+
+  it('keeps the whole manifest when the site cannot be reached at all', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    await generateSite({ target: site, loaded });
+    down.add('*');
+    try {
+      const second = await generateSite({ target: site, loaded });
+      // prod serves from the manifest, so shrinking it here would un-serve every twin.
+      expect(Object.keys(second.generate.manifest.pages).sort()).toEqual(['/', '/about', '/resume']);
+      expect(readManifest(join(loaded.root, '.opengeo'), site).pages['/resume']).toBeDefined();
+      expect(second.warnings.join(' ')).toMatch(/kept/i);
+    } finally {
+      down.clear();
+    }
   });
 
   it('leaves the site files alone when asked for twins only', async () => {

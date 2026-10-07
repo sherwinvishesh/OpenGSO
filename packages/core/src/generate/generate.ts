@@ -47,11 +47,21 @@ export interface GenerateOptions {
    * Keep manifest entries for routes this run didn't touch.
    *
    * A whole-site run wants the default (false): the crawl is authoritative, so a page that has been
-   * deleted should disappear from the manifest and stop being served. A single-page run wants true,
+   * deleted should disappear from the manifest and stop being served. A page the crawl tried and
+   * failed to fetch is not deleted, and is handled by `carryForward` instead. A single-page run wants true,
    * otherwise regenerating one route would quietly drop every other page from the manifest and prod
    * would stop answering for them at the next boot.
    */
   merge?: boolean;
+  /**
+   * Routes this run could not fetch, whose previous manifest entries are kept as they were.
+   *
+   * "The crawl is authoritative" only holds for the pages it actually reached. A 503 is not a
+   * deletion, and prod serves from the manifest, so dropping the entry would un-serve a twin that
+   * is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
+   * for a run that reached nothing and so learned nothing about which pages still exist.
+   */
+  carryForward?: readonly string[] | 'all';
   onProgress?: (event: GenerateProgress) => void;
   /**
    * HTML already fetched by the crawl, keyed by route. Route discovery has to download every page
@@ -259,6 +269,12 @@ export async function generatePages(options: GenerateOptions): Promise<GenerateR
       wordCount,
       warnings,
     });
+  }
+
+  const carried = options.carryForward === 'all' ? Object.keys(previous.pages) : (options.carryForward ?? []);
+  for (const route of carried) {
+    const entry = previous.pages[route];
+    if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
   }
 
   const path = writeManifest(internalDir, manifest);
