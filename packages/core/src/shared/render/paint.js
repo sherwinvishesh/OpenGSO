@@ -310,6 +310,23 @@ export function wrap(text, width) {
   return out;
 }
 
+/** The indent under a report row: body text, notes and fixes all start in this column. */
+export const BODY_INDENT = 6;
+
+/**
+ * Wrap body text into the report's body column, so prose under a check or a probe row lines up
+ * whichever report it is in.
+ *
+ * @param {string} text
+ * @param {number} width
+ * @param {(value: string) => string} [paint]
+ * @returns {string[]}
+ */
+export function indentWrapped(text, width, paint = (value) => value) {
+  const gutter = ' '.repeat(BODY_INDENT);
+  return wrap(text, Math.max(20, width - BODY_INDENT)).map((line) => `${gutter}${paint(line)}`);
+}
+
 /**
  * Terminal width, floored so a narrow pane cannot produce negative padding, capped so a maximised
  * window does not stretch a two-column table across 300 characters.

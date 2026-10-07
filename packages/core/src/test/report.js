@@ -1,7 +1,7 @@
 import { c, SYM, heading, terminalSafe } from '../shared/log.js';
 import { meter, lockedMeter, sparkline } from '../shared/render/meters.js';
 import { scoreInk, bandColour, contentBand, ink } from '../shared/render/theme.js';
-import { fg, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
+import { BODY_INDENT, fg, indentWrapped, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from './history.js';
 import { areaWeight, qualityBand } from './quality.js';
 import { scoreGain } from './score.js';
@@ -93,7 +93,7 @@ export function renderReport(result, options = {}) {
     lines.push(heading(`Not applicable (${skipped.length})`));
     for (const check of skipped) {
       lines.push(`  ${SYM.na()} ${c.bold(check.id)} ${check.title}`);
-      lines.push(...indent(check.reason, width, c.gray));
+      lines.push(...indentWrapped(check.reason, width, c.gray));
     }
   }
 
@@ -134,8 +134,8 @@ function renderCheck(check, score, width) {
       : '';
 
   const lines = [`  ${symbol} ${c.bold(check.id)} ${check.title}${tail}`];
-  lines.push(...indent(check.reason, width));
-  if (check.detail) lines.push(...indent(check.detail, width, c.gray));
+  lines.push(...indentWrapped(check.reason, width));
+  if (check.detail) lines.push(...indentWrapped(check.detail, width, c.gray));
   if (check.fix) lines.push(...indentHanging(glyphArrow(), check.fix, width, ink.info));
   return lines;
 }
@@ -163,7 +163,7 @@ function renderLocked(blocked, score, width) {
   // correct if the cascade is ever keyed on something other than B1.
   const blocker = score.locked.unlockedBy[0];
   if (blocker === 'B1') {
-    lines.push(...indent('Serve a markdown twin at the .md URL and every one of these becomes measurable. `opengeo generate` writes the files; `opengeo prod` serves them.', width, c.gray));
+    lines.push(...indentWrapped('Serve a markdown twin at the .md URL and every one of these becomes measurable. `opengeo generate` writes the files; `opengeo prod` serves them.', width, c.gray));
   }
   lines.push('');
   // The ids and their weights on one line: enough to see the shape of what is waiting without
@@ -282,18 +282,6 @@ const NEXT_ID_WIDTH = 3;
 const MAX_NEXT_STEPS = 5;
 
 /**
- * Wrap body text under a check, at the six-space indent the report has always used.
- *
- * @param {string} text
- * @param {number} width
- * @param {(value: string) => string} [paint]
- * @returns {string[]}
- */
-function indent(text, width, paint = (value) => value) {
-  return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
-}
-
-/**
  * The same, with the continuation lines hanging under the first line's text rather than its marker.
  *
  * @param {string} marker
@@ -304,8 +292,9 @@ function indent(text, width, paint = (value) => value) {
  */
 function indentHanging(marker, text, width, paint) {
   const pad = ' '.repeat(marker.length + 1);
-  const wrapped = wrapText(text, Math.max(20, width - 6 - pad.length));
-  return wrapped.map((line, index) => `      ${paint(index === 0 ? `${marker} ${line}` : `${pad}${line}`)}`);
+  const gutter = ' '.repeat(BODY_INDENT);
+  const wrapped = wrapText(text, Math.max(20, width - BODY_INDENT - pad.length));
+  return wrapped.map((line, index) => `${gutter}${paint(index === 0 ? `${marker} ${line}` : `${pad}${line}`)}`);
 }
 
 /**

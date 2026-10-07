@@ -1,5 +1,5 @@
 import { c, heading, SYM, terminalSafe } from '../shared/log.js';
-import { terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
+import { indentWrapped, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
 import { ink } from '../shared/render/theme.js';
 import { meter } from '../shared/render/meters.js';
 
@@ -37,7 +37,7 @@ export function renderProdVerification(result, options = {}) {
   if (!result.installed) {
     lines.push('');
     lines.push(`  ${ink.danger('No X-AEO-Version on any response.')}`);
-    lines.push(...indent('opengeo-prod is not answering at this URL. Everything below follows from that.', width, c.gray));
+    lines.push(...indentWrapped('opengeo-prod is not answering at this URL. Everything below follows from that.', width, c.gray));
   }
 
   const routing = result.probes.filter((p) => p.lever === 'routing');
@@ -59,7 +59,7 @@ export function renderProdVerification(result, options = {}) {
       ? `  ${SYM.pass()} ${c.bold('robots.txt')} ${c.gray(result.robots.url)}`
       : `  ${SYM.na()} ${c.bold('robots.txt')} ${c.gray(result.robots.url)}`,
   );
-  for (const note of result.robots.notes) lines.push(...indent(note, width));
+  for (const note of result.robots.notes) lines.push(...indentWrapped(note, width));
 
   if (result.conflicts.length > 0) {
     lines.push(heading('The two levers disagree'));
@@ -103,8 +103,8 @@ function renderProbe(probe, options, width) {
   const symbol = probe.verdict === 'pass' ? SYM.pass() : probe.verdict === 'warn' ? SYM.warn() : SYM.fail();
   const status = probe.status > 0 ? c.gray(`  ${probe.status}`) : '';
   const lines = ['', `  ${symbol} ${c.bold(probe.id)} ${probe.title}${status}`];
-  lines.push(...indent(probe.reason, width));
-  if (probe.detail) lines.push(...indent(probe.detail, width, c.gray));
+  lines.push(...indentWrapped(probe.reason, width));
+  if (probe.detail) lines.push(...indentWrapped(probe.detail, width, c.gray));
   if (options.verbose) {
     lines.push(`      ${c.gray(probe.curl)}`);
     for (const [name, value] of Object.entries(probe.headers)) {
@@ -112,18 +112,6 @@ function renderProbe(probe, options, width) {
     }
   }
   return lines;
-}
-
-/**
- * Wrapped to the terminal, under the six-space gutter the probe rows use.
- *
- * @param {string} text
- * @param {number} width
- * @param {(value: string) => string} [paint]
- * @returns {string[]}
- */
-function indent(text, width, paint = (value) => value) {
-  return wrapText(text, Math.max(20, width - 6)).map((line) => `      ${paint(line)}`);
 }
 
 /**
