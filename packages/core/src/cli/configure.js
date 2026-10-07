@@ -15,7 +15,6 @@ import {
   writeEnvVars,
 } from '../shared/env.js';
 import { parseUrl } from '../shared/http.js';
-import { ERRORS } from '../shared/errors.js';
 import { c, heading } from '../shared/log.js';
 import { pickBots } from './bot-picker.js';
 import { detectWebRoot } from '../shared/site-probe.js';
