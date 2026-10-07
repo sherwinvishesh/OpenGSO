@@ -5,7 +5,7 @@ import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { hasDotSegment, MD_DIR, normalizeRoute, routeToMdRelPath, routeToTwinUrlPath, twinFileKey } from '../shared/routes.js';
-import { estimateTokens } from '../shared/tokens.js';
+import { countWords, estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
@@ -284,7 +284,7 @@ export async function generatePages(options) {
         }
 
         const tokens = estimateTokens(markdown);
-        const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+        const wordCount = countWords(markdown);
         const lastUpdated = new Date().toISOString();
 
         onProgress?.({ route, index, total: unique.length, phase: 'write' });
@@ -506,7 +506,7 @@ function manualEntry(
     title: typeof data.title === 'string' ? data.title : route,
     file: relPath,
     tokens: typeof data.tokens === 'number' ? data.tokens : estimateTokens(body),
-    wordCount: body.split(/\s+/).filter(Boolean).length,
+    wordCount: countWords(body),
     lastUpdated: typeof data.last_updated === 'string' ? data.last_updated : new Date().toISOString(),
     tier: 'manual',
     ...(typeof data.source_hash === 'string' ? { sourceHash: data.source_hash } : {}),

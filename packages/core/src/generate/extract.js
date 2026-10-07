@@ -1,4 +1,5 @@
 import { JSDOM } from 'jsdom';
+import { countWords } from '../shared/tokens.js';
 
 /**
  * HTML -> Markdown extraction, the free/algorithmic tier (§6).
@@ -138,7 +139,7 @@ export function extractPage(html, options) {
     markdown = `# ${title}\n\n${markdown}`.trim();
   }
 
-  const wordCount = markdown.split(/\s+/).filter(Boolean).length;
+  const wordCount = countWords(markdown);
   const minWords = options.minWords ?? 40;
   if (wordCount < minWords) {
     warnings.push(

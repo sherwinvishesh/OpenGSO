@@ -1,5 +1,6 @@
 import { probe } from '../shared/http.js';
 import { isMarkdownPath, twinUrl } from '../shared/routes.js';
+import { countWords } from '../shared/tokens.js';
 
 /**
  * @import { Evidence } from './evidence.js'
@@ -290,15 +291,6 @@ function decodeEntities(value) {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'");
-}
-
-/**
- * @param {string} text
- * @returns {number}
- */
-export function countWords(text) {
-  const words = text.trim().match(/\S+/g);
-  return words ? words.length : 0;
 }
 
 /**

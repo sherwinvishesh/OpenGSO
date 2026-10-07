@@ -8,6 +8,7 @@ import { extractPage } from '../generate/extract.js';
 import { parseFrontmatter } from '../generate/frontmatter.js';
 import { verifyFidelity } from '../generate/fidelity.js';
 import { contentHash } from '../shared/hash.js';
+import { countWords } from '../shared/tokens.js';
 import { checkDefinition } from './checks.js';
 import { fail, na, partial, pass, ramp } from './checks.js';
 import { isSitemapIndex, looksLikeHtml, MAX_CHILD_SITEMAPS, sitemapLocs } from './discover.js';
@@ -1103,14 +1104,4 @@ function describeAge(lastUpdated) {
  */
 function unique(values) {
   return [...new Set(values)];
-}
-
-/**
- * Same notion of a word the extractor uses, so the two counts B3 compares are comparable.
- *
- * @param {string} text
- * @returns {number}
- */
-function countWords(text) {
-  return text.split(/\s+/).filter(Boolean).length;
 }

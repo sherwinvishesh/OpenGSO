@@ -1,4 +1,5 @@
 import { ERRORS } from '../shared/errors.js';
+import { countWords } from '../shared/tokens.js';
 
 /**
  * The fidelity guard behind §6's promise that the AI tier "never alters facts".
@@ -214,14 +215,6 @@ export function extractHeadings(markdown) {
 }
 
 /**
- * @param {string} text
- * @returns {number}
- */
-function wordCount(text) {
-  return text.split(/\s+/).filter(Boolean).length;
-}
-
-/**
  * Compare an AI-rewritten page against the algorithmic extraction of the same page.
  *
  * `source` is the algorithmic markdown (ground truth), `candidate` is what the model returned.
@@ -305,8 +298,8 @@ export function verifyFidelity(source, candidate, options = {}) {
     });
   }
 
-  const sourceWords = wordCount(source);
-  const candidateWords = wordCount(candidate);
+  const sourceWords = countWords(source);
+  const candidateWords = countWords(candidate);
   if (sourceWords > 0 && candidateWords / sourceWords < minWordRatio) {
     issues.push({
       code: 'too-short',
