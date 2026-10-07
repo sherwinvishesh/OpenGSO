@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { select } from '../src/cli/tui/interact.js';
+import { field, select } from '../src/cli/tui/interact.js';
 import { stripAnsi } from '../src/cli/tui/paint.js';
 /** @import { Key, KeyReader } from '../src/cli/tui/keys.js' */
 /** @import { Screen } from '../src/cli/tui/screen.js' */
@@ -32,7 +32,7 @@ const fakeKeys = (script) =>
     /** @type {unknown} */ ({
       next: async () => {
         const next = script.shift() ?? 'escape';
-        return next.length === 1 ? { name: 'char', value: next } : { name: next, value: '' };
+        return [...next].length === 1 ? { name: 'char', value: next } : { name: next, value: '' };
       },
       close: () => {},
     })
@@ -101,5 +101,18 @@ describe('select on a short terminal', () => {
     const frame = plain(frames[0] ?? []).join('\n');
     expect(frame).toContain('Row 12');
     expect(frame).not.toContain('more');
+  });
+});
+
+describe('field', () => {
+  /** @param {Array<Key['name'] | string>} script */
+  const typed = async (script, value = '') => {
+    const { screen } = fakeScreen();
+    return await field(screen, fakeKeys([...script, 'enter']), { header: [], label: 'URL', value });
+  };
+
+  it('deletes the word before the caret on ctrl-w', async () => {
+    expect(await typed(['ctrl-w'], 'foo bar')).toBe('foo');
+    expect(await typed([...Array(6).fill('left'), 'ctrl-w'], 'one two three')).toBe('one  three');
   });
 });

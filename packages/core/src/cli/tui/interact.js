@@ -166,8 +166,8 @@ export async function field(screen, keys, options) {
       caret = 0;
     } else if (key.name === 'ctrl-w') {
       const upto = value.slice(0, caret).replace(/\S+\s*$/, '');
-      caret = upto.length;
       value = upto + value.slice(caret);
+      caret = upto.length;
     } else if (key.name === 'char' || key.name === 'space') {
       value = value.slice(0, caret) + key.value + value.slice(caret);
       caret += key.value.length;
