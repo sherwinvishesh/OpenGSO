@@ -538,6 +538,7 @@ async function runGenerate(body, options) {
     pages: result.generate.pages,
     files: result.files,
     warnings: result.warnings,
+    orphans: result.generate.orphans,
     publicDir: result.generate.publicDir,
   });
 }

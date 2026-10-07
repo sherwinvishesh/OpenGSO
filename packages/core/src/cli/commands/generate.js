@@ -1,4 +1,4 @@
-import { relative } from 'node:path';
+import { join, relative } from 'node:path';
 import { c, heading, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
 import { isCI } from '../../shared/env.js';
@@ -8,6 +8,7 @@ import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
 import { parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
+import { terminalWidth, wrap } from '../tui/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
 /**
@@ -17,7 +18,7 @@ import { resolveProject, resolveTarget } from '../project.js';
  */
 
 const SPEC = /** @type {const} */ ({
-  booleans: ['force', 'json', 'single', 'skip-files'],
+  booleans: ['force', 'json', 'single', 'skip-files', 'prune'],
   strings: ['project', 'tier', 'timeout', 'max-pages', 'depth', 'provider', 'model'],
 });
 
@@ -78,6 +79,7 @@ export async function generateCommand(ctx) {
     maxDepth: args.num('depth'),
     timeoutMs: args.num('timeout') !== undefined ? /** @type {number} */ (args.num('timeout')) * 1000 : undefined,
     skipSiteFiles: args.bool('skip-files'),
+    prune: args.bool('prune'),
     enhance,
     onProgress: (event) => {
       if (!progress) return;
@@ -121,6 +123,8 @@ export async function generateCommand(ctx) {
           pages: result.generate.pages,
           files: result.files,
           warnings: result.warnings,
+          orphans: result.generate.orphans,
+          pruned: result.generate.pruned,
           manifest: result.generate.manifest,
         },
         null,
@@ -185,6 +189,23 @@ export async function generateCommand(ctx) {
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
   process.stdout.write(`  ${c.gray(`Output: ${relative(process.cwd(), report.generate.publicDir) || report.generate.publicDir}`)}\n`);
+
+  /** @param {string} file */
+  const onDisk = (file) => relative(process.cwd(), join(report.generate.publicDir, file)) || file;
+  // Reported on every run until it is dealt with, because nothing is ever deleted without --prune.
+  if (report.generate.orphans.length > 0) {
+    process.stdout.write(`${heading('Orphaned twins')}\n`);
+    for (const orphan of report.generate.orphans) {
+      process.stdout.write(`  ${c.yellow('orphan ')} ${orphan.route.padEnd(24)} ${c.gray(onDisk(orphan.file))}\n`);
+    }
+    process.stdout.write(`\n${indent(wrap(ERRORS.orphansFound(report.generate.orphans.length), terminalWidth() - 2).join('\n'))}\n`);
+  }
+  if (report.generate.pruned.length > 0) {
+    process.stdout.write(`${heading('Pruned')}\n`);
+    for (const orphan of report.generate.pruned) {
+      process.stdout.write(`  ${c.gray('deleted')} ${orphan.route.padEnd(24)} ${c.gray(onDisk(orphan.file))}\n`);
+    }
+  }
 
   const crawlWarnings = report.warnings.filter((w) => !w.includes('.opengeo-proposed'));
   if (crawlWarnings.length > 0) {

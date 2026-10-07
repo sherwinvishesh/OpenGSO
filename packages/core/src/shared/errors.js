@@ -538,6 +538,20 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   loopbackPublicOrigin: (origin) =>
     `sitemap.xml, robots.txt, llms.txt and every twin point at ${origin}, which only this machine can reach. Deployed like this, they send crawlers and agents nowhere. Set "publicOrigin" in opengeo.config.json to where the site is deployed, e.g. "https://example.com", and run generate again.`,
 
+  /** @param {string} why */
+  pruneRefused: (why) =>
+    `--prune was given, but ${why}, so a page missing from this run may still exist. Nothing was pruned.`,
+
+  /**
+   * @param {string} file
+   * @param {string} why
+   */
+  pruneFailed: (file, why) => `${file} is orphaned but could not be deleted (${why}). It is still listed as orphaned.`,
+
+  /** @param {number} count */
+  orphansFound: (count) =>
+    `${count === 1 ? 'This twin was' : `These ${count} twins were`} written by OpenGEO for a page this run did not find. ${count === 1 ? 'It is' : 'They are'} no longer listed in llms.txt or sitemap.xml or served by opengeo-prod, but the file${count === 1 ? ' is' : 's are'} still on disk and a static host still serves ${count === 1 ? 'it' : 'them'}. If the page is gone for good, run generate again with --prune to delete ${count === 1 ? 'it' : 'them'}.`,
+
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
 

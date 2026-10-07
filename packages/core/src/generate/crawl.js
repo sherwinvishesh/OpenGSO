@@ -78,6 +78,8 @@ const INTERNAL_PREFIXES = ['/_next/', '/_nuxt/', '/_astro/', '/_vercel/', '/cdn-
  * @property {CrawlFailure[]} failures
  * @property {string[]} warnings Hit a cap? Say so out loud rather than quietly returning a partial
  *   site.
+ * @property {boolean} capped True when a page or depth cap left part of the site unvisited, so a page
+ *   missing from `pages` may still exist.
  */
 
 /**
@@ -201,7 +203,7 @@ export async function crawlSite(options) {
     );
   }
 
-  return { site: options.site, origin, pages, failures, warnings };
+  return { site: options.site, origin, pages, failures, warnings, capped: cappedPages || cappedDepth };
 }
 
 /**

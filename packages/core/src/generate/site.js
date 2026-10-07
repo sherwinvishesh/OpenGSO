@@ -44,6 +44,8 @@ import { generatePages } from './generate.js';
  * @property {number} [maxDepth]
  * @property {number} [timeoutMs]
  * @property {boolean} [skipSiteFiles] Skip robots.txt / llms.txt / sitemap.xml entirely.
+ * @property {boolean} [prune] Delete orphaned twins OpenGEO wrote, rather than only reporting them.
+ *   Refused, with a warning, on a run that cannot tell a deleted page from one it did not reach.
  * @property {string} [siteName]
  * @property {string} [siteDescription]
  * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} [enhance]
@@ -121,6 +123,14 @@ export async function generateSite(options) {
     }
   }
 
+  // Pruning trusts the crawl to have seen the whole site. A run that reached no page, or stopped at
+  // a page or depth cap, has not, and a page it missed may well still exist.
+  let prune = options.prune === true;
+  if (prune && (carryForward === 'all' || crawl?.capped)) {
+    warnings.push(ERRORS.pruneRefused(carryForward === 'all' ? 'no page could be fetched' : 'the crawl stopped at a cap'));
+    prune = false;
+  }
+
   const generate = await generatePages({
     site,
     routes,
@@ -129,6 +139,7 @@ export async function generateSite(options) {
     force: options.force,
     merge: options.single === true,
     carryForward,
+    prune,
     sources,
     enhance: options.enhance,
     signal: options.signal,

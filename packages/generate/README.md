@@ -39,6 +39,9 @@ Options
   --depth <n>        override crawl.maxDepth
   --force            overwrite hand-written robots/llms/sitemap and .md files
   --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone
+  --prune            delete orphaned twins: ones OpenGEO wrote for pages this crawl no longer
+                     found. Without it they are only reported. Never deletes a file OpenGEO
+                     did not write, and refuses on a run that hit a crawl cap or reached no page.
   --provider <name>  which AI provider to use. `opengeo help providers` lists them (AI tier only)
   --model <name>     model id for the AI tier
   --json             machine-readable output
@@ -71,6 +74,15 @@ served. If no page can be fetched at all, say because the dev server is not runn
 manifest is kept as it was and the run says so. Every file OpenGEO writes is written whole or not
 at all, so a run stopped part way never leaves half a manifest behind, and a manifest that cannot
 be read is reported rather than quietly treated as a first run.
+
+A page the crawl no longer finds, because it was deleted or unlinked, leaves its manifest entry,
+so llms.txt, sitemap.xml and `opengeo-prod` stop listing it. Its twin is not deleted. Generate
+reports it under "Orphaned twins" (and as `orphans` in `--json`) on every run until you act, and
+the manifest keeps the list so the next run still knows which files are its own. Run generate again
+with `--prune` to delete them. Pruning only ever deletes a file the manifest listed and whose
+frontmatter still says OpenGEO generated it, so a twin you have marked `generated_by: manual` or
+rewritten stays. It is refused on a run that stopped at `crawl.maxPages` or `crawl.maxDepth`, or
+reached no page at all, because such a run cannot tell a deleted page from one it did not get to.
 
 ### Frontmatter
 

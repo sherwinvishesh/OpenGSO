@@ -482,6 +482,80 @@ describe('generateSite', () => {
   });
 });
 
+describe('twins whose page the crawl no longer reaches', () => {
+  /**
+   * A first run that also covers /blog, which nothing links to, then a run that no longer lists it:
+   * the same thing a page deleted from the site, or unlinked from it, looks like to generate.
+   */
+  async function orphanBlog() {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    loaded.config.extraRoutes = ['/blog'];
+    await generateSite({ target: site, loaded });
+    loaded.config.extraRoutes = [];
+    return { generateSite, loaded, blog: join(loaded.root, 'public', 'md', 'blog.md') };
+  }
+
+  it('reports the orphan on every run and deletes nothing unless asked', async () => {
+    const { generateSite, loaded, blog } = await orphanBlog();
+    const second = await generateSite({ target: site, loaded });
+    expect(second.generate.orphans).toEqual([{ route: '/blog', url: `${site}/blog`, file: 'md/blog.md' }]);
+    expect(second.generate.pruned).toEqual([]);
+    expect(existsSync(blog)).toBe(true);
+    expect(second.generate.manifest.pages['/blog']).toBeUndefined();
+
+    // Reported once and then forgotten would make --prune useless on the run after.
+    const third = await generateSite({ target: site, loaded });
+    expect(third.generate.orphans.map((o) => o.route)).toEqual(['/blog']);
+  });
+
+  it('deletes only orphaned files OpenGEO wrote when asked to prune', async () => {
+    const { generateSite, loaded, blog } = await orphanBlog();
+    const handWritten = join(loaded.root, 'public', 'md', 'notes.md');
+    writeFileSync(handWritten, '# Notes\n\nWritten by hand, listed nowhere.\n');
+
+    const result = await generateSite({ target: site, loaded, prune: true });
+    expect(result.generate.pruned.map((o) => o.route)).toEqual(['/blog']);
+    expect(result.generate.orphans).toEqual([]);
+    expect(existsSync(blog)).toBe(false);
+    expect(existsSync(handWritten)).toBe(true);
+    expect(existsSync(join(loaded.root, 'public', 'md', 'about.md'))).toBe(true);
+    expect(readManifest(join(loaded.root, '.opengeo'), site).orphans).toBeUndefined();
+  });
+
+  it('never prunes a twin someone has since made their own', async () => {
+    const { generateSite, loaded, blog } = await orphanBlog();
+    writeFileSync(blog, '---\ntitle: Blog\ngenerated_by: manual\n---\n\n# Blog\n\nKept by hand.\n');
+    const result = await generateSite({ target: site, loaded, prune: true });
+    expect(existsSync(blog)).toBe(true);
+    expect(result.generate.pruned).toEqual([]);
+    expect(result.generate.orphans).toEqual([]);
+  });
+
+  it('never prunes on a run that reached no page', async () => {
+    const { generateSite, loaded, blog } = await orphanBlog();
+    await generateSite({ target: site, loaded });
+    down.add('*');
+    try {
+      const result = await generateSite({ target: site, loaded, prune: true });
+      expect(existsSync(blog)).toBe(true);
+      expect(result.generate.pruned).toEqual([]);
+      expect(result.warnings.join(' ')).toMatch(/nothing was pruned/i);
+    } finally {
+      down.clear();
+    }
+  });
+
+  it('never prunes when the crawl stopped at a cap', async () => {
+    const { generateSite, loaded } = await orphanBlog();
+    const result = await generateSite({ target: site, loaded, prune: true, maxPages: 1 });
+    // About and resume exist; the crawl just did not get to them.
+    expect(existsSync(join(loaded.root, 'public', 'md', 'about.md'))).toBe(true);
+    expect(result.generate.pruned).toEqual([]);
+    expect(result.warnings.join(' ')).toMatch(/nothing was pruned/i);
+  });
+});
+
 describe('hashing what a reader receives, not the markup around it', () => {
   it('still reports cached after a redeploy that only changed the build id', async () => {
     const loaded = project();

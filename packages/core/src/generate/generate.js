@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { internalDirPath, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
@@ -13,7 +13,7 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
- * @import { GenerationTier, Manifest, ManifestEntry } from './manifest.js'
+ * @import { GenerationTier, Manifest, ManifestEntry, OrphanTwin } from './manifest.js'
  */
 
 /**
@@ -53,6 +53,9 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
  *   deletion, and prod serves from the manifest, so dropping the entry would un-serve a twin that
  *   is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
  *   for a run that reached nothing and so learned nothing about which pages still exist.
+ * @property {boolean} [prune] Delete orphaned twins instead of only reporting them. Only a file the
+ *   manifest lists and whose frontmatter says OpenGEO generated it is ever deleted. The caller decides
+ *   whether this run learned enough to say a page is gone; see generateSite.
  * @property {(event: GenerateProgress) => void} [onProgress]
  * @property {AbortSignal} [signal] Checked before each route. An abandoned run throws, after keeping
  *   every previous manifest entry it did not get to, so stopping part way never un-serves a twin.
@@ -92,6 +95,8 @@ import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js
  * @property {string} manifestPath
  * @property {string} publicDir
  * @property {string[]} warnings Problems with the run as a whole rather than with one page.
+ * @property {OrphanTwin[]} orphans Twins still on disk for pages this run did not find, left alone.
+ * @property {OrphanTwin[]} pruned Orphaned twins this run deleted, because it was asked to.
  * @property {number} durationMs
  */
 
@@ -131,6 +136,10 @@ export async function generatePages(options) {
   for (const route of Object.keys(manifest.pages)) claimed.set(twinFileKey(route), route);
 
   let manifestPath = '';
+  /** @type {string[]} */
+  const warnings = problem ? [problem] : [];
+  /** @type {{ orphans: OrphanTwin[]; pruned: OrphanTwin[] }} */
+  let settled = { orphans: [], pruned: [] };
   try {
     for (const route of unique) {
       // Outside the per-route catch below, which would otherwise record the abort as one failed
@@ -350,13 +359,16 @@ export async function generatePages(options) {
       const entry = previous.pages[route];
       if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
     }
+    settled = settleOrphans(previous, manifest, publicDir, twinDir, options.prune === true, warnings);
+    if (settled.orphans.length > 0) manifest.orphans = settled.orphans;
     // The manifest is often committed. A run that changed no entry keeps the previous timestamp, so
     // a fully cached rerun leaves the file byte-identical instead of producing a one-line diff.
     if (
       typeof previous.generatedAt === 'string' &&
       previous.site === manifest.site &&
       previous.specVersion === manifest.specVersion &&
-      samePages(previous.pages, manifest.pages)
+      samePages(previous.pages, manifest.pages) &&
+      JSON.stringify(previous.orphans ?? []) === JSON.stringify(manifest.orphans ?? [])
     ) {
       manifest.generatedAt = previous.generatedAt;
     }
@@ -368,7 +380,9 @@ export async function generatePages(options) {
     manifest,
     manifestPath,
     publicDir,
-    warnings: problem ? [problem] : [],
+    warnings,
+    orphans: settled.orphans,
+    pruned: settled.pruned,
     durationMs: Date.now() - started,
   };
 }
@@ -394,6 +408,66 @@ function samePages(a, b) {
   const left = Object.keys(a).sort();
   const right = Object.keys(b).sort();
   return left.length === right.length && left.every((route, i) => route === right[i] && JSON.stringify(a[route]) === JSON.stringify(b[route]));
+}
+
+/**
+ * Find the twins OpenGEO wrote for pages this run no longer has, and delete them only when asked.
+ *
+ * A candidate comes from the previous manifest, either as a page or as an orphan it already listed,
+ * so a file no manifest ever vouched for is never considered. It must still be on disk inside the
+ * twin directory, not be the file of a page this run kept, and still carry OpenGEO's frontmatter: a
+ * twin the user has since taken over, with generated_by: manual or by rewriting it, is theirs.
+ *
+ * @param {Manifest} previous
+ * @param {Manifest} manifest
+ * @param {string} publicDir
+ * @param {string} twinDir
+ * @param {boolean} prune
+ * @param {string[]} warnings
+ * @returns {{ orphans: OrphanTwin[]; pruned: OrphanTwin[] }}
+ */
+function settleOrphans(previous, manifest, publicDir, twinDir, prune, warnings) {
+  /** @type {Map<string, OrphanTwin>} */
+  const candidates = new Map();
+  for (const item of Array.isArray(previous.orphans) ? previous.orphans : []) {
+    if (typeof item?.route === 'string' && typeof item.url === 'string' && typeof item.file === 'string') {
+      candidates.set(item.route, { route: item.route, url: item.url, file: item.file });
+    }
+  }
+  for (const entry of Object.values(previous.pages)) {
+    candidates.set(entry.route, { route: entry.route, url: entry.url, file: entry.file });
+  }
+  const live = new Set(Object.values(manifest.pages).map((entry) => entry.file));
+
+  /** @type {OrphanTwin[]} */
+  const orphans = [];
+  /** @type {OrphanTwin[]} */
+  const pruned = [];
+  for (const route of dedupeRoutes([...candidates.keys()])) {
+    const orphan = candidates.get(route);
+    if (!orphan || manifest.pages[route] || live.has(orphan.file)) continue;
+    const absPath = resolve(publicDir, orphan.file);
+    if (!absPath.startsWith(twinDir + sep) || !existsSync(absPath)) continue;
+    /** @type {string} */
+    let contents;
+    try {
+      contents = readFileSync(absPath, 'utf8');
+    } catch {
+      continue;
+    }
+    if (!isOpenGeoTwin(parseFrontmatter(contents).data)) continue;
+    if (prune) {
+      try {
+        unlinkSync(absPath);
+        pruned.push(orphan);
+        continue;
+      } catch (error) {
+        warnings.push(ERRORS.pruneFailed(orphan.file, error instanceof Error ? error.message : String(error)));
+      }
+    }
+    orphans.push(orphan);
+  }
+  return { orphans, pruned };
 }
 
 /**

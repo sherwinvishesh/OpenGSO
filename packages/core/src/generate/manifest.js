@@ -58,12 +58,24 @@ export const MANIFEST_VERSION = 1;
  */
 
 /**
+ * A twin OpenGEO wrote for a page that a later run no longer found. It stays on disk until the user
+ * passes --prune, and is listed here so the next run can still report it and still prove the file
+ * is one OpenGEO wrote. prod reads `pages` only, so nothing listed here is served.
+ *
+ * @typedef {object} OrphanTwin
+ * @property {string} route
+ * @property {string} url
+ * @property {string} file Path relative to the public directory, as in ManifestEntry.
+ */
+
+/**
  * @typedef {object} Manifest
  * @property {number} version
  * @property {string} specVersion
  * @property {string} site
  * @property {string} generatedAt
  * @property {Record<string, ManifestEntry>} pages
+ * @property {OrphanTwin[]} [orphans] Absent when there are none.
  */
 
 /**
