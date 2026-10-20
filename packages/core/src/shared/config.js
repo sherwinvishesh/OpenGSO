@@ -3,6 +3,7 @@ import { writeFileAtomic } from './fs.js';
 import { dirname, join, resolve, sep } from 'node:path';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
 import { CONFIG_ERRORS } from './errors.js';
+import { frameworkWebRoot } from './web-root.js';
 
 /**
  * @import { CustomBotInput } from './bots.js'
@@ -48,6 +49,9 @@ export function defaultConfig(site = 'http://localhost:3000') {
  *   opengeo.config.json, or cwd).
  * @property {string} [path] Absolute path of the config file, if one was found on disk.
  * @property {boolean} exists
+ * @property {string} [webRootWhy] Set when there is no config file and `publicDir` came from the
+ *   framework in package.json rather than the default, saying why, for the one line that tells the
+ *   user where their files went.
  */
 
 /**
@@ -101,7 +105,16 @@ export class ConfigError extends Error {
  */
 export function loadConfig(startDir = process.cwd()) {
   const path = findConfigFile(startDir);
-  if (!path) return { config: defaultConfig(), root: resolve(startDir), exists: false };
+  if (!path) {
+    // No config file: the framework's own web root, so that a first `opengeo generate` on a
+    // SvelteKit app writes to static/ rather than a public/ nothing serves, and test and prod, which
+    // load the same way, look for the twins where generate put them.
+    const root = resolve(startDir);
+    const framework = frameworkWebRoot(root);
+    const config = defaultConfig();
+    if (!framework || framework.dir === config.publicDir) return { config, root, exists: false };
+    return { config: { ...config, publicDir: framework.dir }, root, exists: false, webRootWhy: framework.why };
+  }
   /** @type {unknown} */
   let raw;
   try {

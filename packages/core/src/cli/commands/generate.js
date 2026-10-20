@@ -258,6 +258,7 @@ export async function generateCommand(ctx) {
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
   process.stdout.write(`  ${c.gray(`Output: ${shownPath(report.generate.publicDir)}`)}\n`);
+  if (loaded.webRootWhy) process.stdout.write(`${hanging('  ', c.gray(ERRORS.webRootFromFramework(loaded.webRootWhy)))}\n`);
   if (source.kind === 'files') process.stdout.write(`  ${c.gray(`Links name: ${report.site}`)}\n`);
 
   /** @param {string} file */
@@ -305,7 +306,8 @@ export async function generateCommand(ctx) {
   if (firstCrawl && written > 0) {
     const next =
       'Next: agents still get HTML until your server serves these twins. Add opengeo-prod to it ' +
-      '(on Next.js that is a proxy.ts file; its README has the code), then run ' +
+      '(its README has the few lines for Next.js, Express, Nuxt, SvelteKit, Astro, React Router, Angular, ' +
+      'Qwik, Vite and edge functions), then run ' +
       `\`opengeo test ${site}\` to check.`;
     process.stdout.write(`\n${hanging('  ', next)}\n`);
   }

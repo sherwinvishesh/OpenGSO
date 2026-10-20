@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -173,6 +173,30 @@ describe('a first run with nobody at the keyboard', () => {
   });
 });
 
+describe('opengeo generate with no config file', () => {
+  it('writes where the framework serves files, and says so', async () => {
+    rmSync(join(root, 'opengeo.config.json'), { force: true });
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@sveltejs/kit': '2.0.0' } }), 'utf8');
+
+    const { code, stdout } = await run(generateCommand, [site, '--project', root, '--single']);
+
+    expect(code).toBe(0);
+    expect(existsSync(join(root, 'static', 'md', 'index.md'))).toBe(true);
+    expect(existsSync(join(root, 'public'))).toBe(false);
+    expect(stdout.replace(/\s+/g, ' ')).toContain('SvelteKit serves static/ from the site root');
+  });
+
+  it('says nothing about it when the answer is the usual public/', async () => {
+    rmSync(join(root, 'opengeo.config.json'), { force: true });
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { next: '16.0.0' } }), 'utf8');
+
+    const { stdout } = await run(generateCommand, [site, '--project', root, '--single']);
+
+    expect(existsSync(join(root, 'public', 'md', 'index.md'))).toBe(true);
+    expect(stdout).not.toContain('No opengeo.config.json here');
+  });
+});
+
 describe('opengeo generate --json', () => {
   it('writes nothing to stdout but the JSON, so it can be piped into jq', async () => {
     const { stdout } = await run(generateCommand, [site, '--project', root, '--json', '--single']);
@@ -188,7 +212,8 @@ describe('opengeo generate, the first time', () => {
     expect(first.code).toBe(0);
     const said = first.stdout.replace(/\s+/g, ' ');
     expect(said).toContain('agents still get HTML until your server serves these twins');
-    expect(said).toContain('proxy.ts');
+    expect(said).toContain('Add opengeo-prod to it');
+    expect(said).toMatch(/README has the few lines for Next\.js, Express, Nuxt/);
     expect(said).toContain(`opengeo test ${site}`);
 
     const again = await run(generateCommand, [site, '--project', root, '--single', '--force']);

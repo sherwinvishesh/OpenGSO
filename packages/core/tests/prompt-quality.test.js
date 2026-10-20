@@ -69,6 +69,22 @@ describe('framework detection', () => {
     ['Gatsby', '<html><body><div id="___gatsby"></div><script src="/app.js"></script></body></html>', 'Gatsby'],
     ['Docusaurus', '<html><head><meta name="generator" content="Docusaurus v3.1.1"></head><body><script src="/x.js"></script></body></html>', 'Docusaurus'],
     ['Vite', '<html><body><script type="module" src="/assets/index-a1b2c3d4.js"></script></body></html>', 'Vite'],
+    // The shapes below are cut from real builds: Angular 20 (server-rendered, client-only, and the
+    // dev server, which also loads the Vite client), Qwik 1.20 and VitePress 1.6.
+    ['Angular SSR', '<html><body><app-root ng-version="20.3.34" ngh="0" ng-server-context="ssr"><main></main></app-root></body></html>', 'Angular'],
+    [
+      'an Angular build',
+      '<html><body>\n  <app-root></app-root>\n<script src="polyfills-5CFQRCPP.js" type="module"></script><script src="main-FXETGQBJ.js" type="module"></script></body></html>',
+      'Angular',
+    ],
+    [
+      'the Angular dev server',
+      '<html><head><script type="module" src="/@vite/client"></script></head><body><shop-root></shop-root><script src="polyfills.js" type="module"></script><script src="main.js" type="module"></script></body></html>',
+      'Angular',
+    ],
+    ['Qwik', '<html lang="en-us" q:route="/" q:container="paused" q:version="1.20.2"><head><script src="/@vite/client" type="module"></script></head></html>', 'Qwik'],
+    ['VitePress', '<html><head><meta name="generator" content="VitePress v1.6.4"><script type="module" src="/@vite/client"></script></head></html>', 'VitePress'],
+    ['Eleventy', '<html><head><meta name="generator" content="Eleventy v3.1.2"></head><body><script src="/x.js"></script></body></html>', 'Eleventy'],
   ];
 
   for (const [label, html, expected] of cases) {
@@ -80,6 +96,16 @@ describe('framework detection', () => {
   it('does not call a page Docusaurus because its text mentions Docusaurus', () => {
     const html = '<html><body><p>We moved our docs off Docusaurus last year.</p><script src="/_next/static/x.js"></script></body></html>';
     expect(detectFramework(html)?.name).toBe('Next.js');
+  });
+
+  it('does not call a page Angular for a polyfills and a main script alone', () => {
+    // Both names are common. Without the empty app element in front of them they say nothing.
+    const html = '<html><body><div id="app"><p>Hi</p></div><script src="/polyfills.js" type="module"></script><script src="/main.js" type="module"></script></body></html>';
+    expect(detectFramework(html)).toBeUndefined();
+  });
+
+  it('does not call a page Qwik because its text mentions q:container', () => {
+    expect(detectFramework('<html><body><p>The q:container attribute marks a Qwik app.</p><script src="/x.js"></script></body></html>')).toBeUndefined();
   });
 
   it('recognises the Docusaurus root element', () => {

@@ -1,9 +1,10 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultConfig } from './config.js';
 import { detectFramework } from './framework.js';
 import { BROWSER_UA, parseUrl, probe } from './http.js';
 import { twinUrl } from './routes.js';
+import { frameworkWebRoot } from './web-root.js';
 import { HEADERS } from './version.js';
 
 /**
@@ -101,26 +102,13 @@ function whyUnreachable(url, message) {
 }
 
 /**
- * Dependencies first, then directories.
- *
- * A `next` in `package.json` is a statement about where static files go; a `public/` on disk is
+ * The framework's convention first (see web-root.js), then directories. A `public/` on disk is
  * evidence for the same thing but weaker, because plenty of projects have one for other reasons.
  * `dist/` is last and says so: it is a build output, and anything written there is one `npm run
  * build` away from being deleted.
  *
- * @type {ReadonlyArray<{ dep: RegExp; dir: string; why: string }>}
+ * @type {ReadonlyArray<{ dir: string; why: string }>}
  */
-const BY_DEPENDENCY = [
-  { dep: /^next$/, dir: 'public', why: 'Next.js serves public/ from the site root' },
-  { dep: /^gatsby$/, dir: 'static', why: 'Gatsby serves static/ from the site root' },
-  { dep: /^@sveltejs\/kit$/, dir: 'static', why: 'SvelteKit serves static/ from the site root' },
-  { dep: /^nuxt$/, dir: 'public', why: 'Nuxt serves public/ from the site root' },
-  { dep: /^astro$/, dir: 'public', why: 'Astro serves public/ from the site root' },
-  { dep: /^@docusaurus\/core$/, dir: 'static', why: 'Docusaurus serves static/ from the site root' },
-  { dep: /^(vite|react-scripts)$/, dir: 'public', why: 'Vite serves public/ from the site root' },
-];
-
-/** @type {ReadonlyArray<{ dir: string; why: string }>} */
 const BY_DIRECTORY = [
   { dir: 'public', why: 'public/ exists and is served as-is by most frameworks' },
   { dir: 'static', why: 'static/ exists and is served as-is by most static site generators' },
@@ -133,35 +121,12 @@ const BY_DIRECTORY = [
  * @returns {WebRootGuess}
  */
 export function detectWebRoot(root) {
-  const deps = readDependencies(root);
-  for (const candidate of BY_DEPENDENCY) {
-    if (deps.some((name) => candidate.dep.test(name))) return { dir: candidate.dir, why: candidate.why, found: true };
-  }
+  const framework = frameworkWebRoot(root);
+  if (framework) return { ...framework, found: true };
   for (const candidate of BY_DIRECTORY) {
     if (isDirectory(join(root, candidate.dir))) return { dir: candidate.dir, why: candidate.why, found: true };
   }
   return { dir: defaultConfig().publicDir, why: 'nothing on disk pointed anywhere, so this is the usual answer', found: false };
-}
-
-/**
- * Every dependency name in `package.json`, or none if there is no readable one.
- *
- * @param {string} root
- * @returns {string[]}
- */
-function readDependencies(root) {
-  try {
-    const parsed = /** @type {Record<string, unknown>} */ (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')));
-    /** @type {string[]} */
-    const names = [];
-    for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
-      const block = parsed[field];
-      if (block && typeof block === 'object') names.push(...Object.keys(/** @type {Record<string, unknown>} */ (block)));
-    }
-    return names;
-  } catch {
-    return [];
-  }
 }
 
 /**

@@ -267,6 +267,32 @@ describe('detectWebRoot', () => {
     }
   });
 
+  it('knows the newer frameworks, each from the dependency its starter installs', () => {
+    for (const dep of ['@react-router/dev', '@remix-run/dev', '@builder.io/qwik-city', '@qwik.dev/router', '@solidjs/start', 'ember-source']) {
+      pkg({ [dep]: '1.0.0' });
+      expect(detectWebRoot(root), dep).toMatchObject({ dir: 'public', found: true });
+    }
+  });
+
+  it('takes public/ for Angular only when the app has one, since older Angular had none', () => {
+    pkg({ '@angular/core': '16.2.0' });
+    mkdirSync(join(root, 'src', 'assets'), { recursive: true });
+    expect(detectWebRoot(root).why).not.toContain('Angular');
+
+    mkdirSync(join(root, 'public'));
+    expect(detectWebRoot(root)).toMatchObject({ dir: 'public', why: 'Angular serves public/ from the site root' });
+  });
+
+  it('finds the VitePress public folder inside its docs folder', () => {
+    pkg({ vitepress: '1.6.4' });
+    mkdirSync(join(root, 'docs', '.vitepress'), { recursive: true });
+    expect(detectWebRoot(root)).toMatchObject({ dir: 'docs/public', found: true });
+
+    rmSync(join(root, 'docs'), { recursive: true });
+    mkdirSync(join(root, '.vitepress'));
+    expect(detectWebRoot(root)).toMatchObject({ dir: 'public', found: true });
+  });
+
   it('finds a devDependency too, which is where most of these actually live', () => {
     writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { astro: '4.0.0' } }), 'utf8');
 

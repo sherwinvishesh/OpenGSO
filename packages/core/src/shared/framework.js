@@ -18,10 +18,14 @@
  *   | 'astro'
  *   | 'sveltekit'
  *   | 'remix'
+ *   | 'angular'
+ *   | 'qwik'
  *   | 'gatsby'
  *   | 'docusaurus'
+ *   | 'vitepress'
  *   | 'hugo'
  *   | 'jekyll'
+ *   | 'eleventy'
  *   | 'wordpress'
  *   | 'vite'
  *   | 'plain'} FrameworkId
@@ -96,12 +100,39 @@ const SIGNATURES = [
     ],
   },
   {
+    // Before Vite, which Angular's dev server is built on. The build-output rule wants both halves,
+    // an empty custom element for the app and the polyfills-then-main pair Angular's builders emit,
+    // because either alone is a pattern a hand-written page could have.
+    id: 'angular',
+    name: 'Angular',
+    html: [
+      { pattern: /\bng-version=["']\d/, evidence: 'the app root carries an ng-version attribute' },
+      { pattern: /\bng-server-context=|<script id=["']ng-state["']/, evidence: 'the page carries Angular server-rendering state' },
+      {
+        pattern: /<([a-z]+-[a-z0-9-]*)(?:\s[^>]*)?><\/\1>[\s\S]*?<script src=["'][^"']*polyfills(?:[-.][A-Za-z0-9]+)?\.js["'][^>]*><\/script>\s*<script src=["'][^"']*main(?:[-.][A-Za-z0-9]+)?\.js["']/,
+        evidence: 'an empty app element followed by Angular\'s polyfills and main bundles',
+      },
+    ],
+  },
+  {
+    // Before Vite too: Qwik's dev server is Vite.
+    id: 'qwik',
+    name: 'Qwik',
+    html: [{ pattern: /<html[^>]*\sq:container=/, evidence: 'the document carries a q:container attribute' }],
+  },
+  {
     id: 'gatsby',
     name: 'Gatsby',
     html: [
       { pattern: /id=["']___gatsby["']/, evidence: 'the page has a ___gatsby root element' },
       { pattern: /\/page-data\/[^"']*app-data\.json/, evidence: 'the page loads Gatsby page-data' },
     ],
+  },
+  {
+    // Before Vite: `vitepress dev` loads the Vite client.
+    id: 'vitepress',
+    name: 'VitePress',
+    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']VitePress/i, evidence: 'the generator meta tag names VitePress' }],
   },
   {
     id: 'hugo',
@@ -112,6 +143,11 @@ const SIGNATURES = [
     id: 'jekyll',
     name: 'Jekyll',
     html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Jekyll/i, evidence: 'the generator meta tag names Jekyll' }],
+  },
+  {
+    id: 'eleventy',
+    name: 'Eleventy',
+    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Eleventy/i, evidence: 'the generator meta tag names Eleventy' }],
   },
   {
     id: 'wordpress',

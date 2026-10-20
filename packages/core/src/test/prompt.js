@@ -72,7 +72,8 @@ function quoted(text) {
 
 /**
  * Where the middleware goes, per framework. Names a file, because "add middleware" is not an
- * instruction a coding agent can act on and "edit proxy.ts at the project root" is.
+ * instruction a coding agent can act on and "edit proxy.ts at the project root" is. Each one is the
+ * recipe from the opengeo-prod README, which was run against a real app of that framework.
  *
  * This is guidance inside a prompt, not code that branches on framework: nothing in OpenGEO's
  * runtime behaves differently per framework (§16 rules that out). Getting it wrong costs the agent
@@ -82,15 +83,35 @@ function quoted(text) {
  */
 const PLACEMENT = {
   nextjs: 'proxy.ts at the project root (or in src/), exporting `proxy` and `config = { matcher: [...] }`. That is Next 16, where a proxy always runs on Node and refuses a `runtime` option. On Next 15 it is middleware.ts exporting `middleware`, with `runtime: "nodejs"` in config so it can read the generated files from disk',
-  nuxt: 'a server middleware under server/middleware/',
-  astro: 'src/middleware.ts, wired through Astro\'s onRequest hook',
-  sveltekit: 'src/hooks.server.ts, in the handle hook',
-  remix: 'the server entry (entry.server.tsx) or the platform adapter in front of it',
-  gatsby: 'the hosting layer in front of the static output, since Gatsby builds to static files',
-  docusaurus: 'the hosting layer in front of the static output, since Docusaurus builds to static files',
-  vite: 'a Connect middleware in vite.config.ts for dev, plus the production host in front of the build',
-  plain: 'the static host or CDN in front of the files, since there is no application server to add middleware to',
+  nuxt: 'server/middleware/opengeo.ts, whose default export is `fromNodeMiddleware(createNodeMiddleware())`, with `fromNodeMiddleware` from h3 and `createNodeMiddleware` from opengeo-prod/node',
+  astro: 'src/middleware.ts, as `export const onRequest = (context, next) => opengeo(context.request, next)` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch. Astro runs middleware per request only on pages rendered on demand (with a server adapter such as @astrojs/node); a prerendered page is a static file',
+  sveltekit: 'src/hooks.server.ts, as `export const handle = ({ event, resolve }) => opengeo(event.request, () => resolve(event))` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch. If a `handle` already exists, put this first inside `sequence(...)`',
+  remix: 'app/root.tsx, as route middleware: `export const middleware = [({ request }, next) => opengeo(request, next)]` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch, plus a catch-all `*` route so a `.md` URL reaches it. React Router 7 needs the `future.v8_middleware` flag for this. On a custom Express server, or on Remix 2, which has no middleware, put `app.use(createNodeMiddleware())` from opengeo-prod/node in front of the request handler instead',
+  angular: 'src/server.ts, as `app.use(createNodeMiddleware())` from opengeo-prod/node, before `express.static` and the Angular handler. Add the site\'s domain to `security.allowedHosts` in angular.json, or Angular answers it with the client-only shell. A client-only build (no @angular/ssr) is static files instead, served the way the Edge runtimes section of the opengeo-prod README describes',
+  qwik: 'the server adapter\'s entry (src/entry.express.tsx after `npm run qwik add express`), as `app.use(createNodeMiddleware())` from opengeo-prod/node right after the app is created, with `opengeo()` from opengeo-prod/vite in vite.config.ts for the dev server. Set `ssg: { include: [], sitemapOutFile: null }` on the adapter in adapters/<name>/vite.config.ts, or its build replaces the generated sitemap.xml with its own',
+  gatsby: staticHost('Gatsby', 'public'),
+  docusaurus: staticHost('Docusaurus', 'build'),
+  vitepress: staticHost('VitePress', 'docs/.vitepress/dist'),
+  hugo: staticHost('Hugo', 'public'),
+  jekyll: staticHost('Jekyll', '_site'),
+  eleventy: staticHost('Eleventy', '_site'),
+  vite: `vite.config.ts, as \`plugins: [opengeo()]\` with \`opengeo\` from opengeo-prod/vite, which covers \`vite\` and \`vite preview\`. The production build is static files, so in production it is ${staticHost('Vite', 'dist')}`,
+  plain: 'no server at all, since this is static files: `opengeo generate <the folder>` writes each twin beside its page, where any static host serves it at its .md URL. An edge function using opengeo-prod/edge, fed by `opengeo prod data`, also answers agents asking for markdown at the page URLs',
 };
+
+/**
+ * A static build has no server to put middleware in. Crawled twins land under md/ in the web root,
+ * which only prod maps to the .md URLs, so either an edge function does that mapping, or generate
+ * reads the build folder and writes each twin beside its page. Never "generate in the build
+ * script": generate runs by hand on a developer machine (§6), and a hosted build is a deploy.
+ *
+ * @param {string} name
+ * @param {string} out The folder the default build writes.
+ * @returns {string}
+ */
+function staticHost(name, out) {
+  return `an edge function in front of the static output, since ${name} builds to static files: opengeo-prod/edge (a Cloudflare Worker, or a Vercel or Netlify edge function) fed by \`opengeo prod data\`, which serves the twins at their .md URLs and to agents at the page URLs. A site deployed by hand can skip the edge instead: build, run \`opengeo generate ${out}\` on that folder, and deploy it, so each twin sits beside its page as a file any static host serves`;
+}
 
 /**
  * Per-check remediation. Typed by CheckId, so a check added without one fails the typecheck.
