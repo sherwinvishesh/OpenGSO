@@ -4,7 +4,7 @@ import { PALETTE, scoreInk, bandColour, contentBand, ink } from '../shared/rende
 import { BODY_INDENT, fg, indentWrapped, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from '../shared/history.js';
 import { areaWeight, qualityBand } from './quality.js';
-import { fixSteps, isSuggestion, scoreGain } from './score.js';
+import { fixSteps, isSuggestion, rankedSuggestions, scoreGain, twinFaults } from './score.js';
 
 // The JSON side lives in its own file; re-exported so `@opengeo/core/test` offers the same names.
 export { suiteJson, testJson, toJson } from './report-json.js';
@@ -63,7 +63,8 @@ export function renderReport(result, options = {}) {
 
   const failed = checks.filter((r) => r.scored && r.status === 'fail');
   const partly = checks.filter((r) => r.scored && r.status === 'partial');
-  const suggested = checks.filter(isSuggestion).sort((a, b) => b.weight - a.weight);
+  const suggested = rankedSuggestions(checks);
+  const faults = twinFaults(checks);
   const blocked = checks.filter((r) => r.status === 'locked');
   const passed = checks.filter((r) => r.scored && r.status === 'pass');
   const adopted = checks.filter((r) => !r.scored && r.status === 'pass');
@@ -79,9 +80,9 @@ export function renderReport(result, options = {}) {
   }
   if (suggested.length > 0) {
     lines.push(heading(`Suggestions (${suggested.length})`));
-    lines.push(...indentWrapped(SUGGESTIONS_INTRO, width, c.gray));
+    lines.push(...indentWrapped(faults.length > 0 ? twinFaultsIntro(faults, suggested.length) : suggestionsIntro(suggested), width, c.gray));
     lines.push('');
-    for (const check of suggested) lines.push(...renderCheck(check, score, width));
+    for (const check of suggested) lines.push(...renderCheck(check, score, width, faults.includes(check)));
   }
   if (blocked.length > 0) lines.push(...renderLocked(blocked, score, width));
   lines.push(...renderPassing('Passed', passed, score, width, options.verbose));
@@ -102,8 +103,52 @@ export function renderReport(result, options = {}) {
  * What the Suggestions group is, in one line. Printed under its heading because a reader who has
  * just seen 100/100 deserves to know why there is still a list.
  */
-export const SUGGESTIONS_INTRO =
-  'Conventions for AI agents this page has not adopted. They are outside the score: the best-read sites have not adopted them either, so these are what would set this one apart.';
+const SUGGESTIONS_WHY =
+  'They are outside the score: the best-read sites have not adopted them either, so these are what would set this one apart.';
+export const SUGGESTIONS_INTRO = `Conventions for AI agents this page has not adopted. ${SUGGESTIONS_WHY}`;
+
+/**
+ * The intro for the group as listed. A partial is a convention the page adopted in part (B7 on
+ * Next.js, a twin cosmetically behind the page), and "has not adopted" printed over a list of them
+ * reads as the report not having looked.
+ *
+ * @param {readonly CheckResult[]} suggested
+ * @returns {string}
+ */
+export function suggestionsIntro(suggested) {
+  const partial = suggested.filter((check) => check.status === 'partial').length;
+  if (partial === 0) return SUGGESTIONS_INTRO;
+  const lead = partial === suggested.length ? 'has adopted in part' : 'has not adopted, or has adopted in part';
+  return `Conventions for AI agents this page ${lead}. ${SUGGESTIONS_WHY}`;
+}
+
+/**
+ * The same line when the page already serves a twin and a check on it failed. "Not adopted" would
+ * be wrong there: the page adopted it, and agents are being sent something wrong.
+ *
+ * @param {readonly CheckResult[]} faults
+ * @param {number} total How many suggestions the group lists, faults included.
+ * @returns {string}
+ */
+export function twinFaultsIntro(faults, total) {
+  const one = faults.length === 1;
+  const rest = total > faults.length ? ' The rest are conventions that would set this page apart.' : '';
+  return (
+    `${listIds(faults)} ${one ? 'fails' : 'fail'} on the markdown twin this page already serves, so agents are being sent something wrong. ` +
+    `Like every suggestion ${one ? 'it is' : 'they are'} outside the score and the number above does not move, but fix ${one ? 'it' : 'them'} first: --strict fails a build on ${one ? 'it' : 'them'}.${rest}`
+  );
+}
+
+/**
+ * "B14", "B9 and B14", "B5, B9 and B14".
+ *
+ * @param {readonly Pick<CheckResult, 'id'>[]} checks
+ * @returns {string}
+ */
+function listIds(checks) {
+  const ids = checks.map((check) => check.id);
+  return ids.length <= 1 ? (ids[0] ?? '') : `${ids.slice(0, -1).join(', ')} and ${ids[ids.length - 1]}`;
+}
 
 /**
  * The passing checks: ids on one line by default, every reason with --verbose. Passed and Adopted
@@ -146,11 +191,14 @@ function renderPassing(title, checks, score, width, verbose) {
  * @param {CheckResult} check
  * @param {Score} score
  * @param {number} width
+ * @param {boolean} [fault] One of `twinFaults`: not a tip, since something agents get is wrong, and
+ *   still outside the score, so a warning rather than a scored FAIL.
  * @returns {string[]}
  */
-function renderCheck(check, score, width) {
+function renderCheck(check, score, width, fault = false) {
   const symbol =
-    isSuggestion(check) ? SYM.suggestion()
+    fault ? SYM.warn()
+    : isSuggestion(check) ? SYM.suggestion()
     : check.status === 'pass' ? SYM.pass()
     : check.status === 'fail' ? SYM.fail()
     : check.status === 'partial' ? SYM.partial()
@@ -244,9 +292,16 @@ function renderNextSteps(checks, score, width) {
   const steps = fixSteps(checks, score);
   const fixes = steps.filter((step) => !step.suggestion);
   const ideas = steps.filter((step) => step.suggestion);
+  const faults = ideas.filter((step) => step.fault);
+  const them = faults.length === 1 ? 'it' : 'them';
 
   if (fixes.length === 0) {
-    lines.push(`  ${ink.ok(ideas.length > 0 ? 'Nothing to fix. Every scored check passed.' : 'Nothing to fix. Every check that applies to this URL passed.')}`);
+    // "Nothing to fix" in green over a stale twin would be the report contradicting itself.
+    if (faults.length > 0) {
+      lines.push(`  ${ink.warn(`Every scored check passed, but ${listIds(faults)} ${faults.length === 1 ? 'fails' : 'fail'} on the twin agents are served.`)}`);
+    } else {
+      lines.push(`  ${ink.ok(ideas.length > 0 ? 'Nothing to fix. Every scored check passed.' : 'Nothing to fix. Every check that applies to this URL passed.')}`);
+    }
     lines.push('');
   } else {
     lines.push(`  ${c.bold('Do this next')} ${c.gray('(most points first)')}`);
@@ -261,20 +316,42 @@ function renderNextSteps(checks, score, width) {
     lines.push('');
   }
 
-  if (ideas.length > 0) {
+  // A twin fault gets its own heading, so a tip printed after it is not read as broken too.
+  if (faults.length > 0) {
+    lines.push(`  ${c.bold(fixes.length === 0 ? 'Fix the twin next' : 'Then, fix the twin')} ${c.gray(`(outside the score, and --strict fails a build on ${them})`)}`);
+    lines.push('');
+    lines.push(...renderStepGroup(faults, MAX_NEXT_STEPS, width, fixes.length === 0));
+  }
+
+  const tips = ideas.filter((step) => !step.fault);
+  if (tips.length > 0) {
     // Fewer of these than of the fixes: once the score is handled, the first suggestion or two is
     // the decision, and the full list is already printed above.
-    const shown = ideas.slice(0, fixes.length === 0 ? MAX_NEXT_STEPS : MAX_NEXT_IDEAS);
-    lines.push(`  ${c.bold(fixes.length === 0 ? 'Worth adopting next' : 'Then, to stand out')} ${c.gray('(suggestions, outside the score)')}`);
+    const first = fixes.length === 0 && faults.length === 0;
+    lines.push(`  ${c.bold(first ? 'Worth adopting next' : 'Then, to stand out')} ${c.gray('(suggestions, outside the score)')}`);
     lines.push('');
-    lines.push(...renderSteps(shown, width, fixes.length === 0));
-    const rest = ideas.slice(shown.length);
-    if (rest.length > 0) lines.push(`  ${c.gray(`plus ${rest.length} more: ${rest.map((step) => step.id).join(' ')}`)}`);
-    lines.push('');
+    lines.push(...renderStepGroup(tips, first ? MAX_NEXT_STEPS : MAX_NEXT_IDEAS, width, first));
   }
 
   if (fixes.length === 0 && ideas.length === 0) return lines;
   lines.push(c.gray('Run the same command with --prompt to get a fix prompt for Claude Code.'));
+  lines.push('');
+  return lines;
+}
+
+/**
+ * The first `cap` steps, then the ids of the rest on one line, then a blank line.
+ *
+ * @param {FixStep[]} steps
+ * @param {number} cap
+ * @param {number} width
+ * @param {boolean} emphasiseFirst
+ * @returns {string[]}
+ */
+function renderStepGroup(steps, cap, width, emphasiseFirst) {
+  const lines = renderSteps(steps.slice(0, cap), width, emphasiseFirst);
+  const rest = steps.slice(cap);
+  if (rest.length > 0) lines.push(`  ${c.gray(`plus ${rest.length} more: ${rest.map((step) => step.id).join(' ')}`)}`);
   lines.push('');
   return lines;
 }
@@ -296,7 +373,10 @@ function renderSteps(steps, width, emphasiseFirst) {
     const wrapped = wrapText(step.text, Math.max(24, width - gutter.length - 2));
     // Green throughout, because every number in this column is points coming back rather than
     // points lost. A suggestion has no points to show, so its column says what it is instead.
-    const left = step.suggestion ? ink.info('tip'.padStart(NEXT_POINTS_WIDTH)) : ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
+    const left =
+      step.fault ? ink.warn('fix'.padStart(NEXT_POINTS_WIDTH))
+      : step.suggestion ? ink.info('tip'.padStart(NEXT_POINTS_WIDTH))
+      : ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
     const paint = emphasiseFirst && index === 0 ? c.bold : (/** @type {string} */ line) => line;
     lines.push(`  ${left}  ${c.bold(step.id.padEnd(NEXT_ID_WIDTH))}  ${paint(wrapped[0] ?? '')}`);
     for (const line of wrapped.slice(1)) lines.push(`${gutter}${paint(line)}`);

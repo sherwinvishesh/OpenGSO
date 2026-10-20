@@ -242,6 +242,15 @@ describe('nextFixes', () => {
     ];
     expect(nextFixes(checks).map((entry) => entry.id)).toEqual(['A3', 'B1', 'A2']);
   });
+
+  it('puts a failing check on a twin already served ahead of the heavier ideas', () => {
+    const checks = [
+      check({ id: 'B1', category: 'B', scored: false, weight: 10, status: 'pass', earned: 10 }),
+      check({ id: 'B9', category: 'B', scored: false, weight: 6, status: 'partial', earned: 3 }),
+      check({ id: 'B14', category: 'B', scored: false, weight: 4, status: 'fail', earned: 0 }),
+    ];
+    expect(nextFixes(checks).map((entry) => entry.id)).toEqual(['B14', 'B9']);
+  });
 });
 
 describe('the key step', () => {

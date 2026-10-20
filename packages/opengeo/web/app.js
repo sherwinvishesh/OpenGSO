@@ -57,6 +57,8 @@ let error;
 let configBroken = false;
 /** @type {TestResponse | undefined} */
 let lastTest;
+/** @type {string | undefined} The manifest's `generatedAt` as of `lastTest`, for the staleness banner. */
+let testedAgainst;
 let onboarded = false;
 /** @type {Tab} */
 let tab = 'test';
@@ -70,7 +72,12 @@ const ctx = {
   lastTest: () => lastTest,
   onTestResult: (result) => {
     lastTest = result;
-    void reload();
+    testedAgainst = undefined;
+    // Read after the reload rather than before: the state from before the run can predate a generate
+    // made in a terminal, and the test compared against whatever was on disk when it ran.
+    void reload().then(() => {
+      testedAgainst = state?.manifest?.generatedAt;
+    });
   },
 };
 
@@ -131,8 +138,11 @@ function render() {
         // Onboarding ran the structural test on its way out, so the Test tab opens on that number
         // rather than on an empty panel inviting the user to run the thing they just watched run.
         if (firstTest) lastTest = firstTest;
+        testedAgainst = undefined;
         tab = 'test';
-        void reload();
+        void reload().then(() => {
+          testedAgainst = state?.manifest?.generatedAt;
+        });
       });
     }
     if (showing !== 'onboarding') fill(root, onboarding.node);
@@ -297,7 +307,7 @@ function createShell() {
       }
 
       const drift = lastTest?.checks?.find((check) => check.id === 'B14');
-      const verdict = stalenessOf(current, drift);
+      const verdict = stalenessOf(current, drift, Date.now(), testedAgainst);
       const verdictKey = verdict ? JSON.stringify(verdict) : '';
       if (verdictKey !== stalenessShown) {
         fill(stalenessSlot, stalenessBanner(verdict, () => show('generate', true)));

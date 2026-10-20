@@ -145,7 +145,7 @@ export const COMMAND_PACKAGES = {
 export const COMMAND_BLURB = {
   test: 'scores a live URL 0-100 for AI-readiness',
   generate: 'writes the .md twins, robots.txt, llms.txt and sitemap.xml',
-  settings: 'change the site, the bot lists and the API key, in your terminal',
+  settings: 'changes the site, the bot lists and the API key, in your terminal',
   start: 'sets the project up, then opens the OpenGEO dashboard',
   'prod test': 'verifies a deployed opengeo-prod middleware is serving correctly',
 };
@@ -274,6 +274,26 @@ function stopCause(status, rerun) {
   if (status === 402) return `The account is out of credit: top it up with the provider and ${rerun}.`;
   if (status === 404) return `That model, or that address, does not exist at this provider: check the model id (and ai.baseUrl if you set one) and ${rerun}. \`opengeo help providers\` lists each provider's default model.`;
   return `That is almost always the API key or the account it belongs to: check it with \`opengeo settings\` and ${rerun}.`;
+}
+
+/**
+ * `.env` lines that hold a key under a name OpenGEO does not read, each with the name to use.
+ * Named, never used: guessing which line is a key is how one ends up sent somewhere it was not
+ * meant for.
+ *
+ * @param {readonly { name: string; provider: string }[]} lookalikes
+ * @returns {string[]}
+ */
+function lookalikeLines(lookalikes) {
+  return lookalikes.slice(0, 3).flatMap(({ name, provider }) => {
+    const info = providerInfo(/** @type {import('./providers.js').AiProvider} */ (provider));
+    return [
+      ``,
+      `.env has ${name}, which looks like ${/^[aeiou]/i.test(info.label) ? 'an' : 'a'} ${info.label} key, but OpenGEO only reads`,
+      `the names providers document, so it was not used. Rename that line to:`,
+      `  ${info.envVars[0]}=<the same key>`,
+    ];
+  });
 }
 
 /**
@@ -500,15 +520,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   noApiKey: (feature, lookalikes = []) =>
     [
       `${feature} needs an AI provider, and none is configured.`,
-      ...lookalikes.slice(0, 3).flatMap(({ name, provider }) => {
-        const info = providerInfo(/** @type {import('./providers.js').AiProvider} */ (provider));
-        return [
-          ``,
-          `.env has ${name}, which looks like ${/^[aeiou]/i.test(info.label) ? 'an' : 'a'} ${info.label} key, but OpenGEO only reads`,
-          `the names providers document, so it was not used. Rename that line to:`,
-          `  ${info.envVars[0]}=<the same key>`,
-        ];
-      }),
+      ...lookalikeLines(lookalikes),
       ``,
       `OpenGEO is bring-your-own-key, and it does not care whose. Set one up with:`,
       `  opengeo settings`,
@@ -526,6 +538,22 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       ``,
       `Only these need a key: generate's AI tier, and \`opengeo test --content\`.`,
       `Structural tests, generate's free tier, and opengeo-prod never need one.`,
+    ].join('\n'),
+
+  /**
+   * The content review was not asked for by name, so a missing key is a note under the report and
+   * not the full set-up guide `noApiKey` gives a command that cannot run without one. Every
+   * keyless `opengeo test` ends with this, so it stays short. The first line is the reason, which
+   * is all the dashboard shows.
+   *
+   * @param {readonly { name: string; provider: string }[]} [lookalikes]
+   */
+  contentReviewSkipped: (lookalikes = []) =>
+    [
+      `No AI provider is configured, so only the structural checks ran.`,
+      `The score above never needs one. \`opengeo settings\` sets one up when you want the writing`,
+      `reviewed too, and \`opengeo help providers\` lists every provider it ships with.`,
+      ...lookalikeLines(lookalikes),
     ].join('\n'),
 
   /**

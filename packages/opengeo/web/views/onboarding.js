@@ -9,6 +9,7 @@ import {
   shownBots,
   toggled,
 } from '../components/bot-picker.js';
+import { twinFaultIds } from '../components/checks.js';
 import { createProgress } from '../components/progress.js';
 import { createProviderFields, customEndpointLabel, draftForProvider, draftReady, keyKept, providerInfoOf } from '../components/provider-fields.js';
 import { scorePanel } from '../components/score.js';
@@ -67,7 +68,10 @@ export function nextFixes(checks) {
   /** @param {CheckResult} check */
   const open = (check) => check.status === 'fail' || check.status === 'partial';
   const fixes = checks.filter((check) => check.scored && open(check)).sort((a, b) => b.weight - b.earned - (a.weight - a.earned));
-  const ideas = checks.filter((check) => !check.scored && open(check)).sort((a, b) => b.weight - a.weight);
+  const faults = twinFaultIds(checks);
+  const ideas = checks
+    .filter((check) => !check.scored && open(check))
+    .sort((a, b) => Number(faults.has(b.id)) - Number(faults.has(a.id)) || b.weight - a.weight);
   return [...fixes, ...ideas].slice(0, 3);
 }
 
@@ -632,21 +636,26 @@ function webRootGuess(state) {
  */
 function closingScore(result, score, state) {
   const next = nextFixes(result.checks ?? []);
+  const faults = twinFaultIds(result.checks ?? []);
+  const title =
+    next[0]?.scored ? 'Do this next (most points first)'
+    : next[0] && faults.has(next[0].id) ? 'Fix the twin next (outside the score, but agents are sent it wrong)'
+    : 'Worth adopting next (outside the score)';
   return [
     scorePanel({ score, url: result.url, framework: result.framework, history: result.history, bands: state.bands.structural }),
     next.length > 0
       ? el(
           'div',
           {},
-          el('div', { className: 'group-title', text: next[0]?.scored ? 'Do this next (most points first)' : 'Worth adopting next (outside the score)' }),
+          el('div', { className: 'group-title', text: title }),
           next.map((check) =>
             el(
               'div',
-              { className: check.scored ? 'check' : 'check check-suggestion' },
+              { className: check.scored ? 'check' : faults.has(check.id) ? 'check check-suggestion check-fault' : 'check check-suggestion' },
               el('div', { className: 'check-id', text: check.id }),
               el('div', {}, el('div', { className: 'check-title', text: check.title }), el('div', { className: 'check-reason', text: check.fix ?? check.reason })),
               // A scored fix is priced in score points, the dial's unit. A suggestion moves no score.
-              el('div', { className: 'check-points', text: check.scored ? `+${check.price ?? check.weight - check.earned}` : 'tip' }),
+              el('div', { className: 'check-points', text: check.scored ? `+${check.price ?? check.weight - check.earned}` : faults.has(check.id) ? 'fix' : 'tip' }),
             ),
           ),
         )

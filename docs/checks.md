@@ -409,11 +409,17 @@ Each row carries the check id, what it verifies, and the **specific** reason it 
 verdict, including the header value actually observed. No generic strings. A partial row also shows
 a small meter and the split, `2 of 4`, so the shape of the shortfall is readable without reading the
 sentence. A suggestion row is marked `TIP` rather than with a cross, because it is not a failure.
+The exception is a check that fails on a twin the page already serves, such as a twin gone stale
+after the page changed. That is not a convention waiting to be adopted but agents being sent
+something wrong, so the row is marked `WARN`, goes first in its group, and the group says so. It is
+still outside the score, and `--strict` is what fails a build on it.
 
 The report ends with **Do this next**: every scored fix ranked by the points it recovers, so the
 top line is always the most valuable edit you can make to the page. The suggestions follow under
 their own heading, heaviest first, so the twin (the one that unlocks twelve more) leads them. When
-nothing scored is left to fix, the suggestions are the whole list.
+nothing scored is left to fix, the suggestions are the whole list. A failing check on a served twin
+leads instead, marked `fix`, and the report says the twin agents are served is failing rather than
+"Nothing to fix".
 
 Every price the report prints, the `(+N)` on a fix, the `-N pts` on a failed row and the **Do this
 next** column, is in score points: how far that one fix would move the 0 to 100 headline. A check's
@@ -423,7 +429,8 @@ the exception, and stays in weight, because it is the check's own arithmetic rat
 suggestion is never priced.
 
 `--prompt` turns that same list into a fix prompt you can paste into a coding agent: scored fixes
-first, then the suggestions and the twelve waiting on B1, each marked as outside the score. It names
+first, then any check failing on a twin already served, then the suggestions and the twelve waiting
+on B1, each marked as outside the score. It names
 only `opengeo-prod` and OpenGEO's own documentation.
 
 ## The other half of a test run

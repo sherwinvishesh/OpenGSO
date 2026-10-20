@@ -70,7 +70,7 @@ export function checkDrift(e) {
     // The hash says something changed. How much is a different question, and it is the one the
     // reader actually has: a typo fix and a rewritten page both break the hash, and only one of them
     // is serving agents wrong information. Fidelity compares the facts, so it can tell them apart.
-    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false });
+    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false, candidate: 'twin' });
     if (drift.ok) {
       return partial(
         'B14',
@@ -82,10 +82,12 @@ export function checkDrift(e) {
         },
       );
     }
+    // The fact that moved goes in the reason rather than the detail: it is what tells a reader this
+    // is serving agents the wrong price, not just a different hash.
     return fail(
       'B14',
-      `The live page has changed since the twin was generated${age ? ` ${age}` : ''}. AI agents are being served stale content. Re-run \`opengeo generate\`.`,
-      `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}. ${drift.errors[0]}`,
+      `The live page has changed since the twin was generated${age ? ` ${age}` : ''}, so agents are being served stale content. ${drift.errors[0]}`,
+      `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}.`,
       'Re-run `opengeo generate` (+4).',
     );
   }
@@ -93,7 +95,7 @@ export function checkDrift(e) {
   // No hash anywhere: a hand-written twin, or one produced by something other than OpenGEO. Fall back
   // to comparing the facts on the live page against the facts in the twin, which is slower to
   // reason about but works without any bookkeeping.
-  const report = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false });
+  const report = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false, candidate: 'twin' });
   if (report.ok) {
     return pass(
       'B14',

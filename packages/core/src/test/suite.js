@@ -123,9 +123,11 @@ export async function runTestSuite(target, options) {
   // In `full` mode a missing key is expected and must not read as an error. In `content` mode the
   // user asked for exactly this one thing, so refusing loudly is the honest answer.
   if (!options.ai) {
-    const message = ERRORS.noApiKey(options.mode === 'content' ? 'test --content' : 'the content review', options.lookalikeKeys);
-    if (options.mode === 'content' || options.requireContent) result.contentError = message;
-    else result.contentSkipped = message;
+    if (options.mode === 'content' || options.requireContent) {
+      result.contentError = ERRORS.noApiKey(options.mode === 'content' ? 'test --content' : 'the content review', options.lookalikeKeys);
+    } else {
+      result.contentSkipped = ERRORS.contentReviewSkipped(options.lookalikeKeys);
+    }
     return result;
   }
 

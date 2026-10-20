@@ -20,6 +20,11 @@ test again.
 `--strict` to fail the build on any failing check, which is what you want once the markdown layer
 is live and should stay that way.
 
+**100/100, but B14 says the twin is stale.** The page changed and the twin was not regenerated, so
+agents are being sent the old facts. The report marks it `WARN` and leads with it. Freshness is
+outside the score, so the number stays where it was; re-run `opengeo generate`, and use `--strict`
+in CI so the next one fails the build.
+
 **B7 scores 2 of 4 on a Next.js site.** Expected. Next's App Router will not let middleware add
 `Vary` to a response it did not create, so the markdown side has it and the HTML side does not. It
 is a partial suggestion, not a failure, and does not change the exit code, even with `--strict`.

@@ -875,6 +875,12 @@ summary:focus-visible,
   background: var(--info);
 }
 
+/* A check failing on a twin already served: outside the score, but agents are sent it wrong. */
+.check-fault .check-points {
+  color: var(--warn);
+  font-weight: 500;
+}
+
 /* -- the locked block -------------------------------------------------------------------------- */
 
 .locked-head {

@@ -32,9 +32,11 @@ const STALE_AFTER_DAYS = 14;
  * @param {StateResponse | undefined} state
  * @param {CheckResult | undefined} drift
  * @param {number} [now]
+ * @param {string} [testedAgainst] The manifest's `generatedAt` when the test that produced `drift`
+ *   ran. A different one now means the twins were rewritten after that test.
  * @returns {StalenessVerdict | undefined}
  */
-export function stalenessOf(state, drift, now = Date.now()) {
+export function stalenessOf(state, drift, now = Date.now(), testedAgainst) {
   if (!state) return undefined;
 
   if (!state.manifest || state.manifest.pages.length === 0) {
@@ -49,12 +51,25 @@ export function stalenessOf(state, drift, now = Date.now()) {
   // Read off disk moments ago and naming the files, so it comes before anything else.
   if (state.freshness && state.freshness.stale.length > 0) return freshnessVerdict(state.freshness);
 
-  // A B14 failure is direct evidence, so it outranks any guess based on the clock.
+  // The banner's own button leads here: the test found the twin out of date, and generate has
+  // rewritten the twins since. Repeating the old failure would be wrong, and so would calling it
+  // fixed before anything has checked.
+  if (drift && drift.status === 'fail' && testedAgainst && state.manifest.generatedAt !== testedAgainst) {
+    return {
+      tone: 'ok',
+      title: 'Regenerated since the last test',
+      message: 'The twins were rewritten after that test found one out of date. Run the test again to confirm it matches the live page now.',
+      actionable: false,
+    };
+  }
+
+  // A B14 failure is direct evidence, so it outranks any guess based on the clock. Its reason already
+  // says agents are reading the old version and names what moved, and the banner's button is the fix.
   if (drift && drift.status === 'fail') {
     return {
       tone: 'fail',
       title: 'The served markdown no longer matches the live page',
-      message: `${drift.reason} Agents are being handed content that your site has since changed.`,
+      message: drift.reason,
       actionable: true,
     };
   }

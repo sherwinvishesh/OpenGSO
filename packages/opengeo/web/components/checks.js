@@ -30,7 +30,21 @@ const DOCS = 'https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md
  * @property {CheckResult[]} checks
  * @property {string} empty Shown when there are no checks. A blank one hides the group instead.
  * @property {string} [note]
+ * @property {Set<string>} [faults] Ids failing on a twin the site already serves, marked `fix`.
  */
+
+/**
+ * Ids of the suggestions failing on a twin the site already serves: the same rule as core's
+ * `twinFaults`. Once the twin is served, a failing check on it means agents are sent something
+ * wrong, which is not an idea for standing out, so it goes first and says so.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @returns {Set<string>}
+ */
+export function twinFaultIds(checks) {
+  if (!checks.some((check) => check.id === 'B1' && check.status === 'pass')) return new Set();
+  return new Set(checks.filter((check) => !check.scored && check.status === 'fail' && check.category === 'B').map((check) => check.id));
+}
 
 /**
  * The plain groups, in reading order. Locked is drawn separately, between Suggestions and Passed,
@@ -45,9 +59,13 @@ export function groupChecks(checks) {
    * @param {boolean} scored
    */
   const of = (status, scored) => checks.filter((check) => check.status === status && Boolean(check.scored) === scored);
+  const faults = twinFaultIds(checks);
   const suggestions = checks
     .filter((check) => !check.scored && (check.status === 'fail' || check.status === 'partial'))
-    .sort((a, b) => b.weight - a.weight);
+    .sort((a, b) => Number(faults.has(b.id)) - Number(faults.has(a.id)) || b.weight - a.weight);
+  const ids = [...faults];
+  const named = ids.length <= 1 ? ids.join('') : `${ids.slice(0, -1).join(', ')} and ${ids[ids.length - 1]}`;
+  const them = ids.length === 1 ? 'it' : 'them';
   return {
     before: [
       {
@@ -63,7 +81,11 @@ export function groupChecks(checks) {
         tone: 'info',
         checks: suggestions,
         empty: '',
-        note: 'Outside the score. The best-read sites have not adopted these either, so they are what would set this one apart.',
+        note:
+          faults.size > 0
+            ? `${named} ${faults.size === 1 ? 'fails' : 'fail'} on the twin this site already serves, so agents are being sent something wrong. Outside the score, but fix ${them} first: --strict fails a build on ${them}.`
+            : 'Outside the score. The best-read sites have not adopted these either, so they are what would set this one apart.',
+        faults,
       },
     ],
     locked: checks.filter((check) => check.status === 'locked'),
@@ -96,18 +118,30 @@ function groupTitle(title, tone, count, note) {
     { className: 'group-title' },
     title,
     pill(tone, String(count)),
-    note ? el('span', { style: { textTransform: 'none', letterSpacing: '0' }, text: note }) : null,
+    note ? el('span', { style: { textTransform: 'none', letterSpacing: '0' } }, noteParts(note)) : null,
   );
 }
 
+/**
+ * A flag in a note is set as code that never wraps, because a browser will otherwise break
+ * `--strict` after its first hyphen and leave a reader looking at a stray `--`.
+ *
+ * @param {string} note
+ */
+function noteParts(note) {
+  return note
+    .split(/(--[a-z][a-z-]*)/)
+    .map((part, index) => (index % 2 === 1 ? el('code', { style: { whiteSpace: 'nowrap' }, text: part }) : part));
+}
+
 /** @param {GroupSpec} spec */
-function group({ title, tone, checks, empty: emptyText, note }) {
+function group({ title, tone, checks, empty: emptyText, note, faults }) {
   if (checks.length === 0 && !emptyText) return null;
   return el(
     'div',
     { className: 'check-group' },
     groupTitle(title, tone, checks.length, checks.length > 0 ? note : undefined),
-    card('', checks.length === 0 ? empty(emptyText) : checks.map(checkRow)),
+    card('', checks.length === 0 ? empty(emptyText) : checks.map((check) => checkRow(check, faults?.has(check.id)))),
   );
 }
 
@@ -130,7 +164,7 @@ function lockedGroup(checks, score) {
   const blockers = score?.locked.unlockedBy ?? [];
   const blocker = blockers[0] ?? checks[0]?.lockedBy;
 
-  const detail = el('div', { attrs: { id: `locked-detail-${++lockedIds}` }, hidden: true }, checks.map(checkRow));
+  const detail = el('div', { attrs: { id: `locked-detail-${++lockedIds}` }, hidden: true }, checks.map((check) => checkRow(check)));
   const closedLabel = `Why each of the ${checks.length} is locked`;
   const toggle = el('button', {
     className: 'link-btn',
@@ -186,11 +220,14 @@ function lockedGroup(checks, score) {
   );
 }
 
-/** @param {CheckResult} check */
-function checkRow(check) {
+/**
+ * @param {CheckResult} check
+ * @param {boolean} [fault] Failing on a twin already served, so `fix` rather than `tip`.
+ */
+function checkRow(check, fault = false) {
   return el(
     'div',
-    { className: check.scored ? 'check' : 'check check-suggestion' },
+    { className: check.scored ? 'check' : fault ? 'check check-suggestion check-fault' : 'check check-suggestion' },
     el(
       'div',
       { className: 'check-id' },
@@ -223,7 +260,7 @@ function checkRow(check) {
       // Last, and only when there is one, because it is the part the reader acts on.
       check.fix ? el('div', { className: 'check-fix', text: check.fix }) : null,
     ),
-    el('div', { className: 'check-points', text: points(check) }),
+    el('div', { className: 'check-points', text: fault ? 'fix' : points(check) }),
   );
 }
 

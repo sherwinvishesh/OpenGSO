@@ -155,6 +155,36 @@ export function isSuggestion(check) {
 }
 
 /**
+ * Suggestions that failed on a twin the site already serves.
+ *
+ * Not a convention waiting to be adopted: the site adopted it, and what agents are sent is wrong (a
+ * twin gone stale, a header that went missing). It stays outside the score like every suggestion, so
+ * the headline does not move, but the report, the fix prompt and the dashboard put it first and say
+ * what it is rather than filing it with the ideas for standing out. `--strict` fails a build on it.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @returns {CheckResult[]}
+ */
+export function twinFaults(checks) {
+  if (!checks.some((check) => check.id === 'B1' && check.status === 'pass')) return [];
+  return checks.filter((check) => isSuggestion(check) && check.status === 'fail' && check.category === 'B');
+}
+
+/**
+ * Open suggestions, twin faults first and then heaviest first, so a broken twin is never ranked
+ * below a header the site has yet to add.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @returns {CheckResult[]}
+ */
+export function rankedSuggestions(checks) {
+  const faults = new Set(twinFaults(checks).map((check) => check.id));
+  return checks
+    .filter(isSuggestion)
+    .sort((a, b) => Number(faults.has(b.id)) - Number(faults.has(a.id)) || b.weight - a.weight);
+}
+
+/**
  * One entry in the "do this next" list.
  *
  * @typedef {object} FixStep
@@ -164,11 +194,13 @@ export function isSuggestion(check) {
  * @property {string} text The check's fix, without its price, since the list prints the price as its own column.
  * @property {number} unlocks How many locked checks this one makes measurable.
  * @property {boolean} [suggestion]
+ * @property {boolean} [fault] A suggestion failing on a twin the site already serves (`twinFaults`).
  */
 
 /**
  * What to do next: the scored fixes ranked by score points recovered, most first, then the open
- * suggestions by weight, so the markdown twin (the one that unlocks the rest) leads them.
+ * suggestions: a twin already served but failing first, then by weight, so the markdown twin (the
+ * one that unlocks the rest) leads them.
  *
  * Every step is returned and the renderer decides how many to show. The terminal report, the fix
  * prompt and the dashboard all rank from here, so they cannot disagree about what comes first.
@@ -195,16 +227,14 @@ export function fixSteps(checks, score) {
   });
   fixes.sort((a, b) => b.points - a.points);
 
+  const faults = new Set(twinFaults(checks).map((check) => check.id));
   /** @type {FixStep[]} */
-  const suggestions = checks
-    .filter(isSuggestion)
-    .sort((a, b) => b.weight - a.weight)
-    .map((check) => {
-      const count = unlocks(check.id);
-      let text = stripPrice(check.fix ?? check.title);
-      if (count > 0) text = `${text} That also makes ${count} more suggestion${count === 1 ? '' : 's'} measurable.`;
-      return { id: check.id, points: 0, recovered: 0, text, unlocks: count, suggestion: true };
-    });
+  const suggestions = rankedSuggestions(checks).map((check) => {
+    const count = unlocks(check.id);
+    let text = stripPrice(check.fix ?? check.title);
+    if (count > 0) text = `${text} That also makes ${count} more suggestion${count === 1 ? '' : 's'} measurable.`;
+    return { id: check.id, points: 0, recovered: 0, text, unlocks: count, suggestion: true, ...(faults.has(check.id) ? { fault: true } : {}) };
+  });
 
   return [...fixes, ...suggestions];
 }

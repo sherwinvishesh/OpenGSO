@@ -260,6 +260,45 @@ describe('the fix prompt', () => {
     expect(both).not.toContain('## The score is already full');
   });
 
+  it('points a plain HTML site at generating from its folder, and nobody else', () => {
+    const plain = { id: /** @type {const} */ ('plain'), name: 'plain HTML', evidence: 'the page loads no JavaScript bundle' };
+    const hint = '`opengeo generate <folder>` reads them directly';
+    expect(buildFixPrompt(resultWith([FAILURE, PASS], { framework: plain }))).toContain(hint);
+    expect(buildFixPrompt(resultWith([FAILURE, PASS], { framework: { id: 'nextjs', name: 'Next.js', evidence: '/_next/' } }))).not.toContain(hint);
+    // Already generating from files: the prompt names the real folder, so the hint would repeat it.
+    const configured = buildFixPrompt(resultWith([FAILURE, PASS], { framework: plain }), { folder: 'site', twinDir: 'site/' });
+    expect(configured).toContain('`opengeo generate site` reads the HTML files in site/');
+    expect(configured).not.toContain(hint);
+  });
+
+  it('gives a failing check on a twin already served its own section ahead of the suggestions', () => {
+    /** @type {CheckResult} */
+    const served = { ...FAILURE, id: 'B1', category: 'B', scored: false, weight: 10, status: 'pass', earned: 10, title: 'Twin reachable', detail: undefined };
+    /** @type {CheckResult} */
+    const stale = {
+      ...FAILURE,
+      id: 'B14',
+      category: 'B',
+      scored: false,
+      weight: 4,
+      title: 'Twin is fresh',
+      reason: 'The live page has changed since the twin was generated.',
+      detail: 'The live page now states 1 fact the twin does not: "$13,750".',
+      fix: 'Re-run `opengeo generate` (+4).',
+    };
+    /** @type {CheckResult} */
+    const llms = { ...FAILURE, id: 'A2', scored: false, weight: 3, title: 'llms.txt', reason: 'Missing.', detail: undefined };
+    const prompt = buildFixPrompt(resultWith([served, stale, llms, PASS]));
+    expect(prompt).toContain('## The score is already full');
+    expect(prompt).toContain('agents are being sent');
+    expect(prompt).toContain('## Failing on the twin already served (1)');
+    expect(prompt).toContain('- Weight: 4 (outside the score, worth no score points)');
+    expect(prompt).toContain('## Suggestions, not scored (1)');
+    expect(prompt.indexOf('### B14')).toBeLessThan(prompt.indexOf('## Suggestions, not scored'));
+    expect(prompt.indexOf('### A2')).toBeGreaterThan(prompt.indexOf('## Suggestions, not scored'));
+    expect(prompt).not.toContain('(+4)');
+  });
+
   describe('text that came from the site', () => {
     // A Content-Type header, a JSON-LD value or a framework fingerprint is whatever the server sent,
     // and this prompt is pasted into an agent with write access to the repository.

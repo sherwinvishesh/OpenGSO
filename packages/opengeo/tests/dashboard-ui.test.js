@@ -185,7 +185,19 @@ describe('stalenessOf', () => {
   it('lets a failed drift check outrank a recent generate', () => {
     const verdict = stalenessOf(stateWith('2026-01-31T11:00:00Z'), drift('fail'), now);
     expect(verdict?.tone).toBe('fail');
-    expect(verdict?.message).toMatch(/^The headings differ\. /);
+    expect(verdict?.message).toBe('The headings differ.');
+  });
+
+  it('stops quoting a failed drift check once the twins were regenerated after it', () => {
+    const tested = '2026-01-31T11:00:00Z';
+    // Still the manifest the test compared against: the failure stands.
+    expect(stalenessOf(stateWith(tested), drift('fail'), now, tested)?.tone).toBe('fail');
+    // Generate has run since. Neither the old failure nor a claim that it is fixed.
+    expect(stalenessOf(stateWith('2026-01-31T11:30:00Z'), drift('fail'), now, tested)).toMatchObject({
+      tone: 'ok',
+      title: 'Regenerated since the last test',
+      actionable: false,
+    });
   });
 
   it('warns after fourteen days, and says nothing before', () => {

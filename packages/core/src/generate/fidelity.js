@@ -58,7 +58,24 @@ import { countWords } from '../shared/tokens.js';
  * @property {boolean} [rejectInvented] Fail on a fact the candidate states and the source does not.
  *   On by default, for an AI rewrite. test's drift check turns it off: a hand-written twin may
  *   carry context the page does not, and a changed fact is already caught as a missing one.
+ * @property {'model' | 'twin'} [candidate] What the candidate is, for the wording. `model` (the
+ *   default) is an AI rewrite of the page. `twin` is a twin held against a page that has changed
+ *   since, where "the model's version" would blame a model that may never have been involved.
  */
+
+/** @type {Record<'model' | 'twin', { missing: (count: number, named: string) => string; empty: string; short: (candidate: number, source: number) => string }>} */
+const WORDING = {
+  model: {
+    missing: (count, named) => `The model's version drops or changes ${count} fact${count === 1 ? '' : 's'} from the page: ${named}.`,
+    empty: 'The model returned an empty document.',
+    short: (candidate, source) => `The model returned ${candidate} words against the page's ${source}. That is a summary, not a faithful reproduction.`,
+  },
+  twin: {
+    missing: (count, named) => `The live page now states ${count} fact${count === 1 ? '' : 's'} the twin does not: ${named}.`,
+    empty: 'The twin is empty.',
+    short: (candidate, source) => `The twin has ${candidate} words against the live page's ${source}, so most of what the page now says is not in it.`,
+  },
+};
 
 /** @type {Record<string, number>} */
 const MONTH_NAMES = {
@@ -228,6 +245,7 @@ export function verifyFidelity(source, candidate, options = {}) {
   const minWordRatio = options.minWordRatio ?? 0.6;
   const minFactOccurrenceRatio = options.minFactOccurrenceRatio ?? 0.8;
   const maxReported = options.maxReported ?? 5;
+  const wording = WORDING[options.candidate ?? 'model'];
 
   /** @type {FidelityIssue[]} */
   const issues = [];
@@ -236,7 +254,7 @@ export function verifyFidelity(source, candidate, options = {}) {
   const missing = [];
 
   if (candidate.trim().length === 0) {
-    issues.push({ code: 'empty-output', severity: 'error', message: 'The model returned an empty document.' });
+    issues.push({ code: 'empty-output', severity: 'error', message: wording.empty });
     return finish(issues, sourceFacts, missing);
   }
 
@@ -266,7 +284,7 @@ export function verifyFidelity(source, candidate, options = {}) {
     issues.push({
       code: 'missing-fact',
       severity: 'error',
-      message: `The model's version drops or changes ${missing.length} fact${missing.length === 1 ? '' : 's'} from the page: ${named}${rest}.`,
+      message: wording.missing(missing.length, `${named}${rest}`),
     });
   }
 
@@ -304,7 +322,7 @@ export function verifyFidelity(source, candidate, options = {}) {
     issues.push({
       code: 'too-short',
       severity: 'error',
-      message: `The model returned ${candidateWords} words against the page's ${sourceWords}. That is a summary, not a faithful reproduction.`,
+      message: wording.short(candidateWords, sourceWords),
     });
   }
 

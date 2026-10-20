@@ -403,6 +403,71 @@ describe('scoring', () => {
   it('reports a score of 0 when nothing can be scored', () => {
     expect(scoreChecks([]).value).toBe(0);
   });
+
+  it('treats a stale twin on a site that serves one as something to fix, not a convention to adopt', () => {
+    // What a price change without a regenerate looks like: the twin is served, the score is full,
+    // and agents are quoted the old number.
+    const evidence = goodEvidence();
+    evidence.twin.headers.set('x-markdown-source-hash', 'deadbeefdeadbeef');
+    evidence.html = probe({ body: GOOD_HTML.replace('in 2024', 'in 2025'), headers: evidence.html.headers });
+    const result = testEvidence(evidence);
+    expect(result.score.value).toBe(100);
+    expect(result.checks.find((check) => check.id === 'B14')?.status).toBe('fail');
+
+    const steps = fixSteps(result.checks, result.score);
+    expect(steps[0]).toMatchObject({ id: 'B14', suggestion: true, fault: true, points: 0 });
+
+    const plain = renderReport(result, { width: 200 }).replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(plain).toContain('WARN B14');
+    expect(plain).toContain('B14 fails on the markdown twin this page already serves, so agents are being sent something wrong.');
+    expect(plain).toContain('--strict fails a build on it');
+    expect(plain).toContain('Every scored check passed, but B14 fails on the twin agents are served.');
+    expect(plain).toContain('Fix the twin next');
+    expect(plain).toMatch(/fix {2}B14 {2}Re-run `opengeo generate`/);
+    expect(plain).not.toContain('Nothing to fix');
+    expect(plain).not.toContain('Worth adopting next');
+    expect(plain).not.toContain('this page has not adopted');
+
+    // The headline is unchanged, which is why --strict is the switch that catches it in CI.
+    expect(failsBuild(result.checks)).toBe(false);
+    expect(failsBuild(result.checks, { strict: true })).toBe(true);
+  });
+
+  it('keeps a tip out from under the twin-fault heading', () => {
+    const evidence = goodEvidence();
+    evidence.twin.headers.set('x-markdown-source-hash', 'deadbeefdeadbeef');
+    // Next's App Router: Vary on the markdown side only, so B7 is adopted in part.
+    evidence.html = probe({
+      body: GOOD_HTML.replace('in 2024', 'in 2025'),
+      headers: new Headers([...evidence.html.headers].filter(([name]) => name !== 'vary')),
+    });
+    const result = testEvidence(evidence);
+    expect(result.checks.find((check) => check.id === 'B7')?.status).toBe('partial');
+
+    const plain = renderReport(result, { width: 200 }).replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    const footer = plain.slice(plain.indexOf('Every scored check passed, but B14'));
+    const twinHeading = footer.indexOf('Fix the twin next');
+    const tipHeading = footer.indexOf('Then, to stand out');
+    expect(twinHeading).toBeGreaterThan(-1);
+    expect(tipHeading).toBeGreaterThan(twinHeading);
+    expect(footer.indexOf(' fix  B14')).toBeGreaterThan(twinHeading);
+    expect(footer.indexOf(' fix  B14')).toBeLessThan(tipHeading);
+    expect(footer.indexOf(' tip  B7')).toBeGreaterThan(tipHeading);
+  });
+
+  it('keeps the ordinary wording when the twin is merely cosmetically behind or never served', () => {
+    const cosmetic = goodEvidence();
+    cosmetic.twin.headers.set('x-markdown-source-hash', 'deadbeefdeadbeef');
+    const behind = testEvidence(cosmetic);
+    expect(fixSteps(behind.checks, behind.score).some((step) => step.fault)).toBe(false);
+    const plain = renderReport(behind, { width: 400 }).replace(new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g'), '');
+    expect(plain).not.toContain('agents are being sent something wrong');
+    // A twin behind the page is a convention adopted in part, and the intro says so.
+    expect(plain).toContain('Conventions for AI agents this page has adopted in part.');
+
+    const unadopted = runChecks(unadoptedSiteEvidence());
+    expect(fixSteps(unadopted, scoreChecks(unadopted)).some((step) => step.fault)).toBe(false);
+  });
 });
 
 /**
@@ -512,7 +577,12 @@ describe('B14 staleness and drift', () => {
     const real = byId(evidence).get('B14');
     expect(real?.status).toBe('fail');
     expect(real?.reason).toContain('changed since the twin was generated');
-    expect(real?.reason).toContain('opengeo generate');
+    // Named from the twin's side, in the reason: no model was involved in a free-tier twin going
+    // stale, and the fact that moved is the part a reader needs first.
+    expect(real?.reason).toContain('The live page now states 1 fact the twin does not: "2025"');
+    expect(real?.reason).not.toContain('model');
+    expect(real?.fix).toContain('opengeo generate');
+    expect(real?.detail).toContain('deadbeefdeadbeef');
   });
 
   it('reads the hash out of frontmatter when the twin is served as a plain static file', () => {

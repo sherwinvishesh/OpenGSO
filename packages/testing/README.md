@@ -122,6 +122,10 @@ sets a site apart.
 Every row carries the check id, what it verifies, and the specific reason for that verdict,
 including the header value actually observed. Never a generic string.
 
+A suggestion that fails on a twin the site already serves, a stale twin most often, is marked
+`WARN` rather than `TIP` and listed first: the site adopted the convention and agents are being
+sent something wrong. It stays outside the score, so `--strict` is what fails a build on it.
+
 `--verbose` shows the reasoning behind the passes too, which is what you want when you do not
 believe the number.
 

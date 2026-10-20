@@ -242,6 +242,25 @@ describe('test view helpers', () => {
     expect(list.textContent).toContain('Nothing scored is failing.');
   });
 
+  it('puts a failing check on a twin already served first, marked fix rather than tip', () => {
+    const served = check({ id: 'B1', category: 'B', scored: false, status: 'pass', weight: 10, earned: 10 });
+    const stale = check({ id: 'B14', category: 'B', scored: false, status: 'fail', weight: 4, earned: 0, reason: 'The live page has changed.' });
+    const idea = check({ id: 'B9', category: 'B', scored: false, status: 'partial', weight: 6, earned: 3 });
+    const suggestions = groupChecks([served, idea, stale]).before.find((group) => group.title === 'Suggestions');
+    expect(suggestions?.checks.map((entry) => entry.id)).toEqual(['B14', 'B9']);
+    expect(suggestions?.note).toContain('B14 fails on the twin this site already serves');
+
+    const list = checkList([served, idea, stale], score());
+    expect([...list.querySelectorAll('.check-fault .check-points')].map((node) => node.textContent)).toEqual(['fix']);
+    expect(list.textContent).toContain('--strict fails a build on it');
+    expect(list.querySelector('.group-title code')?.textContent).toBe('--strict');
+
+    // Without a served twin the same failure is a convention not yet adopted, and stays a tip.
+    const unserved = checkList([check({ ...served, status: 'fail', earned: 0 }), stale], score());
+    expect(unserved.querySelector('.check-fault')).toBeNull();
+    expect(unserved.textContent).not.toContain('something wrong');
+  });
+
   it('links a check to its heading in docs/checks.md', () => {
     expect(slug('Robots, allowed?')).toBe('robots-allowed');
     expect(docsUrl({ id: 'A2', title: 'Robots, allowed?' })).toBe('https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md#a2---robots-allowed');

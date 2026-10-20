@@ -458,7 +458,9 @@ describe('runTestSuite', () => {
   it('notes a missing key in full mode and refuses in content mode', async () => {
     const full = await runTestSuite(`${site}/`, { mode: 'full', env: {} });
     expect(full.structure).toBeDefined();
-    expect(full.contentSkipped).toMatch(/key/i);
+    expect(full.contentSkipped).toMatch(/^No AI provider is configured/);
+    // Every keyless run ends with this note, so it is a note and not the set-up guide.
+    expect(full.contentSkipped?.split('\n').length).toBeLessThanOrEqual(3);
     expect(full.contentError).toBeUndefined();
 
     const content = await runTestSuite(`${site}/`, { mode: 'content', env: {} });

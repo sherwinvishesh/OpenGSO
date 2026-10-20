@@ -1,6 +1,6 @@
 import { terminalText } from '../shared/log.js';
 import { MD_DIR } from '../shared/routes.js';
-import { isSuggestion, scoreGain, stripPrice } from './score.js';
+import { rankedSuggestions, scoreGain, stripPrice, twinFaults } from './score.js';
 
 /**
  * @import { CheckId, CheckResult } from './checks.js'
@@ -129,9 +129,12 @@ export function buildFixPrompt(result, options = {}) {
   const partials = [...result.checks.filter((check) => check.scored && check.status === 'partial')].sort(
     (a, b) => b.weight - b.earned - (a.weight - a.earned),
   );
+  // A suggestion failing on a twin the site already serves is its own section: agents are being
+  // sent something wrong, and filing it with the optional ideas would tell the agent to ask first.
+  const faults = twinFaults(result.checks);
   // Last, and labelled as optional: an agent handed a list does all of it, and the user should get
   // the score fixed before a single header is added for a convention most sites have not adopted.
-  const suggestions = result.checks.filter(isSuggestion).sort((a, b) => b.weight - a.weight);
+  const suggestions = rankedSuggestions(result.checks).filter((check) => !faults.includes(check));
   const blocked = result.checks.filter((check) => check.status === 'locked');
   const ideas = result.score.suggestions;
   /** @type {string[]} */
@@ -161,7 +164,7 @@ export function buildFixPrompt(result, options = {}) {
   if (options.command) lines.push(`- Command that produced this: ${quoted(options.command)}`);
   lines.push('');
 
-  if (failures.length === 0 && partials.length === 0 && suggestions.length === 0 && blocked.length === 0) {
+  if (failures.length === 0 && partials.length === 0 && faults.length === 0 && suggestions.length === 0 && blocked.length === 0) {
     lines.push('## Nothing failed');
     lines.push('');
     lines.push('Every check passed. There is no work to do here.');
@@ -174,8 +177,16 @@ export function buildFixPrompt(result, options = {}) {
     lines.push('');
     lines.push(
       `Every scored check passed, so the site reads ${result.score.value}/100 and nothing below changes that.`,
-      'What is left are suggestions: conventions for AI agents that would set the site apart. Confirm',
-      'with the user that they want them before making changes.',
+      ...(faults.length > 0
+        ? [
+            'The markdown twin the site already serves has a problem, though, so agents are being sent',
+            'something wrong. Fix that first. Anything listed after it is a suggestion: confirm with the',
+            'user that they want those before making changes.',
+          ]
+        : [
+            'What is left are suggestions: conventions for AI agents that would set the site apart. Confirm',
+            'with the user that they want them before making changes.',
+          ]),
     );
     lines.push('');
   }
@@ -192,6 +203,18 @@ export function buildFixPrompt(result, options = {}) {
     lines.push('These already do most of what they should. Each one names the remaining step and what it is worth.');
     lines.push('');
     for (const check of partials) lines.push(...renderPartial(check, result, options));
+  }
+
+  if (faults.length > 0) {
+    lines.push(`## Failing on the twin already served (${faults.length})`);
+    lines.push('');
+    lines.push(
+      'The site serves a markdown twin and these checks on it failed, so agents are being sent something',
+      'wrong. They are outside the score like every suggestion, but they are not optional: `opengeo test',
+      '--strict` fails a build on them. Fix these before anything in the suggestions.',
+    );
+    lines.push('');
+    for (const check of faults) lines.push(...renderSuggestion(check, result, options, true));
   }
 
   if (suggestions.length > 0) {
@@ -225,6 +248,14 @@ export function buildFixPrompt(result, options = {}) {
       : [
           `- \`opengeo generate <url>\` produces the twins under ${twinDirFor(options)}, plus robots.txt, llms.txt and`,
           '  sitemap.xml. It runs on a developer machine, never in CI and never per request.',
+          // A page with no bundle is usually a folder of HTML files, and generating from the files
+          // puts each twin beside its page, which a static host can serve with no middleware at all.
+          ...(result.framework?.id === 'plain'
+            ? [
+                '- If this site is a folder of HTML files, `opengeo generate <folder>` reads them directly and',
+                '  writes each twin beside its page (about.html gets about.html.md) instead of crawling the URL.',
+              ]
+            : []),
         ]),
     '- `opengeo test <url>` re-runs exactly this audit, so you can verify each change.',
   );
@@ -314,9 +345,10 @@ function renderPartial(check, result, options) {
  * @param {CheckResult} check
  * @param {TestResult} result
  * @param {FixPromptOptions} options
+ * @param {boolean} [fault] One of `twinFaults`, which is not an idea to weigh up.
  * @returns {string[]}
  */
-function renderSuggestion(check, result, options) {
+function renderSuggestion(check, result, options, fault = false) {
   /** @type {string[]} */
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
@@ -324,7 +356,7 @@ function renderSuggestion(check, result, options) {
   lines.push(
     check.status === 'partial'
       ? `- Adopted so far: ${check.earned} of ${check.weight} (a suggestion, worth no score points)`
-      : `- Weight: ${check.weight} (a suggestion, worth no score points)`,
+      : `- Weight: ${check.weight} (${fault ? 'outside the score' : 'a suggestion'}, worth no score points)`,
   );
   lines.push(`- What happened: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);

@@ -382,6 +382,13 @@ describe('resolveAiCall', () => {
     expect(message).toContain('DASHSCOPE_API_KEY=<the same key>');
     expect(message).not.toContain('sk-ant-not-a-real-key');
     expect(ERRORS.noApiKey('x')).not.toContain('.env has');
+
+    // The short note a keyless `opengeo test` ends with names them too: the person who wrote
+    // claude_api= is the one most likely to wonder why the review never runs.
+    const skipped = ERRORS.contentReviewSkipped('lookalikes' in result ? result.lookalikes : []);
+    expect(skipped).toContain('ANTHROPIC_API_KEY=<the same key>');
+    expect(skipped).not.toContain('sk-ant-not-a-real-key');
+    expect(ERRORS.contentReviewSkipped()).not.toContain('.env has');
   });
 
   it('refuses to send one provider\'s key to another one named by a flag', () => {
