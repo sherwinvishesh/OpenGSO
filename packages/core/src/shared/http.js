@@ -63,17 +63,23 @@ export const HOSTILE_ACCEPT = 'application/pdf';
  */
 export async function probe(url, options = {}) {
   const { headers = {}, method = 'GET', timeoutMs = 15_000, headOnly = false, redirect = 'follow', maxBytes = MAX_PROBE_BYTES } = options;
-  const started = performance.now();
+  let started = performance.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  /** @type {RequestInit} */
+  const init = { method, redirect, headers: { 'User-Agent': OPENGEO_UA, ...headers }, signal: controller.signal };
 
   try {
-    const response = await fetch(url, {
-      method,
-      redirect,
-      headers: { 'User-Agent': OPENGEO_UA, ...headers },
-      signal: controller.signal,
-    });
+    /** @type {Response} */
+    let response;
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      if (controller.signal.aborted || !worthRetrying(error, method)) throw error;
+      // Timed from the retry: the lost socket was the client's race, not the server's slowness.
+      started = performance.now();
+      response = await fetch(url, init);
+    }
     const ttfbMs = performance.now() - started;
     const wanted = !headOnly && (options.readBody?.(response.headers) ?? true);
     const { body, truncated } = wanted ? await readCapped(response, maxBytes) : await discard(response);
@@ -105,6 +111,26 @@ export async function probe(url, options = {}) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * A kept-alive socket the server closed just as a request went out on it. Undici retires idle
+ * sockets ahead of the server's advertised timeout, but on a busy event loop (a long crawl parsing
+ * pages) that timer can run late, and the request dies on a connection that was already gone.
+ */
+const RESET_CODES = new Set(['UND_ERR_SOCKET', 'ECONNRESET', 'EPIPE']);
+
+/**
+ * One more try, for a request that is safe to send twice and failed on a dropped connection. A
+ * refused connection, a DNS failure or a timeout would fail the same way again, so those are not.
+ *
+ * @param {unknown} error
+ * @param {string} method
+ */
+function worthRetrying(error, method) {
+  if (!['GET', 'HEAD'].includes(method.toUpperCase())) return false;
+  const cause = error instanceof Error ? /** @type {{ code?: unknown }} */ (error.cause ?? {}) : {};
+  return typeof cause.code === 'string' && RESET_CODES.has(cause.code);
 }
 
 /**

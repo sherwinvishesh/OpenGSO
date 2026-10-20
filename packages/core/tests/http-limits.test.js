@@ -101,6 +101,56 @@ describe('probe reads a bounded body', () => {
   });
 });
 
+describe('probe and a dropped connection', () => {
+  it('tries a GET once more when the server drops the connection before answering', async () => {
+    let requests = 0;
+    const site = await serve((req, res) => {
+      requests += 1;
+      if (requests === 1) return void req.socket.destroy();
+      res.end('second time');
+    });
+    try {
+      const result = await probe(`${site.base}/`);
+      expect(result.error).toBeUndefined();
+      expect(result.body).toBe('second time');
+      expect(requests).toBe(2);
+    } finally {
+      await site.close();
+    }
+  });
+
+  it('does not send a POST twice', async () => {
+    let requests = 0;
+    const site = await serve((req) => {
+      requests += 1;
+      req.socket.destroy();
+    });
+    try {
+      const result = await probe(`${site.base}/`, { method: 'POST' });
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/fetch failed/);
+      expect(requests).toBe(1);
+    } finally {
+      await site.close();
+    }
+  });
+
+  it('gives up after the one retry', async () => {
+    let requests = 0;
+    const site = await serve((req) => {
+      requests += 1;
+      req.socket.destroy();
+    });
+    try {
+      const result = await probe(`${site.base}/`);
+      expect(result.ok).toBe(false);
+      expect(requests).toBe(2);
+    } finally {
+      await site.close();
+    }
+  });
+});
+
 describe('the crawler', () => {
   it('skips a page over the cap rather than parsing half of it', async () => {
     const server = await serve(endless('text/html'));
