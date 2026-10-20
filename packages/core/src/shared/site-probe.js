@@ -92,7 +92,7 @@ export async function previewSite(url, options = {}) {
  * @param {string} message
  * @returns {string}
  */
-function whyUnreachable(url, message) {
+export function whyUnreachable(url, message) {
   const target = parseUrl(url);
   if (/abort|timed? ?out/i.test(message)) return 'it did not answer in time';
   if (!/fetch failed|ECONNREFUSED|ECONNRESET|terminated|other side closed|socket hang up/i.test(message)) return message;

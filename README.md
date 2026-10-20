@@ -105,9 +105,10 @@ says "1 out of date", and the dashboard shows it in a banner. A page with no twi
 whose page was deleted are caught the same way. `--check` writes nothing, so it fits a pre-commit
 hook.
 
-Two things to know. GitHub Pages runs Jekyll unless the folder holds an empty `.nojekyll` file, and
-Jekyll turns the twins into HTML pages; generate says so when the folder looks like a GitHub Pages
-site. A site served from a sub-path, such as `user.github.io/repo/`, is not supported yet.
+On GitHub Pages it works for a project site in a folder too: `--origin https://user.github.io/repo`
+puts the folder in every URL, and generate writes the `.nojekyll` file that stops Jekyll from
+turning the twins into HTML pages. See
+[From a folder of HTML files](packages/generate/README.md#from-a-folder-of-html-files).
 
 ## Bring any AI provider
 
@@ -234,8 +235,10 @@ follow a change and what to do about it.
 ## Known limitations
 
 - **Client-rendered pages.** HTML is parsed with jsdom and page scripts are never executed, so a page
-  that is empty until JavaScript runs extracts as empty. Generate warns instead of writing a hollow
-  twin. See [`TODO-csr-jsdom.md`](packages/core/src/generate/TODO-csr-jsdom.md).
+  that is empty until JavaScript runs extracts as empty. Generate still writes its twin, and warns
+  with the word count so a near-empty one is never mistaken for the page; on a dev server that renders
+  in the browser it says to generate from the production build instead. See
+  [`TODO-csr-jsdom.md`](packages/core/src/generate/TODO-csr-jsdom.md).
 - **SSR output without semantic landmarks.** Frameworks that ship no `<main>` or `<article>` fall back
   to the whole body. See [`TODO-ssr-extraction.md`](packages/core/src/generate/TODO-ssr-extraction.md).
 - **`Vary: Accept` on Next.js App Router.** Next does not let middleware add `Vary` to a response it

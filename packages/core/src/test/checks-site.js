@@ -47,6 +47,18 @@ export function servesFile(response) {
   return response.ok && !looksLikeHtml(response.body);
 }
 
+/**
+ * The folder of its host this site lives in, `https://user.github.io/repo/`, when its own llms.txt or
+ * sitemap.xml was found there rather than at the root of the host, which is what says it is one.
+ *
+ * @param {Evidence} e
+ * @returns {string | undefined}
+ */
+function siteFolder(e) {
+  const folder = e.folder;
+  return folder && [e.llms, e.sitemap].some((file) => file.url.startsWith(folder) && servesFile(file)) ? folder : undefined;
+}
+
 // ---- Category A ------------------------------------------------------------------------------
 
 /**
@@ -55,11 +67,15 @@ export function servesFile(response) {
  */
 export function checkRobots(e) {
   if (!e.robots.ok) {
+    const folder = siteFolder(e);
+    const pages = e.target.hostname.endsWith('.github.io') ? ` On GitHub Pages that is the ${e.target.hostname} repository.` : '';
     return fail(
       'A1',
       `No robots.txt at ${e.robots.url} (HTTP ${e.robots.status || 'unreachable'}). AI crawlers get no explicit signal about what they may read.`,
       undefined,
-      'Serve a robots.txt that allows the AI agents you want reading the site (+9). `opengeo generate` writes one.',
+      folder
+        ? `Crawlers read robots.txt only at the root of the host, and this site lives in ${folder}, so it has to be published from that root (+9).${pages} Allow the AI agents you want reading the site, and add a Sitemap line for ${folder}sitemap.xml.`
+        : 'Serve a robots.txt that allows the AI agents you want reading the site (+9). `opengeo generate` writes one.',
     );
   }
   if (!servesFile(e.robots)) {
@@ -123,7 +139,7 @@ export function checkLlmsTxt(e) {
   if (!e.llms.ok) {
     return fail(
       'A2',
-      `No llms.txt at ${e.llms.url} (HTTP ${e.llms.status || 'unreachable'}).`,
+      `No llms.txt at ${e.llms.url}${e.folder ? ` or ${e.folder}llms.txt` : ''} (HTTP ${e.llms.status || 'unreachable'}).`,
       undefined,
       'Serve /llms.txt with a title and your key pages as markdown links (+3). `opengeo generate` writes it.',
     );
@@ -166,7 +182,7 @@ export function checkSitemap(e) {
   if (!e.sitemap.ok) {
     return fail(
       'A3',
-      `No sitemap.xml at ${e.sitemap.url} (HTTP ${e.sitemap.status || 'unreachable'}).`,
+      `No sitemap.xml at ${e.sitemap.url}${e.folder ? ` or ${e.folder}sitemap.xml` : ''} (HTTP ${e.sitemap.status || 'unreachable'}).`,
       undefined,
       'Serve a /sitemap.xml listing every page (+9). `opengeo generate` builds one from a crawl.',
     );

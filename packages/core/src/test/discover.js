@@ -86,7 +86,7 @@ export async function discoverTwins(target, options = {}) {
   };
 
   add(requested, evidence?.advertisedTwinUrl === requested ? 'advertised' : 'requested');
-  if (llms.ok) for (const url of markdownLinksIn(llms.body, target.origin)) add(url, 'llms.txt');
+  if (llms.ok) for (const url of markdownLinksIn(llms.body, target.origin, llms.url)) add(url, 'llms.txt');
   if (sitemap.ok) for (const url of sitemapTwins(sitemap.body, target.origin)) add(url, 'sitemap.xml');
   for (const child of childSitemaps) if (child.ok) for (const url of sitemapTwins(child.body, target.origin)) add(url, 'sitemap.xml');
 
@@ -156,9 +156,11 @@ export function looksLikeHtml(body) {
  *
  * @param {string} body
  * @param {string} origin
+ * @param {string} [base] Where the llms.txt was found, which a relative link is relative to: a site in
+ *   a folder of its host keeps it in that folder.
  * @returns {string[]}
  */
-export function markdownLinksIn(body, origin) {
+export function markdownLinksIn(body, origin, base = origin) {
   /** @type {string[]} */
   const out = [];
   /** @type {Set<string>} */
@@ -168,7 +170,7 @@ export function markdownLinksIn(body, origin) {
     /** @type {URL} */
     let url;
     try {
-      url = new URL(raw, origin);
+      url = new URL(raw, base);
     } catch {
       return;
     }

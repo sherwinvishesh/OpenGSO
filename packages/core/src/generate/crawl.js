@@ -2,6 +2,7 @@ import { JSDOM } from 'jsdom';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { hasDotSegment, normalizeRoute } from '../shared/routes.js';
+import { whyUnreachable } from '../shared/site-probe.js';
 
 /**
  * Route discovery by following real `<a href>` links (§6, and the §17 ceiling on how far
@@ -161,7 +162,7 @@ export async function crawlSite(options) {
       continue;
     }
     if (!response.ok) {
-      failures.push({ route: next.route, url, reason: response.error ?? `HTTP ${response.status}` });
+      failures.push({ route: next.route, url, reason: response.error ? whyUnreachable(url, response.error) : `HTTP ${response.status}` });
       continue;
     }
 

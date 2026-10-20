@@ -146,6 +146,25 @@ describe('the fix prompt', () => {
     expect(prompt).toContain('Next.js');
   });
 
+  it('says where the middleware goes for the framework it found, and how a static build serves twins', () => {
+    /** @param {import('../src/shared/framework.js').FrameworkId} id */
+    const line = (id) =>
+      buildFixPrompt(resultWith([FAILURE], { framework: { id, name: id, evidence: 'x' } }))
+        .split('\n')
+        .find((text) => text.startsWith('For this framework'));
+    expect(line('nextjs')).toContain('proxy.ts');
+    expect(line('sveltekit')).toContain('hooks.server');
+    // A static host serves crawled twins at /md/..., never at the page's .md URL, so the only two
+    // honest answers are an edge function or generating from the build folder.
+    /** @type {Array<[import('../src/shared/framework.js').FrameworkId, string]>} */
+    const statics = [['vitepress', 'docs/.vitepress/dist'], ['docusaurus', 'build'], ['vite', 'dist']];
+    for (const [id, out] of statics) {
+      expect(line(id)).toContain('opengeo-prod/edge');
+      expect(line(id)).toContain(`\`opengeo generate ${out}\``);
+    }
+    expect(line('gatsby')).not.toMatch(/build script/);
+  });
+
   it('gives each failed check its id, points, reason and a fix', () => {
     const prompt = buildFixPrompt(result);
     expect(prompt).toContain('### A3 - sitemap.xml is present and valid');

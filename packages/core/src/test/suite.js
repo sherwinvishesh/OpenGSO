@@ -69,6 +69,7 @@ export function isTestMode(value) {
  * @property {number} [timeoutMs]
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
  * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it routes.
+ * @property {string} [publicOrigin] The project's `publicOrigin`, so B14 compares a twin with the page it was made from.
  * @property {SuiteAi} [ai] Absent means the content pass reports "no key" instead of running.
  * @property {readonly LookalikeKey[]} [lookalikeKeys] `.env` lines that look like a key under a name
  *   OpenGEO does not read, named in the "no key" message.
@@ -182,7 +183,12 @@ export async function runTestSuite(target, options) {
  */
 async function runStructure(url, options) {
   options.onProgress?.({ phase: 'structure' });
-  const result = await testUrl(url.toString(), { timeoutMs: options.timeoutMs, bots: options.bots, markdownRouting: options.markdownRouting });
+  const result = await testUrl(url.toString(), {
+    timeoutMs: options.timeoutMs,
+    bots: options.bots,
+    markdownRouting: options.markdownRouting,
+    publicOrigin: options.publicOrigin,
+  });
   options.onProgress?.({ phase: 'structure-done', result });
   return result;
 }

@@ -385,6 +385,11 @@ The hash is taken over the **extracted markdown**, not the raw HTML. Hashing raw
 on every framework rebuild, every hydration marker, every build id, and the check would cry wolf
 until people stopped reading it.
 
+Generate writes every link in a twin against `publicOrigin`, so a page tested somewhere else, a dev
+server or a local preview of the build, carries a different address in each link. Before calling that
+drift, the check reads the page again at the address the twin names: the `url` in its frontmatter,
+or the same path on the project's `publicOrigin`.
+
 **Partial: 2** when the hash differs but every number, date and price on the live page still appears
 in the twin. A typo fix and a rewritten page both break the hash, and only one of them is serving
 agents wrong information.

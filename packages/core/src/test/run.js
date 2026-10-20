@@ -35,6 +35,7 @@ import { priceFixes, scoreChecks } from './score.js';
  * @property {number} [timeoutMs]
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
  * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it routes.
+ * @property {string} [publicOrigin] The project's `publicOrigin`, so B14 compares a twin with the page it was made from.
  */
 
 /**
@@ -45,7 +46,12 @@ import { priceFixes, scoreChecks } from './score.js';
 export async function testUrl(target, options = {}) {
   const url = parseUrl(target);
   if (!url) throw new Error(ERRORS.invalidUrl(target));
-  const evidence = await gatherEvidence(url, { timeoutMs: options.timeoutMs, bots: options.bots, markdownRouting: options.markdownRouting });
+  const evidence = await gatherEvidence(url, {
+    timeoutMs: options.timeoutMs,
+    bots: options.bots,
+    markdownRouting: options.markdownRouting,
+    publicOrigin: options.publicOrigin,
+  });
   return testEvidence(evidence);
 }
 

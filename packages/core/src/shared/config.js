@@ -4,6 +4,7 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
 import { CONFIG_ERRORS } from './errors.js';
 import { frameworkWebRoot } from './web-root.js';
+import { siteBaseOf } from './routes.js';
 
 /**
  * @import { CustomBotInput } from './bots.js'
@@ -152,7 +153,7 @@ const isStringList = (value) => Array.isArray(value) && value.every(isString);
 const isHttpOrigin = (value) => {
   if (typeof value !== 'string' || !URL.canParse(value)) return false;
   const url = new URL(value);
-  return (url.protocol === 'http:' || url.protocol === 'https:') && url.pathname === '/' && !url.search && !url.hash && !url.username;
+  return (url.protocol === 'http:' || url.protocol === 'https:') && !url.search && !url.hash && !url.username;
 };
 /**
  * @param {number} min
@@ -181,7 +182,7 @@ export const RESERVED_AI_PARAMS = /** @type {const} */ (['model', 'messages', 's
  */
 const FIELD_RULES = [
   [undefined, 'site', 'a URL string', isString],
-  [undefined, 'publicOrigin', 'an http(s) origin like "https://example.com"', isHttpOrigin],
+  [undefined, 'publicOrigin', 'an http(s) address like "https://example.com", or "https://user.github.io/repo" for a site in a folder of its host', isHttpOrigin],
   [undefined, 'publicDir', 'a folder name', isString],
   [undefined, 'internalDir', 'a folder name', isString],
   [undefined, 'extraRoutes', 'a list of paths', isStringList],
@@ -335,15 +336,15 @@ export function providerOverridesOf(config) {
 }
 
 /**
- * The origin generated URLs should name: `publicOrigin` when the project sets one, otherwise the
- * origin that was crawled.
+ * The address generated URLs are built on: `publicOrigin` when the project sets one, with the folder
+ * it may name (`https://user.github.io/repo`), otherwise the origin that was crawled.
  *
  * @param {Pick<OpenGeoConfig, 'publicOrigin'>} config
  * @param {string} crawled
  * @returns {string}
  */
 export function publicOriginOf(config, crawled) {
-  return new URL(config.publicOrigin ?? crawled).origin;
+  return config.publicOrigin ? siteBaseOf(config.publicOrigin) : new URL(crawled).origin;
 }
 
 /**

@@ -147,8 +147,9 @@ Every command checks the file when it loads it and names the field that is wrong
 later: lists have to be lists, `generate.tier` is `free` or `ai`, `crawl.maxPages` is a whole number
 from 1 to 100000, `crawl.maxDepth` from 0 to 100 and `generate.minWords` from 0 to 100000.
 
-`publicOrigin` is where the site lives once deployed, an origin and nothing more
-(`https://example.com`, no path). Generate still crawls the URL you give it, usually a dev server,
+`publicOrigin` is where the site lives once deployed, `https://example.com`, or
+`https://user.github.io/repo` for a site in a folder of its host when you generate from its build
+folder. Generate still crawls the URL you give it, usually a dev server,
 but every absolute URL it writes uses `publicOrigin` instead: the sitemap, the `Sitemap:` line in
 `robots.txt`, `llms.txt`, each twin's `url` and the links inside it. Leave it out and those URLs
 name the origin that was crawled. If that is a loopback address, generate warns, because a sitemap

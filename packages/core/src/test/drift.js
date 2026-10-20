@@ -2,12 +2,15 @@ import { HEADERS } from '../shared/version.js';
 import { parseFrontmatter } from '../generate/frontmatter.js';
 import { verifyFidelity } from '../generate/fidelity.js';
 import { contentHash } from '../shared/hash.js';
+import { basePathOf, pathWithinBase } from '../shared/routes.js';
+import { extractPage } from '../generate/extract.js';
 import { fail, na, partial, pass } from './checks.js';
-import { liveExtract } from './live-page.js';
+import { SSR_MIN_WORDS, liveExtract } from './live-page.js';
 
 /**
  * @import { CheckResult } from './checks.js'
  * @import { Evidence } from './evidence.js'
+ * @import { ExtractedPage } from '../generate/extract.js'
  */
 
 /**
@@ -67,10 +70,23 @@ export function checkDrift(e) {
         `source_hash ${sourceHash} matches the content of the live page.`,
       );
     }
+    // Generate writes a twin's links against the address the site is published at, and a page tested
+    // anywhere else, a dev server or a local preview of the build, has its own address in every link.
+    // So before calling it drift, the page is read again as if it lived where the twin says it does.
+    const readings = publishedReadings(e, parsed.data.url);
+    const same = readings.find((reading) => contentHash(reading.extracted.markdown) === sourceHash);
+    if (same) {
+      return pass(
+        'B14',
+        `The twin was generated from exactly this version of the page${age ? `, ${age}` : ''}.`,
+        `source_hash ${sourceHash} matches the content of the live page, read as ${same.url}, the address the twin's links name.`,
+      );
+    }
     // The hash says something changed. How much is a different question, and it is the one the
     // reader actually has: a typo fix and a rewritten page both break the hash, and only one of them
-    // is serving agents wrong information. Fidelity compares the facts, so it can tell them apart.
-    const drift = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false, candidate: 'twin' });
+    // is serving agents wrong information. Fidelity compares the facts, so it can tell them apart,
+    // and it reads the page at the twin's address for the same reason, or every link is a new fact.
+    const drift = verifyFidelity((readings[0]?.extracted ?? extracted).markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false, candidate: 'twin' });
     if (drift.ok) {
       return partial(
         'B14',
@@ -114,6 +130,48 @@ export function checkDrift(e) {
     `The twin reports no source hash, so this was compared fact by fact rather than by hash. ${report.errors.length} facts differ.`,
     'Re-run `opengeo generate` (+4).',
   );
+}
+
+/**
+ * The live page extracted at each address its twin may have been generated for, other than the one
+ * it was tested at: the `url` in the twin's frontmatter, which a static host serves as written, and
+ * the same path on the project's `publicOrigin`, for a twin prod serves without one.
+ *
+ * @param {Evidence} e
+ * @param {unknown} declared
+ * @returns {{ url: string; extracted: ExtractedPage }[]}
+ */
+function publishedReadings(e, declared) {
+  const tested = e.target.toString();
+  const urls = [typeof declared === 'string' ? declared : undefined, publishedUrl(e.target, e.publicOrigin)].filter(
+    /** @returns {url is string} */ (url) => url !== undefined && url !== tested && /^https?:\/\//i.test(url),
+  );
+  return [...new Set(urls)].flatMap((url) => {
+    try {
+      return [{ url, extracted: extractPage(e.html.body, { url, minWords: SSR_MIN_WORDS }) }];
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * The tested page's address on the published site. A folder site may be previewed with its folder
+ * (`/repo/about`) or without it (`/about`), and both are `/repo/about` once published.
+ *
+ * @param {URL} target
+ * @param {string | undefined} publicOrigin
+ * @returns {string | undefined}
+ */
+function publishedUrl(target, publicOrigin) {
+  if (!publicOrigin) return undefined;
+  try {
+    const base = basePathOf(publicOrigin);
+    const path = pathWithinBase(target.pathname, base) === undefined ? `${base}${target.pathname}` : target.pathname;
+    return new URL(path, publicOrigin).toString();
+  } catch {
+    return undefined;
+  }
 }
 
 /**

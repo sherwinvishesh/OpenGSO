@@ -87,7 +87,7 @@ const PLACEMENT = {
   astro: 'src/middleware.ts, as `export const onRequest = (context, next) => opengeo(context.request, next)` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch. Astro runs middleware per request only on pages rendered on demand (with a server adapter such as @astrojs/node); a prerendered page is a static file',
   sveltekit: 'src/hooks.server.ts, as `export const handle = ({ event, resolve }) => opengeo(event.request, () => resolve(event))` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch. If a `handle` already exists, put this first inside `sequence(...)`',
   remix: 'app/root.tsx, as route middleware: `export const middleware = [({ request }, next) => opengeo(request, next)]` with `const opengeo = createFetchMiddleware()` from opengeo-prod/fetch, plus a catch-all `*` route so a `.md` URL reaches it. React Router 7 needs the `future.v8_middleware` flag for this. On a custom Express server, or on Remix 2, which has no middleware, put `app.use(createNodeMiddleware())` from opengeo-prod/node in front of the request handler instead',
-  angular: 'src/server.ts, as `app.use(createNodeMiddleware())` from opengeo-prod/node, before `express.static` and the Angular handler. Add the site\'s domain to `security.allowedHosts` in angular.json, or Angular answers it with the client-only shell. A client-only build (no @angular/ssr) is static files instead, served the way the Edge runtimes section of the opengeo-prod README describes',
+  angular: 'src/server.ts, as `app.use(createNodeMiddleware())` from opengeo-prod/node, before `express.static` and the Angular handler. Add the site\'s domain to `security.allowedHosts` in angular.json, or Angular answers it with the client-only shell. A client-only build (no @angular/ssr) is static files instead, served the way the Static sites section of the opengeo-prod README describes',
   qwik: 'the server adapter\'s entry (src/entry.express.tsx after `npm run qwik add express`), as `app.use(createNodeMiddleware())` from opengeo-prod/node right after the app is created, with `opengeo()` from opengeo-prod/vite in vite.config.ts for the dev server. Set `ssg: { include: [], sitemapOutFile: null }` on the adapter in adapters/<name>/vite.config.ts, or its build replaces the generated sitemap.xml with its own',
   gatsby: staticHost('Gatsby', 'public'),
   docusaurus: staticHost('Docusaurus', 'build'),
@@ -95,8 +95,8 @@ const PLACEMENT = {
   hugo: staticHost('Hugo', 'public'),
   jekyll: staticHost('Jekyll', '_site'),
   eleventy: staticHost('Eleventy', '_site'),
-  vite: `vite.config.ts, as \`plugins: [opengeo()]\` with \`opengeo\` from opengeo-prod/vite, which covers \`vite\` and \`vite preview\`. The production build is static files, so in production it is ${staticHost('Vite', 'dist')}`,
-  plain: 'no server at all, since this is static files: `opengeo generate <the folder>` writes each twin beside its page, where any static host serves it at its .md URL. An edge function using opengeo-prod/edge, fed by `opengeo prod data`, also answers agents asking for markdown at the page URLs',
+  vite: `vite.config.ts, as \`plugins: [opengeo()]\` with \`opengeo\` from opengeo-prod/vite, which covers \`vite\` and \`vite preview\`. In production it belongs in ${staticHost('Vite', 'dist')}`,
+  plain: 'an edge function in front of the files, since a folder of HTML has no server: opengeo-prod/edge (a Cloudflare Worker, or a Vercel or Netlify edge function) fed by `opengeo prod data`. Without one, `opengeo generate <the folder>` writes each twin beside its page, where any static host serves it at its .md URL',
 };
 
 /**

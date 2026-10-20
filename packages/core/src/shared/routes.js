@@ -131,6 +131,72 @@ export function twinUrlPathToRoute(pathname) {
 }
 
 /**
+ * The folder of its host a site is served from: `/repo` for `https://user.github.io/repo`, and empty
+ * for a site at the root of its host.
+ *
+ * @param {string} base
+ * @returns {string}
+ */
+export function basePathOf(base) {
+  return new URL(base).pathname.replace(/\/+$/, '');
+}
+
+/**
+ * A site's address with its folder and without a trailing slash: `https://user.github.io/repo/` and
+ * `https://user.github.io/repo` are both `https://user.github.io/repo`, and `https://example.com/` is
+ * `https://example.com`. Every public URL generate writes is built on this.
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+export function siteBaseOf(url) {
+  return `${new URL(url).origin}${basePathOf(url)}`;
+}
+
+/**
+ * The public URL of a path on a site that may live in a folder of its host: `/about` on
+ * `https://user.github.io/repo` is `https://user.github.io/repo/about`. For a site at the root of its
+ * host it is `new URL(path, base)`.
+ *
+ * @param {string} base
+ * @param {string} path Starts with `/`.
+ * @returns {string}
+ */
+export function urlAt(base, path) {
+  return new URL(`${basePathOf(base)}${path}`, base).toString();
+}
+
+/**
+ * A path on the host as a path of the site in its folder: `/repo/about` is `/about` under `/repo`.
+ * A path outside the folder is not the site's at all, and gets undefined.
+ *
+ * @param {string} pathname
+ * @param {string} basePath From `basePathOf`.
+ * @returns {string | undefined}
+ */
+export function pathWithinBase(pathname, basePath) {
+  if (!basePath) return pathname;
+  if (pathname === basePath) return '/';
+  return pathname.startsWith(`${basePath}/`) ? pathname.slice(basePath.length) : undefined;
+}
+
+/**
+ * Whether a URL is part of the site at `base`: the same origin, and inside its folder when it has one.
+ *
+ * @param {string} url
+ * @param {string} base
+ * @returns {boolean}
+ */
+export function isWithinBase(url, base) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === new URL(base).origin && pathWithinBase(parsed.pathname, basePathOf(base)) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * @param {string} pathname
  * @returns {boolean}
  */

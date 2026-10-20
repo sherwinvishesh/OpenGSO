@@ -967,8 +967,15 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   historySetAside: (path, aside) =>
     `${path} could not be read, so it was moved to ${aside} rather than written over, and the score history starts again from this run.`,
 
-  siteUnreachableKept:
-    'No page could be fetched, so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.',
+  /**
+   * @param {string} site
+   * @param {string} why From `whyUnreachable`, or the status the start page answered with.
+   * @param {boolean} kept Whether an earlier run left a manifest, which this run keeps as it was.
+   */
+  siteUnreachable: (site, why, kept) =>
+    kept
+      ? `Could not fetch ${site} (${why}), so the manifest was kept as it was and every existing twin is still served. Start the site and run generate again.`
+      : `Could not fetch ${site} (${why}), so nothing was written. Start the site, with \`npm run dev\` or however you run it, and run generate again.`,
 
   /** @param {string} origin */
   loopbackPublicOrigin: (origin) =>
@@ -1091,11 +1098,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     `${file} is not a page generate reads: it is excluded by crawl.exclude, sits in a folder that starts with "." or "_", or is an error page.`,
 
   /** @param {string} value */
-  badOrigin: (value) => {
-    const path = URL.canParse(value) && new URL(value).pathname !== '/';
-    return path
-      ? `--origin takes the site's address with nothing after the domain, and "${value}" has a path. OpenGEO does not support a site served from a sub-path yet, such as a GitHub Pages project site at user.github.io/repo/; give the site its own domain or subdomain.`
-      : `--origin needs the address the site is published at, e.g. --origin https://example.com, not "${value}".`;
+  badOrigin: (value) =>
+    `--origin needs the address the site is published at, e.g. --origin https://example.com, or --origin https://user.github.io/repo for a site in a folder of its host, not "${value}".`,
+
+  /** @param {string} base */
+  folderSiteCrawl: (base) =>
+    `${base} is a site in a folder of its host, and generate crawls only a site at the root of one. Build the site and generate from the build folder instead: opengeo generate <the build folder> --origin ${base}, which writes each twin beside its page.`,
+
+  /** @param {string} base */
+  robotsOutsideFolder: (base) => {
+    const url = new URL(base);
+    return `robots.txt was not written: crawlers read it only at the root of the host, ${url.origin}/robots.txt, and this site lives in ${url.pathname.replace(/\/+$/, '')}/. If you publish that root too (on GitHub Pages, from the user.github.io repository), add "Sitemap: ${base}/sitemap.xml" to the robots.txt there.`;
   },
 
   /** @param {string} origin */
@@ -1138,6 +1151,14 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** @param {number} max */
   filesCapped: (max) =>
     `The folder holds more than ${max} pages, so only the first ${max} were read (the home page first, then in path order). Raise crawl.maxPages in opengeo.config.json, or pass --max-pages, to read them all.`,
+
+  /** @param {string} folder */
+  noJekyllWritten: (folder) =>
+    `Wrote an empty .nojekyll to ${folder}/. GitHub Pages runs Jekyll over a folder without one, and Jekyll would turn every twin into an HTML page instead of serving it as markdown. Commit it with the twins.`,
+
+  /** @param {string} folder */
+  jekyllSource: (folder) =>
+    `${folder}/ is the source of a Jekyll site, and Jekyll turns every .md file with frontmatter into an HTML page, so twins written here would never be served as markdown, and index.md would be built over index.html. Build the site first (bundle exec jekyll build), run opengeo generate _site, and publish _site as it is: on GitHub Pages, with a GitHub Actions workflow rather than from the branch.`,
 
   /** @param {string} folder */
   jekyllWillConvertTwins: (folder) =>

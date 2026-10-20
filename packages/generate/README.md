@@ -35,18 +35,28 @@ npx opengeo generate http://localhost:3000
 
 ```
 Usage: opengeo generate <url> [options]
+       opengeo generate <folder> [options]
+       opengeo generate <folder>/<page>.html [options]
 
 Options
   --tier <free|ai>   free is algorithmic and needs no key; ai is bring-your-own-key
+  --origin <url>     where the site is published, e.g. https://example.com. Every link in
+                     the twins, llms.txt and sitemap.xml names it. Remembered after the
+                     first run from a folder, which may also be a site in a folder of its
+                     host, e.g. https://user.github.io/repo.
+  --check            only report the twins that are older than their page, and exit 1 if
+                     any are. Writes nothing. For a folder of files; a crawled site is
+                     checked by `opengeo test` instead.
   --single           only the URL given, leaving every other page in the manifest alone
   --max-pages <n>    override crawl.maxPages
-  --depth <n>        override crawl.maxDepth
+  --depth <n>        override crawl.maxDepth (crawling only)
+  --timeout <secs>   how long to wait for each page while crawling (default: 20)
   --force            overwrite hand-written robots/llms/sitemap and .md files
   --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone
-  --prune            delete orphaned twins: ones OpenGEO wrote for pages this crawl no longer
+  --prune            delete orphaned twins: ones OpenGEO wrote for pages this run no longer
                      found. Without it they are only reported. Never deletes a file OpenGEO
-                     did not write, and refuses on a run that hit a crawl cap or reached no page.
-  --provider <name>  which AI provider to use. `opengeo help providers` lists them (AI tier only)
+                     did not write, and refuses on a run that hit a page cap or reached no page.
+  --provider <name>  which AI tool to use. `opengeo help providers` lists them all.
   --model <name>     model id for the AI tier
   --json             machine-readable output
   --project <dir>    project directory holding opengeo.config.json (default: cwd)
@@ -123,6 +133,68 @@ other is reported, never written over it.
 It is not a router adapter and never will be. Reading a framework's route manifest means one
 integration per framework, forever, and OpenGEO is framework-agnostic on purpose. If a page is
 reachable by a link, the crawl finds it; if it is not, list it in `extraRoutes`.
+
+## From a folder of HTML files
+
+```bash
+npx opengeo generate dist --origin https://example.com   # every page in dist/
+npx opengeo generate dist/pricing.html                   # one page, after you edit it
+npx opengeo generate --check                             # which pages changed since their twins
+```
+
+No server and no crawl: generate reads every `.html` file in the folder and writes each twin beside
+its page, under the name a static host serves at the page's URL plus `.md`. So the twins need no
+middleware at all.
+
+| Page               | Its URL                            | Its twin                                |
+| ------------------ | ---------------------------------- | --------------------------------------- |
+| `index.html`       | `/`                                | `index.md`                              |
+| `pricing.html`     | `/pricing.html`, or `/pricing`     | `pricing.html.md`, or `pricing.md`      |
+| `about/index.html` | `/about`                           | `about.md`                              |
+
+A page's URL is the file name unless the site says otherwise: a link to `/pricing`, or a canonical
+link naming it, gives `pricing.html` the clean URL, and a page nothing links to follows the rest of
+the site. `--origin` is the published address, used for every link in the twins, `sitemap.xml`,
+`robots.txt` and `llms.txt`. Without it generate uses `publicOrigin` from the config, then the home
+page's canonical link, and warns when it has nothing better than localhost. The first run writes
+`opengeo.config.json` with `"generate": { "source": "files" }`, so a bare `opengeo generate` and the
+dashboard read the same folder after that.
+
+Each twin records the file it came from, its hash and its date. `--check` compares them with the
+folder as it is now and names every page that changed, every page with no twin and every twin whose
+page is gone. It writes nothing and exits 1 when anything is out of date, so it fits a pre-commit
+hook.
+
+For a site a tool builds, generate from what the tool writes and publish that folder: `dist` for
+Vite and Astro, `docs/.vitepress/dist` for VitePress, `build` for Docusaurus, `out` for a Next.js
+static export, `public` for Gatsby and Hugo, and `_site` for Jekyll and Eleventy. A rebuild usually
+empties the folder, so run generate again after building and before you deploy.
+
+### A site in a folder of its host
+
+```bash
+npx opengeo generate dist --origin https://user.github.io/repo
+```
+
+A GitHub Pages project site lives at `user.github.io/repo/`, and every URL generate writes then
+carries the folder: `https://user.github.io/repo/about` in the sitemap, `.../repo/about.md` in
+`llms.txt`. `robots.txt` is not written, because crawlers read it only at the root of the host,
+which belongs to somebody else's site or to none; generate says what to add there if you publish
+that root too. `opengeo test https://user.github.io/repo/` looks for `llms.txt`, `sitemap.xml` and the
+home page's twin inside the folder when the root of the host has none.
+
+Generating from a folder is the only way to do this. A crawl's routes are paths on the server it
+crawls, so `--origin` with a path is refused on a crawl, with the command to run instead.
+
+### GitHub Pages and Jekyll
+
+GitHub Pages runs a branch through Jekyll unless the folder holds a `.nojekyll` file, and Jekyll
+turns every `.md` file with frontmatter, which is every twin, into an HTML page. When the folder is
+one Pages publishes (it holds a `CNAME` file, or it is the root or the `docs/` folder of a repository
+with a GitHub remote) and its pages are plain HTML, generate writes an empty `.nojekyll` beside them,
+once, and says so. Commit it with the twins. A folder that is the source of a Jekyll site
+(`_config.yml`, `_layouts/`, or pages that start with frontmatter) needs Jekyll to build it, so
+generate writes nothing there and says to build the site and generate from `_site` instead.
 
 ## Never overwriting your files
 

@@ -12,6 +12,7 @@ import { SourceFilesError, generateFromFiles } from '../../generate/local.js';
 import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
 import { manifestPath } from '../../generate/manifest.js';
+import { basePathOf, siteBaseOf } from '../../shared/routes.js';
 import { EXIT_USAGE, UsageError, parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
 import { terminalWidth, visibleWidth, wrap } from '../../shared/render/paint.js';
@@ -65,6 +66,7 @@ export async function generateCommand(ctx) {
     if (source.kind === 'url') throw new UsageError(ERRORS.checkNeedsFiles);
     return printFreshness(source, json);
   }
+  if (source.kind === 'url' && origin && basePathOf(origin)) throw new UsageError(ERRORS.folderSiteCrawl(origin));
 
   // A one-off --origin on a crawl: the config's publicOrigin is what generate reads, so it is
   // overridden for this run and left alone on disk.
@@ -257,7 +259,7 @@ export async function generateCommand(ctx) {
       `${tier === 'ai' ? `, ${aiPages === 0 && written > 0 ? c.yellow('0 AI-enhanced') : `${aiPages} AI-enhanced`}${fellBack > 0 ? `, ${c.yellow(`${fellBack} fell back on fidelity`)}` : ''}` : ''}` +
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
-  process.stdout.write(`  ${c.gray(`Output: ${shownPath(report.generate.publicDir)}`)}\n`);
+  if (failed < pages.length) process.stdout.write(`  ${c.gray(`Output: ${shownPath(report.generate.publicDir)}`)}\n`);
   if (loaded.webRootWhy) process.stdout.write(`${hanging('  ', c.gray(ERRORS.webRootFromFramework(loaded.webRootWhy)))}\n`);
   if (source.kind === 'files') process.stdout.write(`  ${c.gray(`Links name: ${report.site}`)}\n`);
 
@@ -400,7 +402,9 @@ function rememberFiles(source, project, origin, result) {
   if (source.create) {
     // `site` is what `opengeo test` checks when it is given no URL, and for a folder of files the
     // published site is the only one there is.
-    const known = origin && !isLoopbackUrl(origin) ? { site: origin, publicOrigin: origin } : {};
+    // A site in a folder of its host is tested at its home page, `https://user.github.io/repo/`.
+    const site = origin && basePathOf(origin) ? `${origin}/` : origin;
+    const known = origin && !isLoopbackUrl(origin) ? { site, publicOrigin: origin } : {};
     const path = saveConfig(project.root, mergeConfig(source.loaded.config, known));
     notes.push(ERRORS.filesConfigCreated(shownPath(path)));
     return notes;
@@ -410,7 +414,7 @@ function rememberFiles(source, project, origin, result) {
     if (!configured) {
       saveConfig(project.root, mergeConfig(project.config, { publicOrigin: origin }));
       notes.push(ERRORS.filesOriginSaved(origin));
-    } else if (new URL(configured).origin !== origin) {
+    } else if (siteBaseOf(configured) !== origin) {
       notes.push(ERRORS.originDiffersFromConfig(origin, configured));
     }
   }
@@ -419,7 +423,9 @@ function rememberFiles(source, project, origin, result) {
 }
 
 /**
- * `--origin`: an origin and nothing after it, with `https://` assumed for a bare domain.
+ * `--origin`: the address the site is published at, with `https://` assumed for a bare domain. It
+ * may name the folder of its host the site lives in, `https://user.github.io/repo`, and comes back
+ * without a trailing slash either way.
  *
  * @param {string} value
  * @returns {string}
@@ -429,11 +435,11 @@ function parseOrigin(value) {
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   if (!URL.canParse(withScheme)) throw new UsageError(ERRORS.badOrigin(value));
   const url = new URL(withScheme);
-  const bare = url.pathname === '/' && !url.search && !url.hash && !url.username && !url.password;
-  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !bare || !url.hostname.includes('.') && !isLoopbackUrl(url.toString())) {
+  const plain = !url.search && !url.hash && !url.username && !url.password;
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !plain || !url.hostname.includes('.') && !isLoopbackUrl(url.toString())) {
     throw new UsageError(ERRORS.badOrigin(value));
   }
-  return url.origin;
+  return siteBaseOf(url.toString());
 }
 
 /**

@@ -18,6 +18,7 @@ import { generateCommand } from '../src/cli/commands/generate.js';
 import { runCli } from '../src/cli/index.js';
 import { readHomeStatus, plainStatus, statusRows } from '../src/cli/home.js';
 import { readGeneratedFile } from '../src/server/api-files.js';
+import { shownPath } from '../src/shared/local-pages.js';
 import { runGenerate } from '../src/server/api-generate.js';
 import { readState } from '../src/server/api-settings.js';
 /** @import { LoadedConfig } from '@opengeo/core/shared' */
@@ -226,6 +227,22 @@ describe('resolveRoutes', () => {
     expect(losers.get('about/index.html')?.route).toBe('/about');
     expect(warnings).toContain(ERRORS.sameUrlFiles('about/index.html', 'about.html', '/about'));
   });
+
+  it('reads the links of a site in a folder of its host inside that folder, and none outside it', () => {
+    const base = 'https://user.github.io/repo';
+    const inside = routesFor({ 'index.html': page('Home', '<a href="/repo/about">About</a>'), 'about.html': page('About', '') }, base);
+    expect(inside.routes.get('about.html')).toBe('/about');
+
+    const relative = routesFor({ 'guide/index.html': page('Guide', '<a href="../about">About</a>'), 'about.html': page('About', '') }, base);
+    expect(relative.routes.get('about.html')).toBe('/about');
+
+    // /about is the host's, the site at user.github.io/repo never answers to it.
+    const outside = routesFor({ 'index.html': page('Home', '<a href="/about">About</a>'), 'about.html': page('About', '') }, base);
+    expect(outside.routes.get('about.html')).toBe('/about.html');
+
+    const canonical = routesFor({ 'index.html': page('Home', ''), 'contact-us.html': page('Contact', '', `<link rel="canonical" href="${base}/contact">`) }, base);
+    expect(canonical.routes.get('contact-us.html')).toBe('/contact');
+  });
 });
 
 describe('canonicalOf and chooseOrigin', () => {
@@ -248,6 +265,19 @@ describe('canonicalOf and chooseOrigin', () => {
     const unknown = chooseOrigin(undefined, base, { file: 'index.html', html: '<link rel="canonical" href="http://localhost:8080/">' });
     expect(unknown.origin).toBe('http://localhost:3000');
     expect(unknown.warning).toBe(ERRORS.filesOriginUnknown('http://localhost:3000'));
+  });
+
+  it('keeps the folder a site lives in, from the flag, the config or the home page\'s own canonical', () => {
+    const base = defaultConfig();
+    expect(chooseOrigin('https://user.github.io/repo/', base, undefined).origin).toBe('https://user.github.io/repo');
+    expect(chooseOrigin(undefined, { ...base, publicOrigin: 'https://user.github.io/repo' }, undefined).origin).toBe('https://user.github.io/repo');
+
+    /** @param {string} file @param {string} href */
+    const declared = (file, href) => chooseOrigin(undefined, base, { file, html: `<link rel="canonical" href="${href}">` }).origin;
+    expect(declared('index.html', 'https://user.github.io/repo/')).toBe('https://user.github.io/repo');
+    expect(declared('index.html', 'https://user.github.io/repo/index.html')).toBe('https://user.github.io/repo');
+    // A home page whose canonical names some other page says where the host is, not a folder.
+    expect(declared('index.html', 'https://acme.example/home')).toBe('https://acme.example');
   });
 });
 
@@ -327,14 +357,65 @@ describe('generateFromFiles', () => {
     expect(existsSync(join(root, 'site', 'about.html.md.opengeo-proposed'))).toBe(true);
   });
 
-  it('warns about Jekyll on what looks like GitHub Pages, and not once .nojekyll is there', async () => {
+  it('writes .nojekyll into a folder GitHub Pages publishes, once, and says so', async () => {
     writeSite({ ...SITE, CNAME: 'acme.example\n' });
     const result = await generateFromFiles({ loaded: loaded() });
-    expect(result.notes?.some((note) => note.includes('.nojekyll'))).toBe(true);
+    expect(result.notes).toContain(ERRORS.noJekyllWritten(shownPath(join(root, 'site'))));
+    expect(readFileSync(join(root, 'site', '.nojekyll'), 'utf8')).toBe('');
 
-    writeFileSync(join(root, 'site', '.nojekyll'), '');
     const quiet = await generateFromFiles({ loaded: loaded() });
     expect(quiet.notes?.some((note) => note.includes('.nojekyll'))).toBe(false);
+  });
+
+  it('knows a docs folder in a GitHub repository is published by Pages, and a folder of nowhere is not', async () => {
+    writeSite({ '.git/config': '[remote "origin"]\n\turl = git@github.com:acme/site.git\n' }, '.');
+    writeSite(SITE, 'docs');
+    const docs = await generateFromFiles({ loaded: loaded({ publicDir: 'docs' }) });
+    expect(docs.notes).toContain(ERRORS.noJekyllWritten(shownPath(join(root, 'docs'))));
+
+    writeSite(SITE);
+    await generateFromFiles({ loaded: loaded() });
+    expect(existsSync(join(root, 'site', '.nojekyll'))).toBe(false);
+  });
+
+  it('leaves a Jekyll source alone and says to build it first, whatever marks it as one', async () => {
+    writeSite({ ...SITE, '_config.yml': 'title: Acme\n' });
+    const configured = await generateFromFiles({ loaded: loaded() });
+    expect(configured.notes).toContain(ERRORS.jekyllSource(shownPath(join(root, 'site'))));
+    expect(existsSync(join(root, 'site', '.nojekyll'))).toBe(false);
+
+    rmSync(join(root, 'site'), { recursive: true });
+    writeSite({ ...SITE, CNAME: 'acme.example\n', 'about.html': `---\nlayout: default\n---\n${page('About', WORDS)}` });
+    const templated = await generateFromFiles({ loaded: loaded() });
+    expect(templated.notes).toContain(ERRORS.jekyllSource(shownPath(join(root, 'site'))));
+    expect(existsSync(join(root, 'site', '.nojekyll'))).toBe(false);
+  });
+
+  it('builds every URL on the folder a site lives in, and writes no robots.txt there', async () => {
+    writeSite({
+      'index.html': page('Docs', `${WORDS}<a href="/repo/about">About</a><a href="guide/">Guide</a>`),
+      'about.html': page('About', WORDS),
+      'guide/index.html': page('Guide', WORDS),
+    });
+    const base = 'https://user.github.io/repo';
+    const result = await generateFromFiles({ loaded: loaded(), origin: base });
+
+    expect(result.site).toBe(base);
+    expect(result.generate.pages.map((p) => [p.sourceFile, p.url])).toEqual([
+      ['index.html', `${base}/`],
+      ['about.html', `${base}/about`],
+      ['guide/index.html', `${base}/guide`],
+    ]);
+    expect(parseFrontmatter(readFileSync(join(root, 'site', 'about.md'), 'utf8')).data.url).toBe(`${base}/about`);
+    const sitemap = readFileSync(join(root, 'site', 'sitemap.xml'), 'utf8');
+    expect(sitemap).toContain(`<loc>${base}/about</loc>`);
+    expect(sitemap).not.toContain('<loc>https://user.github.io/about</loc>');
+    const llms = readFileSync(join(root, 'site', 'llms.txt'), 'utf8');
+    expect(llms).toContain(`${base}/about.md`);
+    expect(llms).toContain(`${base}/guide.md`);
+    expect(existsSync(join(root, 'site', 'robots.txt'))).toBe(false);
+    expect(result.files.map((file) => file.name)).not.toContain('robots.txt');
+    expect(result.notes).toContain(ERRORS.robotsOutsideFolder(base));
   });
 });
 
@@ -498,17 +579,37 @@ describe('opengeo generate <folder>', () => {
     expect(stdout).toContain('1 other page is out of date.');
   });
 
-  it('saves a bare --origin as an https origin, and refuses one with a path', async () => {
+  it('saves a bare --origin as an https origin, and refuses one that is not an address', async () => {
     writeSite({ 'index.html': page('Home', WORDS), 'about.html': page('About', WORDS) });
     const first = await cli([join(root, 'site'), '--project', root, '--origin', 'acme.test']);
     expect(first.code).toBe(0);
     expect(loadConfig(root).config.publicOrigin).toBe('https://acme.test');
     expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toContain('https://acme.test/about.html');
 
-    const bad = await cli([join(root, 'site'), '--project', root, '--origin', 'https://user.github.io/project']);
-    expect(bad.code).toBe(2);
-    expect(bad.stderr).toContain(ERRORS.badOrigin('https://user.github.io/project'));
-    expect((await cli([join(root, 'site'), '--project', root, '--origin', 'intranet'])).code).toBe(2);
+    for (const value of ['intranet', 'https://acme.test/?page=1', 'https://acme.test/#top', 'ftp://acme.test']) {
+      const bad = await cli([join(root, 'site'), '--project', root, '--origin', value]);
+      expect(bad.code).toBe(2);
+      expect(bad.stderr).toContain(ERRORS.badOrigin(value));
+    }
+  });
+
+  it('remembers a site in a folder of its host, tests it at its home page, and refuses to crawl one', async () => {
+    writeSite({ 'index.html': page('Home', WORDS), 'about.html': page('About', WORDS) });
+    const run = await cli([join(root, 'site'), '--project', root, '--origin', 'user.github.io/repo/']);
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('Links name: https://user.github.io/repo');
+    const saved = loadConfig(root).config;
+    expect(saved.publicOrigin).toBe('https://user.github.io/repo');
+    expect(saved.site).toBe('https://user.github.io/repo/');
+    expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toContain('https://user.github.io/repo/about.html');
+
+    // The same folder with and without its slash is the same site, so nothing to warn about.
+    const again = await cli(['--project', root, '--origin', 'https://user.github.io/repo/']);
+    expect(again.stdout).not.toContain('opengeo.config.json says');
+
+    const crawl = await cli(['http://localhost:9/', '--project', join(root, 'elsewhere'), '--origin', 'https://user.github.io/repo']);
+    expect(crawl.code).toBe(2);
+    expect(crawl.stderr).toContain(ERRORS.folderSiteCrawl('https://user.github.io/repo'));
   });
 });
 
@@ -589,6 +690,7 @@ describe('the dashboard on a folder project', () => {
     expect(readGeneratedFile(root, 'README.md')).toBeUndefined();
     expect(readGeneratedFile(root, '../opengeo.config.json')).toBeUndefined();
   });
+
 });
 
 describe('the home screen on a folder project', () => {

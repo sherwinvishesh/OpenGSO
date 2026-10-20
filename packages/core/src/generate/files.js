@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { writeFileAtomic } from '../shared/fs.js';
 import { ERRORS } from '../shared/errors.js';
 import { findBot } from '../shared/bots.js';
-import { routeToTwinUrlPath } from '../shared/routes.js';
+import { basePathOf, isWithinBase, routeToTwinUrlPath, urlAt } from '../shared/routes.js';
 import { AEO_SPEC_VERSION } from '../shared/version.js';
 
 /** @import { AiBot } from '../shared/bots.js' */
@@ -81,8 +81,12 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @returns {SiteFileResult[]}
  */
 export function writeSiteFiles(options) {
+  // Crawlers read robots.txt only at the root of a host, so one written into a site that lives in a
+  // folder of its host would be served at /repo/robots.txt and never read by anybody.
+  const robots = !basePathOf(options.site);
   /** @type {SiteFileName[]} */
-  const wanted = options.only ? [...options.only] : ['robots.txt', 'llms.txt', 'sitemap.xml'];
+  const all = options.only ? [...options.only] : ['robots.txt', 'llms.txt', 'sitemap.xml'];
+  const wanted = all.filter((name) => robots || name !== 'robots.txt');
   /** @type {Record<SiteFileName, string>} */
   const contents = {
     'robots.txt': renderRobotsTxt(options),
@@ -173,7 +177,6 @@ function stripTimestamps(text) {
  * @returns {string}
  */
 export function renderRobotsTxt(options) {
-  const site = new URL(options.site);
   /** @type {string[]} */
   const lines = [
     `# ${GENERATED_MARKER} (${AEO_SPEC_VERSION}) on ${new Date().toISOString()}`,
@@ -205,7 +208,7 @@ export function renderRobotsTxt(options) {
     );
   }
 
-  lines.push(`Sitemap: ${new URL('/sitemap.xml', site).toString()}`);
+  lines.push(`Sitemap: ${urlAt(options.site, '/sitemap.xml')}`);
   lines.push(``);
   return lines.join('\n');
 }
@@ -238,7 +241,7 @@ export function renderLlmsTxt(options) {
   );
 
   for (const page of pages) {
-    const twin = new URL(routeToTwinUrlPath(page.route), site).toString();
+    const twin = urlAt(options.site, routeToTwinUrlPath(page.route));
     const detail = page.description ? `: ${collapse(page.description)}` : '';
     lines.push(`- [${escapeBrackets(page.title)}](${twin})${detail}`);
   }
@@ -259,17 +262,16 @@ export function renderLlmsTxt(options) {
  */
 export function renderSitemapXml(options) {
   const pages = [...options.pages].sort(byRoute);
-  const origin = new URL(options.site).origin;
   /** @type {Set<string>} */
   const listed = new Set();
   /** @type {string[]} */
   const entries = [];
   for (const page of pages) {
     // The page's own canonical wins: a site that serves /blog/ lists /blog/, not the slashless route
-    // OpenGEO normalised it to. A canonical on another host is not this sitemap's to list (the
-    // protocol only allows its own host), so that page keeps its own URL. Two routes declaring one
-    // canonical are one entry.
-    const loc = page.canonical && sameOrigin(page.canonical, origin) ? page.canonical : page.url;
+    // OpenGEO normalised it to. A canonical on another host, or outside the folder the site lives
+    // in, is not this sitemap's to list (the protocol only allows URLs at or below the sitemap's own
+    // place), so that page keeps its own URL. Two routes declaring one canonical are one entry.
+    const loc = page.canonical && isWithinBase(page.canonical, options.site) ? page.canonical : page.url;
     if (listed.has(loc)) continue;
     listed.add(loc);
     const lastmod = page.lastModified ? `\n    <lastmod>${escapeXml(page.lastModified)}</lastmod>` : '';
@@ -286,18 +288,6 @@ export function renderSitemapXml(options) {
   ].join('\n');
 }
 
-/**
- * @param {string} url
- * @param {string} origin
- * @returns {boolean}
- */
-function sameOrigin(url, origin) {
-  try {
-    return new URL(url).origin === origin;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * @param {SitePage} a

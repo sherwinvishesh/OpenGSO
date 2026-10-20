@@ -1,11 +1,14 @@
+import { existsSync } from 'node:fs';
 import { resolveBots } from '../shared/bots.js';
-import { isLoopbackUrl, publicDirPath, publicOriginOf } from '../shared/config.js';
+import { internalDirPath, isLoopbackUrl, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
-import { normalizeRoute } from '../shared/routes.js';
+import { basePathOf, normalizeRoute } from '../shared/routes.js';
+import { whyUnreachable } from '../shared/site-probe.js';
 import { crawlSite } from './crawl.js';
 import { writeSiteFiles } from './files.js';
 import { refreshEdgeData } from '../prod/edge-data.js';
 import { generatePages } from './generate.js';
+import { manifestPath } from './manifest.js';
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
@@ -13,6 +16,16 @@ import { generatePages } from './generate.js';
  * @import { SiteFileResult, SitePage } from './files.js'
  * @import { EnhanceInput, EnhanceOutput, GenerateProgress, GenerateResult } from './generate.js'
  */
+
+/**
+ * A site generate cannot read pages from the way it was asked to: a folder with no pages in it, or a
+ * site in a folder of its host given as something to crawl. Written for the person who has to fix
+ * it, so the dashboard can show it as it is.
+ */
+export class SourceFilesError extends Error {
+  /** @override */
+  name = 'SourceFilesError';
+}
 
 /**
  * One crawl, three outputs (§6).
@@ -83,10 +96,11 @@ export async function generateSite(options) {
   const config = options.loaded.config;
   /** @type {string[]} */
   const warnings = [];
-  // Every absolute URL generate writes names this origin, so a loopback one ships a sitemap and an
-  // llms.txt that point nobody anywhere. Said first, because the run otherwise looks like a success.
   const origin = publicOriginOf(config, site);
-  if (isLoopbackUrl(origin)) warnings.push(ERRORS.loopbackPublicOrigin(origin));
+  // A crawl's routes are paths on the server it crawls, and its twins go where opengeo-prod serves
+  // them from. Neither has a place for the folder a site like that is published in, and its build
+  // folder, read as files, does.
+  if (basePathOf(origin)) throw new SourceFilesError(ERRORS.folderSiteCrawl(origin));
 
   /** @type {CrawlResult | undefined} */
   let crawl;
@@ -115,9 +129,6 @@ export async function generateSite(options) {
     for (const page of crawl.pages) sources.set(page.route, page.html);
     routes = crawl.pages.map((page) => page.route);
 
-    for (const failure of crawl.failures) {
-      warnings.push(`${failure.route}: ${failure.reason}`);
-    }
     carryForward = crawl.failures.map((failure) => failure.route);
     if (routes.length === 0) {
       // The start page itself failed. Fall through with the single route so the caller gets a real
@@ -125,9 +136,16 @@ export async function generateSite(options) {
       // a run that reached no page cannot say any of them are gone.
       routes = [normalizeRoute(target.pathname)];
       carryForward = 'all';
-      warnings.push(ERRORS.siteUnreachableKept);
+      const why = whyUnreachable(options.target, crawl.failures[0]?.reason ?? 'fetch failed');
+      warnings.push(ERRORS.siteUnreachable(site, why, existsSync(manifestPath(internalDirPath(options.loaded)))));
+    } else {
+      for (const failure of crawl.failures) warnings.push(`${failure.route}: ${failure.reason}`);
     }
   }
+  // Every absolute URL generate writes names this origin, so a loopback one ships a sitemap and an
+  // llms.txt that point nobody anywhere. Said first, because the run otherwise looks like a success,
+  // and not at all by a run that reached nothing and so wrote nothing.
+  if (isLoopbackUrl(origin) && carryForward !== 'all') warnings.unshift(ERRORS.loopbackPublicOrigin(origin));
 
   // Pruning trusts the crawl to have seen the whole site. A run that reached no page, or stopped at
   // a page or depth cap, has not, and a page it missed may well still exist.
@@ -154,7 +172,10 @@ export async function generateSite(options) {
 
   /** @type {SiteFileResult[]} */
   let files = [];
-  if (!options.skipSiteFiles) {
+  // A run that reached no page has nothing new to describe. The files would be rebuilt from the
+  // manifest it kept, and on a first run that is an empty llms.txt and sitemap.xml, written by a run
+  // whose only finding was that the server is not up.
+  if (!options.skipSiteFiles && carryForward !== 'all') {
     options.onProgress?.({ phase: 'files' });
     files = writeSiteFilesFor(options.loaded, origin, generate, options, warnings);
   }

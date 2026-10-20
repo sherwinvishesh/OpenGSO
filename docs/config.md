@@ -28,7 +28,7 @@ uses the defaults below.
 | Field | Default | What it is |
 | --- | --- | --- |
 | `site` | `"http://localhost:3000"` | The URL the project is generated and tested against. Also what a bare `opengeo test` scores. |
-| `publicOrigin` | unset | Where the site is deployed: an `http(s)` origin with no path, such as `"https://example.com"`. Every absolute URL generate writes (sitemap, `robots.txt`, `llms.txt`, twin frontmatter and links) uses it instead of the crawled origin. Unset, they name the crawled origin, and generate warns when that is a loopback address. |
+| `publicOrigin` | unset | Where the site is deployed, such as `"https://example.com"`, or `"https://user.github.io/repo"` for a site in a folder of its host, which only generating from a folder supports. Every absolute URL generate writes (sitemap, `robots.txt`, `llms.txt`, twin frontmatter and links) uses it instead of the crawled origin. Unset, they name the crawled origin, and generate warns when that is a loopback address. |
 | `publicDir` | `"public"` | The web root. Twins go in `md/` under it, beside `robots.txt`, `llms.txt` and `sitemap.xml`. In a project that generates from files, it is also the folder the pages are read from, and each twin goes beside its page instead. With no config file at all, it is the folder the framework in `package.json` serves from the site root: `static` for SvelteKit, Gatsby and Docusaurus, `docs/public` for VitePress, `public` for the rest. |
 | `internalDir` | `".opengeo"` | Bookkeeping that must not be web-served: `manifest.json` and the run history. |
 | `extraRoutes` | `[]` | Paths the link crawl cannot reach, such as `"/pricing"`. An entry with a `.` or `..` segment is skipped with a warning. |

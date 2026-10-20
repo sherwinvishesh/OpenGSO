@@ -91,6 +91,7 @@ export async function runTest(body, options) {
     timeoutMs: input.timeoutMs,
     bots: resolveBots(loaded.config.bots.custom),
     markdownRouting: loaded.config.bots.markdownRouting,
+    publicOrigin: loaded.config.publicOrigin,
     ai,
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,

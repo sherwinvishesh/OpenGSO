@@ -4,12 +4,13 @@ import { internalDirPath, publicDirPath, publicOriginOf } from '../shared/config
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
-import { hasDotSegment, MD_DIR, routeToTwinRelPath, routeToTwinUrlPath, twinFileKey } from '../shared/routes.js';
+import { whyUnreachable } from '../shared/site-probe.js';
+import { hasDotSegment, MD_DIR, routeToTwinRelPath, routeToTwinUrlPath, twinFileKey, urlAt } from '../shared/routes.js';
 import { countWords, estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
-import { emptyManifest, readManifestChecked, writeManifest } from './manifest.js';
+import { emptyManifest, manifestPath as manifestFile, readManifestChecked, writeManifest } from './manifest.js';
 import { dedupeRoutes, isOpenGeoTwin, manualEntry, samePages, settleOrphans, tierSatisfied } from './reconcile.js';
 
 /**
@@ -167,7 +168,7 @@ export async function generatePages(options) {
       // page and carry on to the next.
       options.signal?.throwIfAborted();
       index += 1;
-      const url = new URL(route, origin).toString();
+      const url = urlAt(origin, route);
       const fetchUrl = new URL(route, site).toString();
       // Each route is its own unit of work. A name the filesystem refuses, markup deep enough to
       // overflow the extractor, or a provider hook that throws fails that page and nothing else: the
@@ -202,7 +203,9 @@ export async function generatePages(options) {
                 ? ERRORS.redirectedOffSite(finalOrigin)
                 : response.truncated
                   ? ERRORS.pageTooLarge(MAX_PROBE_BYTES)
-                  : (response.error ?? `HTTP ${response.status}`),
+                  : response.error
+                    ? whyUnreachable(fetchUrl, response.error)
+                    : `HTTP ${response.status}`,
             });
             const carried = previous.pages[route];
             if (carried) manifest.pages[route] = carried;
@@ -404,7 +407,10 @@ export async function generatePages(options) {
     ) {
       manifest.generatedAt = previous.generatedAt;
     }
-    manifestPath = writeManifest(internalDir, manifest);
+    // A first run that reached no page has nothing to record, and an empty manifest would tell the
+    // next run, the home screen and prod that this site has been generated.
+    const recordsNothing = options.carryForward === 'all' && Object.keys(manifest.pages).length === 0 && !existsSync(manifestFile(internalDir));
+    if (!recordsNothing) manifestPath = writeManifest(internalDir, manifest);
   }
   if (options.sourceFiles) {
     for (const page of pages) {
@@ -449,5 +455,5 @@ function stamped(entry, stamp) {
  * @returns {string}
  */
 export function twinUrlFor(site, route) {
-  return new URL(routeToTwinUrlPath(route), site).toString();
+  return urlAt(site, routeToTwinUrlPath(route));
 }

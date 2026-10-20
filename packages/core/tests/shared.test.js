@@ -28,6 +28,11 @@ import {
   saveConfig,
   twinUrl,
   twinUrlPathToRoute,
+  basePathOf,
+  isWithinBase,
+  pathWithinBase,
+  siteBaseOf,
+  urlAt,
   ERRORS,
   parseEnv,
   writeEnvVars,
@@ -78,6 +83,27 @@ describe('routes', () => {
 
   it('builds an absolute twin URL without query or hash', () => {
     expect(twinUrl('https://example.com/resume?utm=x#top')).toBe('https://example.com/resume.md');
+  });
+
+  it('builds URLs on a site in a folder of its host, and knows what is inside that folder', () => {
+    expect(siteBaseOf('https://user.github.io/repo/')).toBe('https://user.github.io/repo');
+    expect(siteBaseOf('https://example.com/')).toBe('https://example.com');
+    expect(basePathOf('https://user.github.io/repo')).toBe('/repo');
+    expect(basePathOf('https://example.com')).toBe('');
+
+    expect(urlAt('https://user.github.io/repo', '/')).toBe('https://user.github.io/repo/');
+    expect(urlAt('https://user.github.io/repo', '/about.md')).toBe('https://user.github.io/repo/about.md');
+    expect(urlAt('https://example.com', '/about')).toBe('https://example.com/about');
+
+    expect(pathWithinBase('/repo/about', '/repo')).toBe('/about');
+    expect(pathWithinBase('/repo', '/repo')).toBe('/');
+    expect(pathWithinBase('/repository', '/repo')).toBeUndefined();
+    expect(pathWithinBase('/about', '')).toBe('/about');
+
+    expect(isWithinBase('https://user.github.io/repo/about', 'https://user.github.io/repo')).toBe(true);
+    expect(isWithinBase('https://user.github.io/other/about', 'https://user.github.io/repo')).toBe(false);
+    expect(isWithinBase('https://elsewhere.io/repo/about', 'https://user.github.io/repo')).toBe(false);
+    expect(isWithinBase('not a url', 'https://example.com')).toBe(false);
   });
 });
 
@@ -218,6 +244,7 @@ describe('config', () => {
     expect(loaded.exists).toBe(false);
     expect(loaded.config.site).toBe('http://localhost:3000');
   });
+
 });
 
 describe('where the config search stops', () => {

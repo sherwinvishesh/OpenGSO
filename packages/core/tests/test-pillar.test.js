@@ -594,6 +594,43 @@ describe('B14 staleness and drift', () => {
     expect(check?.reason).toContain('exactly this version');
   });
 
+  it('reads the page at its published address when it is tested somewhere else', () => {
+    // A dev server or a local preview of the build: every link on the page names this machine and
+    // every link in the twin names the published site, which is not the page changing.
+    const html = GOOD_HTML.replace('legible.</p>', 'legible. See <a href="/work">the work</a>.</p>');
+    const evidence = goodEvidence();
+    evidence.target = new URL('http://localhost:3000/resume');
+    evidence.html = probe({ body: html, headers: evidence.html.headers, url: evidence.target.toString(), finalUrl: evidence.target.toString() });
+    evidence.twin.headers.set('x-markdown-source-hash', liveContentHash(html, 'https://example.com/resume'));
+    expect(byId(evidence).get('B14')?.status).not.toBe('pass');
+
+    evidence.publicOrigin = 'https://example.com';
+    const check = byId(evidence).get('B14');
+    expect(check?.status).toBe('pass');
+    expect(check?.detail).toContain('read as https://example.com/resume');
+  });
+
+  it('reads it at the url in the frontmatter of a twin a static host serves, folder and all', () => {
+    const html = GOOD_HTML.replace('legible.</p>', 'legible. See <a href="work">the work</a>.</p>');
+    const evidence = goodEvidence();
+    // A GitHub Pages project site previewed from its folder at the root of a local server.
+    evidence.target = new URL('http://127.0.0.1:8080/resume');
+    evidence.html = probe({ body: html, headers: evidence.html.headers, url: evidence.target.toString(), finalUrl: evidence.target.toString() });
+    evidence.twin.headers.delete('x-markdown-source-hash');
+    const published = 'https://user.github.io/repo/resume';
+    evidence.twin.body = `---\nurl: "${published}"\nsource_hash: "${liveContentHash(html, published)}"\n---\n\n${GOOD_TWIN}`;
+    expect(byId(evidence).get('B14')?.status).toBe('pass');
+
+    // The config says the same thing in its own words, and a preview with or without the folder
+    // in its path lands on the same published page.
+    evidence.twin.body = GOOD_TWIN;
+    evidence.twin.headers.set('x-markdown-source-hash', liveContentHash(html, published));
+    evidence.publicOrigin = 'https://user.github.io/repo';
+    expect(byId(evidence).get('B14')?.status).toBe('pass');
+    evidence.target = new URL('http://127.0.0.1:8080/repo/resume');
+    expect(byId(evidence).get('B14')?.status).toBe('pass');
+  });
+
   it('falls back to comparing facts for a hand-written twin with no hash anywhere', () => {
     const evidence = goodEvidence();
     evidence.twin.headers.delete('x-markdown-source-hash');

@@ -412,6 +412,24 @@ describe('generateSite', () => {
     }
   });
 
+  it('writes nothing at all on a first run that cannot reach the site', async () => {
+    const { generateSite } = await import('@opengeo/core/generate');
+    const loaded = project();
+    down.add('*');
+    try {
+      const result = await generateSite({ target: site, loaded });
+      expect(result.generate.pages.map((page) => page.status)).toEqual(['failed']);
+      expect(result.files).toEqual([]);
+      expect(result.warnings).toEqual([`Could not fetch ${site} (HTTP 503), so nothing was written. Start the site, with \`npm run dev\` or however you run it, and run generate again.`]);
+      // An empty llms.txt and sitemap.xml, or a manifest with no page in it, would say the site was
+      // generated when all the run learned is that its server is down.
+      expect(existsSync(join(loaded.root, 'public'))).toBe(false);
+      expect(existsSync(join(loaded.root, '.opengeo', 'manifest.json'))).toBe(false);
+    } finally {
+      down.clear();
+    }
+  });
+
   it('stops part way when abandoned, and keeps every twin the manifest already vouched for', async () => {
     const { generateSite } = await import('@opengeo/core/generate');
     const loaded = project();

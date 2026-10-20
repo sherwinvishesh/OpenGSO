@@ -81,6 +81,7 @@ export async function testCommand(ctx) {
   const target = resolveTarget(args, loaded, 'test');
   const bots = resolveBots(loaded.config.bots.custom);
   const markdownRouting = loaded.config.bots.markdownRouting;
+  const publicOrigin = loaded.config.publicOrigin;
   // Seconds on the command line, like generate and prod test; the pillar wants milliseconds.
   const timeout = args.num('timeout');
   const timeoutMs = timeout === undefined ? undefined : timeout * 1000;
@@ -93,7 +94,7 @@ export async function testCommand(ctx) {
   // also structural by definition - a model's opinion is not a checklist an agent can work through.
   const promptOptions = { ...fixPromptOptions(loaded.config, target.toString()), only: only.ids };
   if (args.bool('prompt')) {
-    const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting });
+    const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting, publicOrigin });
     const prompt = buildFixPrompt(result, promptOptions);
     const code = writeOut(prompt, args.str('out'), failsBuild(result.checks, { strict }) ? 1 : 0);
     // To stderr, so stdout stays exactly the prompt for anyone piping it somewhere.
@@ -139,6 +140,7 @@ export async function testCommand(ctx) {
       timeoutMs,
       bots,
       markdownRouting,
+      publicOrigin,
       ai: ai.ai,
       lookalikeKeys: ai.lookalikes,
       // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.

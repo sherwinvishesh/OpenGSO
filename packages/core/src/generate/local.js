@@ -1,15 +1,15 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { internalDirPath, isLoopbackUrl, publicDirPath } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { contentHash } from '../shared/hash.js';
 import { MAX_PROBE_BYTES } from '../shared/http.js';
 import { fileToRoute, isIndexFile, listLocalPages, shownPath } from '../shared/local-pages.js';
-import { normalizeRoute, twinFileKey } from '../shared/routes.js';
+import { basePathOf, normalizeRoute, pathWithinBase, siteBaseOf, twinFileKey, urlAt } from '../shared/routes.js';
 import { generatePages } from './generate.js';
 import { readManifest } from './manifest.js';
 import { refreshEdgeData } from '../prod/edge-data.js';
-import { writeSiteFilesFor } from './site.js';
+import { SourceFilesError, writeSiteFilesFor } from './site.js';
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
@@ -50,14 +50,7 @@ import { writeSiteFilesFor } from './site.js';
  * @property {AbortSignal} [signal]
  */
 
-/**
- * A folder generate cannot read pages from. Written for the person who has to fix it, so the
- * dashboard can show it as it is.
- */
-export class SourceFilesError extends Error {
-  /** @override */
-  name = 'SourceFilesError';
-}
+export { SourceFilesError };
 
 /**
  * @param {GenerateFromFilesOptions} options
@@ -104,7 +97,8 @@ export async function generateFromFiles(options) {
   const origin = chosen.origin;
   if (chosen.note) notes.push(chosen.note);
   if (chosen.warning) warnings.push(chosen.warning);
-  if (looksLikeGitHubPages(webRoot)) notes.push(ERRORS.jekyllWillConvertTwins(shown));
+  const jekyll = jekyllRisk(webRoot, html);
+  if (jekyll === 'jekyll-source') notes.push(ERRORS.jekyllSource(shown));
 
   const resolved = resolveRoutes(listing.pages, html, origin);
   warnings.push(...resolved.warnings);
@@ -137,7 +131,7 @@ export async function generateFromFiles(options) {
       // file by name, so it gets the reason as its result.
       const lost = resolved.losers.get(page.file);
       if (wanted !== undefined && lost) {
-        failures.push({ route: lost.route, url: new URL(lost.route, origin).toString(), status: 'failed', warnings: [], sourceFile: page.file, reason: lost.reason });
+        failures.push({ route: lost.route, url: urlAt(origin, lost.route), status: 'failed', warnings: [], sourceFile: page.file, reason: lost.reason });
       }
       continue;
     }
@@ -145,7 +139,7 @@ export async function generateFromFiles(options) {
     const text = html.get(page.file);
     if (why !== undefined || text === undefined) {
       const kept = previousRoute(page.file) ?? route;
-      failures.push({ route: kept, url: new URL(kept, origin).toString(), status: 'failed', warnings: [], sourceFile: page.file, reason: why ?? '' });
+      failures.push({ route: kept, url: urlAt(origin, kept), status: 'failed', warnings: [], sourceFile: page.file, reason: why ?? '' });
       carryForward.push(kept);
       continue;
     }
@@ -183,12 +177,14 @@ export async function generateFromFiles(options) {
     onProgress: (event) => options.onProgress?.({ phase: 'generate', generate: event }),
   });
   generate.pages.push(...failures);
+  if (jekyll === 'nojekyll' && generate.pages.some((page) => page.status !== 'failed')) notes.push(writeNoJekyll(webRoot, shown));
 
   /** @type {import('./files.js').SiteFileResult[]} */
   let files = [];
   if (!options.skipSiteFiles) {
     options.onProgress?.({ phase: 'files' });
     files = writeSiteFilesFor(effective, origin, generate, options, warnings);
+    if (basePathOf(origin)) notes.push(ERRORS.robotsOutsideFolder(origin));
   }
   const edge = refreshEdgeData(effective);
   warnings.push(...edge.warnings);
@@ -221,12 +217,14 @@ function isDirectory(path) {
 }
 
 /**
- * The origin every URL generate writes should name.
+ * The address every URL generate writes is built on, with the folder of its host the site lives in
+ * when it has one (`https://user.github.io/repo`).
  *
  * A folder carries no address of its own, so this goes through what the user said (the flag, then
  * the config), then what the site says about itself (an absolute canonical link on the home page),
  * and only then falls back to the config's `site`, with a warning when that is a loopback address
- * nobody else can reach.
+ * nobody else can reach. `site` is where a crawl starts rather than where the site lives, so only
+ * its origin is taken.
  *
  * @param {string | undefined} flag
  * @param {LoadedConfig['config']} config
@@ -234,32 +232,79 @@ function isDirectory(path) {
  * @returns {{ origin: string; note?: string; warning?: string }}
  */
 export function chooseOrigin(flag, config, home) {
-  if (flag) return { origin: new URL(flag).origin };
-  if (config.publicOrigin) return { origin: new URL(config.publicOrigin).origin };
+  if (flag) return { origin: siteBaseOf(flag) };
+  if (config.publicOrigin) return { origin: siteBaseOf(config.publicOrigin) };
   const site = URL.canParse(config.site) ? new URL(config.site) : new URL('http://localhost:3000');
   if (!isLoopbackUrl(site.toString())) return { origin: site.origin };
   const declared = home ? canonicalOf(home.html) : undefined;
   if (declared && URL.canParse(declared)) {
     const url = new URL(declared);
     if ((url.protocol === 'https:' || url.protocol === 'http:') && !isLoopbackUrl(url.toString())) {
-      return { origin: url.origin, note: ERRORS.originFromCanonical(url.origin, /** @type {{ file: string }} */ (home).file) };
+      const file = /** @type {{ file: string }} */ (home).file;
+      // The home page's own address is the site's, folder and all: GitHub Pages builds a project
+      // site's canonical as https://user.github.io/repo/. Only the folder's own index says that,
+      // and only when the canonical names a folder rather than some page.
+      const folder = !file.includes('/') && /\/(?:index\.html?)?$/i.test(url.pathname);
+      const origin = folder ? siteBaseOf(new URL(url.pathname.replace(/index\.html?$/i, ''), url.origin).toString()) : url.origin;
+      return { origin, note: ERRORS.originFromCanonical(origin, file) };
     }
   }
   return { origin: site.origin, warning: ERRORS.filesOriginUnknown(site.origin) };
 }
 
 /**
- * A GitHub Pages site runs through Jekyll unless the folder holds `.nojekyll`, and Jekyll turns
- * every `.md` file with frontmatter into an HTML page: `index.md` would be built into the very
- * `index.html` it is the twin of. A `CNAME` file, a Jekyll config or a folder named `docs`, the one
- * GitHub Pages publishes from, is enough of a sign to say so.
+ * What Jekyll would do to the twins in this folder.
+ *
+ * Jekyll turns every `.md` file with frontmatter into an HTML page, so a twin in a folder it builds
+ * is never served as markdown, and `index.md` is built over the very `index.html` it is the twin of.
+ * A folder holding Jekyll's own files is a Jekyll site's source, which twins should not be made from
+ * at all. A folder GitHub Pages publishes from a branch is run through Jekyll too, unless it holds
+ * `.nojekyll`: a folder of plain HTML gains nothing from Jekyll, so it can have one, and a page that
+ * starts with frontmatter is a template that needs Jekyll, so its folder cannot.
+ *
+ * @param {string} webRoot
+ * @param {ReadonlyMap<string, string>} html By file.
+ * @returns {'none' | 'nojekyll' | 'jekyll-source'}
+ */
+export function jekyllRisk(webRoot, html) {
+  if (existsSync(join(webRoot, '.nojekyll'))) return 'none';
+  if (['_config.yml', '_config.yaml', '_layouts', '_includes'].some((name) => existsSync(join(webRoot, name)))) return 'jekyll-source';
+  if (!publishedByGitHubPages(webRoot)) return 'none';
+  return [...html.values()].some((text) => /^\uFEFF?---\r?\n/.test(text)) ? 'jekyll-source' : 'nojekyll';
+}
+
+/**
+ * GitHub Pages publishes a branch's root or its `docs/` folder, so a folder that is one of those in a
+ * repository with a GitHub remote, or one holding the `CNAME` file Pages reads a custom domain from,
+ * is published by it.
  *
  * @param {string} webRoot
  * @returns {boolean}
  */
-function looksLikeGitHubPages(webRoot) {
-  if (existsSync(join(webRoot, '.nojekyll'))) return false;
-  return existsSync(join(webRoot, 'CNAME')) || existsSync(join(webRoot, '_config.yml')) || /(^|[\\/])docs$/.test(webRoot);
+function publishedByGitHubPages(webRoot) {
+  if (existsSync(join(webRoot, 'CNAME'))) return true;
+  const repo = basename(webRoot) === 'docs' ? dirname(webRoot) : webRoot;
+  try {
+    return /github\.com[:/]/i.test(readFileSync(join(repo, '.git', 'config'), 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * An empty `.nojekyll`, created and never overwritten.
+ *
+ * @param {string} webRoot
+ * @param {string} shown
+ * @returns {string} The note that says what happened.
+ */
+function writeNoJekyll(webRoot, shown) {
+  try {
+    writeFileSync(join(webRoot, '.nojekyll'), '', { flag: 'wx' });
+    return ERRORS.noJekyllWritten(shown);
+  } catch {
+    return ERRORS.jekyllWillConvertTwins(shown);
+  }
 }
 
 // -- routes --------------------------------------------------------------------------------------
@@ -301,15 +346,17 @@ export function canonicalOf(html) {
 
 /**
  * Where a page's relative links are resolved from: its own file, so `post.html` in `blog/index.html`
- * is `/blog/post.html` whichever form the site serves it in.
+ * is `/blog/post.html` whichever form the site serves it in. Inside the folder the site is served
+ * from, so a relative link and a `/repo/...` one land on the same path.
  *
  * @param {string} file
+ * @param {string} prefix From `basePathOf`.
  * @returns {URL}
  */
-function baseOf(file) {
+function baseOf(file, prefix) {
   const name = /** @type {string} */ (file.split('/').pop());
   const path = isIndexFile(name) ? `${fileToRoute(file)}/`.replace(/\/{2,}$/, '/') : fileToRoute(file, 'file');
-  return new URL(path, LOCAL_ORIGIN);
+  return new URL(`${prefix}${path}`, LOCAL_ORIGIN);
 }
 
 /**
@@ -347,10 +394,11 @@ function sameSite(url, origin) {
  *
  * @param {readonly LocalPage[]} pages
  * @param {ReadonlyMap<string, string>} html By file. A file that could not be read has no entry.
- * @param {string} origin
+ * @param {string} origin The site's address, with the folder of its host it lives in when it has one.
  * @returns {ResolvedRoutes}
  */
 export function resolveRoutes(pages, html, origin) {
+  const prefix = basePathOf(origin);
   /** @type {string[]} */
   const warnings = [];
   /** @type {Map<string, LocalPage>} */
@@ -373,13 +421,14 @@ export function resolveRoutes(pages, html, origin) {
   for (const page of pages) {
     const text = html.get(page.file);
     if (!text) continue;
-    const base = baseOf(page.file);
+    const base = baseOf(page.file, prefix);
     for (const tag of text.replace(NOT_MARKUP, '').match(ANCHOR) ?? []) {
       const href = attribute(tag, 'href');
       if (!href || href.startsWith('#') || !URL.canParse(href, base)) continue;
       const url = new URL(href, base);
       if (!sameSite(url, origin)) continue;
-      const path = normalizeRoute(url.pathname);
+      const path = pathWithinBase(normalizeRoute(url.pathname), prefix);
+      if (path === undefined) continue;
       // `/about` is the folder's index when there is one, so it says nothing about about.html.
       const target = byFileForm.get(path) ?? (byIndexRoute.has(path) ? undefined : byCleanForm.get(path));
       if (!target) continue;
@@ -417,16 +466,16 @@ export function resolveRoutes(pages, html, origin) {
   for (const page of pages) {
     const text = html.get(page.file);
     const href = text ? canonicalOf(text) : undefined;
-    if (!href || !URL.canParse(href, baseOf(page.file))) continue;
-    const url = new URL(href, baseOf(page.file));
+    if (!href || !URL.canParse(href, baseOf(page.file, prefix))) continue;
+    const url = new URL(href, baseOf(page.file, prefix));
     if (!sameSite(url, origin)) continue;
-    const path = normalizeRoute(url.pathname);
-    if (path.endsWith('.md')) continue;
+    const path = pathWithinBase(normalizeRoute(url.pathname), prefix);
+    if (path === undefined || path.endsWith('.md')) continue;
     const owner = owners.get(path);
     if (ownForms(page).includes(path)) {
       routes.set(page.file, path);
     } else if (owner) {
-      const group = borrowed.get(path) ?? { url: url.origin === LOCAL_ORIGIN ? path : `${url.origin}${path}`, files: [] };
+      const group = borrowed.get(path) ?? { url: url.origin === LOCAL_ORIGIN ? path : `${url.origin}${prefix}${path}`, files: [] };
       group.files.push(page.file);
       borrowed.set(path, group);
     } else {

@@ -99,7 +99,9 @@ describe('publicOrigin', () => {
     expect(configPatchProblem({ publicOrigin: 'https://example.com' })).toBeUndefined();
     expect(configPatchProblem({ publicOrigin: 'https://example.com/' })).toBeUndefined();
     expect(configPatchProblem({ publicOrigin: 'example.com' })).toContain('publicOrigin');
-    expect(configPatchProblem({ publicOrigin: 'https://example.com/blog' })).toContain('publicOrigin');
+    expect(configPatchProblem({ publicOrigin: 'https://user.github.io/repo' })).toBeUndefined();
+    expect(configPatchProblem({ publicOrigin: 'https://example.com/?page=1' })).toContain('publicOrigin');
+    expect(configPatchProblem({ publicOrigin: 'https://example.com/#top' })).toContain('publicOrigin');
     expect(configPatchProblem({ publicOrigin: 'ftp://example.com' })).toContain('publicOrigin');
 
     const root = mkdtempSync(join(tmpdir(), 'opengeo-origin-config-'));

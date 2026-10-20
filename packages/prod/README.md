@@ -256,7 +256,10 @@ so there is nowhere to put middleware. Two ways to serve the twins:
   folder. Generate reads the HTML files and writes each twin beside its page (`guide/index.html`
   gets `guide.md`), so any static host serves it at its `.md` URL. A static host cannot negotiate,
   so an agent asking for the page itself still gets HTML, and the headers the B checks look for
-  are missing. Run it by hand before each deploy, since a hosted build never runs generate.
+  are missing. Run it by hand before each deploy, since a hosted build never runs generate. This
+  is also the way for a site in a folder of its host, such as a GitHub Pages project site: the
+  adapters expect a site at the root of its host, and `--origin https://user.github.io/repo` puts
+  the folder in every URL generate writes.
 
 ```bash
 npx vitepress build docs && npx opengeo generate docs/.vitepress/dist --origin https://your-site.com
