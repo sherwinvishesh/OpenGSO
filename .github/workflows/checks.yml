@@ -33,12 +33,16 @@ jobs:
           - os: windows-latest
             node: 22
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      # What a user installs is jsdom and its tree, so a known hole there fails the build. Once, since
+      # the answer does not depend on the runner.
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: npm audit --omit=dev --audit-level=moderate
       - run: npm run typecheck
       - run: npm test
       - run: npm run build

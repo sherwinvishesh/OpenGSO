@@ -264,7 +264,7 @@ function createShell() {
         themeButton,
         // Single-key shortcuts need an off switch (WCAG 2.1.4): speech input can send a digit
         // nobody meant as a command.
-        el('label', { className: 'toggle' }, shortcuts, 'Number keys switch tabs'),
+        el('label', { className: 'toggle' }, shortcuts, 'Single-key shortcuts: 1 to 5 switch tabs, c copies the fix prompt'),
       ),
     ),
     el('main', { className: 'main' }, el('div', { className: 'main-inner' }, refreshSlot, stalenessSlot, viewsSlot)),
@@ -378,9 +378,12 @@ window.addEventListener('keydown', (event) => {
   if (event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
   const index = Number(event.key) - 1;
   const entry = TABS[index];
-  if (!Number.isInteger(index) || !entry) return;
-  event.preventDefault();
-  show(entry.id, true);
+  if (Number.isInteger(index) && entry) {
+    event.preventDefault();
+    show(entry.id, true);
+    return;
+  }
+  if (tab && views[tab]?.onKey?.(event.key)) event.preventDefault();
 });
 
 /**

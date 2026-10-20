@@ -1,6 +1,7 @@
 import { card, el, empty, pill } from '../ui.js';
+import { copyLink } from './fix-prompt.js';
 
-/** @import { CheckResult, Score } from '../../../core/src/shared/api-types.js' */
+/** @import { CheckResult, FixPrompts, Score } from '../../../core/src/shared/api-types.js' */
 
 /**
  * Scored failures first, then the suggestions, per §5. The order is the point: someone who reads
@@ -31,6 +32,8 @@ const DOCS = 'https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md
  * @property {string} empty Shown when there are no checks. A blank one hides the group instead.
  * @property {string} [note]
  * @property {Set<string>} [faults] Ids failing on a twin the site already serves, marked `fix`.
+ * @property {'failed' | 'partial' | 'suggestions'} [prompt] Which of the server's group prompts this
+ *   group copies, if any.
  */
 
 /**
@@ -74,13 +77,22 @@ export function groupChecks(checks) {
         checks: of('fail', true),
         empty: 'Nothing scored is failing.',
         note: 'These stop AI agents from reading the page.',
+        prompt: 'failed',
       },
-      { title: 'Partly there', tone: 'warn', checks: of('partial', true), empty: '', note: 'Scored on what they earned, not all or nothing.' },
+      {
+        title: 'Partly there',
+        tone: 'warn',
+        checks: of('partial', true),
+        empty: '',
+        note: 'Scored on what they earned, not all or nothing.',
+        prompt: 'partial',
+      },
       {
         title: 'Suggestions',
         tone: 'info',
         checks: suggestions,
         empty: '',
+        prompt: 'suggestions',
         note:
           faults.size > 0
             ? `${named} ${faults.size === 1 ? 'fails' : 'fail'} on the twin this site already serves, so agents are being sent something wrong. Outside the score, but fix ${them} first: --strict fails a build on ${them}.`
@@ -100,25 +112,42 @@ export function groupChecks(checks) {
 /**
  * @param {CheckResult[]} checks
  * @param {Score} [score]
+ * @param {FixPrompts} [prompts] The server's fix prompts. Without them there are no copy buttons.
  */
-export function checkList(checks, score) {
+export function checkList(checks, score, prompts) {
   const { before, locked, after } = groupChecks(checks);
-  return el('div', {}, before.map(group), lockedGroup(locked, score), after.map(group));
+  return el(
+    'div',
+    {},
+    before.map((spec) => group(spec, prompts)),
+    lockedGroup(locked, score, prompts?.groups.locked),
+    after.map((spec) => group(spec)),
+  );
 }
 
 /**
+ * The copy button sits outside the `h2`, so a screen reader's heading list stays a list of names.
+ *
  * @param {string} title
  * @param {Tone} tone
  * @param {number} count
  * @param {string | undefined} note
+ * @param {string} [prompt] This group's fix prompt.
  */
-function groupTitle(title, tone, count, note) {
-  return el(
+function groupTitle(title, tone, count, note, prompt) {
+  const heading = el(
     'h2',
     { className: 'group-title' },
     title,
     pill(tone, String(count)),
     note ? el('span', { style: { textTransform: 'none', letterSpacing: '0' } }, noteParts(note)) : null,
+  );
+  if (!prompt) return heading;
+  return el(
+    'div',
+    { className: 'group-head' },
+    heading,
+    copyLink(count === 1 ? 'Copy fix prompt' : `Copy all ${count}`, prompt, `${count} ${title.toLowerCase()}`, `Copy a fix prompt for the ${title} group`),
   );
 }
 
@@ -134,14 +163,17 @@ function noteParts(note) {
     .map((part, index) => (index % 2 === 1 ? el('code', { style: { whiteSpace: 'nowrap' }, text: part }) : part));
 }
 
-/** @param {GroupSpec} spec */
-function group({ title, tone, checks, empty: emptyText, note, faults }) {
+/**
+ * @param {GroupSpec} spec
+ * @param {FixPrompts} [prompts]
+ */
+function group({ title, tone, checks, empty: emptyText, note, faults, prompt }, prompts) {
   if (checks.length === 0 && !emptyText) return null;
   return el(
     'div',
     { className: 'check-group' },
-    groupTitle(title, tone, checks.length, checks.length > 0 ? note : undefined),
-    card('', checks.length === 0 ? empty(emptyText) : checks.map((check) => checkRow(check, faults?.has(check.id)))),
+    groupTitle(title, tone, checks.length, checks.length > 0 ? note : undefined, prompt && checks.length > 0 ? prompts?.groups[prompt] : undefined),
+    card('', checks.length === 0 ? empty(emptyText) : checks.map((check) => checkRow(check, faults?.has(check.id), prompts?.checks[check.id]))),
   );
 }
 
@@ -157,8 +189,9 @@ let lockedIds = 0;
  *
  * @param {CheckResult[]} checks
  * @param {Score} [score]
+ * @param {string} [prompt] The prompt that unlocks them, which is the blocker's.
  */
-function lockedGroup(checks, score) {
+function lockedGroup(checks, score, prompt) {
   if (checks.length === 0) return null;
 
   const blockers = score?.locked.unlockedBy ?? [];
@@ -183,7 +216,7 @@ function lockedGroup(checks, score) {
   return el(
     'div',
     { className: 'check-group' },
-    groupTitle('Locked', 'mute', checks.length, 'Not failures, and outside the score: suggestions that cannot be measured yet.'),
+    groupTitle('Locked', 'mute', checks.length, 'Not failures, and outside the score: suggestions that cannot be measured yet.', prompt),
     card(
       '',
       el(
@@ -223,8 +256,9 @@ function lockedGroup(checks, score) {
 /**
  * @param {CheckResult} check
  * @param {boolean} [fault] Failing on a twin already served, so `fix` rather than `tip`.
+ * @param {string} [prompt] This check's own fix prompt, when it failed or partly passed.
  */
-function checkRow(check, fault = false) {
+function checkRow(check, fault = false, prompt) {
   return el(
     'div',
     { className: check.scored ? 'check' : fault ? 'check check-suggestion check-fault' : 'check check-suggestion' },
@@ -259,6 +293,7 @@ function checkRow(check, fault = false) {
       check.detail ? el('div', { className: 'check-detail', text: check.detail }) : null,
       // Last, and only when there is one, because it is the part the reader acts on.
       check.fix ? el('div', { className: 'check-fix', text: check.fix }) : null,
+      prompt ? el('div', { className: 'check-copy' }, copyLink('Copy fix prompt', prompt, check.id, `Copy a fix prompt for ${check.id}`)) : null,
     ),
     el('div', {
       className: 'check-points',

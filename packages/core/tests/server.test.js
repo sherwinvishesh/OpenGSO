@@ -753,6 +753,31 @@ describe('the streaming endpoints', () => {
     expect(JSON.parse(wire).structure.score.suggestions).toEqual({ count: 15, adopted: 0, open: 3, locked: 12 });
   });
 
+  it('carries the fix prompts --prompt would print once it knows the project, and no evidence in them', () => {
+    const result = structuralResult();
+    result.checks = [
+      /** @type {TestResult['checks'][number]} */ ({
+        id: 'A3',
+        category: 'A',
+        importance: 'required',
+        scored: true,
+        title: 'Robots allows AI agents',
+        weight: 9,
+        status: 'fail',
+        earned: 0,
+        reason: 'robots.txt blocks GPTBot.',
+      }),
+    ];
+    const frame = testFrame({ phase: 'structure-done', result }, defaultConfig());
+    const prompts = frame.phase === 'structure-done' ? frame.structure.prompts : undefined;
+    expect(prompts?.summary).toBe('1 fix');
+    expect(prompts?.all).toContain('opengeo test https://example.com/resume');
+    expect(Object.keys(prompts?.groups ?? {})).toEqual(['failed']);
+    expect(Object.keys(prompts?.checks ?? {})).toEqual(['A3']);
+    expect(prompts?.checks.A3).toContain('A3');
+    expect(JSON.stringify(frame)).not.toContain('<html>');
+  });
+
   it('passes a review phase through as it is, since there is nothing in it a browser cannot read', () => {
     const event = /** @type {const} */ ({ phase: 'review', done: 2, total: 5, url: 'https://example.com/a.md' });
     expect(testFrame(event)).toEqual(event);

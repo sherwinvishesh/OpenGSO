@@ -2,13 +2,16 @@ import { writeFileSync } from 'node:fs';
 import { resolveBots } from '../../shared/bots.js';
 import { c, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
+import { copyToClipboard } from '../../shared/clipboard.js';
 import { internalDirPath } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import { AI_PROVIDERS, isAiProvider } from '../../shared/providers.js';
-import { MD_DIR } from '../../shared/routes.js';
 import {
   buildFixPrompt,
+  CHECKS,
+  fixPromptOptions,
+  fixPromptSummary,
   readHistory,
   recordRun,
   renderContentReport,
@@ -26,7 +29,7 @@ import { stripAnsi } from '../../shared/render/paint.js';
 import { resolveProject, resolveTarget } from '../project.js';
 
 /**
- * @import { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js'
+ * @import { History, SuiteAi, SuiteProgress, SuiteResult, TestMode, TestResult } from '../../test/index.js'
  * @import { CommandContext } from '../index.js'
  * @import { LookalikeKey } from '../../shared/env.js'
  */
@@ -44,8 +47,8 @@ import { resolveProject, resolveTarget } from '../project.js';
  */
 
 const SPEC = /** @type {const} */ ({
-  booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'structure', 'offline', 'content', 'strict'],
-  strings: ['project', 'out', 'provider', 'model'],
+  booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'copy', 'structure', 'offline', 'content', 'strict'],
+  strings: ['project', 'out', 'provider', 'model', 'only'],
   numbers: { timeout: { min: 0, exclusive: true }, 'max-docs': { min: 1, integer: true } },
   alias: { v: 'verbose', q: 'quality', nq: 'no-quality' },
 });
@@ -59,6 +62,18 @@ export async function testCommand(ctx) {
   const problem = args.problem();
   if (problem) {
     process.stderr.write(`${problem}\n`);
+    return EXIT_USAGE;
+  }
+  const only = parseOnly(args.str('only'));
+  if (only.error) {
+    process.stderr.write(`${only.error}\n`);
+    return EXIT_USAGE;
+  }
+  const copy = args.bool('copy');
+  // On its own --only would scope a prompt nobody asked for, and silently ignoring it would let a
+  // user believe the report had been filtered.
+  if (only.ids && !copy && !args.bool('prompt')) {
+    process.stderr.write(`${ERRORS.onlyNeedsPrompt}\n`);
     return EXIT_USAGE;
   }
 
@@ -76,20 +91,23 @@ export async function testCommand(ctx) {
   // --prompt replaces the report rather than appending to it: the whole output is meant to be
   // selected and pasted into a coding agent, so anything else in the buffer is in the way. It is
   // also structural by definition - a model's opinion is not a checklist an agent can work through.
+  const promptOptions = { ...fixPromptOptions(loaded.config, target.toString()), only: only.ids };
   if (args.bool('prompt')) {
     const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting });
-    const prompt = buildFixPrompt(result, {
-      command: `opengeo test ${target.toString()}`,
-      ...(loaded.config.generate.source === 'files'
-        ? { twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/`, folder: loaded.config.publicDir.replace(/\/+$/, '') }
-        : { twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/${MD_DIR}/` }),
-    });
-    return writeOut(prompt, args.str('out'), failsBuild(result.checks, { strict }) ? 1 : 0);
+    const prompt = buildFixPrompt(result, promptOptions);
+    const code = writeOut(prompt, args.str('out'), failsBuild(result.checks, { strict }) ? 1 : 0);
+    // To stderr, so stdout stays exactly the prompt for anyone piping it somewhere.
+    if (copy) await copyPrompt(prompt, fixPromptSummary(result, only.ids), process.stderr);
+    return code;
   }
 
   const mode = resolveMode(args);
   if (typeof mode !== 'string') {
     process.stderr.write(`${mode.error}\n`);
+    return EXIT_USAGE;
+  }
+  if (copy && mode === 'content') {
+    process.stderr.write(`${ERRORS.copyNeedsChecks}\n`);
     return EXIT_USAGE;
   }
 
@@ -109,7 +127,10 @@ export async function testCommand(ctx) {
   const report = [];
   /** @type {(text: string) => void} */
   const write = out ? (text) => void report.push(text) : (text) => void process.stdout.write(text);
-  const printer = json ? undefined : progressPrinter(args.bool('verbose'), history, write);
+  // The home screen offers its own key for the prompt, and --copy is about to do it, so neither
+  // needs the report's closing line telling them how.
+  const promptHint = !copy && !ctx.onFixPrompt;
+  const printer = json ? undefined : progressPrinter(args.bool('verbose'), history, write, promptHint);
   /** @type {SuiteResult} */
   let result;
   try {
@@ -134,13 +155,83 @@ export async function testCommand(ctx) {
   // Its one warning goes to stderr, so a --json run's stdout stays clean.
   recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
-  if (json) return writeOut(`${suiteJson(result)}\n`, out, suiteExitCode(result, { strict }));
+  const code = suiteExitCode(result, { strict });
+  /** @type {TestResult | undefined} */
+  const structure = result.structure;
+  const prompt = structure ? buildFixPrompt(structure, promptOptions) : undefined;
+  if (structure && prompt) ctx.onFixPrompt?.(prompt, fixPromptSummary(structure, only.ids));
 
-  // The structural report has already been printed by the progress printer, so that a long content
-  // pass never hides the half of the answer that is already known.
-  writeContent(result, write);
-  if (out) return writeOut(report.join(''), out, suiteExitCode(result, { strict }));
-  return suiteExitCode(result, { strict });
+  if (json) {
+    writeOut(`${suiteJson(result)}\n`, out, code);
+  } else {
+    // The structural report has already been printed by the progress printer, so that a long content
+    // pass never hides the half of the answer that is already known.
+    writeContent(result, write);
+    if (out) writeOut(report.join(''), out, code);
+  }
+  // Last, so the confirmation is the final line on screen. stdout carries JSON in a --json run.
+  if (copy && structure && prompt) {
+    await copyPrompt(prompt, fixPromptSummary(structure, only.ids), json ? process.stderr : process.stdout);
+  }
+  return code;
+}
+
+/**
+ * `--only B1,B7` (commas or spaces, any case) as check ids. An id that does not exist is refused by
+ * name, because a typo would otherwise be a prompt that quietly says there is nothing to fix.
+ *
+ * @param {string | undefined} raw
+ * @returns {{ ids?: string[]; error?: string }}
+ */
+export function parseOnly(raw) {
+  if (raw === undefined) return {};
+  const ids = [...new Set(raw.split(/[\s,]+/).map((id) => id.trim().toUpperCase()).filter(Boolean))];
+  /** @type {Set<string>} */
+  const known = new Set(CHECKS.map((check) => check.id));
+  const unknown = ids.filter((id) => !known.has(id));
+  if (ids.length === 0) return { error: ERRORS.onlyEmpty };
+  if (unknown.length > 0) return { error: ERRORS.unknownCheckIds(unknown, checkRanges()) };
+  return { ids };
+}
+
+/**
+ * The catalogue as ranges, `A1 to A8 and B1 to B14`, read from it so the message cannot drift.
+ *
+ * @returns {string}
+ */
+function checkRanges() {
+  /** @type {Map<string, string[]>} */
+  const byCategory = new Map();
+  for (const check of CHECKS) byCategory.set(check.category, [...(byCategory.get(check.category) ?? []), check.id]);
+  const ranges = [...byCategory.values()].map((ids) => (ids.length === 1 ? ids[0] : `${ids[0]} to ${ids[ids.length - 1]}`));
+  return ranges.length <= 1 ? ranges.join('') : `${ranges.slice(0, -1).join(', ')} and ${ranges[ranges.length - 1]}`;
+}
+
+/**
+ * Put the prompt on the clipboard and say what happened, in one line.
+ *
+ * A clipboard that cannot be reached is a warning and not a failure: the audit ran, its exit code
+ * is about the site, and the prompt is one `--prompt` away.
+ *
+ * @param {string} prompt
+ * @param {string} summary
+ * @param {NodeJS.WriteStream} stream
+ * @returns {Promise<void>}
+ */
+async function copyPrompt(prompt, summary, stream) {
+  // An escape sequence on a stream that is not a terminal would land in somebody's file or pipe.
+  const terminal = process.stderr.isTTY ? process.stderr : process.stdout;
+  const copied = await copyToClipboard(prompt, { terminal });
+  if (!copied.ok) {
+    stream.write(`${c.yellow('!')} ${ERRORS.clipboardUnavailable(copied.tried)}\n`);
+  } else if (copied.confirmed) {
+    stream.write(`${c.green('Copied')} the fix prompt for Claude Code (${summary}). Paste it into your coding agent.\n`);
+  } else {
+    stream.write(
+      `${c.green('Sent')} the fix prompt for Claude Code (${summary}) to ${copied.via}. ` +
+        `${c.gray('If nothing pastes, your terminal does not allow it: run with --prompt and copy the output.')}\n`,
+    );
+  }
 }
 
 /** @typedef {TestMode | { error: string }} ModeChoice */
@@ -193,9 +284,10 @@ function writeOut(text, out, code) {
  * @param {boolean} verbose
  * @param {History} history
  * @param {(text: string) => void} write Where the report goes: stdout, or the buffer for `--out`.
+ * @param {boolean} promptHint
  * @returns {{ onProgress: (event: SuiteProgress) => void; close: () => void }}
  */
-function progressPrinter(verbose, history, write) {
+function progressPrinter(verbose, history, write, promptHint) {
   const progress = createProgress();
   /** @param {SuiteProgress} event */
   const onProgress = (event) => {
@@ -207,7 +299,7 @@ function progressPrinter(verbose, history, write) {
         // The report is the thing the user came for, so it is printed the moment it exists rather
         // than after a content pass that can take another minute.
         progress.finish();
-        write(renderReport(event.result, { verbose, history }));
+        write(renderReport(event.result, { verbose, history, promptHint }));
         break;
       case 'discover':
         progress.phase('Looking for Markdown documents');

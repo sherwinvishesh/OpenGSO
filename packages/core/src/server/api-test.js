@@ -4,12 +4,13 @@ import { internalDirPath, loadConfig } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
 import { previewSite } from '../shared/site-probe.js';
-import { isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
+import { fixPromptOptions, fixPromptSet, isTestMode, readHistory, recordRun, runTestSuite, scoreTrend, testJson } from '../test/index.js';
 import { ok, bad, resolveCredentials } from './api-shared.js';
 
 /**
  * @import { History, HistoryEntry, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js'
  * @import { ApiProgress, StructurePayload, PreviewResponse } from '../shared/api-types.js'
+ * @import { OpenGeoConfig } from '../shared/config.js'
  * @import { ApiOptions, ApiResponse } from './api-shared.js'
  */
 
@@ -94,7 +95,7 @@ export async function runTest(body, options) {
     requireContent: mode === 'content',
     maxDocs: input.maxDocs,
     signal: options.signal,
-    onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event)) : undefined,
+    onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event, loaded.config)) : undefined,
   });
   // The dashboard has nowhere to show this, so it goes to the terminal `opengeo start` is running in.
   recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
@@ -104,14 +105,7 @@ export async function runTest(body, options) {
     url: result.url,
     history: historyPayload(before, result.url),
     // Flattened for the dashboard's existing Test view, which reads these at the top level.
-    ...(result.structure
-      ? {
-          twinUrl: result.structure.twinUrl,
-          framework: result.structure.framework,
-          score: result.structure.score,
-          checks: result.structure.checks,
-        }
-      : {}),
+    ...(result.structure ? structurePayload(result.structure, loaded.config) : {}),
     structure: result.structure ? testJson(result.structure) : null,
     // Its own key for the same reason it is its own section in the CLI: a model's opinion must
     // never be mistaken for part of the 0-100 number.
@@ -143,25 +137,33 @@ export async function runTest(body, options) {
  * derived from. The other four pass through as they are.
  *
  * @param {SuiteProgress} event
+ * @param {OpenGeoConfig} [config] The project's, for the fix prompts to name its twin directory.
+ *   Without one the frame carries no prompts.
  * @returns {ApiProgress}
  */
-export function testFrame(event) {
-  return event.phase === 'structure-done' ? { phase: 'structure-done', structure: structurePayload(event.result) } : event;
+export function testFrame(event, config) {
+  return event.phase === 'structure-done' ? { phase: 'structure-done', structure: structurePayload(event.result, config) } : event;
 }
 
 /**
- * The same four fields `runTest` flattens into its response, so a client merges one shape.
+ * The fields `runTest` flattens into its response, so a client merges one shape.
+ *
+ * The fix prompts ride along in the frame as well as the response, so the copy button works while
+ * a content review is still running. They are built here, by the same function `--prompt` uses,
+ * because a browser that assembled its own would be a second prompt to keep in step with the first.
  *
  * @param {TestResult} result
+ * @param {OpenGeoConfig} [config]
  * @returns {StructurePayload}
  */
-function structurePayload(result) {
+function structurePayload(result, config) {
   return {
     url: result.url,
     twinUrl: result.twinUrl,
     framework: result.framework,
     score: result.score,
     checks: result.checks,
+    ...(config ? { prompts: fixPromptSet(result, fixPromptOptions(config, result.url)) } : {}),
   };
 }
 

@@ -7,7 +7,8 @@ failed and why.
 
 - Works on **any** site, whether or not it uses OpenGEO, whether or not you built it.
 - No letter grades, no tier labels. A number and a list of specific reasons.
-- `--prompt` turns the failures into a fix prompt you can paste into a coding agent.
+- `--prompt` turns the failures into a fix prompt you can paste into a coding agent, and `--copy`
+  puts it straight on your clipboard, ready for Claude Code.
 - An optional second pass has a model read the Markdown your site serves and rate how well it
   actually answers. It never touches the score.
 
@@ -36,6 +37,9 @@ Modes
 
 Options
   --prompt           print a ready-to-paste fix prompt for your coding agent instead of a report
+  --copy             put that fix prompt on the clipboard, ready to paste into Claude Code.
+                     With --prompt it prints and copies; alone it copies after the report.
+  --only <ids>       scope the prompt to some checks: --only A3 or --only B1,B7
   --strict           fail the build on a suggestion that fails too, not only on a scored check
   --verbose, -v      show why each passing check passed, not just the failures
   --json             machine-readable output
@@ -129,15 +133,34 @@ sent something wrong. It stays outside the score, so `--strict` is what fails a 
 `--verbose` shows the reasoning behind the passes too, which is what you want when you do not
 believe the number.
 
-## `--prompt`
+## Fix it with Claude Code: `--prompt` and `--copy`
 
 ```bash
-opengeo test https://example.com --prompt
+opengeo test https://example.com --copy              # the report, then the prompt on your clipboard
+opengeo test https://example.com --prompt            # the prompt instead of the report
+opengeo test https://example.com --prompt --only A3  # one check
+opengeo test https://example.com --copy --only B1,B7 # a few
 ```
 
-Prints a fix prompt carrying the score, the URL, the expected twin URL, the detected framework, and
-every failed check with its id, the points it cost, and the actual observed reason. It references
-only `opengeo-prod` and OpenGEO's own documentation.
+Builds a fix prompt carrying the score, the URL, the expected twin URL, the detected framework, and
+every failed check with its id, the points it cost, the actual observed reason, what to change, and
+a "Done when" line naming the command that proves it fixed. Paste it into Claude Code, or any coding
+agent with access to the repository. It references only `opengeo-prod` and OpenGEO's own
+documentation.
+
+`--copy` uses the clipboard your system already has: `pbcopy` on macOS, PowerShell (then `clip`) on
+Windows and WSL, `wl-copy`, `xclip` or `xsel` on Linux, and `termux-clipboard-set` on Termux. Over
+SSH, with none of those, it falls back to OSC 52 and asks the terminal to set its clipboard, which
+most modern terminals honour. When nothing works it says so, and `--prompt --out fix-prompt.md`
+saves the prompt to a file instead. A failed copy never changes the exit code.
+
+`--only` scopes the prompt to the checks you name, so a long list can be handed over one job at a
+time. The prompt says the scope out loud, and tells the agent to leave every other check alone.
+
+The same prompts are one click away in two other places. The dashboard (`opengeo start`) draws a
+**Fix it with Claude Code** card above the checks, a copy button on every group and every failing
+check, and copies everything when you press `c`. The home screen (bare `opengeo`) offers to copy
+the prompt when a test run finishes.
 
 Anything the site sent, such as a header value or a JSON-LD field, is quoted as a single-line code
 span and cut at 400 characters, and the prompt tells the agent that those spans are evidence and

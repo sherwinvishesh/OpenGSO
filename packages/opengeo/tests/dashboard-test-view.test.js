@@ -549,3 +549,121 @@ describe('createTestView', () => {
     expect(onTestResult).not.toHaveBeenCalled();
   });
 });
+
+describe('fix prompts in the dashboard', () => {
+  /** @type {import('../../core/src/shared/api-types.js').FixPrompts} */
+  const PROMPTS = {
+    all: '# Fix `localhost:3000` for AI agents\nEverything.',
+    summary: '2 fixes',
+    groups: { failed: 'FAILED GROUP', partial: 'PARTIAL GROUP', locked: 'LOCKED GROUP' },
+    checks: { A3: 'ONLY A3', A6: 'ONLY A6' },
+  };
+
+  /** @param {(text: string) => Promise<void>} writeText */
+  function stubClipboard(writeText) {
+    const spy = vi.fn(writeText);
+    vi.stubGlobal('navigator', { clipboard: { writeText: spy } });
+    return spy;
+  }
+
+  const toasts = () => [...dom.window.document.querySelectorAll('.toast')].map((node) => node.textContent);
+
+  it('draws one card for everything, a button per group and one per failing check', () => {
+    stubFetch({});
+    const { ctx } = fakeCtx({ lastTest: testResult({ prompts: PROMPTS }) });
+    const view = createTestView(ctx);
+    const card = /** @type {HTMLElement} */ (view.node.querySelector('.fix-card'));
+    expect(card.querySelector('h2')?.textContent).toBe('Fix it with Claude Code');
+    expect(card.textContent).toContain('One prompt with 2 fixes');
+
+    const pre = /** @type {HTMLElement} */ (card.querySelector('pre'));
+    expect(pre.hidden).toBe(true);
+    expect(pre.textContent).toBe(PROMPTS.all);
+    const toggle = buttonLabelled(card, 'Show the prompt');
+    expect(toggle.getAttribute('aria-controls')).toBe(pre.id);
+    toggle.click();
+    expect(pre.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(toggle.textContent).toBe('Hide the prompt');
+
+    const groupButtons = [...view.node.querySelectorAll('.group-head .copy-link')].map((node) => node.getAttribute('aria-label'));
+    expect(groupButtons).toEqual([
+      'Copy a fix prompt for the Failed group',
+      'Copy a fix prompt for the Partly there group',
+      'Copy a fix prompt for the Locked group',
+    ]);
+    // The heading list stays a list of names: the button is beside the h2, not in it.
+    expect(view.node.querySelector('h2.group-title .copy-link')).toBeNull();
+
+    const rowButtons = [...view.node.querySelectorAll('.check-copy .copy-link')].map((node) => node.getAttribute('aria-label'));
+    expect(rowButtons).toEqual(['Copy a fix prompt for A3', 'Copy a fix prompt for A6']);
+    expect(dom.window.document.querySelector('.toast-region')?.getAttribute('role')).toBe('status');
+  });
+
+  it('copies the prompt a button belongs to, and says so', async () => {
+    stubFetch({});
+    const writeText = stubClipboard(async () => {});
+    const { ctx } = fakeCtx({ lastTest: testResult({ prompts: PROMPTS }) });
+    const view = createTestView(ctx);
+
+    const row = /** @type {HTMLButtonElement} */ (view.node.querySelector('[aria-label="Copy a fix prompt for A3"]'));
+    row.click();
+    await vi.waitFor(() => expect(toasts()).toEqual(['Fix prompt copied (A3). Paste it into Claude Code.']));
+    expect(writeText).toHaveBeenLastCalledWith('ONLY A3');
+    expect(row.textContent).toBe('Copied');
+
+    /** @type {HTMLButtonElement} */ (view.node.querySelector('[aria-label="Copy a fix prompt for the Locked group"]')).click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith('LOCKED GROUP'));
+    await vi.waitFor(() => expect(toasts()).toContain('Fix prompt copied (2 locked). Paste it into Claude Code.'));
+
+    buttonLabelled(/** @type {HTMLElement} */ (view.node.querySelector('.fix-card')), 'Copy fix prompt').click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith(PROMPTS.all));
+    await vi.waitFor(() => expect(toasts()).toContain('Fix prompt copied (2 fixes). Paste it into Claude Code.'));
+  });
+
+  it('falls back to a selection copy, and says when neither route works', async () => {
+    stubFetch({});
+    stubClipboard(async () => {
+      throw new Error('NotAllowedError');
+    });
+    const document = dom.window.document;
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(document, 'execCommand', { value: execCommand, configurable: true });
+    const { ctx } = fakeCtx({ lastTest: testResult({ prompts: PROMPTS }) });
+    const view = createTestView(ctx);
+
+    expect(view.onKey?.('c')).toBe(true);
+    await vi.waitFor(() => expect(toasts()).toEqual(['Fix prompt copied (2 fixes). Paste it into Claude Code.']));
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    // The textarea it selected from is gone again.
+    expect(document.querySelector('textarea')).toBeNull();
+
+    execCommand.mockReturnValue(false);
+    view.onKey?.('c');
+    await vi.waitFor(() => expect(toasts()).toContain('Could not reach the clipboard. Open "Show the prompt" and copy it from there.'));
+    expect(document.querySelector('.toast-fail')).not.toBeNull();
+  });
+
+  it('takes only c, and only when there is something to copy', () => {
+    stubFetch({});
+    const writeText = stubClipboard(async () => {});
+    const { ctx, holder } = fakeCtx({ lastTest: testResult({ prompts: PROMPTS }) });
+    const view = createTestView(ctx);
+    expect(view.onKey?.('x')).toBe(false);
+
+    holder.lastTest = testResult({ prompts: { all: '## Nothing to fix', summary: 'nothing to fix', groups: {}, checks: {} } });
+    view.update();
+    expect(view.onKey?.('c')).toBe(false);
+    expect(view.node.querySelector('.fix-card')).toBeNull();
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('draws no copy buttons for a result without prompts', () => {
+    stubFetch({});
+    const { ctx } = fakeCtx({ lastTest: testResult() });
+    const view = createTestView(ctx);
+    expect(view.node.querySelector('.fix-card')).toBeNull();
+    expect(view.node.querySelector('.copy-link')).toBeNull();
+    expect(view.onKey?.('c')).toBe(false);
+  });
+});

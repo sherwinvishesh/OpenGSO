@@ -25,4 +25,6 @@ export {};
  * @typedef {object} View
  * @property {HTMLElement} node
  * @property {() => void} update
+ * @property {(key: string) => boolean} [onKey] A single-key shortcut while this screen is showing.
+ *   True when the screen used the key.
  */

@@ -47,6 +47,8 @@ opengeo test <url>              # both passes. The review is skipped with a note
 opengeo test <url> --structure  # the checks alone. Also --offline, -nq. No key, no cost
 opengeo test <url> --content    # the review alone
 opengeo test <url> --prompt     # a fix prompt for a coding agent instead of a report
+opengeo test <url> --copy       # the report, then that prompt on your clipboard for Claude Code
+opengeo test <url> --copy --only A3  # a prompt for one check, or a few: --only B1,B7
 ```
 
 The exit code always comes from the structural checks. A model's opinion never fails a build. See

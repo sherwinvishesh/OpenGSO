@@ -5,7 +5,7 @@ import { field, select } from './tui/interact.js';
 import { readKeys } from './tui/keys.js';
 import { canUseTui, openScreen } from './tui/screen.js';
 import { runFlatHome } from './home-flat.js';
-import { runInScrollback } from './home-launch.js';
+import { copyFixPrompt, runInScrollback } from './home-launch.js';
 import { readHomeStatus } from './home-status.js';
 import { homeEntries, homeHeader } from './home-view.js';
 
@@ -97,7 +97,17 @@ export async function runHome(options) {
       // menu would replay the setup answers into itself the moment the command returned.
       keys.close();
       const ended = await screen.suspend(async () => {
-        await runInScrollback(options, action, argv, output);
+        const offer = await runInScrollback(options, action, argv, output);
+        if (offer) {
+          const reply = await readLine(
+            input,
+            output,
+            `Type ${c.bold('c')} and press Enter to copy the fix prompt for Claude Code (${offer.summary}), or just Enter to go back.`,
+          );
+          if (reply === undefined) return true;
+          if (reply.trim().toLowerCase() !== 'c') return false;
+          await copyFixPrompt(offer, output, options.clipboard);
+        }
         return await waitForKey(input, output);
       });
       // Ctrl-D at the prompt closes stdin for good, and a menu with no input could only hang.
@@ -221,18 +231,30 @@ function isUrlish(value) {
  * @param {NodeJS.WriteStream} output
  * @returns {Promise<boolean>}
  */
-function waitForKey(input, output) {
+async function waitForKey(input, output) {
+  return (await readLine(input, output, ink.faint('Press Enter to go back to the menu.'))) === undefined;
+}
+
+/**
+ * One cooked-mode line, or undefined when the input ended instead.
+ *
+ * @param {NodeJS.ReadStream} input
+ * @param {NodeJS.WriteStream} output
+ * @param {string} question
+ * @returns {Promise<string | undefined>}
+ */
+function readLine(input, output, question) {
   return new Promise((resolve) => {
-    output.write(`\n${ink.faint('Press Enter to go back to the menu.')} `);
-    /** @param {boolean} ended */
-    const settle = (ended) => {
+    output.write(`\n${question} `);
+    /** @param {string | undefined} line */
+    const settle = (line) => {
       input.off('data', onData);
       input.off('end', onEnd);
       output.write('\n');
-      resolve(ended);
+      resolve(line);
     };
-    const onData = () => settle(false);
-    const onEnd = () => settle(true);
+    const onData = (/** @type {Buffer | string} */ chunk) => settle(String(chunk));
+    const onEnd = () => settle(undefined);
     input.once('data', onData);
     input.once('end', onEnd);
     input.resume();

@@ -430,8 +430,9 @@ suggestion is never priced.
 
 `--prompt` turns that same list into a fix prompt you can paste into a coding agent: scored fixes
 first, then any check failing on a twin already served, then the suggestions and the twelve waiting
-on B1, each marked as outside the score. It names
-only `opengeo-prod` and OpenGEO's own documentation.
+on B1, each marked as outside the score. It names only `opengeo-prod` and OpenGEO's own
+documentation. `--copy` puts it on the clipboard instead, `--only A3,B7` scopes it to the checks
+named, and the dashboard has a copy button on every group and every failing check.
 
 ## The other half of a test run
 

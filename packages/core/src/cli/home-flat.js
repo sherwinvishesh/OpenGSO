@@ -1,7 +1,7 @@
 import { c } from '../shared/log.js';
 import { createPrompter } from './prompt.js';
 import { readHomeStatus } from './home-status.js';
-import { runInScrollback } from './home-launch.js';
+import { copyFixPrompt, runInScrollback } from './home-launch.js';
 import { homeEntries, plainStatus } from './home-view.js';
 
 /**
@@ -55,7 +55,17 @@ export async function runFlatHome(options, root) {
     if (action === 'quit') return 0;
 
     const argv = flatArgs(action, status);
-    await runInScrollback(options, action, argv, output);
+    const offer = await runInScrollback(options, action, argv, output);
+    if (!offer) continue;
+    // A fresh reader for the same reason as above: the command has just let go of stdin.
+    const asker = createPrompter({ input, output });
+    try {
+      if (await asker.confirm(`\nCopy the fix prompt for Claude Code (${offer.summary})?`, false)) {
+        await copyFixPrompt(offer, output, options.clipboard);
+      }
+    } finally {
+      asker.close();
+    }
   }
 }
 

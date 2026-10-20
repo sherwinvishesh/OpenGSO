@@ -1,5 +1,6 @@
 import { api, ApiError } from '../api.js';
 import { checkList } from '../components/checks.js';
+import { copyPrompt, fixPromptCard } from '../components/fix-prompt.js';
 import { createProgress } from '../components/progress.js';
 import { scorePanel } from '../components/score.js';
 import { isAbort, startRun } from '../runs.js';
@@ -112,11 +113,12 @@ export function createTestView(ctx) {
 
   const errorSlot = el('div', { className: 'contents' });
   const scoreSlot = el('div', { className: 'contents' });
+  const promptSlot = el('div', { className: 'contents' });
   const checksSlot = el('div', { className: 'contents' });
   const contentSlot = el('div', { className: 'contents' });
   const pastSlot = el('div', { className: 'contents' });
   /** Whatever each slot was last drawn from, so a redraw that changes nothing touches nothing. */
-  const drawn = { error: '', score: '', checks: '', content: '', past: '' };
+  const drawn = { error: '', score: '', prompt: '', checks: '', content: '', past: '' };
 
   const node = el(
     'div',
@@ -133,6 +135,7 @@ export function createTestView(ctx) {
     ),
     errorSlot,
     scoreSlot,
+    promptSlot,
     checksSlot,
     contentSlot,
     pastSlot,
@@ -243,9 +246,18 @@ export function createTestView(ctx) {
       drawn.score = scoreKey;
     }
 
-    const checksKey = result?.checks ? JSON.stringify([result.checks, score?.locked]) : '';
+    // Only when there is something to ask for: a prompt that says "nothing to fix" is not worth a card.
+    const prompts = result?.prompts;
+    const worthCopying = prompts && Object.keys(prompts.groups).length > 0 ? prompts : undefined;
+    const promptKey = worthCopying ? worthCopying.all : '';
+    if (promptKey !== drawn.prompt) {
+      fill(promptSlot, worthCopying ? fixPromptCard(worthCopying) : null);
+      drawn.prompt = promptKey;
+    }
+
+    const checksKey = result?.checks ? JSON.stringify([result.checks, score?.locked, Boolean(prompts)]) : '';
     if (checksKey !== drawn.checks) {
-      fill(checksSlot, result?.checks ? checkList(result.checks, score) : null);
+      fill(checksSlot, result?.checks ? checkList(result.checks, score, prompts) : null);
       drawn.checks = checksKey;
     }
 
@@ -279,6 +291,12 @@ export function createTestView(ctx) {
 
   return {
     node,
+    onKey(key) {
+      const prompts = result?.prompts;
+      if (key !== 'c' || !prompts || Object.keys(prompts.groups).length === 0) return false;
+      void copyPrompt(prompts.all, prompts.summary);
+      return true;
+    },
     update() {
       if (!edited) {
         const site = ctx.state().config.site;

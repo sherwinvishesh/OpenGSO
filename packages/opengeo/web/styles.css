@@ -881,6 +881,107 @@ summary:focus-visible,
   font-weight: 500;
 }
 
+/* -- fix prompts ------------------------------------------------------------------------------- */
+
+/* A group title with a copy button on the far end. The h2 keeps its own spacing out of the row. */
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  margin: 0 0 var(--s-8);
+}
+
+.group-head .group-title {
+  margin: 0;
+}
+
+.copy-link {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-link:hover {
+  text-decoration: underline;
+}
+
+.check-copy {
+  margin-top: var(--s-6);
+}
+
+/* Its own width, not the column's: stretched, the whole row would be a button. */
+.prompt-toggle {
+  align-self: flex-start;
+}
+
+/* What is about to be pasted, readable but out of the way: it scrolls rather than pushing the checks down. */
+.prompt-text {
+  margin: 0;
+  padding: var(--s-16) var(--s-20);
+  max-height: 420px;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-24);
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-8);
+  width: max-content;
+  max-width: calc(100vw - var(--s-32));
+  pointer-events: none;
+}
+
+.toast {
+  padding: var(--s-10) var(--s-16);
+  border-radius: var(--radius-md);
+  background: var(--text);
+  color: var(--surface);
+  font-size: var(--text-md);
+  box-shadow: var(--shadow);
+  animation: toast-in var(--slow) var(--ease);
+}
+
+.toast-fail {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Off screen rather than hidden: a hidden textarea cannot be selected, and the copy fallback needs one. */
+.offscreen {
+  position: fixed;
+  top: 0;
+  left: -9999px;
+  opacity: 0;
+}
+
 /* -- the locked block -------------------------------------------------------------------------- */
 
 .locked-head {
@@ -1459,5 +1560,11 @@ details.probe > summary::marker {
     animation: none;
     width: 100%;
     opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
   }
 }

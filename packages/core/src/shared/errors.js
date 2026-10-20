@@ -463,6 +463,24 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   modeConflict: 'Pick one: --structure runs the checks only, --content runs the AI review only, and neither runs both.',
 
+  onlyNeedsPrompt: '--only picks which checks go into the fix prompt, so it goes with --prompt (print the prompt) or --copy (put it on the clipboard).',
+
+  onlyEmpty: '--only needs at least one check id, as in --only A3 or --only B1,B7.',
+
+  copyNeedsChecks: '--copy copies a fix prompt built from the structural checks, and --content skips them. Drop --content, or use --structure.',
+
+  /**
+   * @param {readonly string[]} ids
+   * @param {string} known The ids that do exist, as ranges: `A1 to A8, B1 to B14`.
+   */
+  unknownCheckIds: (ids, known) =>
+    `${ids.length === 1 ? 'There is no check' : 'There are no checks'} ${ids.join(', ')}. The checks are ${known}, and docs/checks.md describes each one.`,
+
+  /** @param {readonly string[]} tried The clipboard tools looked for, in order. */
+  clipboardUnavailable: (tried) =>
+    `Could not reach a clipboard${tried.length > 0 ? ` (tried ${tried.join(', ')})` : ''}. ` +
+    'Print the prompt with --prompt and copy it from there, or save it with --prompt --out fix-prompt.md.',
+
   /** @param {string} tier */
   unknownTier: (tier) => `Unknown tier "${tier}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).`,
 

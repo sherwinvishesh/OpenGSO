@@ -42,7 +42,11 @@ export { suiteJson, testJson, toJson } from './report-json.js';
  *   directory to read a history out of, which is every `opengeo test <url>` against someone else's
  *   site.
  * @property {number} [width] Overridden only by tests, which have no terminal to measure.
+ * @property {boolean} [promptHint] The closing line on getting a fix prompt. Off when the caller is
+ *   already copying one, or offers its own way to, as the home screen does.
  */
+
+const PROMPT_HINT = 'Add --copy to copy a fix prompt for Claude Code, or --prompt to print it.';
 
 /**
  * @param {TestResult} result
@@ -95,7 +99,7 @@ export function renderReport(result, options = {}) {
     }
   }
 
-  lines.push(...renderNextSteps(checks, score, width));
+  lines.push(...renderNextSteps(checks, score, width, options.promptHint === false ? undefined : PROMPT_HINT));
   return lines.join('\n');
 }
 
@@ -269,7 +273,7 @@ export function renderSetupScore(result, options = {}) {
   result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
   const lines = [renderScore(result.url, result.score, options)];
-  lines.push(...renderNextSteps(result.checks, result.score, width));
+  lines.push(...renderNextSteps(result.checks, result.score, width, `Run opengeo test ${result.url} --copy to copy a fix prompt for Claude Code.`));
   return `${lines.join('\n')}\n`;
 }
 
@@ -284,9 +288,10 @@ export function renderSetupScore(result, options = {}) {
  * @param {readonly CheckResult[]} checks
  * @param {Score} score
  * @param {number} width
+ * @param {string} [hint] The last line, saying how to get the same list as a fix prompt.
  * @returns {string[]}
  */
-function renderNextSteps(checks, score, width) {
+function renderNextSteps(checks, score, width, hint) {
   /** @type {string[]} */
   const lines = [''];
   const steps = fixSteps(checks, score);
@@ -334,8 +339,10 @@ function renderNextSteps(checks, score, width) {
   }
 
   if (fixes.length === 0 && ideas.length === 0) return lines;
-  lines.push(c.gray('Run the same command with --prompt to get a fix prompt for Claude Code.'));
-  lines.push('');
+  if (hint) {
+    lines.push(c.gray(hint));
+    lines.push('');
+  }
   return lines;
 }
 

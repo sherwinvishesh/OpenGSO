@@ -23,6 +23,8 @@ export * from './project.js';
  * @property {string[]} argv Argv after the command name, e.g. `['http://localhost:3000', '--json']`.
  * @property {string} packageName
  * @property {string} version
+ * @property {(prompt: string, summary: string) => void} [onFixPrompt] Handed the fix prompt after a test run,
+ *   by a caller that offers its own way to copy it (the home screen). Only `test` calls it.
  */
 
 /** @typedef {(ctx: CommandContext) => Promise<number>} CommandHandler */
@@ -306,6 +308,9 @@ const COMMAND_HELP = {
     '',
     'Options',
     '  --prompt           print a ready-to-paste fix prompt for your coding agent instead of a report',
+    '  --copy             put that fix prompt on the clipboard, ready to paste into Claude Code.',
+    '                     With --prompt it prints and copies; alone it copies after the report.',
+    '  --only <ids>       scope the prompt to some checks: --only A3 or --only B1,B7',
     '  --strict           fail the build on a suggestion that fails too, not only on a scored check',
     '  --max-docs <n>     how many documents the content pass reviews (default: 10)',
     '  --verbose, -v      show why each passing check passed, not just the failures',

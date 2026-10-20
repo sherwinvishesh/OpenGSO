@@ -231,6 +231,19 @@ export {};
  * @property {Framework} [framework]
  * @property {Score} score
  * @property {CheckResult[]} checks
+ * @property {FixPrompts} [prompts]
+ */
+
+/**
+ * Ready-to-paste prompts for a coding agent, built on the server by the same code as `--prompt`.
+ * `groups` has a key only for a group with work in it, and `checks` one only for a check that failed
+ * or partly passed.
+ *
+ * @typedef {object} FixPrompts
+ * @property {string} all
+ * @property {string} summary What `all` asks for, as "2 fixes and 6 suggestions".
+ * @property {Partial<Record<'failed' | 'partial' | 'suggestions' | 'locked', string>>} groups
+ * @property {Record<string, string>} checks
  */
 
 /**

@@ -479,6 +479,60 @@ describe('the full-screen menu after a command', () => {
     expect(ran).toBe(1);
   });
 
+  it('offers to copy the fix prompt a test run built, and copies it on c', async () => {
+    const input = /** @type {NodeJS.ReadStream} */ (
+      /** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, isRaw: false, setRawMode: (/** @type {boolean} */ on) => ((input.isRaw = on), input) }))
+    );
+    const output = /** @type {NodeJS.WriteStream} */ (/** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, columns: 80, rows: 24 })));
+    let seen = '';
+    output.on('data', (/** @type {Buffer} */ chunk) => {
+      seen += chunk.toString();
+    });
+    /** @param {string} needle */
+    const waitFor = async (needle) => {
+      for (let tries = 0; !stripAnsi(seen).includes(needle); tries += 1) {
+        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)}`);
+        await new Promise((done) => setTimeout(done, 5));
+      }
+    };
+    /** @type {string[]} */
+    const copied = [];
+    /** @type {CommandHandler} */
+    const test = async (ctx) => {
+      ctx.onFixPrompt?.('# Fix it', '2 fixes and 1 suggestion');
+      return 1;
+    };
+
+    const done = runHome({
+      packageName: 'opengeo',
+      version: '0.0.0',
+      commands: { test },
+      root: project({ 'opengeo.config.json': CONFIG }),
+      input,
+      output,
+      clipboard: {
+        run: async (_command, _args, text) => {
+          copied.push(text);
+          return true;
+        },
+      },
+    });
+    await waitFor('Quit');
+    input.write('t');
+    await waitFor('Structure and content');
+    input.write('\r');
+    await waitFor('Which URL should I test?');
+    input.write('\r');
+    await waitFor('copy the fix prompt for Claude Code (2 fixes and 1 suggestion)');
+    input.write('c\n');
+    await waitFor('Copied the fix prompt');
+    await waitFor('Press Enter');
+    input.end();
+
+    expect(await done).toBe(0);
+    expect(copied).toEqual(['# Fix it']);
+  });
+
   it('redraws the menu at the new width when the terminal is resized', async () => {
     const input = /** @type {NodeJS.ReadStream} */ (
       /** @type {unknown} */ (Object.assign(new PassThrough(), { isTTY: true, isRaw: false, setRawMode: (/** @type {boolean} */ on) => ((input.isRaw = on), input) }))

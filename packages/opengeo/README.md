@@ -53,7 +53,8 @@ Five screens, all driving the same core functions the CLI calls:
 - **Test** runs the 22 checks against a live URL and shows the score with every reason attached,
   then optionally has a model read the markdown your site serves. Three buttons: everything, the
   structural checks alone, or the content review alone. The review renders in its own cards, below
-  the score and never mixed into it.
+  the score and never mixed into it. A **Fix it with Claude Code** card copies a ready-to-paste fix
+  prompt, every group and failing check has its own copy button, and `c` copies the lot.
 - **Generate** crawls the site, writes the twins and the three root files, and can show you the
   exact bytes an agent would receive, read back off disk.
 - **Prod** probes a running deployment and reports the two bot levers separately.

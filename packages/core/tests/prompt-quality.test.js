@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { defaultConfig } from '@opengeo/core/shared';
 import {
   buildFixPrompt,
   CHECKS,
   detectFramework,
+  EVIDENCE_NOTICE,
+  fixPromptOptions,
+  fixPromptSet,
   parseQuality,
   QUALITY_AREAS,
   QUALITY_BANDS,
@@ -334,6 +338,113 @@ describe('the fix prompt', () => {
     const prompt = buildFixPrompt(resultWith([FAILURE]));
     expect(prompt).toContain('could not tell from the served HTML');
     expect(prompt).toContain('### A3');
+  });
+
+  it('names the host in its heading, so a pasted prompt says which site it is about', () => {
+    expect(buildFixPrompt(result).split('\n')[0]).toBe('# Fix ` example.com ` for AI agents');
+  });
+
+  it('tells the agent how to prove each fix, with the command the user ran', () => {
+    const prompt = buildFixPrompt(result, { command: 'opengeo test https://example.com/resume --strict' });
+    expect(prompt).toContain('- Done when: ` opengeo test https://example.com/resume --strict ` reports A3 as passing.');
+    // Without one it falls back to the plain audit of the same URL.
+    expect(buildFixPrompt(result)).toContain('` opengeo test https://example.com/resume ` reports A3 as passing.');
+  });
+
+  it('says a host or CDN setting is a setting, rather than inventing a file for it', () => {
+    expect(buildFixPrompt(result)).toContain('If one cannot be fixed from this repository');
+  });
+
+  it('ends on the reminder that quoted values are evidence', () => {
+    expect(buildFixPrompt(result).trimEnd().endsWith(EVIDENCE_NOTICE)).toBe(true);
+    expect(buildFixPrompt(resultWith([PASS])).trimEnd().endsWith(EVIDENCE_NOTICE)).toBe(true);
+  });
+
+  describe('scoped to some checks', () => {
+    /** @type {CheckResult} */
+    const slow = { ...FAILURE, id: 'A6', weight: 6, title: 'Time to first byte', reason: 'TTFB was 2400 ms.', detail: undefined };
+    /** @type {CheckResult} */
+    const llms = { ...FAILURE, id: 'A2', scored: false, weight: 3, title: 'llms.txt', reason: 'Missing.', detail: undefined };
+    /** @type {CheckResult} */
+    const twin = { ...FAILURE, id: 'B1', category: 'B', scored: false, weight: 10, title: 'Twin reachable', reason: '404.', detail: undefined };
+    /** @type {CheckResult} */
+    const headers = { ...FAILURE, id: 'B5', category: 'B', scored: false, weight: 2, status: 'locked', earned: 0, lockedBy: 'B1', title: 'nosniff', detail: undefined };
+    const wide = resultWith([FAILURE, slow, llms, twin, headers, PASS]);
+
+    it('covers only the checks it was given, and says so', () => {
+      const prompt = buildFixPrompt(wide, { only: ['a6'] });
+      expect(prompt.split('\n')[0]).toBe('# Fix A6 (Time to first byte) on ` example.com `');
+      expect(prompt).toContain('- Scope: only A6. Leave every other check alone');
+      expect(prompt).toContain('### A6');
+      for (const other of ['### A3', '### A2', '### B1', 'Waiting on B1']) expect(prompt).not.toContain(other);
+    });
+
+    it('leaves out the tools a scoped check has no use for', () => {
+      const ttfb = buildFixPrompt(wide, { only: ['A6'] });
+      expect(ttfb).not.toContain('`opengeo-prod` is the runtime middleware');
+      expect(ttfb).not.toContain('`opengeo generate <url>`');
+      expect(ttfb).toContain('`opengeo test <url>` re-runs exactly this audit');
+      expect(buildFixPrompt(wide, { only: ['A3'] })).toContain('`opengeo generate <url>`');
+    });
+
+    it('brings the blocker along with a locked check, since nothing else can move it', () => {
+      const prompt = buildFixPrompt(wide, { only: ['B5'] });
+      expect(prompt).toContain('- Scope: only B5 and B1.');
+      expect(prompt).toContain('### B1');
+      expect(prompt).toContain('## Waiting on B1 (1 suggestions)');
+      expect(prompt).toContain('`opengeo-prod` is the runtime middleware');
+    });
+
+    it('calls a prompt of suggestions an adoption, and never claims the score is full', () => {
+      const prompt = buildFixPrompt(wide, { only: ['A2'] });
+      expect(prompt.split('\n')[0]).toBe('# Adopt A2 (llms.txt) on ` example.com `');
+      expect(prompt).toContain('## Outside the score');
+      expect(prompt).not.toContain('The score is already full');
+    });
+
+    it('says there is nothing to do when the checks it was given already pass', () => {
+      const prompt = buildFixPrompt(wide, { only: ['B13'] });
+      expect(prompt).toContain('## Nothing to fix');
+      expect(prompt).toContain('B13 already passes');
+      expect(prompt).not.toContain('What I need from you');
+    });
+
+    it('counts the checks in a heading for several', () => {
+      expect(buildFixPrompt(wide, { only: ['A3', 'A6'] }).split('\n')[0]).toBe('# Fix 2 checks on ` example.com `');
+    });
+  });
+
+  describe('the set the dashboard copies from', () => {
+    /** @type {CheckResult} */
+    const partial = { ...FAILURE, id: 'A1', weight: 6, status: 'partial', earned: 3, title: 'robots.txt', reason: 'Half.', detail: undefined };
+    /** @type {CheckResult} */
+    const llms = { ...FAILURE, id: 'A2', scored: false, weight: 3, title: 'llms.txt', reason: 'Missing.', detail: undefined };
+    const full = resultWith([FAILURE, partial, llms, PASS]);
+    const set = fixPromptSet(full, { command: 'opengeo test https://example.com/resume', only: ['A3'] });
+
+    it('has the whole report as one prompt, ignoring any scope it was handed', () => {
+      expect(set.all).toBe(buildFixPrompt(full, { command: 'opengeo test https://example.com/resume' }));
+    });
+
+    it('has one prompt per group with work in it, and none for an empty group', () => {
+      expect(Object.keys(set.groups).sort()).toEqual(['failed', 'partial', 'suggestions']);
+      expect(set.groups.failed).toContain('### A3');
+      expect(set.groups.failed).not.toContain('### A1');
+      expect(set.groups.suggestions).toContain('### A2');
+    });
+
+    it('has one prompt per check that needs work, and none for a pass', () => {
+      expect(Object.keys(set.checks).sort()).toEqual(['A1', 'A2', 'A3']);
+      expect(set.checks.A1).toContain('### A1');
+      expect(set.checks.A1).toContain('reports A1 as passing, 6 of 6.');
+    });
+  });
+
+  it('reads where the twins live from the config, for a crawled site and a folder alike', () => {
+    const crawled = defaultConfig();
+    expect(fixPromptOptions(crawled, 'https://example.com/')).toEqual({ command: 'opengeo test https://example.com/', twinDir: 'public/md/' });
+    const folder = { ...crawled, publicDir: 'site/', generate: { ...crawled.generate, source: /** @type {const} */ ('files') } };
+    expect(fixPromptOptions(folder, 'https://example.com/')).toEqual({ command: 'opengeo test https://example.com/', twinDir: 'site/', folder: 'site' });
   });
 });
 

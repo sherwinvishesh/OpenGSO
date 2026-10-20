@@ -71,6 +71,18 @@ separate sections and the second is **never** folded into the number. The exit c
 from the checks, so a model's opinion cannot fail your build. Without a key the default run does the
 structural half and says in one line what it skipped.
 
+### Hand the fixes to Claude Code
+
+```bash
+npx opengeo test https://your-site.com --copy               # the report, then a fix prompt on your clipboard
+npx opengeo test https://your-site.com --prompt --only A3   # the prompt for one check, printed
+```
+
+The fix prompt names every failing check, what the site actually served, what to change, and the
+command that proves each fix, so a coding agent can work through it without guessing. Paste it into
+Claude Code. The dashboard has the same prompts behind a copy button on every group and every
+failing check (press `c` to copy them all), and the home screen offers to copy one after a test.
+
 ## A folder of HTML files? Point it at the folder
 
 If your site is plain HTML files, hand-written, exported by a static site generator or handed to you

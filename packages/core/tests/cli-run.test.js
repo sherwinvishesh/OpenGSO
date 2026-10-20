@@ -45,6 +45,22 @@ vi.mock('../src/test/index.js', async (importOriginal) => {
   };
 });
 
+/**
+ * What `--copy` put on the clipboard, and whether it worked. The real clipboard is never touched:
+ * a test run must not clobber what the developer running it had copied.
+ *
+ * @type {{ copied: string[]; works: boolean }}
+ */
+const clipboard = { copied: [], works: true };
+
+vi.mock('../src/shared/clipboard.js', () => ({
+  copyToClipboard: async (/** @type {string} */ text) => {
+    if (!clipboard.works) return { ok: false, tried: ['pbcopy'] };
+    clipboard.copied.push(text);
+    return { ok: true, via: 'pbcopy', confirmed: true };
+  },
+}));
+
 /** @type {Server} */
 let server;
 /** @type {string} */
@@ -72,6 +88,8 @@ afterAll(async () => {
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'opengeo-run-'));
   passEverything = false;
+  clipboard.copied = [];
+  clipboard.works = true;
   // The runner's own CI variable must not decide which branch these tests take.
   for (const key of ENV_KEYS) {
     savedEnv[key] = process.env[key];
@@ -253,6 +271,60 @@ describe('opengeo test, as a script sees it', () => {
     expect(code).toBe(1);
     expect(plain(stdout)).toBe(`Wrote ${out}\n`);
     expect(readFileSync(out, 'utf8')).toContain(site);
+  });
+
+  it('copies the fix prompt after the report with --copy, and says so last', async () => {
+    const { code, stdout } = await run(testCommand, [site, '--project', root, '--structure', '--copy']);
+    expect(code).toBe(1);
+    expect(clipboard.copied).toHaveLength(1);
+    expect(clipboard.copied[0]).toContain(`opengeo test ${site}`);
+    const lines = plain(stdout).trimEnd().split('\n');
+    expect(lines[lines.length - 1]).toMatch(/^Copied the fix prompt for Claude Code \(\d+ fix(es)? and \d+ suggestions?\)/);
+    // The report's own hint about --copy would be telling the user to do what just happened.
+    expect(plain(stdout)).not.toContain('Add --copy');
+  });
+
+  it('prints the prompt on stdout and the confirmation on stderr with --prompt --copy', async () => {
+    const { code, stdout, stderr } = await run(testCommand, [site, '--project', root, '--prompt', '--copy']);
+    expect(code).toBe(1);
+    expect(clipboard.copied).toEqual([stdout]);
+    expect(plain(stderr)).toContain('Copied the fix prompt');
+  });
+
+  it('keeps stdout pure JSON with --json --copy', async () => {
+    const { stdout, stderr } = await run(testCommand, [site, '--project', root, '--structure', '--json', '--copy']);
+    expect(() => JSON.parse(stdout)).not.toThrow();
+    expect(clipboard.copied).toHaveLength(1);
+    expect(plain(stderr)).toContain('Copied the fix prompt');
+  });
+
+  it('warns, and keeps the exit code about the site, when no clipboard can be reached', async () => {
+    clipboard.works = false;
+    const { code, stdout } = await run(testCommand, [site, '--project', root, '--structure', '--copy']);
+    expect(code).toBe(1);
+    expect(plain(stdout)).toContain(ERRORS.clipboardUnavailable(['pbcopy']));
+  });
+
+  it('scopes the prompt with --only, in any case and with commas or spaces', async () => {
+    const { stdout } = await run(testCommand, [site, '--project', root, '--prompt', '--only', 'a3, b1']);
+    expect(stdout).toContain('Fix 2 checks on');
+    expect(stdout).toContain('Scope: only A3 and B1');
+  });
+
+  it('refuses --only without --prompt or --copy, an unknown id, and --copy with --content', async () => {
+    const alone = await run(testCommand, [site, '--project', root, '--only', 'A3']);
+    expect(alone.code).toBe(EXIT_USAGE);
+    expect(alone.stderr).toContain(ERRORS.onlyNeedsPrompt);
+
+    const typo = await run(testCommand, [site, '--project', root, '--prompt', '--only', 'A3,Z9']);
+    expect(typo.code).toBe(EXIT_USAGE);
+    expect(typo.stderr).toContain('There is no check Z9');
+    expect(typo.stdout).toBe('');
+
+    const content = await run(testCommand, [site, '--project', root, '--content', '--copy']);
+    expect(content.code).toBe(EXIT_USAGE);
+    expect(content.stderr).toContain(ERRORS.copyNeedsChecks);
+    expect(clipboard.copied).toEqual([]);
   });
 
   it('records the run in history even with --json, without a word on stdout about it', async () => {
