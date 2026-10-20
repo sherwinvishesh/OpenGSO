@@ -2,7 +2,8 @@
 
 > **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
 
-All three OpenGEO pillars behind one command: `test`, `generate`, `prod test`, and `settings`.
+All three OpenGEO pillars behind one command: `test`, `generate`, `prod test`, `prod data`, and
+`settings`.
 
 This is the package to install if you want the whole toolchain from the terminal and do not need the
 local dashboard. If you want the dashboard too, install
@@ -64,6 +65,15 @@ Never overwrites a file it did not write. See
 
 Probes a live deployment and reports the two bot levers separately. See
 [opengeo-prod](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/prod/README.md).
+
+### `opengeo prod data`
+
+Writes the twins, the routing and your custom crawlers into `opengeo-edge-data.js` (`.ts` in a
+TypeScript project) for an edge function to import, since an edge runtime has no disk to read them
+from. Run it after `generate` and before your bundler; `generate` refreshes a module it finds.
+`--out <file>` picks the path, `--json` prints the result, and like everything else it never replaces
+a file OpenGEO did not write without `--force`. See
+[Edge runtimes](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/prod/README.md#edge-runtimes).
 
 ### `opengeo settings`
 

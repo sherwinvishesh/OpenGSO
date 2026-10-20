@@ -27,7 +27,7 @@ describe('the edge entry', () => {
   it('bundles for a runtime with no Node builtins', async () => {
     const result = await build({
       stdin: {
-        contents: `export { createManifestStore, createProdHandler } from '@opengeo/core/prod/edge';`,
+        contents: `export * from '@opengeo/core/prod/edge';`,
         resolveDir: repo,
         loader: 'js',
       },
@@ -43,8 +43,10 @@ describe('the edge entry', () => {
 
   it('leaves out everything that reads the disk', async () => {
     const entry = Object.keys(await import('@opengeo/core/prod/edge'));
-    expect(entry).toEqual(expect.arrayContaining(['createManifestStore', 'createMemoryStore', 'handleRequest']));
-    for (const name of ['createFsStore', 'logStartupStatus', 'buildStartupStatus']) {
+    expect(entry).toEqual(
+      expect.arrayContaining(['createManifestStore', 'createMemoryStore', 'handleRequest', 'createEdgeMiddleware', 'fetchMiddleware']),
+    );
+    for (const name of ['createFsStore', 'readTwins', 'createNodeMiddleware', 'logStartupStatus', 'buildStartupStatus']) {
       expect(entry).not.toContain(name);
     }
   });

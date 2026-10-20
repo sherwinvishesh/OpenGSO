@@ -8,6 +8,7 @@ import { fileToRoute, isIndexFile, listLocalPages, shownPath } from '../shared/l
 import { normalizeRoute, twinFileKey } from '../shared/routes.js';
 import { generatePages } from './generate.js';
 import { readManifest } from './manifest.js';
+import { refreshEdgeData } from '../prod/edge-data.js';
 import { writeSiteFilesFor } from './site.js';
 
 /**
@@ -189,6 +190,9 @@ export async function generateFromFiles(options) {
     options.onProgress?.({ phase: 'files' });
     files = writeSiteFilesFor(effective, origin, generate, options, warnings);
   }
+  const edge = refreshEdgeData(effective);
+  warnings.push(...edge.warnings);
+  notes.push(...edge.notes);
 
   return {
     site: origin,

@@ -6,8 +6,8 @@
 packages/core        @opengeo/core, private, never published. Every pillar lives here.
 packages/testing     opengeo-testing    test
 packages/generate    opengeo-generate   generate
-packages/prod        opengeo-prod       middleware + prod test
-packages/cli         opengeo-cli        test + generate + prod test + settings
+packages/prod        opengeo-prod       middleware + prod test + prod data
+packages/cli         opengeo-cli        test + generate + prod test + prod data + settings
 packages/opengeo     opengeo            all of the above + the dashboard
 examples/nextjs-demo the app the whole pipeline is exercised against
 docs/                the user and contributor docs, listed in the README

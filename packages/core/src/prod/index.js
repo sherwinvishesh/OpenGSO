@@ -5,6 +5,7 @@
 //
 // It is the fs-free edge entry plus the two things that read the disk.
 export * from './edge.js';
+export * from './adapters/options.js';
 export { createFsStore } from './store.js';
 /** @typedef {import('./store.js').FsStoreOptions} FsStoreOptions */
 export { buildStartupStatus, logStartupStatus } from './startup.js';

@@ -30,8 +30,11 @@ const failures = [];
 const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
 /** Library entries, by package directory. Each is checked as the runtime the middleware is. */
 const LIBRARIES = {
-  prod: { runtime: ['index.js', 'next.js', 'edge.js'], edge: ['edge.js'] },
-  opengeo: { runtime: ['prod.js', 'prod-next.js', 'prod-edge.js'], edge: ['prod-edge.js'] },
+  prod: { runtime: ['index.js', 'next.js', 'edge.js', 'node.js', 'fetch.js', 'vite.js'], edge: ['edge.js'] },
+  opengeo: {
+    runtime: ['prod.js', 'prod-next.js', 'prod-edge.js', 'prod-node.js', 'prod-fetch.js', 'prod-vite.js'],
+    edge: ['prod-edge.js'],
+  },
 };
 const ALLOWED_DEPENDENCIES = { 'opengeo-prod': [] };
 

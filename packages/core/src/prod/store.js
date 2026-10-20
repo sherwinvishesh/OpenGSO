@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { STORE_ERRORS } from '../shared/errors.js';
-import { createManifestStore, createMemoryStore } from './manifest-store.js';
+import { createManifestStore } from './manifest-store.js';
 
 export * from './manifest-store.js';
 
@@ -39,6 +39,27 @@ export * from './manifest-store.js';
  * @returns {MarkdownStore}
  */
 export function createFsStore(options) {
+  const twins = readTwins(options);
+  return loadedFrom(createManifestStore(twins), twins.problems, twins.sources);
+}
+
+/**
+ * @typedef {object} TwinFiles
+ * @property {StoreManifest} manifest Only the entries whose file was found and read.
+ * @property {Record<string, string>} contents Raw file contents keyed by the manifest's `file`.
+ * @property {string[]} problems
+ * @property {string[]} sources The manifest and every twin it lists, read or not.
+ */
+
+/**
+ * What `createFsStore` loads, as data: the same manifest checks and the same refusal of a twin
+ * outside publicDir. `opengeo prod data` writes this for the edge, so a Worker and a Node server
+ * built from one project serve exactly the same twins.
+ *
+ * @param {FsStoreOptions} options
+ * @returns {TwinFiles}
+ */
+export function readTwins(options) {
   const root = resolve(options.root);
   const publicDir = resolve(root, options.publicDir ?? 'public');
   const internalDir = resolve(root, options.internalDir ?? '.opengeo');
@@ -46,9 +67,7 @@ export function createFsStore(options) {
 
   // The manifest is listed even when it is missing, so a development server started before the
   // first generate still notices when one appears.
-  if (!existsSync(manifestFile)) {
-    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.noManifest(manifestFile)], [manifestFile]);
-  }
+  if (!existsSync(manifestFile)) return nothingRead(STORE_ERRORS.noManifest(manifestFile), manifestFile);
 
   /** @type {unknown} */
   let manifest;
@@ -56,13 +75,13 @@ export function createFsStore(options) {
     manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.unreadableManifest(manifestFile, reason)], [manifestFile]);
+    return nothingRead(STORE_ERRORS.unreadableManifest(manifestFile, reason), manifestFile);
   }
   // Parsed is not the same as a manifest, and this runs at server start: a TypeError here would
   // take the site down over a file that only decides which pages get a twin.
   const table = isRecord(manifest) ? manifest.pages : undefined;
   if (!isRecord(table)) {
-    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.manifestHasNoPages(manifestFile)], [manifestFile]);
+    return nothingRead(STORE_ERRORS.manifestHasNoPages(manifestFile), manifestFile);
   }
 
   /** @type {string[]} */
@@ -102,7 +121,16 @@ export function createFsStore(options) {
     }
     pages[key] = entry;
   }
-  return loadedFrom(createManifestStore({ manifest: { pages }, contents }), problems, sources);
+  return { manifest: { pages }, contents, problems, sources };
+}
+
+/**
+ * @param {string} problem
+ * @param {string} manifestFile
+ * @returns {TwinFiles}
+ */
+function nothingRead(problem, manifestFile) {
+  return { manifest: { pages: {} }, contents: {}, problems: [problem], sources: [manifestFile] };
 }
 
 /**

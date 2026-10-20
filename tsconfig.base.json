@@ -42,6 +42,15 @@
       "@opengeo/core/prod/edge": [
         "./packages/core/src/prod/edge.js"
       ],
+      "@opengeo/core/prod/node": [
+        "./packages/core/src/prod/adapters/node.js"
+      ],
+      "@opengeo/core/prod/fetch": [
+        "./packages/core/src/prod/adapters/fetch.js"
+      ],
+      "@opengeo/core/prod/vite": [
+        "./packages/core/src/prod/adapters/vite.js"
+      ],
       "@opengeo/core/server": [
         "./packages/core/src/server/index.js"
       ],

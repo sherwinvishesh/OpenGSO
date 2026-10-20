@@ -4,6 +4,7 @@ import { ERRORS } from '../shared/errors.js';
 import { normalizeRoute } from '../shared/routes.js';
 import { crawlSite } from './crawl.js';
 import { writeSiteFiles } from './files.js';
+import { refreshEdgeData } from '../prod/edge-data.js';
 import { generatePages } from './generate.js';
 
 /**
@@ -157,6 +158,8 @@ export async function generateSite(options) {
     options.onProgress?.({ phase: 'files' });
     files = writeSiteFilesFor(options.loaded, origin, generate, options, warnings);
   }
+  const edge = refreshEdgeData(options.loaded);
+  warnings.push(...edge.warnings);
 
   return {
     site,
@@ -166,6 +169,7 @@ export async function generateSite(options) {
     generate,
     files,
     warnings: [...generate.warnings, ...warnings],
+    ...(edge.notes.length > 0 ? { notes: edge.notes } : {}),
     durationMs: Date.now() - started,
     source: 'url',
   };

@@ -10,7 +10,14 @@ import { recordBundle } from '../../scripts/bundle-meta.mjs';
  */
 export default defineConfig([
   {
-    entry: { index: 'src/index.js', next: 'src/next.js', edge: 'src/edge.js' },
+    entry: {
+      index: 'src/index.js',
+      next: 'src/next.js',
+      edge: 'src/edge.js',
+      node: 'src/node.js',
+      fetch: 'src/fetch.js',
+      vite: 'src/vite.js',
+    },
     format: ['esm'],
     target: 'node22',
     platform: 'neutral',

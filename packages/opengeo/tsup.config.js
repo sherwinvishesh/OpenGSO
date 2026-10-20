@@ -13,7 +13,14 @@ import { recordBundle } from '../../scripts/bundle-meta.mjs';
  */
 export default defineConfig([
   {
-    entry: { prod: 'src/prod.js', 'prod-next': 'src/prod-next.js', 'prod-edge': 'src/prod-edge.js' },
+    entry: {
+      prod: 'src/prod.js',
+      'prod-next': 'src/prod-next.js',
+      'prod-edge': 'src/prod-edge.js',
+      'prod-node': 'src/prod-node.js',
+      'prod-fetch': 'src/prod-fetch.js',
+      'prod-vite': 'src/prod-vite.js',
+    },
     format: ['esm'],
     target: 'node22',
     platform: 'neutral',

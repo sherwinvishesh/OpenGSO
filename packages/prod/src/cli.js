@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { main } from '@opengeo/core/cli';
+import { prodDataCommand } from '@opengeo/core/cli/commands/prod-data';
 import { prodTestCommand } from '@opengeo/core/cli/commands/prod-test';
 
 /**
- * opengeo-prod ships the runtime middleware and exactly one command: the verifier for it.
+ * opengeo-prod ships the runtime middleware and the two commands that go with it: the verifier, and
+ * the edge data writer.
  * There is no generate here and no key, so `opengeo generate` produces the §13 message naming the
  * package to install rather than an "unknown command".
  */
@@ -16,5 +18,5 @@ const pkg = /** @type {{ name: string; version: string }} */ (
 await main({
   packageName: pkg.name,
   version: pkg.version,
-  commands: { 'prod test': prodTestCommand },
+  commands: { 'prod test': prodTestCommand, 'prod data': prodDataCommand },
 });

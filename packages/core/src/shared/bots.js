@@ -13,20 +13,10 @@
  *                    have no `uaPatterns` and can never be routed by User-Agent.
  */
 
-/** @typedef {'assistant' | 'search' | 'training'} BotKind */
-
-/**
- * @typedef {object} AiBot
- * @property {string} name Canonical name, and the identifier a user writes in opengeo.config.json.
- * @property {string} vendor
- * @property {string[]} uaPatterns Case-insensitive User-Agent substrings. Empty means robots.txt-only
- *   (no crawler to match).
- * @property {string} robotsToken The token used in robots.txt `User-agent:` lines.
- * @property {BotKind} kind
- * @property {string} [notes]
- * @property {boolean} [custom] True for a crawler the user defined in their own config rather than
- *   one shipped in this file.
- */
+// The shapes live in their own module so the published packages can re-export them as types,
+// without also publishing every helper in this file.
+export * from './bot-types.js';
+/** @import { AiBot, BotKind, CustomBotInput } from './bot-types.js' */
 
 /** @type {readonly BotKind[]} */
 export const BOT_KINDS = ['assistant', 'search', 'training'];
@@ -96,22 +86,6 @@ export const ROUTABLE_BOTS = AI_BOTS.filter((b) => b.uaPatterns.length > 0);
  */
 export const DEFAULT_MARKDOWN_ROUTING = ROUTABLE_BOTS.filter((b) => b.kind !== 'search').map((b) => b.name);
 
-/**
- * A crawler the user added themselves, as it appears in `bots.custom` in opengeo.config.json.
- *
- * The list above ships with OpenGEO and is updated by pull request, which is the right cadence for
- * a shared list and the wrong one for the person whose in-house agent started crawling yesterday.
- * Everything except the name has a sensible answer derived from it, so the minimum viable entry is
- * `{ "name": "AcmeBot" }`.
- *
- * @typedef {object} CustomBotInput
- * @property {string} name
- * @property {string} [vendor]
- * @property {string[]} [uaPatterns]
- * @property {string} [robotsToken]
- * @property {BotKind} [kind]
- * @property {string} [notes]
- */
 
 /**
  * Fill a user-supplied entry out into a real bot, or return undefined if it is unusable.

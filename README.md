@@ -23,7 +23,7 @@ npx opengeo                                         # the terminal app: where yo
 npx opengeo start                                   # set the project up, then open the dashboard
 npx opengeo test https://your-site.com              # score it as it is today
 npx opengeo generate https://your-site.com          # write the twins and the three root files
-# wire opengeo-prod into your middleware, deploy
+# wire opengeo-prod into your server: Next, Express, Nuxt, SvelteKit, Astro, a Worker...
 npx opengeo prod test https://your-site.com         # prove the deployment serves them correctly
 npx opengeo test https://your-site.com              # score it again
 ```
@@ -142,10 +142,10 @@ if you ask one for something it does not ship, it tells you which package to ins
 | Package | Ships | Install it when |
 | --- | --- | --- |
 | [`opengeo`](packages/opengeo/README.md) | everything, plus the local dashboard | you want the whole thing, or you want a UI |
-| [`opengeo-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `settings` | you want the whole toolchain, terminal only |
+| [`opengeo-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `prod data`, `settings` | you want the whole toolchain, terminal only |
 | [`opengeo-testing`](packages/testing/README.md) | `test` | you only want to score a site |
 | [`opengeo-generate`](packages/generate/README.md) | `generate` | you only want the markdown twins and root files |
-| [`opengeo-prod`](packages/prod/README.md) | the middleware, plus `prod test` | this is the one that runs on your server |
+| [`opengeo-prod`](packages/prod/README.md) | the middleware, plus `prod test` and `prod data` | this is the one that runs on your server |
 
 `opengeo-prod` is the package that ends up in a production dependency, so it has **zero
 dependencies** and its library, the part your server imports, has no jsdom and no AI provider code.
@@ -178,8 +178,8 @@ the job can run.
 - [docs/providers.md](docs/providers.md) - every AI provider OpenGEO ships with, the environment
   variables it already understands, and how to add your own AI tool.
 - [docs/config.md](docs/config.md) - every field of `opengeo.config.json`, with its default.
-- [docs/prod-api.md](docs/prod-api.md) - every export of `opengeo-prod`, `opengeo-prod/next` and
-  `opengeo-prod/edge`.
+- [docs/prod-api.md](docs/prod-api.md) - every export of `opengeo-prod` and its five adapter entries:
+  `/next`, `/node`, `/fetch`, `/vite` and `/edge`.
 - [docs/troubleshooting.md](docs/troubleshooting.md) - the problems people hit first, and the fix for
   each.
 - [docs/versioning.md](docs/versioning.md) - how the `opengeo/1.0` spec version relates to the

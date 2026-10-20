@@ -57,6 +57,21 @@
       "types": "./dist/edge.d.ts",
       "import": "./dist/edge.js",
       "default": "./dist/edge.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "default": "./dist/node.js"
+    },
+    "./fetch": {
+      "types": "./dist/fetch.d.ts",
+      "import": "./dist/fetch.js",
+      "default": "./dist/fetch.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js",
+      "default": "./dist/vite.js"
     }
   },
   "main": "./dist/index.js",

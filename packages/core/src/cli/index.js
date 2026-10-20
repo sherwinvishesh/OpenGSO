@@ -38,7 +38,7 @@ export * from './project.js';
  */
 
 /** @type {CommandName[]} */
-const ALL_COMMANDS = ['test', 'generate', 'prod test', 'settings', 'start'];
+const ALL_COMMANDS = ['test', 'generate', 'prod test', 'prod data', 'settings', 'start'];
 
 /**
  * `setup` was the name until the flow split into `start` (set up, then open the dashboard) and
@@ -126,13 +126,15 @@ export async function runCli(options) {
 }
 
 /**
- * `prod test` is the one two-word command, so matching is explicit rather than a prefix search.
+ * `prod test` and `prod data` are the two-word commands, so matching is explicit rather than a
+ * prefix search.
  *
  * @param {string[]} argv
  * @returns {{ command?: CommandName; rest: string[] }}
  */
 function matchCommand(argv) {
   if (argv[0] === 'prod' && argv[1] === 'test') return { command: 'prod test', rest: argv.slice(2) };
+  if (argv[0] === 'prod' && argv[1] === 'data') return { command: 'prod data', rest: argv.slice(2) };
   const first = argv[0];
   if (first && /** @type {string[]} */ (ALL_COMMANDS).includes(first)) {
     return { command: /** @type {CommandName} */ (first), rest: argv.slice(1) };
@@ -374,6 +376,23 @@ const COMMAND_HELP = {
     '  --out <file>       write the output to a file instead of stdout',
     '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
     '  --timeout <secs>   per-request timeout (default: 15)',
+  ],
+  'prod data': [
+    'Usage: opengeo prod data [options]',
+    '',
+    'Writes the twins, the manifest and the bot settings as one module an edge function imports',
+    '(Cloudflare Workers, Vercel and Netlify Edge, Deno Deploy), because there is no disk to read',
+    'them from at the edge. It reads them exactly as the Node adapters do.',
+    '',
+    'Run it after every `opengeo generate`, or first in your build script. Nothing is written when',
+    'there are no twins, so a build cannot ship an edge function that serves no markdown.',
+    '',
+    'Options',
+    '  --out <file>       where to write it (default: opengeo-edge-data.ts in a TypeScript project,',
+    '                     opengeo-edge-data.js otherwise). A .ts name writes TypeScript.',
+    '  --force            replace a file of that name OpenGEO did not write',
+    '  --json             machine-readable output',
+    '  --project <dir>    project directory holding opengeo.config.json (default: cwd)',
   ],
   settings: [
     'Usage: opengeo settings [options]',

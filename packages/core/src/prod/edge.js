@@ -9,6 +9,11 @@ export * from './headers.js';
 export * from './middleware.js';
 export * from './negotiate.js';
 export * from './manifest-store.js';
+// Starred rather than named, here and for the bot shapes below: a JSDoc alias of a type is a new
+// type in the published declarations, and the original stays private to a shared chunk. A re-export
+// is the same type, so code that names it can import it from this package.
+export * from './respond.js';
+export * from './adapters/edge.js';
 export { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
 // `resolveBots` is part of the public surface because a hand-wired middleware has to build the
 // same list the Next adapter builds: the shipped crawlers plus whatever the project put in
@@ -22,9 +27,5 @@ export {
   resolveBots,
   resolveRoutableBots,
 } from '../shared/bots.js';
-/**
- * @typedef {import('../shared/bots.js').AiBot} AiBot
- * @typedef {import('../shared/bots.js').BotKind} BotKind
- * @typedef {import('../shared/bots.js').CustomBotInput} CustomBotInput
- */
+export * from '../shared/bot-types.js';
 export { routeToTwinUrlPath, twinUrlPathToRoute, normalizeRoute, isMarkdownPath } from '../shared/routes.js';

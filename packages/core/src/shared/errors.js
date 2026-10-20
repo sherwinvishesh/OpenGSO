@@ -144,7 +144,70 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
     `[opengeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: ${reason.split('\n')[0]}`,
 });
 
-/** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */
+/**
+ * What prod's adapters log while serving. One line each, for the same reason as `prodFailedOpen`:
+ * it lands in a hosting platform's log beside everything else.
+ */
+export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
+  /**
+   * A request prod could not decide goes to the site as if prod were not installed. Logged for the
+   * first one only, so a malformed request repeated by a scanner cannot fill the log.
+   *
+   * @param {string} reason
+   */
+  requestFailedOpen: (reason) =>
+    `[opengeo-prod] a request could not be checked for a markdown twin, so it went to the normal site (later ones are not logged): ${reason.split('\n')[0]}`,
+
+  /**
+   * `opengeo prod data` with nothing to bundle. Nothing is written: an edge function built from an
+   * empty module would deploy fine and serve no markdown, which is the failure nobody notices.
+   *
+   * @param {string[]} problems
+   */
+  edgeDataEmpty: (problems) =>
+    [
+      `No twins to bundle for the edge, so nothing was written.`,
+      ``,
+      ...problems.slice(0, 5).map((problem) => `  ${problem}`),
+      ...(problems.length > 5 ? [`  ...and ${problems.length - 5} more`] : []),
+      // Every problem that leads here already says to run generate, so it is said once.
+      ...(problems.length > 0 ? [] : [`Run \`opengeo generate <url>\` first, then this again.`]),
+    ].join('\n'),
+
+  /**
+   * @param {string} target
+   * @param {string} proposed
+   */
+  edgeDataProposed: (target, proposed) =>
+    [
+      `${target} already exists and OpenGEO did not write it, so it was left alone.`,
+      `The edge data went to ${proposed} instead. Point --out somewhere else, or use --force to replace it.`,
+    ].join('\n'),
+
+  /** @param {string} size */
+  edgeDataLarge: (size) =>
+    `The edge data is ${size}. Some edge hosts cap a function at about 1 MB compressed, so check your host's limit before deploying.`,
+
+  /**
+   * @param {string} file
+   * @param {number} pages
+   */
+  edgeDataRefreshed: (file, pages) =>
+    `Refreshed ${file} with ${pages} twin${pages === 1 ? '' : 's'}, so the edge serves this run's markdown once it is deployed.`,
+
+  /**
+   * @param {string} file
+   * @param {string} reason
+   */
+  edgeDataRefreshFailed: (file, reason) =>
+    `Could not refresh ${file}, so the edge still has the twins from before: ${reason.split('\n')[0]}. Run \`opengeo prod data\` to retry.`,
+
+  /** @param {string} arg */
+  edgeDataTakesNoUrl: (arg) =>
+    `\`opengeo prod data\` reads the twins on disk and takes no URL (got ${arg}). Run \`opengeo generate ${arg}\` first if they are not there yet.`,
+});
+
+/** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test' | 'prod data'} CommandName */
 
 /**
  * Which published packages actually ship each command (§10).
@@ -157,6 +220,7 @@ export const COMMAND_PACKAGES = {
   settings: ['opengeo', 'opengeo-cli'],
   start: ['opengeo'],
   'prod test': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
+  'prod data': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
 };
 
 /** @type {Record<CommandName, string>} */
@@ -166,6 +230,7 @@ export const COMMAND_BLURB = {
   settings: 'changes the site, the bot lists and the API key, in your terminal',
   start: 'sets the project up, then opens the OpenGEO dashboard',
   'prod test': 'verifies a deployed opengeo-prod middleware is serving correctly',
+  'prod data': 'bundles the twins into a module for edge functions, which have no disk',
 };
 
 /**
@@ -179,6 +244,7 @@ export const NARROWEST_PACKAGE = {
   settings: 'opengeo-cli',
   start: 'opengeo',
   'prod test': 'opengeo-prod',
+  'prod data': 'opengeo-prod',
 };
 
 /**
@@ -191,6 +257,7 @@ const PILLAR_OF = {
   test: 'test',
   generate: 'generate',
   'prod test': 'prod',
+  'prod data': 'prod',
 };
 
 /**
@@ -234,9 +301,12 @@ export function commandUnavailable(command, installedPackage) {
  * @returns {string}
  */
 export function unknownCommand(command, available) {
-  // `prod` is the only word that starts a command without being one, so it gets named outright
-  // rather than left for the reader to find in the list below.
-  const prod = command.split(' ')[0] === 'prod' ? [`\`opengeo prod\` has one command under it: opengeo prod test <url>`] : [];
+  // `prod` is the only word that starts a command without being one, so its commands get named
+  // outright rather than left for the reader to find in the list below.
+  const prod =
+    command.split(' ')[0] === 'prod'
+      ? [`\`opengeo prod\` has two commands under it: opengeo prod test <url>, and opengeo prod data`]
+      : [];
   return [
     `Unknown command: \`opengeo ${command}\`.`,
     ...prod,
@@ -991,6 +1061,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   filesWebRootMissing: (folder) =>
     `The web root ${folder}/ does not exist. Generate reads the HTML files in it, so point it at the folder your site is published from, e.g. opengeo generate site.`,
 
+  /** @param {number} words */
+  thinContentDevServer: (words) =>
+    `Only ${words} words of content, from a page that loads the Vite dev client: this dev server builds the page in the browser, so the HTML is an empty shell. Build the site and crawl what the build serves instead (\`npm run build\`, then \`npm run preview\` or your framework's preview command), which is what agents will see.`,
+
   /**
    * A warning, not a failure: a short page is allowed to be short. The part worth saying is the
    * case where the words exist but only appear once a script runs, because then they never will.
@@ -1086,6 +1160,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** @param {string} configPath */
   filesConfigCreated: (configPath) =>
     `Saved ${configPath} with this folder as the web root, so \`opengeo generate\`, the dashboard and \`opengeo-prod\` all find it from now on.`,
+
+  /** @param {string} why */
+  webRootFromFramework: (why) =>
+    `No opengeo.config.json here, so the files went where the framework serves them: ${why}. Set "publicDir" in opengeo.config.json to put them somewhere else.`,
 
   /** @param {string} origin */
   filesOriginSaved: (origin) => `Saved "publicOrigin": "${origin}" to opengeo.config.json, so the next run uses it without --origin.`,

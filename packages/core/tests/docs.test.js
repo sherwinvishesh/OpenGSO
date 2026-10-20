@@ -252,7 +252,7 @@ describe('docs/config.md', () => {
   });
 
   it('documents every field of a bots.custom entry', () => {
-    const fields = read('packages/core/src/shared/bots.js').match(/@typedef \{object\} CustomBotInput([\s\S]*?)\*\//)?.[1] ?? '';
+    const fields = read('packages/core/src/shared/bot-types.js').match(/@typedef \{object\} CustomBotInput([\s\S]*?)\*\//)?.[1] ?? '';
     const names = [...fields.matchAll(/@property \{[^}]+\} \[?(\w+)/g)].map((m) => m[1]);
     expect(names).toContain('uaPatterns');
     for (const name of names) expect(rowFor(name), `bots.custom ${name}`).toBeDefined();
@@ -262,11 +262,14 @@ describe('docs/config.md', () => {
 describe('docs/prod-api.md', () => {
   const doc = read('docs/prod-api.md');
 
-  it('documents every export of the three opengeo-prod entries, and nothing else', async () => {
+  it('documents every export of the six opengeo-prod entries, and nothing else', async () => {
     const exported = new Set([
       ...Object.keys(await import('../src/prod/index.js')),
       ...Object.keys(await import('../src/prod/adapters/next.js')),
       ...Object.keys(await import('../src/prod/edge.js')),
+      ...Object.keys(await import('../src/prod/adapters/node.js')),
+      ...Object.keys(await import('../src/prod/adapters/fetch.js')),
+      ...Object.keys(await import('../src/prod/adapters/vite.js')).filter((name) => name !== 'default'),
     ]);
     for (const name of exported) expect(doc, `${name} is not documented`).toMatch(new RegExp(`\\*\\*\`${name}[(\`]`));
     const documented = [...doc.matchAll(/\*\*`(\w+)[(`]/g)].map((m) => m[1]);
@@ -456,15 +459,24 @@ describe('the READMEs', () => {
       'opengeo-prod': await import('../src/prod/index.js'),
       'opengeo-prod/next': await import('../src/prod/adapters/next.js'),
       'opengeo-prod/edge': await import('../src/prod/edge.js'),
+      'opengeo-prod/node': await import('../src/prod/adapters/node.js'),
+      'opengeo-prod/fetch': await import('../src/prod/adapters/fetch.js'),
+      'opengeo-prod/vite': await import('../src/prod/adapters/vite.js'),
     };
     /** @type {Record<string, keyof typeof modules>} */
     const sameAs = {
       'opengeo-prod': 'opengeo-prod',
       'opengeo-prod/next': 'opengeo-prod/next',
       'opengeo-prod/edge': 'opengeo-prod/edge',
+      'opengeo-prod/node': 'opengeo-prod/node',
+      'opengeo-prod/fetch': 'opengeo-prod/fetch',
+      'opengeo-prod/vite': 'opengeo-prod/vite',
       'opengeo/prod': 'opengeo-prod',
       'opengeo/prod/next': 'opengeo-prod/next',
       'opengeo/prod/edge': 'opengeo-prod/edge',
+      'opengeo/prod/node': 'opengeo-prod/node',
+      'opengeo/prod/fetch': 'opengeo-prod/fetch',
+      'opengeo/prod/vite': 'opengeo-prod/vite',
     };
     let seen = 0;
     for (const file of proseFiles) {

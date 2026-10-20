@@ -42,6 +42,21 @@
       "types": "./dist/prod-edge.d.ts",
       "import": "./dist/prod-edge.js",
       "default": "./dist/prod-edge.js"
+    },
+    "./prod/node": {
+      "types": "./dist/prod-node.d.ts",
+      "import": "./dist/prod-node.js",
+      "default": "./dist/prod-node.js"
+    },
+    "./prod/fetch": {
+      "types": "./dist/prod-fetch.d.ts",
+      "import": "./dist/prod-fetch.js",
+      "default": "./dist/prod-fetch.js"
+    },
+    "./prod/vite": {
+      "types": "./dist/prod-vite.d.ts",
+      "import": "./dist/prod-vite.js",
+      "default": "./dist/prod-vite.js"
     }
   },
   "files": [

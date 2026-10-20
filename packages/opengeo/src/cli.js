@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { main } from '@opengeo/core/cli';
 import { generateCommand } from '@opengeo/core/cli/commands/generate';
+import { prodDataCommand } from '@opengeo/core/cli/commands/prod-data';
 import { prodTestCommand } from '@opengeo/core/cli/commands/prod-test';
 import { settingsCommand } from '@opengeo/core/cli/commands/settings';
 import { startCommand } from '@opengeo/core/cli/commands/start';
@@ -19,6 +20,7 @@ await main({
     test: testCommand,
     generate: generateCommand,
     'prod test': prodTestCommand,
+    'prod data': prodDataCommand,
     settings: settingsCommand,
     start: startCommand,
   },

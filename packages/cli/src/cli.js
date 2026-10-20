@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { main } from '@opengeo/core/cli';
 import { generateCommand } from '@opengeo/core/cli/commands/generate';
+import { prodDataCommand } from '@opengeo/core/cli/commands/prod-data';
 import { prodTestCommand } from '@opengeo/core/cli/commands/prod-test';
 import { settingsCommand } from '@opengeo/core/cli/commands/settings';
 import { testCommand } from '@opengeo/core/cli/commands/test';
@@ -14,5 +15,11 @@ const pkg = /** @type {{ name: string; version: string }} */ (
 await main({
   packageName: pkg.name,
   version: pkg.version,
-  commands: { test: testCommand, generate: generateCommand, 'prod test': prodTestCommand, settings: settingsCommand },
+  commands: {
+    test: testCommand,
+    generate: generateCommand,
+    'prod test': prodTestCommand,
+    'prod data': prodDataCommand,
+    settings: settingsCommand,
+  },
 });

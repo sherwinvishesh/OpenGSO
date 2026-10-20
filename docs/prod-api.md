@@ -1,18 +1,28 @@
 # `opengeo-prod` API
 
-Every export of the three `opengeo-prod` entry points. The package's
-[README](../packages/prod/README.md) shows how to wire them into a server; this page is the list.
-`opengeo` re-exports the same three as `opengeo/prod`, `opengeo/prod/next` and `opengeo/prod/edge`.
+Every export of the six `opengeo-prod` entry points. The package's
+[README](../packages/prod/README.md) shows how to wire them into each framework; this page is the
+list. `opengeo` re-exports the same six as `opengeo/prod`, `opengeo/prod/next`, `opengeo/prod/node`,
+`opengeo/prod/fetch`, `opengeo/prod/vite` and `opengeo/prod/edge`.
 
 | Entry | For | Contents |
 | --- | --- | --- |
-| `opengeo-prod` | Any Node server | Everything in `opengeo-prod/edge`, plus `createFsStore`, `buildStartupStatus` and `logStartupStatus`. |
 | `opengeo-prod/next` | Next.js `proxy.ts` (`middleware.ts` on Next 15) | `createNextMiddleware` and `applyPassthroughHeaders`. |
-| `opengeo-prod/edge` | Edge runtimes, or anywhere without a disk | The request handling, the stores that take data rather than read files, and the helpers below. No `node:` import anywhere. |
+| `opengeo-prod/node` | `(req, res, next)` servers: Express, Connect, Polka, Fastify, Koa, Nest, h3 and Nuxt | `createNodeMiddleware`. |
+| `opengeo-prod/fetch` | Servers on Node that pass `Request` around: Hono, SvelteKit, Astro, React Router, SolidStart | `createFetchMiddleware`. |
+| `opengeo-prod/vite` | `vite` and `vite preview` | `opengeo`, the plugin, also the default export. |
+| `opengeo-prod/edge` | Edge runtimes, or anywhere without a disk | `createEdgeMiddleware`, the request handling, the stores that take data rather than read files, and the helpers below. No `node:` import anywhere. |
+| `opengeo-prod` | Anything the adapters do not cover | Everything in `opengeo-prod/edge`, plus `createFsStore`, `buildStartupStatus` and `logStartupStatus`. |
+
+The four adapters for a server with a disk (Next, Node, fetch and Vite) read the project the same
+way, so they cannot disagree about which config, which crawlers or which twins a site has.
 
 Nothing here makes a network call, blocks a crawler, or redirects. A request is a lookup in a store
-built once at startup. The one exception is the Next adapter on a development server, which checks
-once a second whether the files changed and builds a new store if they did.
+built once at startup. The one exception is an adapter on a development server, which checks once a
+second whether the files changed and builds a new store if they did.
+
+None of them can take a page down. A request the handler cannot decide goes to the application as
+if OpenGEO were not installed, and the reason is logged once per process.
 
 ## Handling a request
 
@@ -41,24 +51,15 @@ The decision is one of three:
 | `'not-acceptable'` | `response`, `classification` | Return `response`: a 406, sent only on a route that has a twin. |
 | `'passthrough'` | `headers`, `classification` | Serve your normal response, with `headers` added to it. |
 
-## Next.js
+## The adapters
 
-**`createNextMiddleware(options?)`** reads `opengeo.config.json`, builds the store and the crawler
-list, logs the startup status, and returns `(request) => { response?, headers, decision }`. Return
-`response` when it is present; otherwise apply `headers` to `NextResponse.next()`. If the config
-cannot be loaded it logs one line and passes every request through.
-
-Outside production it also reloads: at most once a second it compares the modification times of the
-config and of every file the store read, and when one changed it builds everything again and logs
-"reloaded after a change on disk". So `opengeo generate` during `next dev` shows up on the next
-request without a restart. A config that breaks mid-session fails open the same way it would at
-boot, and comes back when it is fixed. A reload that fails for any other reason keeps the twins
-already loaded. In production (`NODE_ENV=production`) none of this runs, and a request stays a map
-lookup.
+Each of these reads `opengeo.config.json`, builds the store and the crawler list once, and logs the
+startup status. If the config cannot be loaded it logs one line and passes every request through.
+They take the same options:
 
 | Option | Default |
 | --- | --- |
-| `root` | `process.cwd()` |
+| `root` | `process.cwd()`. The config is looked up from here, so a server started in a subfolder still finds it. |
 | `publicDir`, `internalDir` | the config's values |
 | `markdownRouting` | the config's `bots.markdownRouting` |
 | `specVersion` | `AEO_SPEC_VERSION` |
@@ -66,7 +67,49 @@ lookup.
 | `store` | `createFsStore` over the directories above |
 | `reload` | `true` unless `NODE_ENV` is `production`; always off when you pass `store` |
 
+Outside production they also reload: at most once a second it compares the modification times of the
+config and of every file the store read, and when one changed it builds everything again and logs
+"reloaded after a change on disk". So `opengeo generate` during `next dev` shows up on the next
+request without a restart. A config that breaks mid-session fails open the same way it would at
+boot, and comes back when it is fixed. A reload that fails for any other reason keeps the twins
+already loaded. In production (`NODE_ENV=production`) none of this runs, and a request stays a map
+lookup.
+
+**`createNextMiddleware(options?)`** returns `(request) => { response?, headers, decision }`. Return
+`response` when it is present; otherwise apply `headers` to `NextResponse.next()`.
+
 **`applyPassthroughHeaders(target, headers)`** sets each header on `target.headers`.
+
+**`createNodeMiddleware(options?)`** returns `(req, res, next?) => true | undefined`. When OpenGEO
+owns the request (a twin, a 304 or a 406) it answers on `res` and returns `true`. Otherwise it sets
+the passthrough headers on `res`, merging `Vary` and `Link` into whatever is already there, calls
+`next()` if there is one, and returns nothing, so a framework without `next` (Koa) can tell the two
+apart. Nothing rather than `false`, because h3's `fromNodeMiddleware` sends any returned value as
+the body. It reads `req.originalUrl` before `req.url`, so a router mounted below `/` still matches
+twins by their full path.
+
+**`createFetchMiddleware(options?)`** returns `(request, next) => Promise<Response>`, where `next`
+runs the rest of the application and resolves to its response. It is called with no arguments.
+
+**`opengeo(options?)`** (`opengeo-prod/vite`, also the default export) is a Vite plugin that puts
+`createNodeMiddleware` in front of `vite` and `vite preview`, ahead of the SPA fallback and the
+static file server, with `root` taken from Vite's. It imports nothing from `vite`.
+
+**`createEdgeMiddleware({ data, markdownRouting?, specVersion? })`** (`opengeo-prod/edge`) is the
+fetch middleware for a runtime with no disk. `data` is an `EdgeData`: `{ manifest, contents,
+markdownRouting?, customBots? }`, the module `opengeo prod data` writes. It carries the project's
+routing and custom crawlers, so the edge decides what a Node server reading the config would.
+`markdownRouting` here overrides the one in `data`.
+
+**`fetchMiddleware(decide)`** turns any `(request) => decision` function, such as one from
+`createProdHandler`, into fetch middleware with the same fail-open behaviour.
+
+**`withPassthroughHeaders(response, headers)`** adds a passthrough decision's headers to a
+`Response` and returns it. A response whose headers cannot be changed (one from `fetch()` or
+`Response.redirect()`) is copied first; a 101 is returned untouched.
+
+**`mergeHeaderValue(name, existing, value)`** is the merge both use: `Vary` gains `Accept` once and
+`Vary: *` is left alone, `Link` gains the twin once, and any other header is replaced.
 
 ## Stores
 

@@ -2,7 +2,7 @@
 
 > **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
 
-The whole toolkit: `test`, `generate`, `prod test`, `settings`, and the local dashboard.
+The whole toolkit: `test`, `generate`, `prod test`, `prod data`, `settings`, and the local dashboard.
 
 This is the package to install if you want everything, including the GUI. If you only want the
 terminal, install
@@ -112,7 +112,10 @@ Each entry is the same code as the matching `opengeo-prod` one:
 | --- | --- | --- |
 | `opengeo/prod` | `opengeo-prod` | the handler, the stores, and the startup log |
 | `opengeo/prod/next` | `opengeo-prod/next` | the Next.js adapter, for `proxy.ts` (or Node `middleware.ts` on Next 15) |
-| `opengeo/prod/edge` | `opengeo-prod/edge` | the handler without anything that reads the disk |
+| `opengeo/prod/node` | `opengeo-prod/node` | `(req, res, next)` middleware: Express, Connect, Polka, Fastify, Koa, Nest, Nuxt and h3 |
+| `opengeo/prod/fetch` | `opengeo-prod/fetch` | `(request, next)` middleware: Hono, SvelteKit, Astro, React Router, Bun, Deno |
+| `opengeo/prod/vite` | `opengeo-prod/vite` | the Vite plugin, for `vite` and `vite preview` |
+| `opengeo/prod/edge` | `opengeo-prod/edge` | the edge middleware, fed by `opengeo prod data` instead of the disk |
 
 ```ts
 // proxy.ts (Next 16)
@@ -138,7 +141,7 @@ without a restart.
 
 See
 [opengeo-prod](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/prod/README.md)
-for the framework-agnostic handler, the edge recipe and the header contract.
+for every other framework, from Express to a Cloudflare Worker, and the header contract.
 
 ## Where your API key lives
 
