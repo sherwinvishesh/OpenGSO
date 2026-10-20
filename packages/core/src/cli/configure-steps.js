@@ -379,14 +379,28 @@ export async function askProvider(ctx, config) {
 }
 
 /**
+ * What `.env` holds for the configured provider. A model server on this machine is set up without
+ * a key, and the closing note should not send anybody looking for one.
+ *
+ * @param {string} root
+ * @param {OpenGeoConfig['ai']} ai
+ * @returns {'key' | 'keyless' | 'none'}
+ */
+export function keyHeld(root, ai) {
+  if (ai.auth === 'none' || providerInfo(ai.provider).keyless) return 'keyless';
+  return readCredentials(root, ai) ? 'key' : 'none';
+}
+
+/**
  * @param {(text: string) => void} write
  * @param {string} root
- * @param {boolean} anyKey
+ * @param {'key' | 'keyless' | 'none'} held From `keyHeld`.
  * @returns {void}
  */
-export function writeKeyLocation(write, root, anyKey) {
+export function writeKeyLocation(write, root, held) {
+  const note = held === 'none' ? '  (nothing there yet)' : held === 'keyless' ? '  (no key: this provider runs without one)' : '';
   write(`\n${c.bold('Where your key lives')}\n`);
-  write(`  ${c.gray(join(root, ENV_FILENAME))}${anyKey ? '' : c.gray('  (nothing there yet)')}\n`);
+  write(`  ${c.gray(join(root, ENV_FILENAME))}${c.gray(note)}\n`);
   write(`  ${c.gray('It is read from that file and sent to the provider you chose, and nowhere else. OpenGEO')}\n`);
   write(`  ${c.gray('has no telemetry, no analytics and no cloud sync, so there is nothing else to audit.')}\n`);
 }

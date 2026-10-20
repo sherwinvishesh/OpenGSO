@@ -563,6 +563,47 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(result.config.site).toBe('http://localhost:3000');
     });
 
+    it('does not say the file was written under "Nothing changed" when an edit put the old value back', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ choose: ['site'], ask: ['http://localhost:3000'] });
+
+      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(transcript).toContain('Nothing changed');
+      expect(transcript).not.toContain(`${CONFIG_FILENAME} written.`);
+    });
+
+    it('names a change of AI provider, and claims no key for a provider that has none', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ choose: ['provider', 'ollama'] });
+
+      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      const summary = transcript.slice(transcript.lastIndexOf('Saved'));
+      expect(summary).toContain(`changed AI provider anthropic claude-sonnet-5-5 -> ollama ${DEFAULT_MODELS.ollama}`);
+      expect(summary).not.toContain('API key');
+      expect(summary).toContain(`${CONFIG_FILENAME} written.`);
+      expect(summary).toContain('no key: this provider runs without one');
+      // The menu drawn after the save, which is the last one offered.
+      const rows = prompter.offered.filter((label) => label.startsWith('AI provider'));
+      expect(rows.at(-1)).toContain('no key needed');
+    });
+
+    it('names the key as well as the provider when a key was entered', async () => {
+      configured();
+      let transcript = '';
+      const prompter = scripted({ choose: ['provider', 'openai'], secret: 'sk-test-not-a-real-key' });
+
+      await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      const summary = transcript.slice(transcript.lastIndexOf('Saved'));
+      expect(summary).toContain(`changed AI provider anthropic claude-sonnet-5-5 -> openai ${DEFAULT_MODELS.openai}`);
+      expect(summary).toContain('changed API key');
+      expect(summary).not.toContain('sk-test');
+    });
+
     it('treats Esc on the menu as Done, because every edit was saved as it was made', async () => {
       configured();
       let menus = 0;
@@ -644,6 +685,18 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       expect(result.config.bots.blocked).toEqual([]);
       expect(prompter.asked.some((question) => question.startsWith('block'))).toBe(false);
+    });
+
+    it('does not claim a key was written for a provider that runs without one', async () => {
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['all', 'ollama'] });
+
+      await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(transcript).toContain(`Using ollama ${DEFAULT_MODELS.ollama}, which needs no key`);
+      expect(transcript).not.toContain('Wrote OPENGEO_API_KEY');
+      expect(transcript).not.toContain('so the key cannot be committed');
+      expect(transcript).toContain('no key: this provider runs without one');
     });
 
     it('does not put the blocking question in front of a first-run user', async () => {

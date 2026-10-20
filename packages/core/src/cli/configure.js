@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { CONFIG_FILENAME, defaultConfig, loadConfig, saveConfig } from '../shared/config.js';
-import { ENV_FILENAME, KEY_VAR, readCredentials } from '../shared/env.js';
+import { ENV_FILENAME, KEY_VAR } from '../shared/env.js';
 import { c, heading } from '../shared/log.js';
 import {
   abortAfterWrites,
@@ -10,6 +10,7 @@ import {
   askRouting,
   writeSearchCrawlerWarning,
   askProvider,
+  keyHeld,
   writeKeyLocation,
   writeAddedBots,
 } from './configure-steps.js';
@@ -186,13 +187,15 @@ export async function runSetup(options) {
   // Only a list picked by hand can trigger it: neither canned answer includes a search engine.
   writeSearchCrawlerWarning(write, config.bots);
   write(`  ${c.green('ok')} Blocking ${config.bots.blocked.length === 0 ? 'nobody' : config.bots.blocked.join(', ')}\n`);
-  if (provider?.keyWritten) {
+  if (provider?.keyWritten && provider.ai.auth === 'none') {
+    write(`  ${c.green('ok')} Using ${provider.ai.provider} ${provider.ai.model}, which needs no key\n`);
+  } else if (provider?.keyWritten) {
     write(`  ${c.green('ok')} Wrote ${KEY_VAR} to ${relative(root, provider.keyWritten.envPath) || ENV_FILENAME}\n`);
     write(`  ${c.green('ok')} ${ENV_FILENAME} is gitignored, so the key cannot be committed\n`);
   }
 
   writeAddedBots(write, routing.addedBots);
-  writeKeyLocation(write, root, Boolean(provider?.keyWritten) || Boolean(readCredentials(root)));
+  writeKeyLocation(write, root, keyHeld(root, config.ai));
 
   /** @type {SetupResult} */
   const result = { root, configPath, config, createdConfig, addedBots: routing.addedBots, keyWritten: provider?.keyWritten };

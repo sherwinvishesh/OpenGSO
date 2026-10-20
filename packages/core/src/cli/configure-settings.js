@@ -11,6 +11,7 @@ import {
   askRouting,
   askBlocked,
   askProvider,
+  keyHeld,
   writeKeyLocation,
   writeAddedBots,
   writeSearchCrawlerWarning,
@@ -20,6 +21,7 @@ import {
 /**
  * @import { CustomBotInput } from '../shared/bots.js'
  * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { Credentials } from '../shared/env.js'
  * @import { SetupOptions, SetupResult, StepContext } from './configure-steps.js'
  */
 
@@ -78,7 +80,7 @@ export async function runSettings(options) {
     /** @type {SettingKey} */
     let choice;
     try {
-      choice = await prompter.choose(`\n${c.bold('  Settings')}`, menuOptions(config, found?.provider), /** @type {SettingKey} */ ('done'));
+      choice = await prompter.choose(`\n${c.bold('  Settings')}`, menuOptions(config, found), /** @type {SettingKey} */ ('done'));
     } catch (error) {
       // Every edit was saved as it was made, so leaving the menu is Done whichever key does it.
       if (error instanceof SetupAbort) break;
@@ -134,11 +136,15 @@ export async function runSettings(options) {
 
   write(heading('Saved'));
   write('\n');
-  for (const line of describeChanges(before, config, keyWritten)) write(`  ${line}\n`);
-  if (saved) write(`  ${c.gray(`${relative(root, configPath) || CONFIG_FILENAME} written.`)}\n`);
+  const changes = describeChanges(before, config, keyWritten);
+  if (changes.length === 0) write(`  ${c.gray('Nothing changed. Every answer matched what was already there.')}\n`);
+  for (const line of changes) write(`  ${line}\n`);
+  // A setting saved back to the value it started at rewrites the file, but saying so under
+  // "Nothing changed" would read as a contradiction.
+  if (saved && changes.length > 0) write(`  ${c.gray(`${relative(root, configPath) || CONFIG_FILENAME} written.`)}\n`);
 
   writeAddedBots(write, addedBots);
-  writeKeyLocation(write, root, Boolean(keyWritten) || Boolean(readCredentials(root)));
+  writeKeyLocation(write, root, keyHeld(root, config.ai));
   write('\n');
 
   return { root, configPath, config, createdConfig: createdConfig && saved, addedBots, keyWritten };
@@ -166,10 +172,10 @@ function menuLabel(choice) {
  * The menu itself: every setting on one screen, with what it is set to right now beside it.
  *
  * @param {OpenGeoConfig} config
- * @param {string | undefined} keyProvider
+ * @param {Credentials | undefined} found
  * @returns {Array<{ value: SettingKey; label: string; note?: string }>}
  */
-function menuOptions(config, keyProvider) {
+function menuOptions(config, found) {
   /**
    * @param {string} name
    * @param {string} value
@@ -177,11 +183,13 @@ function menuOptions(config, keyProvider) {
   const label = (name, value) => `${name.padEnd(20)}${c.gray(value)}`;
   const model = config.ai.model ? ` ${config.ai.model}` : '';
   // A key for another provider is never sent to this one, so calling it "the key" would be wrong.
-  const key = !keyProvider
+  const key = !found
     ? 'no key configured'
-    : keyProvider === config.ai.provider
-      ? `key in ${ENV_FILENAME}`
-      : `only key is for ${keyProvider}`;
+    : found.provider !== config.ai.provider
+      ? `only key is for ${found.provider}`
+      : found.keyless
+        ? 'no key needed'
+        : `key in ${ENV_FILENAME}`;
   return [
     { value: 'site', label: label('Site URL', config.site) },
     { value: 'webroot', label: label('Web root', config.publicDir) },
@@ -196,7 +204,7 @@ function menuOptions(config, keyProvider) {
 }
 
 /**
- * What settings mode prints instead of a tutorial: the diff, or the fact that there is not one.
+ * What settings mode prints instead of a tutorial: the diff, and nothing when there is not one.
  *
  * @param {OpenGeoConfig} before
  * @param {OpenGeoConfig} after
@@ -230,10 +238,20 @@ function describeChanges(before, after, keyWritten) {
   if (after.bots.custom.length > before.bots.custom.length) {
     lines.push(`${c.green('added')} ${after.bots.custom.length - before.bots.custom.length} custom crawler(s)`);
   }
-  if (keyWritten) lines.push(`${c.green('changed')} API key ${c.gray(`written to ${ENV_FILENAME}, which is gitignored`)}`);
-
-  if (lines.length === 0) lines.push(c.gray('Nothing changed. Every answer matched what was already there.'));
+  changed('AI provider', describeAi(before.ai), describeAi(after.ai));
+  // A model server on this machine is saved through the same step but has no key to write.
+  if (keyWritten && after.ai.auth !== 'none') {
+    lines.push(`${c.green('changed')} API key ${c.gray(`written to ${ENV_FILENAME}, which is gitignored`)}`);
+  }
   return lines;
+}
+
+/**
+ * @param {OpenGeoConfig['ai']} ai
+ * @returns {string}
+ */
+function describeAi(ai) {
+  return [ai.provider, ai.model, ai.baseUrl ? `at ${ai.baseUrl}` : ''].filter(Boolean).join(' ');
 }
 
 /**
