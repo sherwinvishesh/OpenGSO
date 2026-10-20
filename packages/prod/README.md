@@ -15,7 +15,9 @@ it serves are written by [`opengeo-generate`](https://github.com/sherwinvishesh/
 ## Install
 
 Needs Node.js 22 or later. The `opengeo-prod/edge` entry imports no Node module, so it also runs
-on edge runtimes.
+on edge runtimes. The package is an ES module; a CommonJS server can still
+`require('opengeo-prod/node')` on Node 22.12 or later, and on an earlier 22 uses
+`await import('opengeo-prod/node')` instead.
 
 ```bash
 npm install opengeo-prod

@@ -292,7 +292,7 @@ describe('docs/versioning.md', () => {
     );
     // The doc says all five share one version today; when they diverge, so must the sentence.
     expect(versions.size).toBe(1);
-    expect(doc).toContain(`today all five are\n\`${[...versions][0]}\``);
+    expect(doc.replace(/\s+/g, ' ')).toContain(`all five are \`${[...versions][0]}\``);
   });
 });
 

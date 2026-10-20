@@ -10,10 +10,16 @@
 #    required reviewers. The `release` job names it, so it waits for one of them to approve. The
 #    workflow cannot create it: a job naming an environment that does not exist gets one made on the
 #    fly with no protection rules, which is no gate at all.
-#  - Add NPM_TOKEN as a secret, ideally on that environment rather than the whole repository, so
-#    only the gated job can read it.
+#  - Allow GitHub Actions to create pull requests (Settings > Actions > General), or the "Version
+#    Packages" pull request cannot be opened.
 #  - Make the repository public, because npm will not attach provenance to a package built from a
-#    private one.
+#    private one, and NPM_CONFIG_PROVENANCE below makes a publish without it fail.
+#
+# npm authenticates this job by trusted publishing: npm trusts this workflow, in this repository,
+# running in the `release` environment, and no token is stored anywhere. npm only offers that for a
+# package that already exists, so the first version of each package is published another way:
+# by hand from a maintainer's machine, or by this workflow with a short-lived granular token saved
+# as NPM_TOKEN on the `release` environment and deleted once trusted publishing is set up.
 #
 # A run does one of two things. With changesets pending, it opens the "Version Packages" pull
 # request and publishes nothing. With none, `npm run release` refuses any package still at a
@@ -84,7 +90,11 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          # Trusted publishing needs npm 11.5.1 or later. Node 24 bundles it and Node 22 does not.
+          node-version: 24
+          # Writes the .npmrc that reads NODE_AUTH_TOKEN. With no token, npm publishes by trusted
+          # publishing instead.
+          registry-url: https://registry.npmjs.org
 
       - run: npm ci
       # Rebuilt here because these are the files that ship, so the checks that read dist/ run again
@@ -93,13 +103,16 @@ jobs:
       - run: npm run check:bundles
       - run: npm run check:packages
 
+      # v2 is the action for Changesets 3, which this repository uses. It no longer writes an .npmrc
+      # from NPM_TOKEN, which is why setup-node does that above.
       - name: Create Release PR or Publish to npm
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          publish: npm run release
+          publish-script: npm run release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Empty once the NPM_TOKEN secret is deleted, which leaves trusted publishing.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # The same as `npm publish --provenance` on every publish `changeset publish` runs, which
-          # has no flag of its own to pass it through.
+          # has no flag of its own to pass it through. Trusted publishing adds it anyway; a token
+          # publish needs this.
           NPM_CONFIG_PROVENANCE: true
