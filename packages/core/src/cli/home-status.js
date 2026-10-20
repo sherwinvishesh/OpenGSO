@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { readManifest } from '../generate/manifest.js';
-import { internalDirPath, loadConfig } from '../shared/config.js';
+import { CONFIG_FILENAME, internalDirPath, loadConfig } from '../shared/config.js';
 import { readCredentials } from '../shared/env.js';
 import { deltaFor, lastScored, readHistory, scoreTrend } from '../shared/history.js';
 
@@ -18,7 +18,7 @@ import { deltaFor, lastScored, readHistory, scoreTrend } from '../shared/history
  * @property {boolean} configured
  * @property {string} [site]
  * @property {{ value: number; at: string; delta?: number; trend: number[]; suggestions?: { adopted: number; count: number } }} [score]
- * @property {{ id: string; source: string }} [provider]
+ * @property {{ id: string; source: string; keyless?: boolean }} [provider]
  * @property {number} twins
  * @property {string} [generatedAt]
  */
@@ -70,9 +70,10 @@ export function readHomeStatus(root) {
 
   // Never the key itself, and never its length. Which provider and where it lives is the whole of
   // what a status line needs, and it is the one value in OpenGEO that must not reach a screen.
-  const credentials = safely(() => readCredentials(root));
+  const credentials = safely(() => readCredentials(root, loaded.config.ai));
   if (credentials) {
-    status.provider = { id: credentials.provider, source: credentials.source === 'env-file' ? '.env' : 'environment' };
+    const source = { 'env-file': '.env', 'process-env': 'environment', config: CONFIG_FILENAME }[credentials.source];
+    status.provider = credentials.keyless ? { id: credentials.provider, source, keyless: true } : { id: credentials.provider, source };
   }
   return status;
 }

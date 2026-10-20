@@ -66,9 +66,9 @@ export {};
  *   `markdownRouting` is what turns it on.
  * @property {object} ai Which AI tool `generate --tier ai` and `test --content` talk to.
  *
- *   The four optional fields are the "bring your own provider" surface: name any endpoint that
- *   speaks one of the three API shapes and OpenGEO will use it, with no code change and no wait for
- *   a release. They are honoured for built-in providers too, because the usual reason to set
+ *   The optional fields are the "bring your own provider" surface: name any endpoint that speaks
+ *   one of the three API shapes and OpenGEO will use it, with no code change and no wait for a
+ *   release. They are honoured for built-in providers too, because the usual reason to set
  *   `baseUrl` is a company gateway mirroring a vendor's API rather than a brand-new vendor.
  * @property {AiProvider} ai.provider
  * @property {string} ai.model
@@ -80,6 +80,10 @@ export {};
  *   `none` sends no key at all.
  * @property {Record<string, string>} [ai.headers] Extra request headers the endpoint needs, e.g. a
  *   gateway's tenant id. Never the key.
+ * @property {Record<string, unknown>} [ai.params] Extra fields for the request body, merged over the
+ *   ones the catalogue sends for the provider's default model: a reasoning setting, a temperature, a
+ *   vendor's own switch. A `null` removes a field the catalogue would have sent. The model, the
+ *   messages and `stream` cannot be set here.
  */
 
 // -- site preview --------------------------------------------------------------------------------
@@ -406,7 +410,7 @@ export {};
  * }} [manifest]
  * @property {string} publicDir
  * @property {string} internalDir
- * @property {number} checkCount How many structural checks a run scores. Sent rather than retyped,
+ * @property {number} checkCount How many structural checks a run makes. Sent rather than retyped,
  *   so the dashboard's copy cannot fall behind the suite.
  * @property {{ structural: BandThresholds; content: BandThresholds }} bands The same thresholds the
  *   terminal colours a score by, for the same reason.

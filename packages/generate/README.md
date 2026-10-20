@@ -186,8 +186,9 @@ provider error (a timeout, a 429) is not remembered, so that page is tried again
 
 ### Which model
 
-Any of twelve providers, including Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral, DeepSeek,
-OpenRouter, Together, Perplexity, Ollama on your own machine, and any endpoint you can name:
+Any of twenty-five providers, including Anthropic, OpenAI, Gemini, xAI Grok, Alibaba Qwen, DeepSeek,
+Kimi, GLM, Mistral, Perplexity, Groq, Cerebras, OpenRouter, Hugging Face, Ollama and LM Studio on
+your own machine, and any endpoint you can name:
 
 ```bash
 opengeo help providers                                        # the whole catalogue

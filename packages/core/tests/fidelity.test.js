@@ -193,6 +193,32 @@ describe('createAiEnhancer', () => {
     expect(warning).not.toMatch(/nothing was written|files are untouched/i);
   });
 
+  it('stops sending pages once the provider refuses the key', async () => {
+    let calls = 0;
+    const enhance = enhancerWith(async () => {
+      calls += 1;
+      throw Object.assign(new Error(ERRORS.providerFailed('anthropic', 401, '{}')), { status: 401 });
+    });
+    await enhance(input);
+    const second = await enhance(input);
+    await enhance(input);
+    expect(calls).toBe(1);
+    expect(second.fellBack).toBe(true);
+    expect(second.markdown).toBe(SOURCE);
+    expect(second.warnings.join(' ')).toContain('refused the key with 401 on an earlier page');
+  });
+
+  it('keeps sending pages after a failure that is not about the key', async () => {
+    let calls = 0;
+    const enhance = enhancerWith(async () => {
+      calls += 1;
+      throw Object.assign(new Error(ERRORS.providerFailed('anthropic', 429, '{}')), { status: 429 });
+    });
+    await enhance(input);
+    await enhance(input);
+    expect(calls).toBe(2);
+  });
+
   it('sends the fidelity instructions and the extraction to the provider', async () => {
     /** @type {ProviderCall | undefined} */
     let seen;

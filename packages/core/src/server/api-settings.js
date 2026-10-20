@@ -50,7 +50,7 @@ import { ok, bad } from './api-shared.js';
  */
 export function readState(options) {
   const loaded = loadConfig(options.root);
-  const credentials = readCredentials(options.root);
+  const credentials = readCredentials(options.root, loaded.config.ai);
   // readManifest returns an empty manifest rather than undefined when nothing has been generated,
   // and that empty one carries a `generatedAt` of right now. Reporting it would tell the dashboard
   // a project was generated seconds ago when in fact it never has been, so it is dropped here.
@@ -226,7 +226,7 @@ export function saveKey(body, options) {
     // Blank means "keep the saved key", so changing the model does not mean retyping it. Only where
     // that key was already going, though: a new provider or endpoint would receive a key the user
     // pasted for somewhere else.
-    const saved = readCredentials(options.root);
+    const saved = readCredentials(options.root, { provider });
     if (!saved?.apiKey) return bad(ERRORS.keyMissing());
     if (saved.provider !== provider || (saved.baseUrl ?? '') !== baseUrl) return bad(ERRORS.keyNotKept(provider));
   }

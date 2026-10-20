@@ -37,7 +37,7 @@ export function defaultConfig(site = 'http://localhost:3000') {
     bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
     // Written out rather than read from the catalogue, for the bundling reason above. It is not
     // free-floating: providers.test.js asserts it still matches providerInfo('anthropic').
-    ai: { provider: 'anthropic', model: 'claude-sonnet-5' },
+    ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
   };
 }
 
@@ -124,6 +124,9 @@ export function loadConfig(startDir = process.cwd()) {
 const isObject = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 /** @param {unknown} value */
+const isAiParams = (value) =>
+  isObject(value) && Object.keys(value).every((key) => !(/** @type {readonly string[]} */ (RESERVED_AI_PARAMS)).includes(key));
+/** @param {unknown} value */
 const isString = (value) => typeof value === 'string';
 /** @param {unknown} value */
 const isStringList = (value) => Array.isArray(value) && value.every(isString);
@@ -145,6 +148,13 @@ const isHttpOrigin = (value) => {
  */
 const whole = (min, max) => (value) =>
   Number.isInteger(value) && /** @type {number} */ (value) >= min && /** @type {number} */ (value) <= max;
+
+/**
+ * Request-body fields `ai.params` may not set, because the request is built around them: the model,
+ * the page itself, and a stream the wire code does not read. Exported so the wire skips the same
+ * names the loader refuses.
+ */
+export const RESERVED_AI_PARAMS = /** @type {const} */ (['model', 'messages', 'system', 'contents', 'systemInstruction', 'stream']);
 
 /**
  * Every field a patch may set, with what it has to be. The bounds are wide on purpose: they are there
@@ -176,6 +186,7 @@ const FIELD_RULES = [
   ['ai', 'api', 'an API shape', isString],
   ['ai', 'auth', 'an auth style', isString],
   ['ai', 'headers', 'an object of header names to string values', (value) => isObject(value) && Object.values(value).every(isString)],
+  ['ai', 'params', `an object of extra request fields, without ${RESERVED_AI_PARAMS.join(', ')}`, isAiParams],
 ];
 
 /**
@@ -272,10 +283,11 @@ export function mergeConfig(base, patch) {
 /**
  * The `ai` block is the one section a shallow merge gets wrong.
  *
- * `baseUrl`, `api`, `auth` and `headers` describe one specific endpoint. Carrying them across a
- * change of provider would point a freshly entered OpenAI key at whatever host the previous
- * `custom` provider named, which is exactly the mistake §11 exists to prevent. Changing the
- * provider therefore clears them unless the same patch restates them.
+ * `baseUrl`, `api`, `auth`, `headers` and `params` describe one specific endpoint. Carrying them
+ * across a change of provider would point a freshly entered OpenAI key at whatever host the previous
+ * `custom` provider named, which is exactly the mistake §11 exists to prevent, or send one vendor's
+ * flags to another that refuses them. Changing the provider therefore clears them unless the same
+ * patch restates them.
  *
  * @param {OpenGeoConfig['ai']} base
  * @param {Partial<OpenGeoConfig['ai']> | undefined} patch
@@ -293,6 +305,7 @@ function mergeAi(base, patch) {
     if (patch.api === undefined) delete merged.api;
     if (patch.auth === undefined) delete merged.auth;
     if (patch.headers === undefined) delete merged.headers;
+    if (patch.params === undefined) delete merged.params;
   }
   return merged;
 }
@@ -304,7 +317,7 @@ function mergeAi(base, patch) {
  * @returns {ProviderOverrides}
  */
 export function providerOverridesOf(config) {
-  return { baseUrl: config.ai.baseUrl, api: config.ai.api, auth: config.ai.auth, headers: config.ai.headers };
+  return { baseUrl: config.ai.baseUrl, api: config.ai.api, auth: config.ai.auth, headers: config.ai.headers, params: config.ai.params };
 }
 
 /**

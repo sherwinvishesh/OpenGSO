@@ -12,7 +12,7 @@ import {
   shownBots,
   toggled,
 } from '../web/components/bot-picker.js';
-import { customEndpointLabel, draftReady, keyKept, providerInfoOf } from '../web/components/provider-fields.js';
+import { customEndpointLabel, draftReady, keyKept, providerGroups, providerInfoOf } from '../web/components/provider-fields.js';
 import { useDocument } from '../web/ui.js';
 import { createBotsView } from '../web/views/bots.js';
 import { createSettingsView, wholeNumber } from '../web/views/settings.js';
@@ -56,11 +56,11 @@ function makeState(overrides = {}) {
       crawl: { maxPages: 50, maxDepth: 3, exclude: [] },
       generate: { tier: 'free', minWords: 120 },
       bots: { markdownRouting: routable.map((bot) => bot.name), blocked: [], custom: [] },
-      ai: { provider: 'anthropic', model: 'claude-sonnet-5' },
+      ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
     },
     version: '1.0.0',
     packageName: 'opengeo',
-    key: { present: true, provider: 'anthropic', model: 'claude-sonnet-5', source: 'env-file', path: '/p/.env' },
+    key: { present: true, provider: 'anthropic', model: 'claude-sonnet-5-5', source: 'env-file', path: '/p/.env' },
     ci: false,
     providerCatalog: catalog,
     publicDir: '/p/public',
@@ -136,7 +136,7 @@ describe('draftReady', () => {
   const anthropic = providerInfoOf(catalog, 'anthropic');
   const ollama = providerInfoOf(catalog, 'ollama');
   const custom = providerInfoOf(catalog, 'custom');
-  const draft = { provider: 'anthropic', model: 'claude-sonnet-5', apiKey: '', baseUrl: '', api: 'anthropic' };
+  const draft = { provider: 'anthropic', model: 'claude-sonnet-5-5', apiKey: '', baseUrl: '', api: 'anthropic' };
 
   it('needs a key when none is saved', () => {
     expect(draftReady(draft, anthropic)).toBe(false);
@@ -380,6 +380,37 @@ describe('the Settings view', () => {
     expect(options).toContain('Something else (your own endpoint)');
   });
 
+  it('groups the providers by what picking one asks of you, and loses none of them', () => {
+    const groups = providerGroups(catalog);
+    expect(groups.map((group) => group.label)).toEqual(['Hosted, needs a key', 'On this machine, no key', 'Your own endpoint']);
+    expect(groups.flatMap((group) => group.entries).map((entry) => entry.id).sort()).toEqual(catalog.map((entry) => entry.id).sort());
+    expect(groups[1].entries.map((entry) => entry.id)).toEqual(['ollama', 'lmstudio']);
+
+    const { ctx } = makeCtx(makeState());
+    const view = createSettingsView(ctx);
+    const select = /** @type {HTMLSelectElement} */ (/** @type {unknown} */ (control(view.node, 'Provider')));
+    expect([...select.querySelectorAll('optgroup')].map((node) => node.getAttribute('label'))).toEqual(groups.map((group) => group.label));
+    expect(select.querySelectorAll('option')).toHaveLength(catalog.length);
+  });
+
+  it('shows what a provider needs before the run that would have found out', () => {
+    const { ctx } = makeCtx(makeState());
+    const view = createSettingsView(ctx);
+    const select = /** @type {HTMLSelectElement} */ (/** @type {unknown} */ (control(view.node, 'Provider')));
+    /** @param {string} id */
+    const noteFor = (id) => {
+      select.value = id;
+      fire(select, 'change');
+      const notes = [...view.node.querySelectorAll('p.note')].filter((node) => !(/** @type {HTMLElement} */ (node)).hidden);
+      return notes.map((node) => node.textContent).join(' | ');
+    };
+    expect(noteFor('qwen')).toContain('https://dashscope.aliyuncs.com/compatible-mode/v1');
+    expect(noteFor('huggingface')).toContain('Make calls to Inference Providers');
+    expect(noteFor('ollama')).toContain('OLLAMA_CONTEXT_LENGTH=32768');
+    expect(noteFor('ollama')).not.toContain('No key, no network');
+    expect(noteFor('anthropic')).not.toContain('region');
+  });
+
   it('keeps the keys link out of the label and ties the hint by aria-describedby', () => {
     const { ctx } = makeCtx(makeState({ key: { present: false } }));
     const view = createSettingsView(ctx);
@@ -403,6 +434,23 @@ describe('the Settings view', () => {
     fire(provider, 'change');
     expect(key.placeholder).toBe('sk-...');
     expect(save.disabled).toBe(true);
+  });
+
+  it('does not offer to replace a key a keyless provider never had', () => {
+    const { ctx } = makeCtx(
+      makeState({
+        config: { site: 'http://localhost:3000', publicDir: 'public', ai: { provider: 'ollama', model: 'llama3.2' } },
+        key: { present: true, provider: 'ollama', model: 'llama3.2', source: 'config' },
+      }),
+    );
+    const view = createSettingsView(ctx);
+    view.update();
+    expect(view.node.textContent).toContain('no key needed');
+    expect(view.node.textContent).not.toContain('key found');
+    const provider = /** @type {HTMLSelectElement} */ (/** @type {unknown} */ (control(view.node, 'Provider')));
+    provider.value = 'qwen';
+    fire(provider, 'change');
+    expect(control(view.node, 'API key').placeholder).toBe('sk-...');
   });
 
   it('refuses a blank key with nothing saved', () => {

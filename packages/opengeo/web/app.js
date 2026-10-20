@@ -271,9 +271,11 @@ function createShell() {
       setText(projectPath, current.root);
       setText(
         keyLine,
-        current.key.present
-          ? `Key found in ${current.key.source === 'env-file' ? '.env' : 'the environment'}.`
-          : 'No AI key. The free tier needs none.',
+        !current.key.present
+          ? 'No AI key. The free tier needs none.'
+          : current.key.source === 'config'
+            ? 'No key needed for this provider.'
+            : `Key found in ${current.key.source === 'env-file' ? '.env' : 'the environment'}.`,
       );
       setLabel(themeButton, document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode');
 

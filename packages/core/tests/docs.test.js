@@ -21,7 +21,7 @@ import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../src/shared/
 import { NOT_ACCEPTABLE_BODY } from '../src/prod/headers.js';
 import { routeToTwinUrlPath } from '../src/shared/routes.js';
 import { COMMAND_PACKAGES } from '../src/shared/errors.js';
-import { defaultConfig } from '../src/shared/config.js';
+import { RESERVED_AI_PARAMS, defaultConfig } from '../src/shared/config.js';
 
 /**
  * Documentation that describes behaviour is documentation that can be wrong. These tests are the
@@ -319,12 +319,35 @@ describe('docs/providers.md', () => {
     }
   });
 
-  it('documents the four override fields and their allowed values', () => {
-    for (const field of ['baseUrl', 'api', 'auth', 'headers']) {
+  it('documents the override fields and their allowed values', () => {
+    for (const field of ['baseUrl', 'api', 'auth', 'headers', 'params']) {
       expect(doc, `${field} is undocumented`).toContain(`\`${field}\``);
     }
     for (const auth of ['bearer', 'x-api-key', 'x-goog-api-key', 'none']) {
       expect(doc, `auth: ${auth} is undocumented`).toContain(auth);
+    }
+  });
+
+  it('is counted the same way everywhere the READMEs count it', () => {
+    const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+    const tens = ['', '', 'twenty', 'thirty'];
+    const n = PROVIDERS.length;
+    const spelled = n % 10 === 0 ? tens[n / 10] : `${tens[Math.floor(n / 10)]}-${ones[n % 10]}`;
+    expect(read('README.md')).toContain(`${capitalized(spelled)} of them out of the box`);
+    expect(read('packages/cli/README.md')).toContain(`${capitalized(spelled)} of them`);
+    expect(read('packages/generate/README.md')).toContain(`Any of ${spelled} providers`);
+    expect(read('packages/opengeo/README.md')).toContain(`any of the ${spelled} providers`);
+    const readme = read('README.md');
+    for (const provider of PROVIDERS) expect(readme, `README.md never names ${provider.id}`).toMatch(new RegExp(`\\b${provider.id}\\b`));
+  });
+
+  it('names every request field ai.params may not set', () => {
+    for (const field of RESERVED_AI_PARAMS) expect(doc, `${field} is not listed as reserved`).toContain(`\`${field}\``);
+  });
+
+  it('gives each keyless provider its own section, since none of them has a key page to link', () => {
+    for (const provider of PROVIDERS.filter((entry) => entry.keyless)) {
+      expect(doc, `${provider.label} has no section`).toContain(`### ${provider.label.replace(/ \(.*\)$/, '')}`);
     }
   });
 });

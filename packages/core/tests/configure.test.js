@@ -639,7 +639,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
     it("offers the new provider's default model, not the one configured for the old provider", async () => {
       writeFileSync(
         join(root, CONFIG_FILENAME),
-        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5' } }),
+        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' } }),
         'utf8',
       );
       // The model question is left unanswered, so whatever it offered as the default is what is saved.
@@ -654,7 +654,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
     it("does not offer the old provider's model to a custom endpoint", async () => {
       writeFileSync(
         join(root, CONFIG_FILENAME),
-        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5' } }),
+        JSON.stringify({ site: 'http://localhost:3000', ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' } }),
         'utf8',
       );
       const prompter = scripted({
@@ -669,7 +669,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       const saved = /** @type {{ ai: { provider: string; model: string } }} */ (JSON.parse(readFileSync(join(root, CONFIG_FILENAME), 'utf8')));
       expect(saved.ai.provider).toBe('custom');
-      expect(saved.ai.model).not.toBe('claude-sonnet-5');
+      expect(saved.ai.model).not.toBe('claude-sonnet-5-5');
     });
   });
 

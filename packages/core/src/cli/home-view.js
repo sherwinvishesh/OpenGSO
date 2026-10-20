@@ -86,7 +86,7 @@ export function statusRows(status, width) {
 
   rows.push(
     status.provider
-      ? `${label('AI key')}${status.provider.id}  ${ink.faint(`from ${status.provider.source}`)}`
+      ? `${label('AI key')}${status.provider.id}  ${ink.faint(status.provider.keyless ? 'runs without a key' : `from ${status.provider.source}`)}`
       : `${label('AI key')}${ink.faint('none')}  ${ink.faint('optional, only the AI features need one')}`,
   );
 
@@ -135,7 +135,7 @@ export function plainStatus(status) {
     status.score ? `  score    ${status.score.value}/100, ${relativeAge(status.score.at)}` : '  score    never tested',
     ideas && ideas.count > 0 ? `  ideas    ${ideas.adopted} of ${ideas.count} suggestions adopted` : '',
     status.twins > 0 ? `  twins    ${status.twins} pages` : '  twins    none generated',
-    status.provider ? `  ai key   ${status.provider.id}` : '  ai key   none',
+    status.provider ? `  ai key   ${status.provider.id}${status.provider.keyless ? ', no key needed' : ''}` : '  ai key   none',
   ];
   return rows.filter(Boolean);
 }

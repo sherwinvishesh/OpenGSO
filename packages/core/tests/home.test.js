@@ -147,6 +147,15 @@ describe('reading a project', () => {
     expect(status.score).toBeUndefined();
   });
 
+  it('counts a model on this machine as ready, with no key to find', () => {
+    const root = project({ 'opengeo.config.json': JSON.stringify({ site: 'https://example.com', ai: { provider: 'ollama', model: 'llama3.2' } }) });
+    const status = readHomeStatus(root);
+
+    expect(status.provider).toEqual({ id: 'ollama', source: 'opengeo.config.json', keyless: true });
+    expect(text(statusRows(status, 80))).toContain('runs without a key');
+    expect(plainStatus(status).join('\n')).toContain('ollama, no key needed');
+  });
+
   it('counts no twins when generate has never run', () => {
     const root = project({ 'opengeo.config.json': CONFIG });
     const status = readHomeStatus(root);

@@ -124,7 +124,7 @@ point at a project explicitly.
     "blocked": [],                                       // who is asked not to crawl
     "custom": []                                         // crawlers OpenGEO does not ship with
   },
-  "ai": { "provider": "anthropic", "model": "claude-sonnet-5" }
+  "ai": { "provider": "anthropic", "model": "claude-sonnet-5-5" }
 }
 ```
 
@@ -165,8 +165,9 @@ picker, which does both.
 
 ## AI providers
 
-Twelve of them, including Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral, DeepSeek, OpenRouter,
-Together, Perplexity, Ollama on your own machine, and anything else you can name a URL for.
+Twenty-five of them, including Anthropic, OpenAI, Gemini, xAI Grok, Alibaba Qwen, DeepSeek, Kimi,
+GLM, Mistral, Perplexity, Groq, Cerebras, OpenRouter, Hugging Face, Ollama and LM Studio on your own
+machine, and anything else you can name a URL for.
 
 ```bash
 opengeo help providers                      # the whole catalogue, with keys links

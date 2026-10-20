@@ -29,7 +29,7 @@ import { ago, banner, button, card, cardHead, doc, el, empty, fill, pageHead, pi
 const MODES = [
   { value: 'full', label: 'Everything', note: 'The checks, then an AI review of every Markdown document they find.' },
   { value: 'structure', label: 'Structure only', note: 'The 0-100 score. No key, no model, no cost.' },
-  { value: 'content', label: 'Content only', note: 'Skip the checks and just review the Markdown. Needs a key.' },
+  { value: 'content', label: 'Content only', note: 'Skip the checks and just review the Markdown. Needs an AI provider.' },
 ];
 
 /** Past runs on screen. The file keeps twenty, and a row of twenty numbers is a table nobody asked for. */
@@ -208,7 +208,7 @@ export function createTestView(ctx) {
     const state = ctx.state();
     setText(
       intro,
-      `Score one live URL out of 100 against the ${state.checkCount} checks, and have a model read the Markdown your site serves. Nothing is written to disk.`,
+      `Run the ${state.checkCount} structural checks on one live URL for a score out of 100, and have a model read the Markdown your site serves. Nothing is written to disk.`,
     );
     modeButtons.forEach((modeButton, index) => modeButton.setAttribute('aria-pressed', String(MODES[index]?.value === mode)));
     setLabel(runButton, busy ? 'Testing' : 'Run test');

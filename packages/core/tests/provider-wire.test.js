@@ -268,7 +268,7 @@ describe('an answer that goes wrong', () => {
       42,
       { content: 'not an array', choices: {}, candidates: 'x' },
       { content: [null], choices: [null], candidates: [null] },
-      { choices: [{ message: { content: [{ type: 'text', text: 'parts' }] } }], candidates: [{ content: { parts: 'x' } }] },
+      { choices: [{ message: { content: [{ type: 'image_url', image_url: 'x' }] } }], candidates: [{ content: { parts: 'x' } }] },
     ];
     for (const shape of Object.values(SHAPES)) {
       for (const body of odd) {
@@ -280,10 +280,18 @@ describe('an answer that goes wrong', () => {
     }
   });
 
-  /** It used to come back as an array, which broke the enhancer outside its own try. */
-  it('keeps the algorithmic page when a compatible server answers with an array of parts', async () => {
+  it('reads an answer sent as a list of parts, and only its text parts', async () => {
     answer = (_request, response) =>
-      json(response, 200, { choices: [{ message: { content: [{ type: 'text', text: '# Hi' }] } }] });
+      json(response, 200, {
+        choices: [{ message: { content: [{ type: 'thinking', thinking: 'Let me see.' }, { type: 'text', text: '# Hi' }, { type: 'text', text: '\n\nBody.' }] } }],
+      });
+    expect(await callProvider(call({ provider: 'mistral' }))).toBe('# Hi\n\nBody.');
+  });
+
+  /** It used to come back as an array, which broke the enhancer outside its own try. */
+  it('keeps the algorithmic page when a compatible server answers with parts that hold no text', async () => {
+    answer = (_request, response) =>
+      json(response, 200, { choices: [{ message: { content: [{ type: 'image_url', image_url: { url: 'x' } }] } }] });
     const enhance = createAiEnhancer({
       provider: 'custom',
       model: 'm',
@@ -369,5 +377,120 @@ describe('the key in an error message', () => {
     };
     const error = await failure(call({ provider: 'openai' }));
     expect(error.message).not.toContain(KEY);
+  });
+});
+
+describe('what the body carries beyond the page', () => {
+  /**
+   * The request an OpenAI-shaped provider sent.
+   *
+   * @param {Partial<ProviderCall>} overrides
+   */
+  const sent = async (overrides) => {
+    answer = (_request, response) => json(response, 200, SHAPES.openai.good);
+    await callProvider(call(overrides));
+    return received[received.length - 1];
+  };
+
+  it('posts to Perplexity at its own path, with search switched off for its default model', async () => {
+    const request = await sent({ provider: 'perplexity', model: 'sonar' });
+    expect(request.url).toBe('/v1/sonar');
+    expect(request.body.disable_search).toBe(true);
+    expect(request.body.max_tokens).toBe(DEFAULT_MAX_TOKENS);
+  });
+
+  it('sends the catalogue flags with the default model and never with another one', async () => {
+    expect((await sent({ provider: 'deepseek', model: 'deepseek-flash' })).body.thinking).toEqual({ type: 'disabled' });
+    expect((await sent({ provider: 'deepseek', model: 'deepseek-pro' })).body).not.toHaveProperty('thinking');
+    expect((await sent({ provider: 'qwen', model: 'qwen-plus' })).body.enable_thinking).toBe(false);
+    expect((await sent({ provider: 'nvidia', model: 'nvidia/nemotron-3-super-120b-a12b' })).body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it('keeps Sonnet 5.5 at its lowest thinking setting, which it accepts in place of disabled', async () => {
+    answer = (_request, response) => json(response, 200, SHAPES.anthropic.good);
+    await callProvider(call({ provider: 'anthropic', model: 'claude-sonnet-5-5' }));
+    expect(received[0].body.thinking).toEqual({ type: 'between_tools' });
+    await callProvider(call({ provider: 'anthropic', model: 'claude-opus-5-5' }));
+    expect(received[1].body).not.toHaveProperty('thinking');
+  });
+
+  it('merges ai.params over the catalogue, object into object, and a null takes a field out', async () => {
+    const request = await sent({
+      provider: 'deepseek',
+      model: 'deepseek-flash',
+      overrides: { params: { thinking: null, temperature: 0.2, response_format: { type: 'text' } } },
+    });
+    expect(request.body).not.toHaveProperty('thinking');
+    expect(request.body.temperature).toBe(0.2);
+    expect(request.body.response_format).toEqual({ type: 'text' });
+
+    answer = (_request, response) => json(response, 200, SHAPES.gemini.good);
+    await callProvider(call({ provider: 'gemini', overrides: { params: { generationConfig: { temperature: 0 } } } }));
+    expect(received[received.length - 1].body.generationConfig).toEqual({ maxOutputTokens: DEFAULT_MAX_TOKENS, temperature: 0 });
+  });
+
+  it('never lets ai.params replace the model, the page or the stream setting', async () => {
+    const params = JSON.parse('{"model":"other","messages":[],"system":"x","stream":true,"__proto__":{"polluted":true},"top_p":0.9}');
+    const request = await sent({ provider: 'openai', overrides: { params } });
+    expect(request.body.model).toBe('test-model');
+    expect(request.body.messages).toHaveLength(2);
+    expect(request.body).not.toHaveProperty('stream');
+    expect(request.body).not.toHaveProperty('system');
+    expect(request.body.top_p).toBe(0.9);
+    expect(/** @type {any} */ ({}).polluted).toBeUndefined();
+  });
+
+  it('drops a row\'s own path and flags once its API shape is overridden', async () => {
+    answer = (_request, response) => json(response, 200, SHAPES.anthropic.good);
+    await callProvider(call({ provider: 'perplexity', model: 'sonar', overrides: { api: 'anthropic' } }));
+    expect(received[0].url).toBe('/v1/messages');
+    expect(received[0].body).not.toHaveProperty('disable_search');
+  });
+});
+
+describe('answers that are not the page', () => {
+  it('strips reasoning a model left at the top of its answer, and only there', async () => {
+    answer = (_request, response) =>
+      json(response, 200, { choices: [{ message: { content: '<think>\nThe user wants a table.\n</think>\n\n# Page\n\nUse `<think>` tags.' } }] });
+    expect(await callProvider(call({ provider: 'groq' }))).toBe('# Page\n\nUse `<think>` tags.');
+  });
+
+  it('skips Anthropic thinking blocks and Gemini thought parts', async () => {
+    answer = (_request, response) =>
+      json(response, 200, { content: [{ type: 'thinking', thinking: 'hmm' }, { type: 'text', text: '# A' }], stop_reason: 'end_turn' });
+    expect(await callProvider(call({ provider: 'anthropic' }))).toBe('# A');
+    answer = (_request, response) =>
+      json(response, 200, { candidates: [{ content: { parts: [{ text: 'hmm', thought: true }, { text: '# B' }] }, finishReason: 'STOP' }] });
+    expect(await callProvider(call({ provider: 'gemini' }))).toBe('# B');
+  });
+
+  it('says a model declined, in each shape, rather than reporting an empty answer', async () => {
+    /** @type {Array<[string, unknown]>} */
+    const refusals = [
+      ['anthropic', { content: [], stop_reason: 'refusal' }],
+      ['openai', { choices: [{ message: { content: null, refusal: 'I can not help with that.' }, finish_reason: 'stop' }] }],
+      ['gemini', { promptFeedback: { blockReason: 'SAFETY' } }],
+      ['gemini', { candidates: [{ finishReason: 'SAFETY' }] }],
+    ];
+    for (const [provider, body] of refusals) {
+      answer = (_request, response) => json(response, 200, body);
+      const error = await failure(call({ provider: /** @type {any} */ (provider) }));
+      expect(error.message, provider).toMatch(/declined to rewrite this page/);
+    }
+  });
+
+  it('says where to look after the status line, without changing the status line', async () => {
+    for (const [status, hint] of /** @type {const} */ ([
+      [401, /key was refused/],
+      [402, /out of credit/],
+      [404, /model id/],
+      [429, /Rate limited/],
+      [503, /on its side/],
+    ])) {
+      answer = (_request, response) => json(response, status, { error: 'no' });
+      const error = await failure(call({ provider: 'openai' }));
+      expect(error.message.split('\n')[0]).toBe(`The OpenAI API returned ${status}.`);
+      expect(error.message).toMatch(hint);
+    }
   });
 });

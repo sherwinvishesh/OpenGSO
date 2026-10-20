@@ -15,6 +15,7 @@ import {
 } from '../shared/env.js';
 import { parseUrl } from '../shared/http.js';
 import { c } from '../shared/log.js';
+import { wrap } from '../shared/render/paint.js';
 import { pickBots } from './bot-picker.js';
 import { detectWebRoot } from '../shared/site-probe.js';
 import { previewLines } from './setup-preview.js';
@@ -275,13 +276,11 @@ export async function askBlocked(ctx, config) {
  */
 export async function askProvider(ctx, config) {
   const { prompter, write, root } = ctx;
-  const found = readCredentials(root);
+  const found = readCredentials(root, config.ai);
   if (found) {
-    write(
-      `  ${c.green('A key is already configured')} ${c.gray(
-        `(${found.provider}, from ${found.source === 'env-file' ? ENV_FILENAME : 'your shell environment'})`,
-      )}\n\n`,
-    );
+    const where = { 'env-file': ENV_FILENAME, 'process-env': 'your shell environment', config: CONFIG_FILENAME }[found.source];
+    const what = found.keyless ? `${providerInfo(found.provider).label} is set up, no key needed` : 'A key is already configured';
+    write(`  ${c.green(what)} ${c.gray(`(${found.provider}, from ${where})`)}\n\n`);
   }
 
   // The catalogue drives the list, so adding a provider is a row in one file and nothing here
@@ -291,7 +290,7 @@ export async function askProvider(ctx, config) {
     [
       {
         value: 'skip',
-        label: found ? 'keep the key I already have' : 'skip for now',
+        label: found ? (found.keyless ? 'keep what I have' : 'keep the key I already have') : 'skip for now',
         note: 'You can run `opengeo settings` again at any time.',
       },
       ...PROVIDERS.map((provider) => ({
@@ -305,6 +304,12 @@ export async function askProvider(ctx, config) {
   if (providerChoice === 'skip') return undefined;
 
   const info = providerInfo(providerChoice);
+  // Said before the key is asked for, since a region or a missing permission is otherwise found by
+  // the first run failing.
+  if (info.note && !info.userDefined) {
+    for (const line of wrap(info.note, 76)) write(`  ${c.gray(line)}\n`);
+    write('\n');
+  }
   const endpoint = await askEndpoint(prompter, write, providerChoice, config);
   if (!endpoint) {
     write(`  ${c.yellow(ERRORS.noEndpointGiven)}\n`);
@@ -392,7 +397,9 @@ function providerNote(id) {
   const info = providerInfo(id);
   if (info.userDefined) return 'Any endpoint speaking the OpenAI, Anthropic or Gemini API. You give the URL.';
   if (info.keyless) return `Runs on this machine at ${info.baseUrl}. No key, no account, nothing sent off the box.`;
-  return `${info.defaultModel}${info.keysUrl ? `  -  keys: ${info.keysUrl}` : ''}`;
+  // The model only: a keys URL does not fit beside the label at 80 columns, and the key question
+  // that follows prints it in full.
+  return info.defaultModel;
 }
 
 /**

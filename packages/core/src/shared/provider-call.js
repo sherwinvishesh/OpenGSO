@@ -1,4 +1,5 @@
 import { AI_PROVIDERS, isAiProvider, resolveProvider } from './providers.js';
+import { RESERVED_AI_PARAMS } from './config.js';
 import { ERRORS } from './errors.js';
 
 /**
@@ -69,12 +70,67 @@ export function stripCodeFence(text) {
 }
 
 /**
+ * The config loader refuses these in `ai.params`; skipping them here as well covers a caller that
+ * built its overrides without going through the loader.
+ */
+const RESERVED_PARAMS = new Set(/** @type {readonly string[]} */ (RESERVED_AI_PARAMS));
+
+/**
+ * The body as sent: the shape's own fields, then the catalogue's flags for its default model, then
+ * the project's `ai.params`.
+ *
+ * The catalogue's flags are for one model. `thinking: { type: 'disabled' }` is the right thing to
+ * send DeepSeek's flash model and a 400 from a model that has no switch, so a model the user picked
+ * gets only what they wrote in `ai.params`. Objects merge rather than replace, so `ai.params` can set
+ * `generationConfig.temperature` without losing the output cap, and a `null` takes a field out.
+ *
+ * @param {Record<string, unknown>} body
+ * @param {ProviderCall} call
+ * @param {ResolvedProvider} provider
+ * @returns {Record<string, unknown>}
+ */
+export function requestBody(body, call, provider) {
+  let merged = body;
+  if (provider.defaultParams && call.model === provider.defaultModel) merged = mergeParams(merged, provider.defaultParams, true);
+  if (provider.params) merged = mergeParams(merged, provider.params, true);
+  return merged;
+}
+
+/**
+ * @param {Record<string, unknown>} base
+ * @param {Record<string, unknown>} extra
+ * @param {boolean} top
+ * @returns {Record<string, unknown>}
+ */
+function mergeParams(base, extra, top) {
+  /** @type {Record<string, unknown>} */
+  const out = { ...base };
+  for (const [key, value] of Object.entries(extra)) {
+    if (top && RESERVED_PARAMS.has(key)) continue;
+    // Keys that would reach the prototype instead of the body.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+    if (value === null) delete out[key];
+    else if (isPlainObject(value) && isPlainObject(out[key])) out[key] = mergeParams(/** @type {Record<string, unknown>} */ (out[key]), value, false);
+    else out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * The only network call in OpenGEO that carries the user's API key.
  *
  * Dispatch is on the *wire format*, not on the vendor. Most of the industry ships an
- * OpenAI-compatible endpoint, so one caller plus a base URL covers Grok, Groq, Mistral, DeepSeek,
- * OpenRouter, Together, Perplexity, a local Ollama, and whatever gateway a company put in front of
- * them. Adding a vendor that follows the pattern is a row in the catalogue, not a branch here.
+ * OpenAI-compatible endpoint, so one caller plus a base URL covers Grok, Qwen, Kimi, DeepSeek,
+ * Groq, OpenRouter, a local Ollama, and whatever gateway a company put in front of them. Adding a
+ * vendor that follows the pattern is a row in the catalogue, not a branch here.
  *
  * @param {ProviderCall} call
  * @returns {Promise<string>}
@@ -185,12 +241,18 @@ async function callAnthropic(call, provider) {
         'anthropic-version': '2023-06-01',
         ...authHeaders(provider, call.apiKey),
       },
-      body: JSON.stringify({
-        model: call.model,
-        max_tokens: call.maxTokens ?? DEFAULT_MAX_TOKENS,
-        system: call.system,
-        messages: [{ role: 'user', content: call.prompt }],
-      }),
+      body: JSON.stringify(
+        requestBody(
+          {
+            model: call.model,
+            max_tokens: call.maxTokens ?? DEFAULT_MAX_TOKENS,
+            system: call.system,
+            messages: [{ role: 'user', content: call.prompt }],
+          },
+          call,
+          provider,
+        ),
+      ),
     },
     call.timeoutMs ?? 120_000,
     provider.label,
@@ -198,8 +260,10 @@ async function callAnthropic(call, provider) {
   ));
 
   if (json.stop_reason === 'max_tokens') throw new TruncatedOutputError(provider.label);
+  if (json.stop_reason === 'refusal') throw new Error(ERRORS.providerRefused(provider.label));
+  // Text blocks only: a thinking block, if `ai.params` turned thinking on, is working, not the page.
   const text = (Array.isArray(json.content) ? json.content : [])
-    .map((block) => (typeof block?.text === 'string' ? block.text : ''))
+    .map((block) => (block?.type === 'text' && typeof block.text === 'string' ? block.text : ''))
     .join('');
   if (!text) throw new Error(`${provider.label} returned no text content.`);
   return text;
@@ -214,30 +278,64 @@ async function callOpenAI(call, provider) {
   // OpenAI's own newer models reject `max_tokens`; almost every compatible clone rejects
   // `max_completion_tokens`. The catalogue row says which one this endpoint accepts.
   const tokens = { [provider.tokenParam]: call.maxTokens ?? DEFAULT_MAX_TOKENS };
-  const json = /** @type {{ choices?: Array<{ message?: { content?: string }; finish_reason?: string }> }} */ (await post(
-    `${provider.baseUrl}/chat/completions`,
+  const json = /** @type {{ choices?: Array<{ message?: { content?: unknown; refusal?: unknown }; finish_reason?: string }> }} */ (await post(
+    `${provider.baseUrl}${provider.path ?? '/chat/completions'}`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...authHeaders(provider, call.apiKey) },
-      body: JSON.stringify({
-        model: call.model,
-        ...tokens,
-        messages: [
-          { role: 'system', content: call.system },
-          { role: 'user', content: call.prompt },
-        ],
-      }),
+      body: JSON.stringify(
+        requestBody(
+          {
+            model: call.model,
+            ...tokens,
+            messages: [
+              { role: 'system', content: call.system },
+              { role: 'user', content: call.prompt },
+            ],
+          },
+          call,
+          provider,
+        ),
+      ),
     },
     call.timeoutMs ?? 120_000,
     provider.label,
     call.apiKey,
   ));
 
-  if (json.choices?.[0]?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
-  const content = json.choices?.[0]?.message?.content;
-  const text = typeof content === 'string' ? content : '';
+  const choice = json.choices?.[0];
+  if (choice?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
+  if (typeof choice?.message?.refusal === 'string' && choice.message.refusal) throw new Error(ERRORS.providerRefused(provider.label));
+  const text = withoutReasoning(messageText(choice?.message?.content));
   if (!text) throw new Error(`${provider.label} returned no message content.`);
   return text;
+}
+
+/**
+ * A message's text, whichever way the endpoint spells it. Most send a string; Mistral's reasoning
+ * models and some gateways send a list of parts, where only the `text` parts are the answer.
+ *
+ * @param {unknown} content
+ * @returns {string}
+ */
+function messageText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((part) => (part && typeof part === 'object' && part.type === 'text' && typeof part.text === 'string' ? part.text : ''))
+    .join('');
+}
+
+/**
+ * Open-weight reasoning models served through an OpenAI-shaped endpoint often put their working in
+ * the answer itself, inside `<think>` tags, when the host has no separate field for it. That working
+ * is not the page, and the fidelity check would rightly reject a twin that opened with it.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function withoutReasoning(text) {
+  return text.replace(/^\s*<think>[\s\S]*?<\/think>\s*/, '');
 }
 
 /**
@@ -247,25 +345,36 @@ async function callOpenAI(call, provider) {
  */
 async function callGemini(call, provider) {
   const model = encodeURIComponent(call.model);
-  const json = /** @type {{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }> }} */ (await post(
+  const json = /** @type {{ candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>; promptFeedback?: { blockReason?: string } }} */ (await post(
     `${provider.baseUrl}/models/${model}:generateContent`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...authHeaders(provider, call.apiKey) },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: call.system }] },
-        contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
-        generationConfig: { maxOutputTokens: call.maxTokens ?? DEFAULT_MAX_TOKENS },
-      }),
+      body: JSON.stringify(
+        requestBody(
+          {
+            systemInstruction: { parts: [{ text: call.system }] },
+            contents: [{ role: 'user', parts: [{ text: call.prompt }] }],
+            generationConfig: { maxOutputTokens: call.maxTokens ?? DEFAULT_MAX_TOKENS },
+          },
+          call,
+          provider,
+        ),
+      ),
     },
     call.timeoutMs ?? 120_000,
     provider.label,
     call.apiKey,
   ));
 
-  if (json.candidates?.[0]?.finishReason === 'MAX_TOKENS') throw new TruncatedOutputError(provider.label);
-  const parts = json.candidates?.[0]?.content?.parts;
-  const text = (Array.isArray(parts) ? parts : []).map((part) => (typeof part?.text === 'string' ? part.text : '')).join('');
+  const candidate = json.candidates?.[0];
+  if (candidate?.finishReason === 'MAX_TOKENS') throw new TruncatedOutputError(provider.label);
+  if (json.promptFeedback?.blockReason || candidate?.finishReason === 'SAFETY' || candidate?.finishReason === 'PROHIBITED_CONTENT') {
+    throw new Error(ERRORS.providerRefused(provider.label));
+  }
+  const parts = candidate?.content?.parts;
+  // A part marked `thought` is a thought summary, which `ai.params` can ask for; it is not the page.
+  const text = (Array.isArray(parts) ? parts : []).map((part) => (typeof part?.text === 'string' && !part.thought ? part.text : '')).join('');
   if (!text) throw new Error(`${provider.label} returned no candidate content.`);
   return text;
 }

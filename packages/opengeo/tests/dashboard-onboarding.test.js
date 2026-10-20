@@ -51,7 +51,7 @@ function makeState(overrides = {}) {
       crawl: { maxPages: 50, maxDepth: 3, exclude: [] },
       generate: { tier: 'free', minWords: 120 },
       bots: { markdownRouting: routable.map((bot) => bot.name), blocked: [], custom: [] },
-      ai: { provider: 'anthropic', model: 'claude-sonnet-5' },
+      ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
     },
     version: '1.0.0',
     packageName: 'opengeo',
@@ -247,7 +247,7 @@ describe('nextFixes', () => {
 describe('the key step', () => {
   const anthropic = providerInfoOf(catalog, 'anthropic');
   const ollama = providerInfoOf(catalog, 'ollama');
-  const draft = { provider: 'anthropic', model: 'claude-sonnet-5', apiKey: '', baseUrl: '', api: 'anthropic' };
+  const draft = { provider: 'anthropic', model: 'claude-sonnet-5-5', apiKey: '', baseUrl: '', api: 'anthropic' };
   const none = /** @type {StateResponse['key']} */ ({ present: false, path: '/p/.env' });
   const saved = /** @type {StateResponse['key']} */ ({ present: true, provider: 'anthropic', path: '/p/.env' });
 

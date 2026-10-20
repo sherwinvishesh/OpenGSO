@@ -268,7 +268,7 @@ function createKeyCard(ctx) {
   let done;
 
   const keyPill = el('span', { className: 'contents' });
-  /** @type {boolean | undefined} */
+  /** @type {'none' | 'keyless' | 'found' | undefined} */
   let pillShown;
   const keyPath = el('span', { className: 'mono' });
   const configName = el('span');
@@ -363,7 +363,8 @@ function createKeyCard(ctx) {
     // The placeholder promises a kept key only when Save really keeps one. With no key saved, or a
     // key that belongs to another provider, a blank field cannot be saved at all.
     fields.setKey({
-      label: state.key.present ? 'Replace the key' : 'API key',
+      // A keyless provider counts as present so the AI features open up, but there is no key to replace.
+      label: state.key.present && state.key.source !== 'config' ? 'Replace the key' : 'API key',
       placeholder: kept ? 'leave blank to keep the current key' : 'sk-...',
     });
     setBusy(saveButton, busy, !draftReady(draft, info, { keyPresent: kept }));
@@ -373,9 +374,10 @@ function createKeyCard(ctx) {
     node,
     update() {
       const state = ctx.state();
-      if (pillShown !== state.key.present) {
-        fill(keyPill, state.key.present ? pill('ok', 'key found') : pill('mute', 'no key'));
-        pillShown = state.key.present;
+      const shown = !state.key.present ? 'none' : state.key.source === 'config' ? 'keyless' : 'found';
+      if (pillShown !== shown) {
+        fill(keyPill, shown === 'found' ? pill('ok', 'key found') : shown === 'keyless' ? pill('ok', 'no key needed') : pill('mute', 'no key'));
+        pillShown = shown;
       }
       setText(keyPath, state.key.path);
       setText(configName, state.configPath.split('/').pop() ?? '');

@@ -41,13 +41,14 @@ uses the defaults below.
 | `bots.blocked` | `[]` | Lever 2: crawlers asked not to crawl, expressed only as `Disallow` rules in the `robots.txt` generate writes. Opt-in, and never applied to a crawler OpenGEO does not know. |
 | `bots.custom` | `[]` | Crawlers OpenGEO does not ship with, in the shape below. Adding one recognises it; naming it in `markdownRouting` is what routes to it. |
 | `ai.provider` | `"anthropic"` | Which AI provider generate's AI tier and `opengeo test --content` use. One of the ids in [providers.md](providers.md). |
-| `ai.model` | `"claude-sonnet-5"` | The model id. An empty string means the provider's own default. `--model` and `OPENGEO_MODEL` in `.env` take precedence over it. |
+| `ai.model` | `"claude-sonnet-5-5"` | The model id. An empty string means the provider's own default. `--model` and `OPENGEO_MODEL` in `.env` take precedence over it. |
 | `ai.baseUrl` | unset | Overrides the provider's endpoint, for a gateway or a self-hosted server. `custom` has no endpoint of its own, so it needs this and `ai.model`. |
 | `ai.api` | the provider's own | The request shape the endpoint speaks: `openai`, `anthropic` or `gemini`. |
 | `ai.auth` | the provider's own | How the key is sent: `bearer`, `x-api-key`, `x-goog-api-key`, or `none`. |
 | `ai.headers` | unset | Extra request headers the endpoint needs, as an object of names to string values. Never the key. |
+| `ai.params` | unset | Extra fields merged into every request body, such as `{ "temperature": 0.2 }`. `null` removes a field OpenGEO would send. It may not set `model`, `messages`, `system`, `contents`, `systemInstruction` or `stream`. See [providers.md](providers.md). |
 
-`ai.model` and the four overrides describe one endpoint, so changing `ai.provider` through
+`ai.model` and the five overrides describe one endpoint, so changing `ai.provider` through
 `opengeo settings` or the dashboard clears them unless the same change restates them. The
 dashboard's general config form cannot change `ai` at all: the provider, endpoint and key are saved
 together, by `opengeo settings` or the dashboard's AI provider card, so a stored key is never
@@ -83,6 +84,6 @@ The middleware reads the whole file once, when it starts: restart the server aft
     "blocked": [],
     "custom": [{ "name": "AcmeBot", "uaPatterns": ["acme-crawler"] }]
   },
-  "ai": { "provider": "anthropic", "model": "claude-sonnet-5" }
+  "ai": { "provider": "anthropic", "model": "claude-sonnet-5-5" }
 }
 ```

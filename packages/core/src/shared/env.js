@@ -104,8 +104,9 @@ export function readEnvFile(root) {
  * @property {string} [model]
  * @property {string} [baseUrl] Set only when `.env` names an endpoint, which is how a self-hosted
  *   provider is configured.
- * @property {'env-file' | 'process-env'} source Where the key came from, so the UI and CLI can tell
- *   the user exactly where it lives.
+ * @property {'env-file' | 'process-env' | 'config'} source Where the key came from, so the UI and
+ *   CLI can tell the user exactly where it lives. `config` is a keyless provider named only in
+ *   opengeo.config.json: there is no key, and the config is what chose it.
  * @property {boolean} [keyless] True for a provider that needs no key at all, where an empty
  *   `apiKey` is the correct answer.
  */
@@ -124,14 +125,34 @@ const NATIVE_KEY_VARS = PROVIDERS.flatMap((provider) =>
 );
 
 /**
+ * `OPENGEO_PROVIDER` as written, when it is set to something that is not a provider id. While it is,
+ * readCredentials finds no key at all, and this is how a caller says why.
+ *
+ * @param {string} root
+ * @returns {string | undefined}
+ */
+export function unknownEnvProvider(root) {
+  const value = pickVar(readEnvFile(root), PROVIDER_VAR)?.value;
+  return value && !isAiProvider(value.toLowerCase()) ? value : undefined;
+}
+
+/**
  * Resolve credentials from `.env`, falling back to the process environment. Also accepts the
  * provider-native variable names people already have exported, so nobody has to duplicate a key
  * they've already set up.
  *
+ * Without `OPENGEO_PROVIDER`, a key found that way says which keys are on hand, not which provider
+ * was picked. So the project's configured provider is asked first: an `OPENAI_API_KEY` exported for
+ * some other tool must not outrank the Qwen key the project was set up with, and must never pull a
+ * project configured for a model on this machine out to a hosted one. Only when the configured
+ * provider has no key of its own does any other key found stand in, which is what lets a project
+ * with no config at all run on whichever key its owner happens to have.
+ *
  * @param {string} root
+ * @param {{ provider?: string; auth?: string }} [configured] The project's `ai` block.
  * @returns {Credentials | undefined}
  */
-export function readCredentials(root) {
+export function readCredentials(root, configured) {
   const fileEnv = readEnvFile(root);
   /** @param {string} name */
   const pick = (name) => pickVar(fileEnv, name);
@@ -143,6 +164,10 @@ export function readCredentials(root) {
   const model = pick(MODEL_VAR)?.value;
   const baseUrl = pick(BASE_URL_VAR)?.value;
 
+  // A name that is not a provider is a destination nobody can read. Defaulting it to Anthropic sent
+  // a Qwen key to Anthropic for `OPENGEO_PROVIDER=kwen`, so nothing is found until it names one.
+  if (providerVar?.value && !provider) return undefined;
+
   if (explicit) {
     return { provider: provider ?? 'anthropic', apiKey: explicit.value, model, baseUrl, source: explicit.source };
   }
@@ -153,7 +178,14 @@ export function readCredentials(root) {
     return { provider, apiKey: '', model, baseUrl, source: /** @type {NonNullable<typeof providerVar>} */ (providerVar).source, keyless: true };
   }
 
-  for (const [nativeProvider, varName] of NATIVE_KEY_VARS) {
+  const preferred = !provider && isAiProvider(configured?.provider) ? configured.provider : undefined;
+  if (preferred && (providerInfo(preferred).keyless || configured?.auth === 'none')) {
+    return { provider: preferred, apiKey: '', model, baseUrl, source: 'config', keyless: true };
+  }
+  const order = preferred
+    ? [...NATIVE_KEY_VARS.filter(([id]) => id === preferred), ...NATIVE_KEY_VARS.filter(([id]) => id !== preferred)]
+    : NATIVE_KEY_VARS;
+  for (const [nativeProvider, varName] of order) {
     if (provider && provider !== nativeProvider) continue;
     const found = pick(varName);
     if (found) return { provider: nativeProvider, apiKey: found.value, model, baseUrl, source: found.source };

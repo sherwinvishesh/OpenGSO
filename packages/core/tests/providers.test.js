@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   AI_PROVIDERS,
   DEFAULT_MODELS,
+  ERRORS,
   PROVIDERS,
+  RESERVED_AI_PARAMS,
+  configPatchProblem,
   defaultConfig,
   isAiProvider,
   mergeConfig,
@@ -15,6 +18,7 @@ import {
   providerOverridesOf,
   resolveAiCall,
   resolveProvider,
+  suggestProvider,
 } from '@opengeo/core/shared';
 import { createAiEnhancer } from '@opengeo/core/generate';
 /** @import { OpenGeoConfig } from '@opengeo/core/shared' */
@@ -47,8 +51,31 @@ describe('the catalogue', () => {
   });
 
   it('covers the providers people actually asked for', () => {
-    for (const id of ['anthropic', 'openai', 'gemini', 'xai', 'groq', 'mistral', 'deepseek', 'ollama', 'custom']) {
+    for (const id of ['anthropic', 'openai', 'gemini', 'xai', 'groq', 'mistral', 'deepseek', 'qwen', 'kimi', 'zai', 'perplexity', 'openrouter', 'ollama', 'lmstudio', 'custom']) {
       expect(AI_PROVIDERS, id).toContain(id);
+    }
+  });
+
+  it('keeps every alias pointing at exactly one provider, and never at an id of another', () => {
+    /** @type {Map<string, string>} */
+    const owners = new Map();
+    for (const provider of PROVIDERS) {
+      for (const alias of provider.aliases ?? []) {
+        expect(alias, `${provider.id} alias ${alias}`).toBe(alias.toLowerCase());
+        expect(isAiProvider(alias), `${alias} is already an id`).toBe(false);
+        expect(owners.get(alias), `${alias} is claimed twice`).toBeUndefined();
+        owners.set(alias, provider.id);
+      }
+    }
+  });
+
+  it('writes catalogue flags only for the OpenAI shape it can send them in, and never a reserved field', () => {
+    for (const provider of PROVIDERS) {
+      for (const key of Object.keys(provider.params ?? {})) {
+        expect(RESERVED_AI_PARAMS, `${provider.id} params.${key}`).not.toContain(key);
+      }
+      // Only Perplexity has a path of its own, and only the OpenAI caller reads one.
+      if (provider.path) expect(provider.api, `${provider.id} path`).toBe('openai');
     }
   });
 
@@ -77,7 +104,48 @@ describe('the catalogue', () => {
     expect(isAiProvider('xai')).toBe(true);
     expect(isAiProvider('XAI')).toBe(false);
     expect(isAiProvider('llama-cpp')).toBe(false);
+    expect(isAiProvider('claude')).toBe(false);
     expect(() => providerInfo(/** @type {never} */ ('nope'))).toThrow(/Unknown AI provider/);
+  });
+});
+
+describe('a provider name that is not an id', () => {
+  it('suggests the provider people mean by the product, the company or a misspelling', () => {
+    /** @type {Array<[string, string]>} */
+    const meant = [
+      ['claude', 'anthropic'],
+      ['Claude', 'anthropic'],
+      ['grok', 'xai'],
+      ['kwen', 'qwen'],
+      ['alibaba', 'qwen'],
+      ['moonshot', 'kimi'],
+      ['GLM', 'zai'],
+      ['google', 'gemini'],
+      ['gpt', 'openai'],
+      ['hugging face', 'huggingface'],
+      ['LM Studio', 'lmstudio'],
+      ['open router', 'openrouter'],
+      ['together.ai', 'together'],
+      ['anthropc', 'anthropic'],
+      ['openia', 'openai'],
+      ['perplexty', 'perplexity'],
+      ['azure', 'custom'],
+    ];
+    for (const [typed, id] of meant) expect(suggestProvider(typed), typed).toBe(id);
+  });
+
+  it('keeps groq and grok apart, and suggests nothing for a name it does not know', () => {
+    expect(suggestProvider('groq')).toBe('groq');
+    expect(suggestProvider('grok')).toBe('xai');
+    expect(suggestProvider('qwen')).toBe('qwen');
+    expect(suggestProvider('banana')).toBeUndefined();
+    expect(suggestProvider('')).toBeUndefined();
+  });
+
+  it('puts the suggestion in the refusal, first, ahead of the list', () => {
+    const message = ERRORS.unknownProvider('claude', AI_PROVIDERS);
+    expect(message.split('\n')[0]).toBe('Unknown AI provider "claude". Did you mean "anthropic"?');
+    expect(ERRORS.unknownProvider('banana', AI_PROVIDERS).split('\n')[0]).toBe('Unknown AI provider "banana".');
   });
 });
 
@@ -113,6 +181,17 @@ describe('resolveProvider', () => {
     expect(resolved.api).toBe('anthropic');
   });
 
+  it('carries a row\'s own path and default-model flags, and drops both for another API shape', () => {
+    const perplexity = resolveProvider('perplexity');
+    expect(perplexity.path).toBe('/sonar');
+    expect(perplexity.defaultParams).toEqual({ disable_search: true });
+    expect(perplexity.defaultModel).toBe('sonar');
+    const elsewhere = resolveProvider('perplexity', { api: 'anthropic', params: { top_k: 5 } });
+    expect(elsewhere.path).toBeUndefined();
+    expect(elsewhere.defaultParams).toBeUndefined();
+    expect(elsewhere.params).toEqual({ top_k: 5 });
+  });
+
   it('treats auth: none as keyless, whatever the row says', () => {
     expect(resolveProvider('openai', { auth: 'none' }).keyless).toBe(true);
     expect(resolveProvider('ollama').keyless).toBe(true);
@@ -121,7 +200,7 @@ describe('resolveProvider', () => {
   it('reports what a user-defined provider is still missing', () => {
     expect(providerGaps('custom', undefined)).toEqual(['ai.baseUrl', 'ai.model']);
     expect(providerGaps('custom', 'my-model', { baseUrl: 'https://x.example/v1' })).toEqual([]);
-    expect(providerGaps('anthropic', 'claude-sonnet-5')).toEqual([]);
+    expect(providerGaps('anthropic', 'claude-sonnet-5-5')).toEqual([]);
   });
 });
 
@@ -157,13 +236,33 @@ describe('the ai block of a config merge', () => {
     expect(merge({ model: 'local-2' }).baseUrl).toBe(ai.baseUrl);
   });
 
+  it('drops the old provider\'s params when the provider changes, and keeps them when it does not', () => {
+    const withParams = { ...base, ai: { ...ai, params: { temperature: 0 } } };
+    expect(mergeConfig(withParams, { ai: { provider: 'groq' } }).ai.params).toBeUndefined();
+    expect(mergeConfig(withParams, { ai: { model: 'local-2' } }).ai.params).toEqual({ temperature: 0 });
+  });
+
   it('round-trips through providerOverridesOf', () => {
-    expect(providerOverridesOf({ ai })).toEqual({
+    expect(providerOverridesOf({ ai: { ...ai, params: { top_p: 1 } } })).toStrictEqual({
       baseUrl: ai.baseUrl,
       api: 'openai',
       auth: 'bearer',
       headers: undefined,
+      params: { top_p: 1 },
     });
+  });
+});
+
+describe('ai.params in a config file', () => {
+  it('accepts an object of extra fields', () => {
+    expect(configPatchProblem({ ai: { params: { temperature: 0, reasoning_effort: 'low' } } })).toBeUndefined();
+  });
+
+  it('refuses a field the request is built around, and anything that is not an object', () => {
+    expect(configPatchProblem({ ai: { params: { model: 'x' } } })).toMatch(/ai\.params .* without model, messages/);
+    expect(configPatchProblem({ ai: { params: { stream: true } } })).toMatch(/ai\.params/);
+    expect(configPatchProblem({ ai: { params: ['temperature'] } })).toMatch(/ai\.params/);
+    expect(configPatchProblem({ ai: { params: 'low' } })).toMatch(/ai\.params/);
   });
 });
 
@@ -332,6 +431,45 @@ describe('resolveAiCall', () => {
   it('says a key is missing, rather than erroring, when there is none at all', () => {
     expect(resolveAiCall(root, config())).toEqual({ missing: 'anthropic' });
     expect(resolveAiCall(root, config(), { provider: 'openai' })).toEqual({ missing: 'openai' });
+  });
+
+  it('lets the configured provider win over a key some other tool exported', () => {
+    // OPENAI_API_KEY comes first in the catalogue, so it used to decide the provider for a project
+    // that was set up for Qwen and had its own key sitting right there.
+    process.env.OPENAI_API_KEY = 'sk-openai-for-another-tool';
+    env(['DASHSCOPE_API_KEY=sk-qwen']);
+    const resolved = call(resolveAiCall(root, config({ provider: 'qwen', model: 'qwen-plus' })));
+    expect(resolved).toMatchObject({ provider: 'qwen', apiKey: 'sk-qwen', model: 'qwen-plus' });
+  });
+
+  it('never moves a project set up for a model on this machine onto a hosted one', () => {
+    process.env.OPENAI_API_KEY = 'sk-openai-for-another-tool';
+    const resolved = call(resolveAiCall(root, config({ provider: 'ollama', model: 'llama3.2' })));
+    expect(resolved).toMatchObject({ provider: 'ollama', apiKey: '', model: 'llama3.2' });
+    const gateway = config({ provider: 'custom', model: 'local', baseUrl: 'http://127.0.0.1:8080/v1', api: 'openai', auth: 'none' });
+    expect(call(resolveAiCall(root, gateway))).toMatchObject({ provider: 'custom', apiKey: '' });
+  });
+
+  it('falls back to whichever key there is when the configured provider has none', () => {
+    env(['GROQ_API_KEY=gsk-groq']);
+    expect(call(resolveAiCall(root, config({ provider: 'qwen' })))).toMatchObject({ provider: 'groq', apiKey: 'gsk-groq' });
+  });
+
+  it('sends the key nowhere when OPENGEO_PROVIDER names no provider', () => {
+    // It used to fall through to the Anthropic default, so a Qwen key went to Anthropic.
+    env(['OPENGEO_PROVIDER=kwen', 'OPENGEO_API_KEY=sk-qwen']);
+    const result = resolveAiCall(root, config());
+    expect(result).toEqual({ error: ERRORS.envProviderUnknown('kwen') });
+    expect(ERRORS.envProviderUnknown('kwen')).toContain('Did you mean "qwen"?');
+    expect(ERRORS.envProviderUnknown('kwen')).not.toContain('sk-qwen');
+    // A flag that names a real provider still runs, on that provider's own key and not this one.
+    process.env.OPENAI_API_KEY = 'sk-openai';
+    expect(call(resolveAiCall(root, config(), { provider: 'openai' }))).toMatchObject({ provider: 'openai', apiKey: 'sk-openai' });
+  });
+
+  it('reads OPENGEO_PROVIDER whatever its case', () => {
+    env(['OPENGEO_PROVIDER=OpenAI', 'OPENGEO_API_KEY=sk-openai']);
+    expect(call(resolveAiCall(root, config()))).toMatchObject({ provider: 'openai', apiKey: 'sk-openai' });
   });
 
   it('runs a keyless provider with no key, and refuses a provider that does not exist', () => {

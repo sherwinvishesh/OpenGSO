@@ -70,7 +70,7 @@ export async function runSettings(options) {
   write(`${c.gray(hasConfig ? `${CONFIG_FILENAME} - pick a number to change that one setting.` : `${CONFIG_FILENAME} does not exist yet. Changing anything here creates it.`)}\n`);
 
   for (;;) {
-    const found = readCredentials(root);
+    const found = readCredentials(root, config.ai);
     /** @type {SettingKey} */
     let choice;
     try {

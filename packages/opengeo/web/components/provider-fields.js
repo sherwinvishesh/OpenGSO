@@ -96,6 +96,21 @@ export function customEndpointLabel(catalog) {
 }
 
 /**
+ * The dropdown's options, grouped by what picking one asks of you: an account, nothing at all, or
+ * an address. Twenty-odd vendors in one flat list hide the two local ones somewhere in the middle.
+ *
+ * @param {ProviderInfo[]} catalog
+ * @returns {Array<{ label: string; entries: ProviderInfo[] }>}
+ */
+export function providerGroups(catalog) {
+  return [
+    { label: 'Hosted, needs a key', entries: catalog.filter((entry) => !entry.keyless && !entry.userDefined) },
+    { label: 'On this machine, no key', entries: catalog.filter((entry) => entry.keyless) },
+    { label: 'Your own endpoint', entries: catalog.filter((entry) => entry.userDefined) },
+  ].filter((group) => group.entries.length > 0);
+}
+
+/**
  * @typedef {object} ProviderFields
  * @property {HTMLElement} node
  * @property {() => ProviderDraft} get
@@ -122,8 +137,12 @@ export function createProviderFields({ catalog, onChange, keyLabel, keyHint, key
   const provider = el(
     'select',
     { on: { change: () => edit(draftForProvider(catalog, provider.value, draft.apiKey)) } },
-    catalog.map((entry) => el('option', { attrs: { value: entry.id }, text: entry.label })),
+    providerGroups(catalog).map((group) =>
+      el('optgroup', { attrs: { label: group.label } }, group.entries.map((entry) => el('option', { attrs: { value: entry.id }, text: entry.label }))),
+    ),
   );
+  // What would otherwise be learned from a failed run: a region, a permission, a server flag.
+  const providerNote = el('p', { className: 'note', hidden: true });
   const model = el('input', { attrs: { type: 'text', spellcheck: 'false' }, on: { input: () => edit({ ...draft, model: model.value }) } });
   const modelHint = el('span');
   const baseUrl = el('input', {
@@ -164,6 +183,7 @@ export function createProviderFields({ catalog, onChange, keyLabel, keyHint, key
     'div',
     { className: 'contents' },
     el('div', { className: 'row row-top' }, field('Provider', provider), el('div', { className: 'grow' }, field('Model', model, modelHint))),
+    providerNote,
     customRow,
     keylessNote,
     keyField,
@@ -192,6 +212,10 @@ export function createProviderFields({ catalog, onChange, keyLabel, keyHint, key
     keyField.hidden = Boolean(info?.keyless);
     setText(keylessLabel, info?.label ?? '');
     setText(keylessUrl, info?.baseUrl ?? '');
+    // The custom row and the keyless line already say what the catalogue note would.
+    const note = info?.userDefined ? '' : (info?.note ?? '').replace(/^No key, no network\. /, '');
+    setText(providerNote, note);
+    providerNote.hidden = !note;
 
     const keysUrl = info?.keysUrl;
     if (keysUrl === hintUrl) return;

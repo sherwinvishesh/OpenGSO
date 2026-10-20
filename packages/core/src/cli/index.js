@@ -1,6 +1,7 @@
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
 import { c, cErr } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
+import { wrap } from '../shared/render/paint.js';
 import { EXIT_USAGE, UsageError } from './args.js';
 import { runHome } from './home.js';
 
@@ -225,13 +226,15 @@ export function renderProvidersHelp() {
         : c.gray(provider.envVars[0] ?? '');
     lines.push(`  ${c.bold(provider.id.padEnd(width))}${provider.label.padEnd(labelWidth)}${note}`);
     lines.push(`  ${' '.repeat(width)}${c.gray(`${provider.defaultModel || 'model of your choice'}${provider.keysUrl ? `  ${provider.keysUrl}` : ''}`)}`);
+    // The one thing about this provider that would otherwise be learned from a failed run.
+    if (provider.note) for (const line of wrap(provider.note, 92 - width)) lines.push(`  ${' '.repeat(width)}${c.dim(line)}`);
   }
 
   lines.push('');
   lines.push(c.bold('Pick one'));
   lines.push('  opengeo settings                         ' + c.gray('asks, and writes .env for you'));
   lines.push('  OPENGEO_PROVIDER=xai OPENGEO_API_KEY=... ' + c.gray('or set it yourself in .env'));
-  lines.push('  opengeo test <url> --content --provider groq --model llama-3.3-70b-versatile');
+  lines.push('  opengeo test <url> --content --provider groq --model openai/gpt-oss-20b');
   lines.push('');
 
   lines.push(c.bold('Add your own AI tool'));
@@ -258,6 +261,12 @@ export function renderProvidersHelp() {
   lines.push('');
   lines.push(c.gray('  The same fields work on a built-in provider, which is how you point OpenGEO at a'));
   lines.push(c.gray('  company mirror of a vendor API without giving up the vendor default model.'));
+  lines.push('');
+  lines.push(c.bold('Thinking, and other request flags'));
+  lines.push(c.gray('  A rewrite is not a reasoning job, so on each default model that thinks, OpenGEO turns'));
+  lines.push(c.gray('  it off or as low as that model allows.'));
+  lines.push(c.gray('  "params" in the "ai" block adds fields of your own to every request body, such as'));
+  lines.push(c.gray('  { "temperature": 0.2 }, and a null removes one OpenGEO would have sent.'));
   lines.push('');
   lines.push(c.gray('  `opengeo settings` asks all of this if you would rather answer questions, and the'));
   lines.push(c.gray('  dashboard has the same fields under Settings.'));

@@ -69,12 +69,18 @@ structural half and says in one line what it skipped.
 
 ## Bring any AI provider
 
-Twelve of them out of the box, and the twelfth is "something else":
+Twenty-five of them out of the box, and the twenty-fifth is "something else":
 
 ```
-anthropic  openai  gemini  xai  groq  mistral  deepseek
-openrouter  together  perplexity  ollama (on your machine, no key)  custom
+anthropic  openai  gemini  xai  mistral  deepseek  qwen  kimi  zai  minimax  cohere
+perplexity  openrouter  groq  together  fireworks  cerebras  sambanova  deepinfra
+huggingface  nvidia  novita  ollama  lmstudio (both on your machine, no key)  custom
 ```
+
+Type the name you know and it works it out: `--provider claude`, `kwen` or `grok` asks whether you
+meant `anthropic`, `qwen` or `xai`. A key you already exported for another tool is picked up as it
+is, and on its default models OpenGEO turns thinking off or as low as it goes, since a rewrite is
+not a reasoning job.
 
 ```bash
 npx opengeo help providers                          # the full catalogue with keys links

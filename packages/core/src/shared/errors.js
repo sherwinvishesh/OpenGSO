@@ -5,7 +5,7 @@
  * place and a limited install can tell the user exactly which package to reach for instead.
  */
 
-import { AI_PROVIDERS, providerInfo } from './providers.js';
+import { AI_PROVIDERS, providerInfo, suggestProvider } from './providers.js';
 
 /** @import { AiProvider } from './providers.js' */
 
@@ -199,6 +199,23 @@ function redirectHost(location) {
   } catch {
     return 'another address';
   }
+}
+
+/**
+ * What a provider's status code usually means, for the person who has to fix it. The body the
+ * provider sent is printed above it and is the authority; this line says where to look first.
+ *
+ * @param {number} status
+ * @returns {string | undefined}
+ */
+function statusHint(status) {
+  if (status === 400 || status === 422) return '  The provider refused the request itself: usually a model id it does not offer, or a field in ai.params it does not accept.';
+  if (status === 401 || status === 403) return '  The key was refused. Check it is a key for this provider, that it is still active, and that the account has credit.';
+  if (status === 402) return '  The account is out of credit. Top it up with the provider and run this again.';
+  if (status === 404) return '  Nothing at that address: usually a model id the provider does not offer, or an ai.baseUrl or ai.api that is wrong.';
+  if (status === 429) return '  Rate limited, or out of quota for now. Waiting a minute and running it again usually works.';
+  if (status >= 500) return '  The provider had a problem on its side. Running it again in a few minutes usually works.';
+  return undefined;
 }
 
 /**
@@ -488,14 +505,34 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} provider
    * @param {string[]} supported
    */
-  unknownProvider: (provider, supported) =>
-    [
-      `Unknown AI provider "${provider}". OpenGEO supports:`,
+  unknownProvider: (provider, supported) => {
+    const meant = suggestProvider(provider);
+    return [
+      `Unknown AI provider "${provider}".${meant && meant !== provider ? ` Did you mean "${meant}"?` : ''}`,
+      ``,
+      `OpenGEO supports:`,
       ...wrapList(supported, 68).map((line) => `  ${line}`),
       ``,
       `If yours is not on that list it is still supported: pick "custom", give it a baseUrl and a`,
       `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
-    ].join('\n'),
+      `\`opengeo help providers\` shows each one with its default model and where its keys come from.`,
+    ].join('\n');
+  },
+
+  /**
+   * The provider variable is the key's destination, so a value that names none sends it nowhere.
+   *
+   * @param {string} value
+   * @returns {string}
+   */
+  envProviderUnknown: (value) => {
+    const meant = suggestProvider(value);
+    return [
+      `OPENGEO_PROVIDER is set to "${value}", which is not a provider OpenGEO knows.${meant ? ` Did you mean "${meant}"?` : ''}`,
+      `The key next to it is not sent anywhere until that names one. Fix it in .env (or your shell),`,
+      `or run \`opengeo settings\` and pick the provider from the list.`,
+    ].join('\n');
+  },
 
   /**
    * Names both providers and never the key itself.
@@ -638,6 +675,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   aiPageTooLong: (tokens, cap) =>
     `Not sent to the AI tier, so the algorithmic version was kept: this page is about ${tokens} tokens and the model's output cap is ${cap}, so a full rewrite could not fit and the call would be paid for and thrown away.`,
 
+  /** @param {number} status */
+  aiKeyRefusedEarlier: (status) =>
+    `Not sent to the AI tier, so the algorithmic version was kept: the provider refused the key with ${status} on an earlier page, and this one would have failed the same way. Check the key with \`opengeo settings\` and run generate again.`,
+
   /** @param {string} why */
   aiFallbackCached: (why) =>
     `Source unchanged since the last run, when the AI tier kept the algorithmic version (${why}). Not sent to the model again; --force retries it.`,
@@ -708,5 +749,16 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {number} status
    * @param {string} body
    */
-  providerFailed: (provider, status, body) => [`The ${provider} API returned ${status}.`, `  ${body.slice(0, 400)}`].join('\n'),
+  providerFailed: (provider, status, body) => {
+    const hint = statusHint(status);
+    return [`The ${provider} API returned ${status}.`, `  ${body.slice(0, 400)}`, ...(hint ? [hint] : [])].join('\n');
+  },
+
+  /**
+   * A model that declined the page. The HTTP status cannot say so, because the answer was a 200.
+   *
+   * @param {string} provider
+   */
+  providerRefused: (provider) =>
+    `${provider} declined to rewrite this page. The key is fine: the model's own safety rules stopped it, so the algorithmic version is kept.`,
 });

@@ -59,7 +59,7 @@ Five screens, all driving the same core functions the CLI calls:
 - **Prod** probes a running deployment and reports the two bot levers separately.
 - **Bot settings** edits those two levers, refuses to pretend they are the same thing, and is where
   you add a crawler OpenGEO has never heard of.
-- **Settings** edits `opengeo.config.json` and stores an API key, for any of the twelve providers
+- **Settings** edits `opengeo.config.json` and stores an API key, for any of the twenty-five providers
   in the catalogue or an endpoint you name yourself.
 
 On a project with no `opengeo.config.json`, the first screen is a three-step setup: site and web
@@ -149,8 +149,9 @@ Most of OpenGEO needs no key at all: the whole 0 to 100 structural test, the ent
 tier, and all of the middleware.
 
 The provider list in Settings comes from the server, not from the bundle, so it is the same
-catalogue `opengeo help providers` prints: Anthropic, OpenAI, Gemini, xAI Grok, Groq, Mistral,
-DeepSeek, OpenRouter, Together, Perplexity, Ollama on this machine, and **your own endpoint**.
+catalogue `opengeo help providers` prints: Anthropic, OpenAI and Gemini, Qwen, DeepSeek, Kimi and
+GLM, Groq, Cerebras and OpenRouter among them, Ollama and LM Studio on this machine, and **your own
+endpoint**.
 Picking the last one asks for a base URL and which of the three API shapes it speaks. See
 [docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
 

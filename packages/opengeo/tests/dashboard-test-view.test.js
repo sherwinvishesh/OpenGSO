@@ -295,13 +295,13 @@ describe('createTestView', () => {
     await settle();
     const first = view.node.firstElementChild;
     expect(first?.querySelector('h1')?.textContent).toBe('Test');
-    expect(first?.textContent).toContain('against the 22 checks');
+    expect(first?.textContent).toContain('Run the 22 structural checks');
     expect(view.node.textContent).toContain('Run a test to see which of the 22 checks pass');
 
     const input = /** @type {HTMLInputElement} */ (view.node.querySelector('input'));
     holder.state = fakeState({ checkCount: 23 });
     view.update();
-    expect(first?.textContent).toContain('against the 23 checks');
+    expect(first?.textContent).toContain('Run the 23 structural checks');
     expect(view.node.textContent).toContain('which of the 23 checks pass');
     expect(view.node.querySelector('input')).toBe(input);
   });

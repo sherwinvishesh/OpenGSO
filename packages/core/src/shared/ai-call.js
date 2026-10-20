@@ -1,5 +1,5 @@
 import { providerOverridesOf } from './config.js';
-import { readCredentials, readNativeKey } from './env.js';
+import { readCredentials, readNativeKey, unknownEnvProvider } from './env.js';
 import { ERRORS } from './errors.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './providers.js';
 
@@ -49,7 +49,10 @@ export function resolveAiCall(root, config, flags = {}) {
     return { error: ERRORS.unknownProvider(flags.provider, AI_PROVIDERS), usage: true };
   }
 
-  const credentials = readCredentials(root);
+  const misnamed = flags.provider ? undefined : unknownEnvProvider(root);
+  if (misnamed) return { error: ERRORS.envProviderUnknown(misnamed) };
+
+  const credentials = readCredentials(root, config.ai);
   const provider = /** @type {AiProvider | undefined} */ (flags.provider) || credentials?.provider || config.ai.provider;
   // `.env` outranks the config, as it always has, but only where both describe this provider.
   const fromEnv = credentials?.provider === provider ? credentials : undefined;
