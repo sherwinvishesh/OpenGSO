@@ -259,7 +259,10 @@ describe('one bad page cannot take the run down with it', () => {
 
   it('fails a page the extractor cannot handle and finishes the rest', async () => {
     const loaded = project();
-    const result = await generatePages({ loaded, site, routes: ['/deep', '/resume'], sources: new Map([['/deep', deep]]) });
+    // Both pages are handed in rather than fetched. The deep parse holds the event loop for seconds,
+    // and with the test server in this same process a concurrent fetch can time out behind it.
+    const sources = new Map([['/deep', deep], ['/resume', PAGES['/resume']]]);
+    const result = await generatePages({ loaded, site, routes: ['/deep', '/resume'], sources });
     expect(result.pages.find((page) => page.route === '/resume')?.status).toBe('written');
     expect(readManifest(join(loaded.root, '.opengeo'), site).pages['/resume']).toBeDefined();
   }, 30_000);
