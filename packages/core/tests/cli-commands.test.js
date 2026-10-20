@@ -182,6 +182,20 @@ describe('opengeo generate --json', () => {
   });
 });
 
+describe('opengeo generate, the first time', () => {
+  it('says the twins are not served yet and what serves them, once', async () => {
+    const first = await run(generateCommand, [site, '--project', root, '--single']);
+    expect(first.code).toBe(0);
+    const said = first.stdout.replace(/\s+/g, ' ');
+    expect(said).toContain('agents still get HTML until your server serves these twins');
+    expect(said).toContain('proxy.ts');
+    expect(said).toContain(`opengeo test ${site}`);
+
+    const again = await run(generateCommand, [site, '--project', root, '--single', '--force']);
+    expect(again.stdout).not.toContain('agents still get HTML');
+  });
+});
+
 describe('opengeo test --out', () => {
   it('writes the human report to the file instead of the terminal', async () => {
     const file = join(root, 'report.txt');

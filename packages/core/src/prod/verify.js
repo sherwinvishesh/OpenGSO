@@ -200,7 +200,7 @@ function judgeRoutedBot(bot, ua, result, url) {
       ...base,
       verdict: 'fail',
       reason: `No ${HEADERS.aeoVersion} on the response, so opengeo-prod is not running at this URL.`,
-      detail: 'Install opengeo-prod and wire the adapter into your middleware, then re-run this command.',
+      detail: 'Install opengeo-prod and wire it into your server (proxy.ts on Next.js 16, middleware.ts on 15), then re-run this command.',
     };
   }
   return {

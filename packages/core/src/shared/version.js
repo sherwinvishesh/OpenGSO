@@ -22,6 +22,8 @@ export const HEADERS = /* @__PURE__ */ Object.freeze({
   lastModified: 'Last-Modified',
   /** Set to `private` only on markdown the User-Agent chose, which `Vary: Accept` cannot describe. */
   cacheControl: 'Cache-Control',
+  /** A hash of the served body, taken once at load, so a cache can revalidate instead of refetching. */
+  etag: 'ETag',
 });
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';

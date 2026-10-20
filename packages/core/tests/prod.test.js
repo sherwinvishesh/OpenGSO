@@ -6,10 +6,13 @@ import {
   HEADERS,
   MARKDOWN_CONTENT_TYPE,
   classify,
+  createManifestStore,
   createMemoryStore,
+  entityTag,
   handleRequest,
   htmlHeaders,
   identifyBot,
+  isNotModified,
   markdownHeaders,
   parseLinkAlternate,
   resolveBots,
@@ -197,6 +200,71 @@ describe('handleRequest', () => {
 
   it('passes non-GET methods straight through', () => {
     const decision = handleRequest(request('/resume', { accept: 'text/markdown' }, 'POST'), ctx);
+    expect(decision.type).toBe('passthrough');
+  });
+});
+
+describe('conditional requests', () => {
+  /** @param {Record<string, string>} [headers] */
+  const twin = (headers = {}) => {
+    const decision = handleRequest(request('/resume.md', headers), ctx);
+    if (decision.type !== 'markdown') throw new Error(`expected markdown, got ${decision.type}`);
+    return decision.response;
+  };
+  const etag = twin().headers.get(HEADERS.etag) ?? '';
+
+  it('sends a quoted ETag that is the same on every request and changes with the body', () => {
+    expect(etag).toMatch(/^"[0-9a-f]{16}"$/);
+    expect(twin().headers.get(HEADERS.etag)).toBe(etag);
+    expect(entityTag('# Resume\n\nShipped 4 projects in 2024.')).toBe(etag);
+    expect(entityTag('# Resume\n\nShipped 5 projects in 2024.')).not.toBe(etag);
+    expect(entityTag('')).toMatch(/^"[0-9a-f]{16}"$/);
+  });
+
+  it('gives the edge store the same tag the memory store gives the same body', () => {
+    const edge = createManifestStore({
+      manifest: { pages: { '/resume': { route: '/resume', file: 'md/resume.md', tokens: 12 } } },
+      contents: { 'md/resume.md': '---\ntitle: "Resume"\n---\n# Resume\n\nShipped 4 projects in 2024.\n' },
+    });
+    expect(edge.get('/resume')?.etag).toBe(etag);
+  });
+
+  it('answers a matching If-None-Match with 304, no body, and the headers a cache updates from', async () => {
+    const response = twin({ 'if-none-match': etag });
+    expect(response.status).toBe(304);
+    expect(await response.text()).toBe('');
+    expect(response.headers.get(HEADERS.etag)).toBe(etag);
+    expect(response.headers.get(HEADERS.vary)).toBe('Accept');
+    expect(response.headers.get(HEADERS.lastModified)).toBe('Thu, 01 Jan 2026 00:00:00 GMT');
+    expect(response.headers.get(HEADERS.contentType)).toBeNull();
+    expect(response.headers.get(HEADERS.markdownTokens)).toBeNull();
+  });
+
+  it('matches weakly, in a list, and on *', () => {
+    expect(twin({ 'if-none-match': `W/${etag}` }).status).toBe(304);
+    expect(twin({ 'if-none-match': `"0000000000000000", ${etag}` }).status).toBe(304);
+    expect(twin({ 'if-none-match': '*' }).status).toBe(304);
+    expect(twin({ 'if-none-match': '"0000000000000000"' }).status).toBe(200);
+  });
+
+  it('keeps Cache-Control: private on a 304 for markdown the User-Agent chose', () => {
+    const decision = handleRequest(request('/resume', { 'user-agent': GPTBOT, 'if-none-match': etag }), ctx);
+    expect(decision.type === 'markdown' && decision.response.status).toBe(304);
+    expect(decision.type === 'markdown' && decision.response.headers.get(HEADERS.cacheControl)).toBe('private');
+  });
+
+  it('uses If-Modified-Since only without If-None-Match, and ignores a date in the future', () => {
+    expect(twin({ 'if-modified-since': 'Thu, 01 Jan 2026 00:00:00 GMT' }).status).toBe(304);
+    expect(twin({ 'if-modified-since': 'Wed, 31 Dec 2025 23:59:59 GMT' }).status).toBe(200);
+    expect(twin({ 'if-modified-since': 'Thu, 01 Jan 2026 00:00:00 GMT', 'if-none-match': '"0000000000000000"' }).status).toBe(200);
+    expect(twin({ 'if-modified-since': 'not a date' }).status).toBe(200);
+    expect(
+      isNotModified({ ifNoneMatch: null, ifModifiedSince: 'Fri, 01 Jan 2100 00:00:00 GMT' }, { lastUpdated: '2026-01-01T00:00:00.000Z' }),
+    ).toBe(false);
+  });
+
+  it('never answers 304 for a page it does not serve as markdown', () => {
+    const decision = handleRequest(request('/resume', { accept: BROWSER_ACCEPT, 'if-none-match': '*' }), ctx);
     expect(decision.type).toBe('passthrough');
   });
 });

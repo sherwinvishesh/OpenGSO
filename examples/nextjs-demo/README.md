@@ -21,17 +21,17 @@ node packages/cli/dist/cli.js generate http://localhost:3000 --project examples/
 node packages/cli/dist/cli.js test http://localhost:3000/
 ```
 
-`OPENGEO_PROD=off npm run example:start` disables the middleware, which is the "before" state:
+`OPENGEO_PROD=off npm run example:start` disables the proxy, which is the "before" state:
 every category B check fails with a specific reason.
 
 ## The integration
 
-All of it is in `middleware.ts`:
+All of it is in `proxy.ts`:
 
 ```ts
 const opengeo = createNextMiddleware({ root: process.cwd() });
 
-export function middleware(request: Request) {
+export function proxy(request: Request) {
   const { response, headers } = opengeo(request);
   if (response) return response;
   const next = NextResponse.next();
@@ -39,14 +39,16 @@ export function middleware(request: Request) {
   return next;
 }
 
-export const config = { runtime: 'nodejs', matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
 ```
 
-`runtime: 'nodejs'` is required: the store reads the generated twins from disk at boot.
+Next 16 renamed middleware to proxy, and a proxy always runs on Node, which the store needs because
+it reads the generated twins from disk. A proxy file refuses a `runtime` option, so there is none.
+On Next 15 the same code goes in `middleware.ts`, exports `middleware`, and adds `runtime: 'nodejs'`
+to `config`.
 
-Next 16 renamed the `middleware.ts` convention to `proxy.ts` and warns about the old name. Both work
-in 16; `middleware.ts` is kept here because it is also what Next 15 users need. Rename the file and
-the exported function to `proxy` if you only target 16.
+Under `next dev`, running `opengeo generate` again is enough: the proxy notices the new twins within
+a second and logs `reloaded after a change on disk`. `next start` reads them once, at boot.
 
 ## Known limitation: `Vary: Accept` on Next's App Router
 

@@ -81,6 +81,49 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   manifestEntryUnusable: (key, manifestFile) =>
     `${manifestFile} lists ${key} without a route and a file, so it was not loaded. Rerun \`opengeo generate\` to rewrite the manifest.`,
+
+  /** @param {string} manifestFile */
+  noManifest: (manifestFile) =>
+    `No manifest at ${manifestFile}. Run \`opengeo generate <url>\` to create the markdown twins.`,
+
+  /**
+   * @param {string} manifestFile
+   * @param {string} reason
+   */
+  unreadableManifest: (manifestFile, reason) =>
+    `Could not read ${manifestFile}: ${reason}. Rerun \`opengeo generate\` to rewrite it.`,
+
+  /**
+   * @param {string} route
+   * @param {string} file Absolute path of the twin that is not there.
+   */
+  twinMissing: (route, file) => `Manifest lists ${route} but ${file} is missing. Rerun \`opengeo generate\`.`,
+
+  /**
+   * @param {string} route
+   * @param {string} file Absolute path of the twin.
+   * @param {string} reason
+   */
+  twinUnreadable: (route, file, reason) =>
+    `Manifest lists ${route} but ${file} could not be read: ${reason}. Rerun \`opengeo generate\`.`,
+
+  /**
+   * The edge store's version of `twinMissing`: the caller built the data module and left this one out.
+   *
+   * @param {string} route
+   * @param {string} file The manifest's `file` value.
+   */
+  contentNotSupplied: (route, file) =>
+    `Manifest lists ${route} but no content was supplied for ${file}. Regenerate the data module after \`opengeo generate\`.`,
+
+  /**
+   * Logged when a development server notices the twins changed on disk and the new ones cannot be
+   * loaded. The previous twins keep being served, so the line says that rather than sounding fatal.
+   *
+   * @param {string} reason
+   */
+  reloadFailed: (reason) =>
+    `[opengeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: ${reason.split('\n')[0]}`,
 });
 
 /** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test'} CommandName */

@@ -23,7 +23,8 @@ npm install opengeo-prod
 
 ## Next.js
 
-`opengeo-prod` imports nothing from `next`. Your `middleware.ts` owns the two Next-specific lines:
+`opengeo-prod` imports nothing from `next`. On Next 16, a `proxy.ts` at the project root (or in
+`src/`) owns the two Next-specific lines:
 
 ```ts
 import { NextResponse } from 'next/server';
@@ -32,9 +33,9 @@ import { applyPassthroughHeaders, createNextMiddleware } from 'opengeo-prod/next
 // Built once at module scope, so a request is a lookup and nothing else.
 const opengeo = createNextMiddleware({ root: process.cwd() });
 
-export function middleware(request: Request) {
+export function proxy(request: Request) {
   const { response, headers } = opengeo(request);
-  if (response) return response;          // markdown, or a 406
+  if (response) return response;          // markdown, a 304, or a 406
 
   const next = NextResponse.next();
   applyPassthroughHeaders(next, headers); // Vary, X-AEO-Version, Link on the HTML
@@ -42,13 +43,24 @@ export function middleware(request: Request) {
 }
 
 export const config = {
-  runtime: 'nodejs',
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
 ```
 
-**`runtime: 'nodejs'` is required.** The middleware reads the generated files from disk, which the
-Edge runtime cannot do. If you need Edge, see [Edge runtimes](#edge-runtimes) below.
+A proxy always runs on Node, which this needs because it reads the generated files from disk. Do
+not add `runtime` to `config`: Next refuses it in a proxy file.
+
+**On Next 15** (15.5 or later), the same code goes in `middleware.ts`, the function is named
+`middleware`, and `config` needs `runtime: 'nodejs'`, because middleware there defaults to the Edge
+runtime, which cannot read files. Next 16 still accepts that file but warns that the name is
+deprecated; `npx @next/codemod@canary middleware-to-proxy .` renames it. If you need Edge, see
+[Edge runtimes](#edge-runtimes) below.
+
+**Under `next dev` there is nothing to restart.** At most once a second the adapter checks whether
+`opengeo.config.json`, the manifest or a twin changed, and if one did it loads them again and logs
+`[opengeo-prod] reloaded after a change on disk`. In production (`next start`, or any
+`NODE_ENV=production`) it reads them once, at boot, and a request never touches the disk. Pass
+`reload: false` to turn the check off in development too.
 
 ### A known Next limitation
 
@@ -98,8 +110,9 @@ const handle = createProdHandler({
 });
 ```
 
-The Next adapter does this for you. Like everything else here it is resolved once at boot, so a
-crawler added later needs a restart before the running server sees it.
+The Next adapter does this for you. Like everything else here it is resolved once at boot, so in
+production a crawler added later needs a restart before the running server sees it. Under
+`next dev` the adapter reloads it with the config.
 
 ### Stores
 

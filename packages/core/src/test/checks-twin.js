@@ -230,7 +230,7 @@ export function checkVaryAccept(e) {
   if (htmlOk || twinOk) {
     return partial('B7', 2, `Vary does not include Accept on ${missing.join(' or ')}. A CDN can cache that side's response and serve it to a visitor asking for the other format.`, {
       detail,
-      fix: `Add \`Vary: Accept\` to ${missing.join(' and ')} (+2). Some frameworks will not let middleware set it on a response they created; a CDN or proxy rule is the way through.`,
+      fix: `Add \`Vary: Accept\` to ${missing.join(' and ')} (+2). Some frameworks will not let middleware set it on a response they created; a CDN or reverse-proxy rule in front of the app is the way through.`,
     });
   }
   return fail(

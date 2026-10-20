@@ -1,5 +1,12 @@
 import { AEO_SPEC_VERSION } from '../shared/version.js';
-import { htmlHeaders, markdownHeaders, notAcceptableHeaders, NOT_ACCEPTABLE_BODY } from './headers.js';
+import {
+  htmlHeaders,
+  isNotModified,
+  markdownHeaders,
+  notAcceptableHeaders,
+  notModifiedHeaders,
+  NOT_ACCEPTABLE_BODY,
+} from './headers.js';
 import { classify } from './negotiate.js';
 
 /**
@@ -93,20 +100,27 @@ export function handleRequest(request, ctx) {
   }
 
   if (classification.serve === 'markdown' && doc) {
+    const headers = markdownHeaders({
+      tokens: doc.tokens,
+      specVersion,
+      lastUpdated: doc.lastUpdated,
+      sourceHash: doc.sourceHash,
+      etag: doc.etag,
+      selectedByUserAgent: !classification.explicitTwin && !classification.accept.prefersMarkdown,
+    });
+    // A cache revalidating a copy it already holds gets the headers and no body. Still a markdown
+    // decision, so an adapter returns it exactly as it returns a 200.
+    const unchanged = isNotModified(
+      { ifNoneMatch: request.headers.get('if-none-match'), ifModifiedSince: request.headers.get('if-modified-since') },
+      doc,
+    );
     return {
       type: 'markdown',
       classification,
       doc,
-      response: new Response(method === 'HEAD' ? null : doc.body, {
-        status: 200,
-        headers: markdownHeaders({
-          tokens: doc.tokens,
-          specVersion,
-          lastUpdated: doc.lastUpdated,
-          sourceHash: doc.sourceHash,
-          selectedByUserAgent: !classification.explicitTwin && !classification.accept.prefersMarkdown,
-        }),
-      }),
+      response: unchanged
+        ? new Response(null, { status: 304, headers: notModifiedHeaders(headers) })
+        : new Response(method === 'HEAD' ? null : doc.body, { status: 200, headers }),
     };
   }
 

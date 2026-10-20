@@ -110,17 +110,17 @@ Each entry is the same code as the matching `opengeo-prod` one:
 | Import | Same as | What it is |
 | --- | --- | --- |
 | `opengeo/prod` | `opengeo-prod` | the handler, the stores, and the startup log |
-| `opengeo/prod/next` | `opengeo-prod/next` | the Next.js adapter, for the Node middleware runtime |
+| `opengeo/prod/next` | `opengeo-prod/next` | the Next.js adapter, for `proxy.ts` (or Node `middleware.ts` on Next 15) |
 | `opengeo/prod/edge` | `opengeo-prod/edge` | the handler without anything that reads the disk |
 
 ```ts
-// middleware.ts
+// proxy.ts (Next 16)
 import { NextResponse } from 'next/server';
 import { applyPassthroughHeaders, createNextMiddleware } from 'opengeo/prod/next';
 
 const opengeo = createNextMiddleware({ root: process.cwd() });
 
-export function middleware(request: Request) {
+export function proxy(request: Request) {
   const { response, headers } = opengeo(request);
   if (response) return response;
   const next = NextResponse.next();
@@ -128,8 +128,12 @@ export function middleware(request: Request) {
   return next;
 }
 
-export const config = { runtime: 'nodejs', matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
 ```
+
+On Next 15 the file is `middleware.ts`, the function is `middleware`, and `config` adds
+`runtime: 'nodejs'`. Under `next dev` a fresh `opengeo generate` is picked up within a second,
+without a restart.
 
 See
 [opengeo-prod](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/prod/README.md)

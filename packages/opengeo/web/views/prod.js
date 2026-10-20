@@ -162,7 +162,8 @@ function report(result) {
       ? null
       : banner(
           { tone: 'fail', title: 'No response carried X-AEO-Version' },
-          `Nothing at ${result.target} answered like OpenGEO's middleware, so every probe below is describing a site without prod installed.`,
+          `Nothing at ${result.target} answered like OpenGEO's middleware, so every probe below is describing a site without prod installed. ` +
+            'Install opengeo-prod and wire it into your server: on Next.js 16 that is a proxy.ts file, and the opengeo-prod README has the code.',
         ),
     result.conflicts.length ? banner({ tone: 'warn', title: 'The two levers contradict each other' }, result.conflicts.join(' ')) : null,
     card(

@@ -1,8 +1,8 @@
-import { statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { c, heading, terminalSafe } from '../../shared/log.js';
 import { resolveAiCall } from '../../shared/ai-call.js';
-import { isLoopbackUrl, mergeConfig, publicDirPath, saveConfig } from '../../shared/config.js';
+import { internalDirPath, isLoopbackUrl, mergeConfig, publicDirPath, saveConfig } from '../../shared/config.js';
 import { isCI } from '../../shared/env.js';
 import { ERRORS } from '../../shared/errors.js';
 import { isHtmlFile, shownPath } from '../../shared/local-pages.js';
@@ -11,6 +11,7 @@ import { checkFreshness, staleCounts } from '../../generate/freshness.js';
 import { SourceFilesError, generateFromFiles } from '../../generate/local.js';
 import { generateSite } from '../../generate/site.js';
 import { twinUrlFor } from '../../generate/generate.js';
+import { manifestPath } from '../../generate/manifest.js';
 import { EXIT_USAGE, UsageError, parseArgs } from '../args.js';
 import { canRedraw, createProgress } from '../progress.js';
 import { terminalWidth, visibleWidth, wrap } from '../../shared/render/paint.js';
@@ -95,6 +96,9 @@ export async function generateCommand(ctx) {
     const what = source.kind === 'url' ? site : source.file ? join(source.folder, source.file) : `${source.folder}/`;
     process.stdout.write(`\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${what}${aiLabel}\n`);
   }
+
+  // Taken before the run writes one, so the closing hint is for somebody who has never done this.
+  const firstCrawl = source.kind === 'url' && !existsSync(manifestPath(internalDirPath(loaded)));
 
   const progress = json ? undefined : createProgress();
   const progressIsLive = canRedraw();
@@ -295,6 +299,15 @@ export async function generateCommand(ctx) {
     if (behind > 0) {
       process.stdout.write(`\n  ${c.yellow(`${behind} other ${behind === 1 ? 'page is' : 'pages are'} out of date.`)} ${c.gray(`\`${source.command} --check\` lists ${behind === 1 ? 'it' : 'them'}.`)}\n`);
     }
+  }
+  // A crawled site keeps sending agents HTML until its server answers with the twins, and nothing
+  // above says so. Once, on the first run: after that, \`opengeo test\` is the one that says it.
+  if (firstCrawl && written > 0) {
+    const next =
+      'Next: agents still get HTML until your server serves these twins. Add opengeo-prod to it ' +
+      '(on Next.js that is a proxy.ts file; its README has the code), then run ' +
+      `\`opengeo test ${site}\` to check.`;
+    process.stdout.write(`\n${hanging('  ', next)}\n`);
   }
   process.stdout.write('\n');
   return failed > 0 ? 1 : 0;

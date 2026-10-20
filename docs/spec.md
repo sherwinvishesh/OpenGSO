@@ -92,6 +92,7 @@ next section is not optional.
 | `X-Markdown-Tokens` | positive integer | recommended |
 | `X-Markdown-Source-Hash` | hash of the extracted source | optional |
 | `Last-Modified` | IMF-fixdate | optional |
+| `ETag` | strong tag of the body, e.g. `"9f2c4e1a07b3d566"` | optional |
 | `Cache-Control` | `private` | yes, when the User-Agent chose markdown |
 
 `X-Robots-Tag: noindex` is required rather than recommended. Without it the twin is a duplicate of
@@ -106,6 +107,18 @@ exist so an auditor can detect drift without trusting the body: `opengeo test`'s
 the hash of a freshly extracted page against the hash the server claims. They are omitted rather
 than faked when the manifest has nothing to report, because a wrong `Last-Modified` is worse than
 none.
+
+### Conditional requests
+
+`ETag` is a hash of the markdown body, computed once when the twins are loaded. An agent that
+re-reads a page sends it back as `If-None-Match`, and gets `304 Not Modified` with no body when the
+twin is unchanged. The comparison is the weak one, so `W/"..."` matches the same tag, a list matches
+if any entry does, and `*` matches any twin. `If-Modified-Since` is honoured only when there is no
+`If-None-Match`, against `Last-Modified` to the second. A 304 carries `ETag`, `Vary`,
+`Last-Modified`, `Cache-Control`, `X-Robots-Tag` and `X-AEO-Version`, which is what a cache updates
+its stored copy from, and nothing that describes a body. Only a request that would have been
+answered with markdown can get a 304: a browser's conditional request for the HTML page is the
+site's to answer.
 
 ### On an HTML response
 

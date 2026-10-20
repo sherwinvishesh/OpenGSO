@@ -63,7 +63,7 @@ function quoted(text) {
 
 /**
  * Where the middleware goes, per framework. Names a file, because "add middleware" is not an
- * instruction a coding agent can act on and "edit middleware.ts at the project root" is.
+ * instruction a coding agent can act on and "edit proxy.ts at the project root" is.
  *
  * This is guidance inside a prompt, not code that branches on framework: nothing in OpenGEO's
  * runtime behaves differently per framework (§16 rules that out). Getting it wrong costs the agent
@@ -72,7 +72,7 @@ function quoted(text) {
  * @type {Partial<Record<FrameworkId, string>>}
  */
 const PLACEMENT = {
-  nextjs: 'middleware.ts at the project root, exporting `config = { runtime: "nodejs", matcher: [...] }` so it can read the generated files from disk',
+  nextjs: 'proxy.ts at the project root (or in src/), exporting `proxy` and `config = { matcher: [...] }`. That is Next 16, where a proxy always runs on Node and refuses a `runtime` option. On Next 15 it is middleware.ts exporting `middleware`, with `runtime: "nodejs"` in config so it can read the generated files from disk',
   nuxt: 'a server middleware under server/middleware/',
   astro: 'src/middleware.ts, wired through Astro\'s onRequest hook',
   sveltekit: 'src/hooks.server.ts, in the handle hook',

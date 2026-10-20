@@ -7,11 +7,12 @@ Every export of the three `opengeo-prod` entry points. The package's
 | Entry | For | Contents |
 | --- | --- | --- |
 | `opengeo-prod` | Any Node server | Everything in `opengeo-prod/edge`, plus `createFsStore`, `buildStartupStatus` and `logStartupStatus`. |
-| `opengeo-prod/next` | Next.js `middleware.ts` | `createNextMiddleware` and `applyPassthroughHeaders`. |
+| `opengeo-prod/next` | Next.js `proxy.ts` (`middleware.ts` on Next 15) | `createNextMiddleware` and `applyPassthroughHeaders`. |
 | `opengeo-prod/edge` | Edge runtimes, or anywhere without a disk | The request handling, the stores that take data rather than read files, and the helpers below. No `node:` import anywhere. |
 
 Nothing here makes a network call, blocks a crawler, or redirects. A request is a lookup in a store
-built once at startup.
+built once at startup. The one exception is the Next adapter on a development server, which checks
+once a second whether the files changed and builds a new store if they did.
 
 ## Handling a request
 
@@ -43,9 +44,17 @@ The decision is one of three:
 ## Next.js
 
 **`createNextMiddleware(options?)`** reads `opengeo.config.json`, builds the store and the crawler
-list once, logs the startup status once, and returns `(request) => { response?, headers, decision }`.
-Return `response` when it is present; otherwise apply `headers` to `NextResponse.next()`. If the
-config cannot be loaded it logs one line and passes every request through.
+list, logs the startup status, and returns `(request) => { response?, headers, decision }`. Return
+`response` when it is present; otherwise apply `headers` to `NextResponse.next()`. If the config
+cannot be loaded it logs one line and passes every request through.
+
+Outside production it also reloads: at most once a second it compares the modification times of the
+config and of every file the store read, and when one changed it builds everything again and logs
+"reloaded after a change on disk". So `opengeo generate` during `next dev` shows up on the next
+request without a restart. A config that breaks mid-session fails open the same way it would at
+boot, and comes back when it is fixed. A reload that fails for any other reason keeps the twins
+already loaded. In production (`NODE_ENV=production`) none of this runs, and a request stays a map
+lookup.
 
 | Option | Default |
 | --- | --- |
@@ -53,22 +62,28 @@ config cannot be loaded it logs one line and passes every request through.
 | `publicDir`, `internalDir` | the config's values |
 | `markdownRouting` | the config's `bots.markdownRouting` |
 | `specVersion` | `AEO_SPEC_VERSION` |
-| `logStartup` | `true` |
+| `logStartup` | `true`; also covers the reload line |
 | `store` | `createFsStore` over the directories above |
+| `reload` | `true` unless `NODE_ENV` is `production`; always off when you pass `store` |
 
 **`applyPassthroughHeaders(target, headers)`** sets each header on `target.headers`.
 
 ## Stores
 
 A `MarkdownStore` has `get(route)`, `has(route)`, `routes()`, `size`, and `problems`, the non-fatal
-issues found while loading. `get` returns a `MarkdownDoc`: `route`, `title`, `body` (frontmatter
-already stripped), `tokens`, `lastUpdated`, and `sourceHash` when generate recorded one.
+issues found while loading. `createFsStore`'s also has `sources`, the files it read, the manifest
+first. `get` returns a `MarkdownDoc`: `route`, `title`, `body` (frontmatter already stripped),
+`tokens`, `lastUpdated`, `etag`, and `sourceHash` when generate recorded one.
 
 - **`createFsStore({ root, publicDir?, internalDir? })`** (Node entry only) reads
-  `<internalDir>/manifest.json` and the twins it lists, once.
+  `<internalDir>/manifest.json` and the twins it lists, once. A twin that is missing, unreadable or
+  outside `publicDir` costs that one page and is listed in `problems`.
 - **`createManifestStore({ manifest, contents })`** takes the manifest object and the raw twin
   files keyed by the manifest's `file` field, for a build step that inlines them.
-- **`createMemoryStore(docs)`** takes `MarkdownDoc` objects directly.
+- **`createMemoryStore(docs)`** takes `MarkdownDoc` objects directly, and computes `etag` for any
+  that lack one.
+- **`entityTag(body)`** is the strong `ETag` the stores give a body: a quoted 64-bit hash, the same
+  in every runtime.
 
 ## Startup logging (Node entry only)
 
@@ -94,6 +109,10 @@ also takes a `logger`.
 - **`linkAlternate(twinPath)`** builds the `<...>; rel="alternate"; type="text/markdown"` `Link` value, and
   **`parseLinkAlternate(header)`** reads the twin path back out of one.
 - **`varyIncludesAccept(value)`** checks a `Vary` header.
+- **`isNotModified({ ifNoneMatch, ifModifiedSince }, { etag?, lastUpdated? }, now?)`** decides a
+  conditional request the way [spec.md](spec.md#conditional-requests) describes, and
+  **`notModifiedHeaders(headers)`** keeps the subset of a markdown header set that a 304 carries.
+  The handler already uses both.
 - **`httpDate(iso)`** turns an ISO timestamp into an HTTP date, or `undefined`.
 - **`HEADERS`** holds the header names, **`MARKDOWN_CONTENT_TYPE`** is
   `text/markdown; charset=utf-8`, and **`AEO_SPEC_VERSION`** is the spec version (see

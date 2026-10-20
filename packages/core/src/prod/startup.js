@@ -32,6 +32,8 @@ let alreadyLogged = false;
  *   summary covers both.
  * @property {(line: string) => void} [logger] Injected in tests so the guard and the formatting can
  *   be checked without touching stdout.
+ * @property {string} [heading] The first line, for a development server reporting a reload rather
+ *   than a boot.
  */
 
 /**
@@ -65,7 +67,7 @@ export function buildStartupStatus(options) {
   const twins = options.store?.size ?? 0;
   const problems = options.store?.problems ?? [];
   /** @type {string[]} */
-  const lines = ['[opengeo-prod] startup check'];
+  const lines = [`[opengeo-prod] ${options.heading ?? 'startup check'}`];
 
   for (const file of files) {
     lines.push(
@@ -94,6 +96,20 @@ export function logStartupStatus(options) {
   if (alreadyLogged) return undefined;
   alreadyLogged = true;
   const status = buildStartupStatus(options);
+  const log = options.logger ?? ((/** @type {string} */ line) => console.log(line));
+  for (const line of status.lines) log(line);
+  return status;
+}
+
+/**
+ * Log the status again after a development server reloaded the twins. Not guarded: it only runs when
+ * something on disk changed, which is exactly when the person running the server wants to see it.
+ *
+ * @param {StartupStatusOptions} options
+ * @returns {StartupStatus}
+ */
+export function logReloadStatus(options) {
+  const status = buildStartupStatus({ heading: 'reloaded after a change on disk', ...options });
   const log = options.logger ?? ((/** @type {string} */ line) => console.log(line));
   for (const line of status.lines) log(line);
   return status;

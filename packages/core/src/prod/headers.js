@@ -18,6 +18,7 @@ import { routeToTwinUrlPath } from '../shared/routes.js';
  * @property {boolean} [selectedByUserAgent] True when the User-Agent, not Accept or the URL, is what
  *   chose markdown. `Vary: Accept` cannot describe that, so the response is kept out of shared
  *   caches instead.
+ * @property {string} [etag] The store's validator for the body, already quoted.
  */
 
 /**
@@ -42,6 +43,7 @@ export function markdownHeaders(input) {
   const lastModified = httpDate(input.lastUpdated);
   if (lastModified) headers[HEADERS.lastModified] = lastModified;
   if (input.sourceHash) headers[HEADERS.markdownSourceHash] = input.sourceHash;
+  if (input.etag) headers[HEADERS.etag] = input.etag;
   // A shared cache keyed on Accept would hand this body to the next plain `*/*` client. Varying on
   // User-Agent instead would split the cache for every browser build, so this one response opts out.
   if (input.selectedByUserAgent) headers[HEADERS.cacheControl] = 'private';
@@ -59,6 +61,55 @@ export function httpDate(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toUTCString();
+}
+
+/**
+ * @typedef {object} Preconditions
+ * @property {string | null} ifNoneMatch
+ * @property {string | null} ifModifiedSince
+ */
+
+/**
+ * Whether a conditional GET can be answered with 304, per RFC 9110 section 13.
+ *
+ * `If-None-Match` wins whenever it is present, and compares weakly, so a CDN that rewrote the tag
+ * as `W/` still revalidates. `If-Modified-Since` is only consulted without it, at the one-second
+ * resolution an HTTP date has, and a date in the future is ignored rather than trusted.
+ *
+ * @param {Preconditions} request
+ * @param {{ etag?: string, lastUpdated?: string }} doc
+ * @param {number} [now]
+ * @returns {boolean}
+ */
+export function isNotModified(request, doc, now = Date.now()) {
+  if (request.ifNoneMatch !== null) {
+    if (!doc.etag) return false;
+    const current = weak(doc.etag);
+    return request.ifNoneMatch.split(',').some((tag) => tag.trim() === '*' || weak(tag.trim()) === current);
+  }
+  if (!request.ifModifiedSince || !doc.lastUpdated) return false;
+  const since = Date.parse(request.ifModifiedSince);
+  const modified = Date.parse(doc.lastUpdated);
+  if (Number.isNaN(since) || Number.isNaN(modified) || since > now) return false;
+  return Math.floor(modified / 1000) * 1000 <= since;
+}
+
+/** @param {string} tag */
+const weak = (tag) => (tag.startsWith('W/') ? tag.slice(2) : tag);
+
+/**
+ * The headers a 304 keeps from the 200 it stands in for: the ones a cache uses to update what it
+ * holds. The body's own metadata (type, token count) stays with the body.
+ */
+/** @type {readonly string[]} */
+const KEPT_ON_304 = [HEADERS.etag, HEADERS.vary, HEADERS.lastModified, HEADERS.cacheControl, HEADERS.robotsTag, HEADERS.aeoVersion];
+
+/**
+ * @param {Record<string, string>} headers The full markdown headers.
+ * @returns {Record<string, string>}
+ */
+export function notModifiedHeaders(headers) {
+  return Object.fromEntries(Object.entries(headers).filter(([name]) => KEPT_ON_304.includes(name)));
 }
 
 /**

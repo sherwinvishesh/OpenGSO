@@ -1,3 +1,5 @@
+import { STORE_ERRORS } from '../shared/errors.js';
+
 /**
  * The stores that never touch a filesystem (§7).
  *
@@ -20,6 +22,7 @@
  * @property {string} [sourceHash] Hash of the HTML this twin was generated from. Carried so prod
  *   can advertise it and `test`'s B14 check can tell "regenerated from this exact page" from "the
  *   page moved on without me".
+ * @property {string} [etag] A strong validator for `body`, quoted. Filled in at load when absent.
  */
 
 /**
@@ -29,6 +32,8 @@
  * @property {() => string[]} routes
  * @property {number} size
  * @property {string[]} problems Non-fatal problems found while loading, reported by the startup log.
+ * @property {string[]} [sources] The files it was loaded from, the manifest first, so a development
+ *   server can tell when `opengeo generate` has run again. Empty for a store built from data.
  */
 
 /**
@@ -65,16 +70,18 @@ export function createManifestStore(options) {
   for (const entry of Object.values(options.manifest.pages ?? {})) {
     const raw = options.contents[entry.file];
     if (raw === undefined) {
-      problems.push(`Manifest lists ${entry.route} but no content was supplied for ${entry.file}.`);
+      problems.push(STORE_ERRORS.contentNotSupplied(entry.route, entry.file));
       continue;
     }
+    const body = stripFrontmatter(raw);
     docs.set(entry.route, {
       route: entry.route,
       title: entry.title ?? entry.route,
-      body: stripFrontmatter(raw),
+      body,
       tokens: entry.tokens,
       lastUpdated: entry.lastUpdated ?? '',
       sourceHash: entry.sourceHash,
+      etag: entityTag(body),
     });
   }
   return buildStore(docs, problems);
@@ -87,7 +94,7 @@ export function createManifestStore(options) {
  * @returns {MarkdownStore}
  */
 export function createMemoryStore(docs) {
-  return buildStore(new Map(docs.map((d) => [d.route, d])), []);
+  return buildStore(new Map(docs.map((d) => [d.route, d.etag ? d : { ...d, etag: entityTag(d.body) }])), []);
 }
 
 /**
@@ -102,7 +109,33 @@ function buildStore(docs, problems) {
     routes: () => [...docs.keys()],
     size: docs.size,
     problems,
+    sources: [],
   };
+}
+
+/**
+ * A strong validator for a twin's body: 64 bits from two multiplicative hashes over the UTF-16 code
+ * units, quoted as HTTP wants. Taken once per file at load, never per request.
+ *
+ * Not a cryptographic hash and not meant to be one. Its only job is to change whenever the body does,
+ * so a cache revalidating an old copy is told to refetch, and this module runs at the edge, where
+ * `node:crypto` is not available.
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function entityTag(body) {
+  let high = 0xdeadbeef;
+  let low = 0x41c6ce57;
+  for (let i = 0; i < body.length; i += 1) {
+    const code = body.charCodeAt(i);
+    high = Math.imul(high ^ code, 2654435761);
+    low = Math.imul(low ^ code, 1597334677);
+  }
+  high = Math.imul(high ^ (high >>> 16), 2246822507) ^ Math.imul(low ^ (low >>> 13), 3266489909);
+  low = Math.imul(low ^ (low >>> 16), 2246822507) ^ Math.imul(high ^ (high >>> 13), 3266489909);
+  const hex = (/** @type {number} */ n) => (n >>> 0).toString(16).padStart(8, '0');
+  return `"${hex(high)}${hex(low)}"`;
 }
 
 /**

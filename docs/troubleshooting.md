@@ -77,13 +77,25 @@ algorithmic version of the rest without sending them, and the content pass stops
 2. Is the crawler in `bots.markdownRouting`? Search-index crawlers are left off by default, because
    every twin carries `X-Robots-Tag: noindex`. Any client can still ask with
    `Accept: text/markdown`.
-3. Was the server restarted? prod reads the config and twins once, when it starts.
-4. On Next.js, does the middleware `matcher` cover the page?
+3. In production, was the server restarted? prod reads the config and twins once, when it starts.
+   Under `next dev` the Next adapter reloads them by itself and logs
+   `reloaded after a change on disk`.
+4. On Next.js, does the `matcher` in `proxy.ts` (`middleware.ts` on Next 15) cover the page?
 
 `opengeo prod test <url>` probes all five cases and reports each one.
 
 **"[opengeo-prod] markdown is off, and every request passes through ..."** `opengeo.config.json`
-has an error, named at the end of the line. The site keeps working; fix the field and restart.
+has an error, named at the end of the line. The site keeps working; fix the field and restart, or
+under `next dev` just save the fixed file.
+
+**"[opengeo-prod] the files changed on disk but could not be reloaded ..."** A development server
+noticed new twins and could not load them, so it is still serving the previous ones. The reason is
+at the end of the line. The next change to the files tries again.
+
+**Next.js warns that the "middleware" file convention is deprecated.** Next 16 renamed it to proxy.
+Rename `middleware.ts` to `proxy.ts`, rename the exported function to `proxy`, and delete `runtime`
+from `config`, which a proxy file refuses. `npx @next/codemod@canary middleware-to-proxy .` does the
+first two.
 
 ## Config
 

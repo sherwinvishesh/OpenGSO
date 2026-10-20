@@ -10,7 +10,8 @@ export * from './manifest-store.js';
  *
  * Everything is loaded once, at startup. By the time a request arrives, serving a twin is a map
  * lookup against already-parsed strings - no filesystem walk, no frontmatter parsing, no token
- * counting, and certainly no AI call.
+ * counting, and certainly no AI call. A development server may build a new store when `sources`
+ * change on disk; that is the adapter's business, and production never does it.
  *
  * Two implementations, because hosting targets differ:
  *  - `createFsStore`   - Node runtime (Next.js Node middleware, a Node server, Netlify functions).
@@ -43,10 +44,10 @@ export function createFsStore(options) {
   const internalDir = resolve(root, options.internalDir ?? '.opengeo');
   const manifestFile = join(internalDir, 'manifest.json');
 
+  // The manifest is listed even when it is missing, so a development server started before the
+  // first generate still notices when one appears.
   if (!existsSync(manifestFile)) {
-    return withProblems(createMemoryStore([]), [
-      `No manifest at ${manifestFile}. Run \`opengeo generate <url>\` to create the markdown twins.`,
-    ]);
+    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.noManifest(manifestFile)], [manifestFile]);
   }
 
   /** @type {unknown} */
@@ -54,14 +55,15 @@ export function createFsStore(options) {
   try {
     manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   } catch (error) {
-    return withProblems(createMemoryStore([]), [
-      `Could not read ${manifestFile}: ${error instanceof Error ? error.message : String(error)}`,
-    ]);
+    const reason = error instanceof Error ? error.message : String(error);
+    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.unreadableManifest(manifestFile, reason)], [manifestFile]);
   }
   // Parsed is not the same as a manifest, and this runs at server start: a TypeError here would
   // take the site down over a file that only decides which pages get a twin.
   const table = isRecord(manifest) ? manifest.pages : undefined;
-  if (!isRecord(table)) return withProblems(createMemoryStore([]), [STORE_ERRORS.manifestHasNoPages(manifestFile)]);
+  if (!isRecord(table)) {
+    return loadedFrom(createMemoryStore([]), [STORE_ERRORS.manifestHasNoPages(manifestFile)], [manifestFile]);
+  }
 
   /** @type {string[]} */
   const problems = [];
@@ -69,6 +71,7 @@ export function createFsStore(options) {
   const pages = {};
   /** @type {Record<string, string>} */
   const contents = {};
+  const sources = [manifestFile];
   for (const [key, value] of Object.entries(table)) {
     if (!isRecord(value) || typeof value.route !== 'string' || typeof value.file !== 'string') {
       problems.push(STORE_ERRORS.manifestEntryUnusable(key, manifestFile));
@@ -83,14 +86,23 @@ export function createFsStore(options) {
       problems.push(STORE_ERRORS.twinOutsidePublicDir(entry.route, entry.file, publicDir));
       continue;
     }
+    // Listed whether or not it is there, so a twin that appears later counts as a change.
+    sources.push(file);
     if (!existsSync(file)) {
-      problems.push(`Manifest lists ${entry.route} but ${file} is missing. Rerun \`opengeo generate\`.`);
+      problems.push(STORE_ERRORS.twinMissing(entry.route, file));
+      continue;
+    }
+    // A twin that is a directory, or has lost its read permission, costs that one page and is
+    // reported, rather than throwing out of a server's boot.
+    try {
+      contents[entry.file] = readFileSync(file, 'utf8');
+    } catch (error) {
+      problems.push(STORE_ERRORS.twinUnreadable(entry.route, file, error instanceof Error ? error.message : String(error)));
       continue;
     }
     pages[key] = entry;
-    contents[entry.file] = readFileSync(file, 'utf8');
   }
-  return withProblems(createManifestStore({ manifest: { pages }, contents }), problems);
+  return loadedFrom(createManifestStore({ manifest: { pages }, contents }), problems, sources);
 }
 
 /**
@@ -104,9 +116,11 @@ function isRecord(value) {
 /**
  * @param {MarkdownStore} store
  * @param {string[]} problems
+ * @param {string[]} sources
  * @returns {MarkdownStore}
  */
-function withProblems(store, problems) {
+function loadedFrom(store, problems, sources) {
   store.problems.unshift(...problems);
+  store.sources = sources;
   return store;
 }
