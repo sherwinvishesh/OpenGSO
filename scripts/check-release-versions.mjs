@@ -15,11 +15,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengso'];
 
 /**
- * `0.0.0` is the placeholder the private root and core carry. `0.1.0` is the version every package
- * was scaffolded with and has never been bumped from. Remove it from this list once it is the
- * version the first release is meant to have.
+ * `0.0.0` is the placeholder the private root and core carry. `0.1.0`, the version every package
+ * was scaffolded with, was on this list until it was chosen as the first release's version.
  */
-const PLACEHOLDERS = new Set(['0.0.0', '0.1.0']);
+const PLACEHOLDERS = new Set(['0.0.0']);
 
 /** @type {string[]} */
 const failures = [];
