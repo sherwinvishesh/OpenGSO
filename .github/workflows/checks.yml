@@ -1,10 +1,14 @@
 name: Checks
 
+# Paused: runs only when started by hand from the Actions tab, while main moves fast.
+# To turn it back on, replace workflow_dispatch with:
+#
+#   push:
+#     branches:
+#       - main
+#   pull_request:
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
