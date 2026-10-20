@@ -206,16 +206,31 @@ function redirectHost(location) {
  * provider sent is printed above it and is the authority; this line says where to look first.
  *
  * @param {number} status
+ * @param {string} [model] Named because the usual cause of a 400 or a 404 is a typo in it.
  * @returns {string | undefined}
  */
-function statusHint(status) {
-  if (status === 400 || status === 422) return '  The provider refused the request itself: usually a model id it does not offer, or a field in ai.params it does not accept.';
+function statusHint(status, model) {
+  const asked = model ? ` (this run asked for "${model}")` : '';
+  if (status === 400 || status === 422) return `  The provider refused the request itself: usually a model id it does not offer${asked}, or a field in ai.params it does not accept.`;
   if (status === 401 || status === 403) return '  The key was refused. Check it is a key for this provider, that it is still active, and that the account has credit.';
   if (status === 402) return '  The account is out of credit. Top it up with the provider and run this again.';
-  if (status === 404) return '  Nothing at that address: usually a model id the provider does not offer, or an ai.baseUrl or ai.api that is wrong.';
+  if (status === 404) return `  Nothing at that address: usually a model id the provider does not offer${asked}, or an ai.baseUrl or ai.api that is wrong. \`opengeo help providers\` lists each provider's default model.`;
   if (status === 429) return '  Rate limited, or out of quota for now. Waiting a minute and running it again usually works.';
   if (status >= 500) return '  The provider had a problem on its side. Running it again in a few minutes usually works.';
   return undefined;
+}
+
+/**
+ * What to fix after a status that stopped a run (see `failsEveryCall`), in one sentence.
+ *
+ * @param {number} status
+ * @param {string} rerun What to do once it is fixed, e.g. "run generate again".
+ * @returns {string}
+ */
+function stopCause(status, rerun) {
+  if (status === 402) return `The account is out of credit: top it up with the provider and ${rerun}.`;
+  if (status === 404) return `That model, or that address, does not exist at this provider: check the model id (and ai.baseUrl if you set one) and ${rerun}. \`opengeo help providers\` lists each provider's default model.`;
+  return `That is almost always the API key or the account it belongs to: check it with \`opengeo settings\` and ${rerun}.`;
 }
 
 /**
@@ -497,19 +512,23 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     ].join('\n'),
 
   /**
-   * The provider refused the key or the account on one document, so the rest were never sent:
-   * each would have failed the same way, and some providers bill or rate-limit refused calls.
+   * The provider answered one document in a way that holds for all of them (a refused key, an empty
+   * account, a model that does not exist), so the rest were never sent: each would have failed the
+   * same way, and some providers bill or rate-limit refused calls.
    *
    * @param {number} status
    * @param {number} notSent
    */
   contentReviewHalted: (status, notSent) =>
     [
-      `The provider refused the request with ${status}, so the content review stopped and ${notSent} document${notSent === 1 ? ' was' : 's were'} not sent.`,
-      `That is almost always the API key or the account it belongs to. Check it with \`opengeo settings\` and run again.`,
+      // Every document can be in the first batch, and then nothing was held back to mention.
+      notSent === 0
+        ? `The provider answered ${status}, so no document was reviewed.`
+        : `The provider answered ${status}, so the content review stopped and ${notSent} document${notSent === 1 ? ' was' : 's were'} not sent.`,
+      stopCause(status, 'run again'),
     ].join('\n'),
 
-  contentDocumentNotSent: 'Not sent: the provider refused an earlier document, so this one would have failed the same way.',
+  contentDocumentNotSent: 'Not sent: the provider turned down an earlier document for a reason that applies to every one, so this one would have failed the same way.',
 
   /** @param {number} count */
   contentReviewAllFailed: (count) =>
@@ -725,8 +744,30 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     `Not sent to the AI tier, so the algorithmic version was kept: this page is about ${tokens} tokens and the model's output cap is ${cap}, so a full rewrite could not fit and the call would be paid for and thrown away.`,
 
   /** @param {number} status */
-  aiKeyRefusedEarlier: (status) =>
-    `Not sent to the AI tier, so the algorithmic version was kept: the provider refused the key with ${status} on an earlier page, and this one would have failed the same way. Check the key with \`opengeo settings\` and run generate again.`,
+  aiStoppedEarlier: (status) =>
+    `Not sent to the AI tier, so the algorithmic version was kept: the provider answered ${status} on an earlier page, and this one would have failed the same way. ${stopCause(status, 'run generate again')}`,
+
+  /**
+   * @param {string} provider
+   * @param {number} seconds
+   * @param {boolean} chosen The limit came from `test --timeout` rather than the built-in default,
+   *   so the likely fix is a bigger number rather than a quieter provider.
+   */
+  providerTimeout: (provider, seconds, chosen) =>
+    `The ${provider} API did not respond within ${seconds}s.\n  ${
+      chosen
+        ? 'A model reading a whole page can need longer than a page load: raise --timeout, or leave it out for the default of two minutes.'
+        : 'The provider may be overloaded; running it again in a few minutes usually works.'
+    }`,
+
+  /**
+   * A 200 with nothing in it. The kind of content the shape was looking for is named, so a gateway
+   * that answers in another API's shape is recognisable.
+   *
+   * @param {string} provider
+   * @param {string} kind
+   */
+  providerEmpty: (provider, kind) => `${provider} returned no ${kind} content.`,
 
   /** @param {string} why */
   aiFallbackCached: (why) =>
@@ -1016,9 +1057,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} provider
    * @param {number} status
    * @param {string} body
+   * @param {string} [model]
    */
-  providerFailed: (provider, status, body) => {
-    const hint = statusHint(status);
+  providerFailed: (provider, status, body, model) => {
+    const hint = statusHint(status, model);
     return [`The ${provider} API returned ${status}.`, `  ${body.slice(0, 400)}`, ...(hint ? [hint] : [])].join('\n');
   },
 

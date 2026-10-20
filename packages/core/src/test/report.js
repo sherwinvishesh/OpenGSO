@@ -556,7 +556,9 @@ export function renderContentReport(review, discovery) {
   const ordered = [...review.documents].sort((a, b) => (a.review?.score ?? 999) - (b.review?.score ?? 999));
   lines.push(`  ${c.bold('By document')} ${c.gray('(weakest first)')}`);
   lines.push('');
-  for (const document of ordered) lines.push(...renderDocument(document));
+  /** @type {Set<string>} */
+  const explained = new Set();
+  for (const document of ordered) lines.push(...renderDocument(document, explained));
 
   if (failed.length > 0) {
     lines.push(`  ${c.yellow(`${failed.length} document${failed.length === 1 ? '' : 's'} could not be reviewed.`)}`);
@@ -577,16 +579,26 @@ export function renderContentReport(review, discovery) {
 
 /**
  * @param {DocumentReview} document
+ * @param {Set<string>} explained The first lines of errors already printed in full. Ten documents
+ *   failing on one mistyped model id need the provider's reason and the fix once, not ten times.
  * @returns {string[]}
  */
-function renderDocument(document) {
+function renderDocument(document, explained) {
   /** @type {string[]} */
   const lines = [];
   const words = c.gray(`${document.words} words, via ${document.source}`);
 
   if (document.error) {
+    const [first = '', ...rest] = document.error.split('\n');
+    const width = terminalWidth();
     lines.push(`  ${SYM.warn()} ${c.bold(document.url)}  ${words}`);
-    lines.push(`      ${document.error.split('\n')[0]}`);
+    lines.push(...wrapText(first, Math.max(24, width - 6)).map((part) => `      ${part}`));
+    if (!explained.has(first)) {
+      explained.add(first);
+      for (const line of rest) {
+        if (line.trim()) lines.push(...wrapText(line.trim(), Math.max(24, width - 8)).map((part) => `        ${c.gray(part)}`));
+      }
+    }
     lines.push('');
     return lines;
   }

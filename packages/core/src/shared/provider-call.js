@@ -35,6 +35,46 @@ import { ERRORS } from './errors.js';
 /** The output cap sent with every call that does not set its own. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
+/** How long one call may take when the caller set no limit. A long page is a long answer. */
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+/**
+ * Statuses that hold for every call this run would make: the key is refused (401, 403), the
+ * account has no credit (402), or there is no such model or address (404). A caller with more
+ * pages queued stops sending after one, rather than printing the same failure once per page and,
+ * on a provider that bills refused calls, paying for it. A 400 is not one of them: it can be about
+ * a single request, such as a page too long for the model.
+ *
+ * @param {unknown} status
+ * @returns {status is number}
+ */
+export function failsEveryCall(status) {
+  return status === 401 || status === 402 || status === 403 || status === 404;
+}
+
+/**
+ * The provider's own explanation, out of the envelope it came in. Every vendor nests it somewhere
+ * different, and the raw JSON buries "model: claude-sonet-9" among type tags and request ids.
+ * Anything that is not one of the familiar shapes is returned as it was.
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function providerMessage(body) {
+  /** @type {any} */
+  let json;
+  try {
+    json = JSON.parse(body);
+  } catch {
+    return body.trim();
+  }
+  // Gemini has answered with a one-element array of the same envelope.
+  const envelope = Array.isArray(json) ? json[0] : json;
+  const candidates = [envelope?.error?.message, envelope?.message, envelope?.error, envelope?.detail];
+  const found = candidates.find((value) => typeof value === 'string' && value.trim());
+  return typeof found === 'string' ? found.trim() : body.trim();
+}
+
 /**
  * The provider stopped because it hit the output cap. What it returned is the start of an answer,
  * and a rewrite that is missing its end must never be accepted or cached.
@@ -151,7 +191,7 @@ export async function callProvider(call) {
     case 'openai':
       return callOpenAI(call, provider);
     default:
-      throw new Error(`Unknown API shape "${provider.api}". OpenGEO speaks: anthropic, openai, gemini.`);
+      throw new Error(ERRORS.unknownApiShape(provider.api));
   }
 }
 
@@ -181,12 +221,14 @@ function authHeaders(provider, apiKey) {
 /**
  * @param {string} url
  * @param {RequestInit} init
- * @param {number} timeoutMs
+ * @param {ProviderCall} call For the limit, the model an error should name, and the key, which is
+ *   only here so it can be taken back out of an error body that echoes it.
  * @param {string} label
- * @param {string} apiKey Only so it can be taken back out of an error body that echoes it.
  * @returns {Promise<unknown>}
  */
-async function post(url, init, timeoutMs, label, apiKey) {
+async function post(url, init, call, label) {
+  const { apiKey } = call;
+  const timeoutMs = call.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -203,7 +245,7 @@ async function post(url, init, timeoutMs, label, apiKey) {
     const shown = apiKey ? body.split(apiKey).join('[redacted]') : body;
     if (!response.ok) {
       // The status rides along so a caller with many calls queued can tell a refused key from one bad document.
-      throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, shown)), { status: response.status });
+      throw Object.assign(new Error(ERRORS.providerFailed(label, response.status, providerMessage(shown), call.model)), { status: response.status });
     }
     // A 200 is no promise of JSON: a proxy or a captive portal in front of the endpoint answers with
     // a page, and a parser error would name a token rather than the endpoint.
@@ -218,7 +260,7 @@ async function post(url, init, timeoutMs, label, apiKey) {
     return json;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`The ${label} API did not respond within ${Math.round(timeoutMs / 1000)}s.`);
+      throw new Error(ERRORS.providerTimeout(label, Math.round(timeoutMs / 1000), call.timeoutMs !== undefined));
     }
     throw error;
   } finally {
@@ -254,9 +296,8 @@ async function callAnthropic(call, provider) {
         ),
       ),
     },
-    call.timeoutMs ?? 120_000,
+    call,
     provider.label,
-    call.apiKey,
   ));
 
   if (json.stop_reason === 'max_tokens') throw new TruncatedOutputError(provider.label);
@@ -265,7 +306,7 @@ async function callAnthropic(call, provider) {
   const text = (Array.isArray(json.content) ? json.content : [])
     .map((block) => (block?.type === 'text' && typeof block.text === 'string' ? block.text : ''))
     .join('');
-  if (!text) throw new Error(`${provider.label} returned no text content.`);
+  if (!text) throw new Error(ERRORS.providerEmpty(provider.label, 'text'));
   return text;
 }
 
@@ -298,16 +339,15 @@ async function callOpenAI(call, provider) {
         ),
       ),
     },
-    call.timeoutMs ?? 120_000,
+    call,
     provider.label,
-    call.apiKey,
   ));
 
   const choice = json.choices?.[0];
   if (choice?.finish_reason === 'length') throw new TruncatedOutputError(provider.label);
   if (typeof choice?.message?.refusal === 'string' && choice.message.refusal) throw new Error(ERRORS.providerRefused(provider.label));
   const text = withoutReasoning(messageText(choice?.message?.content));
-  if (!text) throw new Error(`${provider.label} returned no message content.`);
+  if (!text) throw new Error(ERRORS.providerEmpty(provider.label, 'message'));
   return text;
 }
 
@@ -362,9 +402,8 @@ async function callGemini(call, provider) {
         ),
       ),
     },
-    call.timeoutMs ?? 120_000,
+    call,
     provider.label,
-    call.apiKey,
   ));
 
   const candidate = json.candidates?.[0];
@@ -375,6 +414,6 @@ async function callGemini(call, provider) {
   const parts = candidate?.content?.parts;
   // A part marked `thought` is a thought summary, which `ai.params` can ask for; it is not the page.
   const text = (Array.isArray(parts) ? parts : []).map((part) => (typeof part?.text === 'string' && !part.thought ? part.text : '')).join('');
-  if (!text) throw new Error(`${provider.label} returned no candidate content.`);
+  if (!text) throw new Error(ERRORS.providerEmpty(provider.label, 'candidate'));
   return text;
 }

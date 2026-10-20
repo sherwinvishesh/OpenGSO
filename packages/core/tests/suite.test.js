@@ -319,6 +319,33 @@ describe('reviewContent', () => {
     }
   });
 
+  it('stops the same way when the model does not exist, and says to check the model id', async () => {
+    let hits = 0;
+    const provider = createServer((req, res) => {
+      hits += 1;
+      req.resume();
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end('{"type":"error","error":{"type":"not_found_error","message":"model: claude-sonet-9"}}');
+    });
+    await /** @type {Promise<void>} */ (new Promise((resolve) => provider.listen(0, '127.0.0.1', resolve)));
+    const baseUrl = `http://127.0.0.1:${/** @type {AddressInfo} */ (provider.address()).port}`;
+    try {
+      const ten = Array.from({ length: 10 }, (_, i) => twin(`https://x.example/${i}.md`, MD_HOME));
+      const review = await reviewContent(ten, { provider: 'anthropic', apiKey: 'k', model: 'claude-sonet-9', overrides: { baseUrl }, env: {} });
+      expect(hits).toBe(3);
+      expect(review.halted).toMatch(/answered 404/);
+      expect(review.halted).toMatch(/check the model id/);
+      expect(review.documents[0]?.error).toContain('model: claude-sonet-9');
+      expect(review.documents[0]?.error).toContain('this run asked for "claude-sonet-9"');
+
+      // A site small enough to go out in one batch has nothing held back to count.
+      const small = await reviewContent(ten.slice(0, 2), { provider: 'anthropic', apiKey: 'k', overrides: { baseUrl }, env: {} });
+      expect(small.halted).toMatch(/^The provider answered 404, so no document was reviewed\./);
+    } finally {
+      await /** @type {Promise<void>} */ (new Promise((resolve) => provider.close(() => resolve())));
+    }
+  });
+
   it('refuses to run in CI, where a key must never be present', async () => {
     await expect(
       reviewContent(twins, { provider: 'anthropic', apiKey: 'k', call: fakeModel().fn, env: { CI: 'true' } }),

@@ -1,7 +1,7 @@
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
-import { callProvider, stripCodeFence } from '../shared/provider-call.js';
+import { callProvider, failsEveryCall, stripCodeFence } from '../shared/provider-call.js';
 
 /**
  * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
@@ -312,7 +312,7 @@ export async function reviewContent(twins, options) {
         } catch (error) {
           entry.error = error instanceof Error ? error.message : String(error);
           const status = /** @type {{ status?: unknown }} */ (error)?.status;
-          if (status === 401 || status === 403) refused = status;
+          if (failsEveryCall(status)) refused = status;
         }
         done += 1;
         options.onProgress?.(done, reviewing.length, twin.url);

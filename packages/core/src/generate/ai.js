@@ -1,7 +1,7 @@
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerGaps } from '../shared/providers.js';
 import { ERRORS } from '../shared/errors.js';
 import { isCI } from '../shared/env.js';
-import { DEFAULT_MAX_TOKENS, TruncatedOutputError, callProvider, stripCodeFence } from '../shared/provider-call.js';
+import { DEFAULT_MAX_TOKENS, TruncatedOutputError, callProvider, failsEveryCall, stripCodeFence } from '../shared/provider-call.js';
 import { estimateTokens } from '../shared/tokens.js';
 import { verifyFidelity } from './fidelity.js';
 
@@ -123,14 +123,15 @@ export function createAiEnhancer(options) {
   if (gaps.length > 0) throw new Error(ERRORS.providerIncomplete(options.provider, gaps));
 
   const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
-  // A refused key is refused for every page. Sending the rest anyway prints the same failure once
-  // per page and, on a provider that bills rejected calls, costs money for nothing.
+  // A refused key, an empty account or a model that does not exist fails every page the same way.
+  // Sending the rest anyway prints the same failure once per page and, on a provider that bills
+  // rejected calls, costs money for nothing.
   /** @type {number | undefined} */
   let refused;
 
   return async (input) => {
     if (refused !== undefined) {
-      return { markdown: input.algorithmicMarkdown, warnings: [ERRORS.aiKeyRefusedEarlier(refused)], fellBack: true, fallback: 'unavailable' };
+      return { markdown: input.algorithmicMarkdown, warnings: [ERRORS.aiStoppedEarlier(refused)], fellBack: true, fallback: 'unavailable' };
     }
     // A transcription is about as long as its source. One that cannot fit would be cut off on every
     // run, and billed every time, so it is never sent.
@@ -154,7 +155,7 @@ export function createAiEnhancer(options) {
       });
     } catch (error) {
       const status = /** @type {{ status?: unknown }} */ (error)?.status;
-      if (status === 401 || status === 403) refused = status;
+      if (failsEveryCall(status)) refused = status;
       return {
         markdown: input.algorithmicMarkdown,
         warnings: [`AI tier unavailable for this page, kept the algorithmic version. ${errorText(error)}`],

@@ -192,6 +192,10 @@ export async function generateCommand(ctx) {
   // Provider error bodies and page warnings are remote text, so they are cleaned before printing.
   const report = terminalSafe(result);
   process.stdout.write(`${heading('Pages')}\n`);
+  // A provider that refuses on the first page gives every later page the same warning, and fifty
+  // copies of one paragraph bury the pages that had something else to say.
+  /** @type {Set<string>} */
+  const warned = new Set();
   for (const page of report.generate.pages) {
     const label =
       page.status === 'written'
@@ -208,7 +212,11 @@ export async function generateCommand(ctx) {
         ? c.gray(`${page.tokens} tokens  ${source.kind === 'url' ? twinUrlFor(site, page.route) : (page.file ?? '')}`)
         : c.gray(page.reason ?? '');
     process.stdout.write(`  ${label} ${(page.sourceFile ?? page.route).padEnd(24)} ${detail}\n`);
-    for (const warning of page.warnings) process.stdout.write(`          ${c.yellow('warn')} ${warning}\n`);
+    for (const warning of page.warnings) {
+      const repeat = warned.has(warning);
+      warned.add(warning);
+      process.stdout.write(`${hanging(`          ${c.yellow('warn')} `, repeat ? c.gray('same as above') : warning)}\n`);
+    }
   }
 
   if (report.files.length > 0) {
@@ -240,7 +248,7 @@ export async function generateCommand(ctx) {
   process.stdout.write(
     `\n  ${written} written, ${pages.length - written - failed - proposed} unchanged` +
       `${proposed > 0 ? `, ${c.yellow(`${proposed} kept as yours`)}` : ''}${failed > 0 ? `, ${c.red(`${failed} failed`)}` : ''}` +
-      `${tier === 'ai' ? `, ${aiPages} AI-enhanced${fellBack > 0 ? `, ${c.yellow(`${fellBack} fell back on fidelity`)}` : ''}` : ''}` +
+      `${tier === 'ai' ? `, ${aiPages === 0 && written > 0 ? c.yellow('0 AI-enhanced') : `${aiPages} AI-enhanced`}${fellBack > 0 ? `, ${c.yellow(`${fellBack} fell back on fidelity`)}` : ''}` : ''}` +
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
   process.stdout.write(`  ${c.gray(`Output: ${shownPath(report.generate.publicDir)}`)}\n`);

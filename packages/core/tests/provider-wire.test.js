@@ -241,6 +241,33 @@ describe('an answer that goes wrong', () => {
     expect(/** @type {{ status?: number }} */ (error).status).toBe(429);
   });
 
+  it("quotes the provider's own message out of each vendor's error envelope, not the envelope", async () => {
+    for (const [body, expected] of /** @type {const} */ ([
+      [{ type: 'error', error: { type: 'not_found_error', message: 'model: claude-sonet-9' }, request_id: 'req_0123' }, 'model: claude-sonet-9'],
+      [[{ error: { code: 404, message: 'models/gemini-9 is not found', status: 'NOT_FOUND' } }], 'models/gemini-9 is not found'],
+      [{ message: 'invalid model' }, 'invalid model'],
+      [{ error: "model 'qwen9' not found" }, "model 'qwen9' not found"],
+      [{ detail: 'Model not supported' }, 'Model not supported'],
+    ])) {
+      answer = (_request, response) => json(response, 404, body);
+      const error = await failure(call({ provider: 'anthropic' }));
+      expect(error.message).toContain(expected);
+      expect(error.message).not.toContain('request_id');
+    }
+    answer = (_request, response) => json(response, 404, { weird: 'shape' });
+    expect((await failure(call({ provider: 'anthropic' }))).message).toContain('{"weird":"shape"}');
+  });
+
+  it('names the model it asked for when the provider says there is no such thing', async () => {
+    for (const status of [400, 404]) {
+      answer = (_request, response) => json(response, status, { error: { message: 'no' } });
+      const error = await failure(call({ provider: 'openai', model: 'gpt-typo' }));
+      expect(error.message).toContain('this run asked for "gpt-typo"');
+    }
+    answer = (_request, response) => json(response, 401, { error: { message: 'no' } });
+    expect((await failure(call({ provider: 'openai', model: 'gpt-typo' }))).message).not.toContain('gpt-typo');
+  });
+
   it('caps how much of an error body it repeats', async () => {
     answer = (_request, response) => {
       response.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -308,6 +335,8 @@ describe('an answer that goes wrong', () => {
     answer = () => {};
     const error = await failure(call({ provider: 'anthropic', timeoutMs: 50 }));
     expect(error.message).toMatch(/did not respond within/);
+    // A limit the user set is the likely culprit, so the fix it names is the flag.
+    expect(error.message).toContain('raise --timeout');
     expect(received).toHaveLength(1);
   });
 

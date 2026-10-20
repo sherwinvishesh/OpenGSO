@@ -63,6 +63,12 @@ listing them, but leaves the files. `--prune` deletes them.
 bring-your-own-key. Run `opengeo settings`, or set `OPENGEO_PROVIDER` and `OPENGEO_API_KEY` in
 `.env`. See [providers.md](providers.md).
 
+**"The ... API returned 404."** (or 401, 402, 403) The provider's own reason is on the next line.
+A 404 is almost always a model id that provider does not offer, often a typo in `ai.model` or
+`--model`; `opengeo help providers` lists each provider's default. 401 and 403 are the key, 402 is
+the account's credit. Each holds for every page, so after the first one generate keeps the
+algorithmic version of the rest without sending them, and the content pass stops.
+
 ## `opengeo-prod`
 
 **Agents still get HTML.** In order:

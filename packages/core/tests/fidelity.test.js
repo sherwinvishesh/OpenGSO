@@ -205,7 +205,22 @@ describe('createAiEnhancer', () => {
     expect(calls).toBe(1);
     expect(second.fellBack).toBe(true);
     expect(second.markdown).toBe(SOURCE);
-    expect(second.warnings.join(' ')).toContain('refused the key with 401 on an earlier page');
+    expect(second.warnings.join(' ')).toContain('answered 401 on an earlier page');
+    expect(second.warnings.join(' ')).toContain('opengeo settings');
+  });
+
+  it('stops sending pages once the provider says the model does not exist', async () => {
+    let calls = 0;
+    const enhance = enhancerWith(async () => {
+      calls += 1;
+      throw Object.assign(new Error(ERRORS.providerFailed('anthropic', 404, 'model: x', 'x')), { status: 404 });
+    });
+    await enhance(input);
+    const second = await enhance(input);
+    expect(calls).toBe(1);
+    expect(second.markdown).toBe(SOURCE);
+    expect(second.warnings.join(' ')).toContain('answered 404 on an earlier page');
+    expect(second.warnings.join(' ')).toContain('check the model id');
   });
 
   it('keeps sending pages after a failure that is not about the key', async () => {

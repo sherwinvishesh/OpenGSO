@@ -80,4 +80,26 @@ describe('the content report', () => {
     expect(hasControl(text)).toBe(false);
     expect(text).toContain('evil');
   });
+
+  it("gives the provider's reason and the fix once, however many documents failed on it", () => {
+    const error = [
+      'The Anthropic Claude API returned 404.',
+      '  model: claude-sonet-9',
+      '  Nothing at that address: usually a model id the provider does not offer.',
+    ].join('\n');
+    /** @type {ContentReview} */
+    const review = {
+      provider: 'anthropic',
+      model: 'claude-sonet-9',
+      documents: ['a', 'b', 'c'].map((name) => ({ url: `https://example.com/${name}.md`, source: 'link', words: 5, error })),
+      areaScores: [],
+      recommendations: [],
+      notReviewed: 0,
+    };
+    const text = renderContentReport(review);
+    expect(text.split('returned 404.').length - 1).toBe(3);
+    expect(text.split('model: claude-sonet-9').length - 1).toBe(1);
+    expect(text.split('Nothing at that address').length - 1).toBe(1);
+    expect(text).toContain('3 documents could not be reviewed.');
+  });
 });
