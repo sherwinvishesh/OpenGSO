@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { AI_BOTS } from '../shared/bots.js';
+import { AI_BOTS, routedSearchCrawlers } from '../shared/bots.js';
+import { CONFIG_ERRORS } from '../shared/errors.js';
 import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
 
 // Still exported from here, as opengeo-prod always has; the one implementation lives in shared/.
@@ -30,6 +31,7 @@ let alreadyLogged = false;
  * @property {MarkdownStore} [store]
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so the robots.txt
  *   summary covers both.
+ * @property {readonly string[]} [routing] `bots.markdownRouting`, checked for search crawlers.
  * @property {(line: string) => void} [logger] Injected in tests so the guard and the formatting can
  *   be checked without touching stdout.
  * @property {string} [heading] The first line, for a development server reporting a reload rather
@@ -79,6 +81,8 @@ export function buildStartupStatus(options) {
 
   lines.push(`[opengeo-prod]   markdown twins loaded: ${twins}`);
   for (const problem of problems) lines.push(`[opengeo-prod]   ${problem}`);
+  const search = routedSearchCrawlers(options.routing ?? [], options.bots);
+  if (search.length > 0) lines.push(`[opengeo-prod]   ${CONFIG_ERRORS.searchCrawlersRouted(search)}`);
   if (twins === 0) {
     lines.push('[opengeo-prod]   nothing to serve yet - every request will pass through to the normal site');
   }

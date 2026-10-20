@@ -346,6 +346,11 @@ describe('output', () => {
     expect(ours).toContain('pwned');
   });
 
+  it('shows the validator a conditional request is answered against', async () => {
+    const result = await verifyProd(site);
+    expect(probeById(result.probes, 'routed-bot').headers[HEADERS.etag]).toMatch(/^"[0-9a-f]+"$/);
+  });
+
   it('prints a reproducible curl for every probe under --verbose', async () => {
     const result = await verifyProd(site);
     const text = renderProdVerification(result, { verbose: true });
@@ -375,6 +380,17 @@ describe('startup logging (§7)', () => {
     expect(robots?.detail).toContain('blocking GPTBot');
     expect(status.files.find((f) => f.name === 'sitemap.xml')?.found).toBe(false);
     expect(status.lines.join('\n')).toContain('markdown twins loaded: 1');
+  });
+
+  it('names any search engine the routing list sends noindex markdown to, and nothing otherwise', () => {
+    // The deploy log is the one place a project set up before the presets changed will see this.
+    const root = project();
+    const warned = buildStartupStatus({ root, store, routing: ['ClaudeBot', 'Bingbot', 'PerplexityBot'] }).lines.join('\n');
+    expect(warned).toContain('sends markdown to Bingbot and PerplexityBot, which build search indexes');
+    expect(warned).toContain('X-Robots-Tag: noindex');
+    expect(warned).toContain('Take them off the list unless that is what you want; they can still ask');
+    const quiet = buildStartupStatus({ root, store, routing: ['ClaudeBot', 'GPTBot'] }).lines.join('\n');
+    expect(quiet).not.toContain('search index');
   });
 
   it('tells a user with no generated files exactly which package writes them', () => {

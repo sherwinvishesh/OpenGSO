@@ -5,7 +5,7 @@ import { PassThrough } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runSetup, SetupAbort, setupMode } from '../src/cli/configure.js';
 import { createPrompter } from '../src/cli/prompt.js';
-import { ROUTABLE_BOTS } from '../src/shared/bots.js';
+import { DEFAULT_MARKDOWN_ROUTING, ROUTABLE_BOTS } from '../src/shared/bots.js';
 import { CONFIG_FILENAME } from '../src/shared/config.js';
 import { ENV_FILENAME, KEY_VAR } from '../src/shared/env.js';
 import { DEFAULT_MODELS } from '../src/shared/providers.js';
@@ -275,24 +275,28 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
   });
 
   describe('the two bot levers stay separate (§7)', () => {
-    it('routes to every known bot on the default choice and blocks nobody', async () => {
+    it('routes to every AI agent on the default choice, keeps search engines on HTML, and blocks nobody', async () => {
+      // A markdown response says noindex, so routing Bingbot to it at the page's own URL would take
+      // the page out of Bing. The recommended answer must never do that.
       const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['all', 'skip'] });
 
       const result = await runSetup({ root, prompter, out: silent });
 
-      expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
+      expect([...result.config.bots.markdownRouting].sort()).toEqual([...DEFAULT_MARKDOWN_ROUTING].sort());
+      for (const bot of ROUTABLE_BOTS.filter((entry) => entry.kind === 'search')) {
+        expect(result.config.bots.markdownRouting).not.toContain(bot.name);
+      }
       expect(result.config.bots.blocked).toEqual([]);
     });
 
-    it('drops training crawlers from routing when asked for assistants only', async () => {
+    it('routes to assistants and nothing else when asked for assistants only', async () => {
       const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['assistants', 'skip'] });
 
       const result = await runSetup({ root, prompter, out: silent });
 
-      const training = ROUTABLE_BOTS.filter((bot) => bot.kind === 'training').map((bot) => bot.name);
-      expect(training.length).toBeGreaterThan(0);
-      for (const name of training) expect(result.config.bots.markdownRouting).not.toContain(name);
-      expect(result.config.bots.markdownRouting.length).toBe(ROUTABLE_BOTS.length - training.length);
+      const assistants = ROUTABLE_BOTS.filter((bot) => bot.kind === 'assistant').map((bot) => bot.name);
+      expect(assistants.length).toBeGreaterThan(0);
+      expect([...result.config.bots.markdownRouting].sort()).toEqual([...assistants].sort());
     });
 
     it('can route to nobody, which is not the same as blocking anybody', async () => {
@@ -358,7 +362,28 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
       expect(transcript).toContain('No crawler called "Google-Extended"');
       expect(result.config.bots.markdownRouting).not.toContain('Google-Extended');
-      expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
+      expect(result.config.bots.markdownRouting).toHaveLength(DEFAULT_MARKDOWN_ROUTING.length);
+    });
+
+    it('lets a search engine be picked by hand, and says what that does', async () => {
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:3000', '', 'bingbot', ''], choose: ['custom', 'skip'] });
+
+      const result = await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(result.config.bots.markdownRouting).toContain('Bingbot');
+      const flat = transcript.replace(/\x1b\[[0-9;]*m/g, '').replace(/\s+/g, ' ');
+      expect(flat).toContain('sends markdown to Bingbot, which builds a search index');
+      expect(flat).toContain('X-Robots-Tag: noindex');
+    });
+
+    it('says nothing about search engines when none was picked', async () => {
+      let transcript = '';
+      const prompter = scripted({ ask: ['http://localhost:3000', '', 'none', 'gptbot', ''], choose: ['custom', 'skip'] });
+
+      await runSetup({ root, prompter, out: (text) => (transcript += text) });
+
+      expect(transcript).not.toContain('search index');
     });
 
     it('adds a crawler OpenGEO has never heard of and routes to it in the same pass', async () => {
@@ -568,6 +593,36 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(error.message).not.toContain('Nothing was written');
       expect(error.message).toContain(CONFIG_FILENAME);
       expect(savedConfig().site).toBe('http://localhost:4000');
+    });
+
+    it('lands an older list that routes search engines on the by-hand answer, and warns about it', async () => {
+      // Setups before the presets left search engines out wrote every routable bot. Pressing Enter
+      // through settings keeps that list exactly, but it is no preset now, so it is shown as picked
+      // by hand and the warning says what it is doing.
+      configured();
+      let transcript = '';
+      const prompter = scripted({ choose: ['routing'], ask: [''] });
+
+      const result = await runSetup({ root, prompter, mode: 'settings', out: (text) => (transcript += text) });
+
+      expect(result.config.bots.markdownRouting).toHaveLength(ROUTABLE_BOTS.length);
+      expect(transcript.replace(/\x1b\[[0-9;]*m/g, '').replace(/\s+/g, ' ')).toContain('build search indexes');
+    });
+
+    it('warns on opening, before anything is picked, and only when a search engine is routed', async () => {
+      configured();
+      let transcript = '';
+      await runSetup({ root, prompter: scripted({}), mode: 'settings', out: (text) => (transcript += text) });
+      expect(transcript).toContain('search indexes');
+
+      writeFileSync(
+        join(root, CONFIG_FILENAME),
+        JSON.stringify({ site: 'http://localhost:3000', bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] } }),
+        'utf8',
+      );
+      transcript = '';
+      await runSetup({ root, prompter: scripted({}), mode: 'settings', out: (text) => (transcript += text) });
+      expect(transcript).not.toContain('search index');
     });
 
     it('edits the block list, which is the one setting a first run never offers', async () => {

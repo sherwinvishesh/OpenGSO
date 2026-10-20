@@ -135,7 +135,7 @@ function load(root, options, when, seen) {
   };
 
   if (options.logStartup !== false) {
-    const status = { root, publicDir, store, bots: ctx.bots };
+    const status = { root, publicDir, store, bots: ctx.bots, routing: ctx.markdownRouting };
     if (when === 'boot') logStartupStatus(status);
     else logReloadStatus(status);
   }

@@ -8,14 +8,19 @@ import { button, el, field, fill, pill, setAttr, setText } from '../ui.js';
  * It is the same four answers the terminal offers, for the same reason: three of them cover almost
  * every project, and the fourth exists for the two cases they cannot. A site that wants a specific
  * handful of agents picks them by hand, and a site whose crawler is not in OpenGEO's list at all
- * adds it. A crawler added here is written to `bots.custom` in the config, which is the list prod
- * loads at boot, so it is routable as soon as the site restarts.
+ * adds it. A crawler added here is written to `bots.custom` in the config. A development server
+ * picks it up on the next request; a production one loads the list at boot, so it needs a restart.
  *
  * The mode is derived from the selection rather than stored. That way a list edited by hand, or by
  * `opengeo settings`, still shows the right button highlighted next time the page loads.
  */
 
-/** @typedef {'all' | 'assistants' | 'none' | 'custom'} RoutingMode */
+/**
+ * `all` is every agent except the search-index crawlers, as in the terminal: a markdown response says
+ * noindex, and sent to Bingbot at the page's own URL that takes the page out of Bing.
+ *
+ * @typedef {'all' | 'assistants' | 'none' | 'custom'} RoutingMode
+ */
 /** @typedef {AiBot['kind']} BotKind */
 
 /** @type {Record<BotKind, string>} */
@@ -41,8 +46,42 @@ export function routableOnly(bots) {
  * @param {AiBot[]} routable
  * @returns {string[]}
  */
+export function agentNames(routable) {
+  return routable.filter((bot) => bot.kind !== 'search').map((bot) => bot.name);
+}
+
+/**
+ * @param {AiBot[]} routable
+ * @returns {string[]}
+ */
 export function assistantNames(routable) {
-  return routable.filter((bot) => bot.kind !== 'training').map((bot) => bot.name);
+  return routable.filter((bot) => bot.kind === 'assistant').map((bot) => bot.name);
+}
+
+/**
+ * The search-index crawlers on a routing list, the same rule as core's `routedSearchCrawlers`.
+ *
+ * @param {string[]} routing
+ * @param {AiBot[]} bots
+ * @returns {string[]}
+ */
+export function searchCrawlerNames(routing, bots) {
+  const search = new Set(bots.filter((bot) => bot.kind === 'search').map((bot) => bot.name));
+  return routing.filter((name) => search.has(name));
+}
+
+/**
+ * The warning both pages show while the list holds a search crawler, worded as the terminal's.
+ *
+ * @param {string[]} names
+ * @returns {string}
+ */
+export function searchCrawlerWarning(names) {
+  const one = names.length === 1;
+  const them = one ? 'it' : 'them';
+  const they = one ? 'it' : 'they';
+  const listed = names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${listed} ${one ? 'builds a search index' : 'build search indexes'}. Every markdown response carries X-Robots-Tag: noindex, and at the page's own URL that tells ${them} to drop the page from search results. Untick ${them} unless that is what you want; ${they} can still ask for markdown with an Accept header.`;
 }
 
 /**
@@ -52,7 +91,7 @@ export function assistantNames(routable) {
  */
 export function routingModeOf(routing, routable) {
   if (routing.length === 0) return 'none';
-  if (sameNames(routing, routable.map((bot) => bot.name))) return 'all';
+  if (sameNames(routing, agentNames(routable))) return 'all';
   if (sameNames(routing, assistantNames(routable))) return 'assistants';
   return 'custom';
 }
@@ -66,7 +105,7 @@ export function routingModeOf(routing, routable) {
  * @returns {string[]}
  */
 export function routingForMode(mode, routable, current) {
-  if (mode === 'all') return routable.map((bot) => bot.name);
+  if (mode === 'all') return agentNames(routable);
   if (mode === 'assistants') return assistantNames(routable);
   if (mode === 'none') return [];
   return current;
@@ -163,8 +202,8 @@ export function shownBots(bots, custom) {
 export function createRoutingModes({ onPick }) {
   /** @type {Array<{ value: RoutingMode; label: string }>} */
   const options = [
-    { value: 'all', label: 'Everyone' },
-    { value: 'assistants', label: 'Assistants and search' },
+    { value: 'all', label: 'Every AI agent' },
+    { value: 'assistants', label: 'Assistants only' },
     { value: 'none', label: 'Nobody' },
     { value: 'custom', label: 'Let me pick' },
   ];
@@ -184,7 +223,7 @@ export function createRoutingModes({ onPick }) {
     update(mode, routable) {
       /** @type {Record<RoutingMode, string>} */
       const subs = {
-        all: `all ${routable.length} agents`,
+        all: `${agentNames(routable).length} agents, no search engines`,
         assistants: `${assistantNames(routable).length} agents`,
         none: 'Accept header only',
         custom: 'one by one',
@@ -274,7 +313,7 @@ export function createCrawlerChecklist({ onToggle, onRemove }) {
 export function createAddCrawler({
   existing,
   onAdd,
-  note = 'Written to opengeo.config.json when you save. Your site picks it up on the next restart.',
+  note = 'Written to opengeo.config.json when you save. A development server picks it up on its next request, a production build when it restarts.',
 }) {
   const opener = el('button', {
     className: 'add-crawler',

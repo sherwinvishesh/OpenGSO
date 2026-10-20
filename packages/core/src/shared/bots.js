@@ -176,6 +176,19 @@ export function resolveRoutableBots(custom) {
 }
 
 /**
+ * The search-index crawlers on a routing list, in the list's order. For the reason in
+ * DEFAULT_MARKDOWN_ROUTING's comment, each of these is being told to drop the pages it is routed,
+ * so every surface that shows or edits the list names them.
+ *
+ * @param {readonly string[]} routing
+ * @param {readonly AiBot[]} [bots]
+ * @returns {string[]}
+ */
+export function routedSearchCrawlers(routing, bots = AI_BOTS) {
+  return routing.filter((name) => findBot(name, bots)?.kind === 'search');
+}
+
+/**
  * @param {string} name
  * @param {readonly AiBot[]} [bots]
  * @returns {AiBot | undefined}

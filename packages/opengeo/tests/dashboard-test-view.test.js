@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { checkList, docsUrl, groupChecks, points, slug } from '../web/components/checks.js';
+import { checkList, docsUrl, groupChecks, points, pointsTitle, slug } from '../web/components/checks.js';
 import { adoptedShare, pointsLine, scoreColour, sparklinePoints } from '../web/components/score.js';
 import { useDocument } from '../web/ui.js';
 import {
@@ -227,6 +227,17 @@ describe('test view helpers', () => {
     // A suggestion moves no score, so it is never priced, whatever it carries.
     expect(points(check({ scored: false, status: 'fail', weight: 10, price: 15 }))).toBe('tip');
     expect(points(check({ scored: false, status: 'locked', weight: 6 }))).toBe('6');
+  });
+
+  it('names the unit each figure is in, since a fail and a pass of equal weight read differently', () => {
+    expect(pointsTitle(check({ status: 'fail', weight: 9, price: 18 }))).toBe('Fixing this adds 18 to the 0-100 score');
+    expect(pointsTitle(check({ status: 'pass', weight: 9 }))).toBe('Check weight 9, counted in the points line under the score');
+    expect(pointsTitle(check({ status: 'partial', earned: 2, weight: 4 }))).toBe("Earned 2 of this check's weight of 4");
+    expect(pointsTitle(check({ scored: false, status: 'partial', earned: 2, weight: 4 }))).toBe(
+      "Earned 2 of this check's weight of 4, outside the score",
+    );
+    expect(pointsTitle(check({ scored: false, status: 'fail', weight: 6 }))).toBe('Outside the score');
+    expect(pointsTitle(check({ status: 'na' }))).toBe('Excluded from the score');
   });
 
   it('counts the locked group as suggestions and labels the per-check figures as weights', () => {

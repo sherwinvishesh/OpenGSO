@@ -6,6 +6,8 @@ import {
   routableOnly,
   routingForMode,
   routingModeOf,
+  searchCrawlerNames,
+  searchCrawlerWarning,
   shownBots,
   toggled,
 } from '../components/bot-picker.js';
@@ -147,7 +149,7 @@ export function createOnboarding(ctx, onDone) {
   let custom = [...initial.config.bots.custom];
   // Held rather than derived. Deriving it would make "let me pick" a no-op whenever the current
   // selection happens to match one of the three canned answers, which is exactly when a first-run
-  // user clicks it: the default is everyone.
+  // user clicks it: the default is every agent.
   /** @type {RoutingMode} */
   let mode = routingModeOf(routing, routableOnly(ctx.bots()));
 
@@ -264,6 +266,8 @@ export function createOnboarding(ctx, onDone) {
   });
   const pickBlock = el('div', { className: 'contents', hidden: true }, checklist.node, adder.node);
   const countNote = el('p', { className: 'note' });
+  const searchSlot = el('div', { className: 'contents' });
+  let searchShown = '';
 
   const botsStep = el(
     'div',
@@ -274,6 +278,7 @@ export function createOnboarding(ctx, onDone) {
       text: 'Which agents receive the markdown twin instead of HTML. This is a format decision, not an access one: anyone unticked, and anyone not on this list at all, sees the ordinary site. Blocking is a separate, opt-in setting under Bot settings.',
     }),
     modes.node,
+    searchSlot,
     pickBlock,
     countNote,
   );
@@ -548,6 +553,12 @@ export function createOnboarding(ctx, onDone) {
     pickBlock.hidden = mode !== 'custom';
     countNote.hidden = mode === 'custom';
     if (mode === 'custom') checklist.update(list, routing);
+    // Redrawn only when the names change, so ticking an unrelated box does not replay it.
+    const search = searchCrawlerNames(routing, list).join(', ');
+    if (search !== searchShown) {
+      searchShown = search;
+      fill(searchSlot, search ? banner({ tone: 'warn', title: 'Search engines are set to receive markdown' }, searchCrawlerWarning(search.split(', '))) : null);
+    }
     setText(
       countNote,
       `${routing.length} of ${list.length} agents. Pick "Let me pick" to choose them by name, or to add a crawler OpenGEO has never heard of.`,

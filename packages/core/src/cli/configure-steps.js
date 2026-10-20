@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { resolveBots, resolveRoutableBots } from '../shared/bots.js';
+import { resolveBots, resolveRoutableBots, routedSearchCrawlers } from '../shared/bots.js';
 import { CONFIG_FILENAME, defaultConfig, projectDirProblem } from '../shared/config.js';
-import { ERRORS } from '../shared/errors.js';
+import { CONFIG_ERRORS, ERRORS } from '../shared/errors.js';
 import { PROVIDERS, providerInfo } from '../shared/providers.js';
 import {
   BASE_URL_VAR,
@@ -194,21 +194,24 @@ function webRootProblem(root, publicDir) {
  */
 export async function askRouting(ctx, config) {
   const routableBots = resolveRoutableBots(config.bots.custom);
-  const everyone = routableBots.map((bot) => bot.name);
-  const assistantsAndSearch = routableBots.filter((bot) => bot.kind !== 'training').map((bot) => bot.name);
+  // Neither canned answer includes a search-index crawler: a markdown response says noindex, and
+  // sent to Bingbot at the page's own URL that takes the page out of Bing. Picking one by hand is
+  // still allowed, and warned about below.
+  const agents = routableBots.filter((bot) => bot.kind !== 'search').map((bot) => bot.name);
+  const assistants = routableBots.filter((bot) => bot.kind === 'assistant').map((bot) => bot.name);
 
   const routingChoice = await ctx.prompter.choose(
     '  Route markdown to:',
     [
       {
         value: 'all',
-        label: `every AI bot OpenGEO knows about (${everyone.length})`,
-        note: 'The twin is the same content in a cleaner format, so there is rarely a reason to withhold it.',
+        label: `every AI agent (${agents.length})`,
+        note: 'Search engines such as Bingbot keep the HTML: the twin is marked noindex, which would drop the page from their results.',
       },
       {
         value: 'assistants',
-        label: `assistants and search crawlers only (${assistantsAndSearch.length})`,
-        note: 'Training crawlers get the normal HTML instead.',
+        label: `assistants only (${assistants.length})`,
+        note: 'Agents fetching a page for a person right now. Training and search crawlers get the normal HTML.',
       },
       { value: 'none', label: 'nobody for now', note: 'Accept: text/markdown still works. Only User-Agent routing is off.' },
       {
@@ -217,11 +220,11 @@ export async function askRouting(ctx, config) {
         note: 'Shows every crawler to tick off by name, and lets you add one OpenGEO has never heard of.',
       },
     ],
-    currentRoutingChoice(config.bots.markdownRouting, everyone, assistantsAndSearch, ctx.settings),
+    currentRoutingChoice(config.bots.markdownRouting, agents, assistants, ctx.settings),
   );
 
-  if (routingChoice === 'all') return { markdownRouting: everyone, addedBots: [] };
-  if (routingChoice === 'assistants') return { markdownRouting: assistantsAndSearch, addedBots: [] };
+  if (routingChoice === 'all') return { markdownRouting: agents, addedBots: [] };
+  if (routingChoice === 'assistants') return { markdownRouting: assistants, addedBots: [] };
   if (routingChoice === 'none') return { markdownRouting: [], addedBots: [] };
 
   const picked = await pickBots({
@@ -229,13 +232,28 @@ export async function askRouting(ctx, config) {
     out: ctx.write,
     bots: routableBots,
     // Starting from what the project already routes to, so `custom` is an edit rather than a
-    // blank sheet. A fresh project routes to everyone, which is the right thing to narrow from.
-    selected: ctx.hasConfig ? config.bots.markdownRouting : everyone,
+    // blank sheet. A fresh project starts from every agent, which is the right thing to narrow from.
+    selected: ctx.hasConfig ? config.bots.markdownRouting : agents,
     verb: 'markdown to',
     routableOnly: true,
     allowAdd: true,
   });
   return { markdownRouting: picked.selected, addedBots: picked.added };
+}
+
+/**
+ * The warning for a routing list that sends noindex markdown to a search engine. Written by the
+ * callers rather than by `askRouting`, because a prompter drawing frames paints the next screen
+ * straight over anything written at the end of a question.
+ *
+ * @param {(text: string) => void} write
+ * @param {Pick<OpenGeoConfig['bots'], 'markdownRouting' | 'custom'>} bots
+ * @returns {void}
+ */
+export function writeSearchCrawlerWarning(write, bots) {
+  const search = routedSearchCrawlers(bots.markdownRouting, resolveRoutableBots(bots.custom));
+  if (search.length === 0) return;
+  write(`\n${wrap(CONFIG_ERRORS.searchCrawlersRouted(search), 76).map((line) => `  ${c.yellow(line)}`).join('\n')}\n`);
 }
 
 /**
@@ -384,7 +402,7 @@ export function writeAddedBots(write, addedBots) {
   for (const bot of addedBots) {
     write(`  ${bot.name} ${c.gray(`matches any User-Agent containing ${(bot.uaPatterns ?? []).join(' or ')}`)}\n`);
   }
-  write(`  ${c.gray(`Stored in bots.custom in ${CONFIG_FILENAME}. Restart your site for prod to pick them up.`)}\n`);
+  write(`  ${c.gray(`Stored in bots.custom in ${CONFIG_FILENAME}. A dev server picks them up on its next request; restart a production build.`)}\n`);
 }
 
 /**
@@ -457,19 +475,21 @@ async function askEndpoint(prompter, write, provider, base) {
  *
  * On a first run the answer is always `all`, because that is OpenGEO's recommendation rather than a
  * report of anything. In settings mode the default has to be whatever is currently true, or pressing
- * Enter through the flow would quietly widen a list the user had deliberately narrowed.
+ * Enter through the flow would quietly widen a list the user had deliberately narrowed. A list that
+ * includes a search crawler is never one of the canned answers, so it lands on `custom`, where the
+ * warning about it is printed.
  *
  * @param {readonly string[]} routing
- * @param {readonly string[]} everyone
- * @param {readonly string[]} assistantsAndSearch
+ * @param {readonly string[]} agents
+ * @param {readonly string[]} assistants
  * @param {boolean} settings
  * @returns {RoutingChoice}
  */
-function currentRoutingChoice(routing, everyone, assistantsAndSearch, settings) {
+function currentRoutingChoice(routing, agents, assistants, settings) {
   if (!settings) return 'all';
-  if (sameNames(routing, everyone)) return 'all';
+  if (sameNames(routing, agents)) return 'all';
   if (routing.length === 0) return 'none';
-  if (sameNames(routing, assistantsAndSearch)) return 'assistants';
+  if (sameNames(routing, assistants)) return 'assistants';
   return 'custom';
 }
 

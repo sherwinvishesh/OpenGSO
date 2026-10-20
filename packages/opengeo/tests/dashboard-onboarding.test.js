@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AI_BOTS, resolveBots } from '../../core/src/shared/bots.js';
+import { AI_BOTS, DEFAULT_MARKDOWN_ROUTING, resolveBots } from '../../core/src/shared/bots.js';
 import { PROVIDERS } from '../../core/src/shared/providers.js';
 import { routableOnly } from '../web/components/bot-picker.js';
 import { providerInfoOf } from '../web/components/provider-fields.js';
@@ -50,7 +50,7 @@ function makeState(overrides = {}) {
       extraRoutes: [],
       crawl: { maxPages: 50, maxDepth: 3, exclude: [] },
       generate: { tier: 'free', minWords: 120 },
-      bots: { markdownRouting: routable.map((bot) => bot.name), blocked: [], custom: [] },
+      bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
       ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
     },
     version: '1.0.0',
@@ -455,7 +455,7 @@ describe('createOnboarding', () => {
     buttonNamed(view.node, 'Skip').click();
     const modes = /** @type {HTMLElement} */ (view.node.querySelector('[aria-label="Markdown routing"]'));
     const pick = /** @type {HTMLButtonElement} */ ([...modes.querySelectorAll('button')].find((node) => node.textContent?.includes('Let me pick')));
-    expect(view.node.textContent).toContain(`${routable.length} of ${routable.length} agents.`);
+    expect(view.node.textContent).toContain(`${DEFAULT_MARKDOWN_ROUTING.length} of ${routable.length} agents.`);
     expect(pick.getAttribute('aria-pressed')).toBe('false');
 
     pick.click();
@@ -464,6 +464,25 @@ describe('createOnboarding', () => {
     expect(first.checked).toBe(true);
     first.click();
     expect(first.checked).toBe(false);
+  });
+
+  it('warns when a search engine is ticked, and stops when it is unticked', () => {
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    const { view } = mount();
+    buttonNamed(view.node, 'Next').click();
+    buttonNamed(view.node, 'Skip').click();
+    const modes = /** @type {HTMLElement} */ (view.node.querySelector('[aria-label="Markdown routing"]'));
+    /** @type {HTMLButtonElement} */ ([...modes.querySelectorAll('button')].find((node) => node.textContent?.includes('Let me pick'))).click();
+    expect(view.node.textContent).not.toContain('Search engines are set to receive markdown');
+    const bing = /** @type {HTMLInputElement} */ (
+      [...view.node.querySelectorAll('.crawler-grid label')].find((node) => node.textContent?.includes('Bingbot'))?.querySelector('input')
+    );
+    expect(bing.checked).toBe(false);
+    bing.click();
+    expect(view.node.textContent).toContain('Search engines are set to receive markdown');
+    expect(view.node.textContent).toContain('Bingbot builds a search index');
+    bing.click();
+    expect(view.node.textContent).not.toContain('Search engines are set to receive markdown');
   });
 
   it('refuses a robots.txt-only name and promises a write on save rather than claiming one', () => {
@@ -480,7 +499,7 @@ describe('createOnboarding', () => {
     name.value = robotsOnly.name;
     buttonNamed(view.node, 'Add crawler').click();
     expect(view.node.querySelector('.form-error')?.textContent).toBe(`${robotsOnly.name} is already on the list.`);
-    expect(view.node.textContent).toContain('Written to opengeo.config.json when you save. Your site picks it up on the next restart.');
+    expect(view.node.textContent).toContain('Written to opengeo.config.json when you save. A development server picks it up on its next request, a production build when it restarts.');
     expect(view.node.textContent).not.toContain('Saved into');
 
     name.value = 'AcmeBot';
@@ -531,7 +550,7 @@ describe('createOnboarding', () => {
     expect(config?.body).toEqual({
       site: 'http://localhost:3000',
       publicDir: 'static',
-      bots: { markdownRouting: routable.map((bot) => bot.name), blocked: [], custom: [] },
+      bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
     });
     // A skipped key step writes nothing.
     expect(sent.some((entry) => entry.path === '/api/key')).toBe(false);

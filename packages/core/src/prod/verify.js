@@ -530,6 +530,8 @@ const INTERESTING_HEADERS = [
   HEADERS.contentTypeOptions,
   HEADERS.markdownSourceHash,
   HEADERS.lastModified,
+  // What a conditional request is answered against, so it belongs beside the date.
+  HEADERS.etag,
 ];
 
 /**

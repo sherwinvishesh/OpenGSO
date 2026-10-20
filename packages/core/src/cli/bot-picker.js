@@ -10,7 +10,7 @@ import { c } from '../shared/log.js';
 /**
  * The by-hand crawler picker behind the `custom` option in `opengeo start` and `opengeo settings`.
  *
- * The three canned answers (everyone, assistants and search, nobody) cover almost every project, so
+ * The three canned answers (every agent, assistants only, nobody) cover almost every project, so
  * this exists for the two cases they cannot: a site that wants a specific handful of agents, and a
  * site whose crawler is not in OpenGEO's list at all - an in-house agent, or an AI product newer
  * than the installed version. Adding one here writes it into `bots.custom` in the config, which is

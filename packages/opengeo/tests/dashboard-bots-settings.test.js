@@ -1,14 +1,18 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AI_BOTS, resolveBots } from '../../core/src/shared/bots.js';
+import { AI_BOTS, DEFAULT_MARKDOWN_ROUTING, resolveBots, routedSearchCrawlers } from '../../core/src/shared/bots.js';
+import { CONFIG_ERRORS } from '../../core/src/shared/errors.js';
 import { PROVIDERS } from '../../core/src/shared/providers.js';
 import {
+  agentNames,
   assistantNames,
   routableOnly,
   routingForMode,
   routingModeOf,
   sameCustom,
   sameNames,
+  searchCrawlerNames,
+  searchCrawlerWarning,
   shownBots,
   toggled,
 } from '../web/components/bot-picker.js';
@@ -55,7 +59,7 @@ function makeState(overrides = {}) {
       extraRoutes: [],
       crawl: { maxPages: 50, maxDepth: 3, exclude: [] },
       generate: { tier: 'free', minWords: 120 },
-      bots: { markdownRouting: routable.map((bot) => bot.name), blocked: [], custom: [] },
+      bots: { markdownRouting: [...DEFAULT_MARKDOWN_ROUTING], blocked: [], custom: [] },
       ai: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
     },
     version: '1.0.0',
@@ -181,6 +185,7 @@ describe('customEndpointLabel', () => {
 });
 
 describe('routing modes', () => {
+  const agents = agentNames(routable);
   const assistants = assistantNames(routable);
 
   it('leaves robots.txt-only bots out of the routable list', () => {
@@ -188,18 +193,42 @@ describe('routing modes', () => {
     expect(routable.length).toBeLessThan(bots.length);
   });
 
+  it('keeps search engines out of both canned lists, so neither tells one to drop a page', () => {
+    expect(agents).toEqual([...DEFAULT_MARKDOWN_ROUTING]);
+    expect(agents).not.toContain('Bingbot');
+    expect(assistants.length).toBeGreaterThan(0);
+    for (const name of assistants) expect(bots.find((bot) => bot.name === name)?.kind).toBe('assistant');
+    expect(searchCrawlerNames(agents, bots)).toEqual([]);
+  });
+
   it('derives the mode from the selection, in any order', () => {
     expect(routingModeOf([], routable)).toBe('none');
-    expect(routingModeOf([...routable.map((bot) => bot.name)].reverse(), routable)).toBe('all');
+    expect(routingModeOf([...agents].reverse(), routable)).toBe('all');
     expect(routingModeOf(assistants, routable)).toBe('assistants');
     expect(routingModeOf(assistants.slice(1), routable)).toBe('custom');
+    // The list older setups wrote, search engines included, is nobody's preset any more.
+    expect(routingModeOf(routable.map((bot) => bot.name), routable)).toBe('custom');
   });
 
   it('turns a mode back into a list, and custom keeps the current one', () => {
-    expect(routingForMode('all', routable, [])).toEqual(routable.map((bot) => bot.name));
+    expect(routingForMode('all', routable, [])).toEqual(agents);
     expect(routingForMode('assistants', routable, [])).toEqual(assistants);
     expect(routingForMode('none', routable, ['GPTBot'])).toEqual([]);
     expect(routingForMode('custom', routable, ['GPTBot'])).toEqual(['GPTBot']);
+  });
+
+  it('names the search engines on a list the way core does, and warns in the same words', () => {
+    const everyone = routable.map((bot) => bot.name);
+    const names = searchCrawlerNames(everyone, bots);
+    expect(names).toEqual(routedSearchCrawlers(everyone));
+    expect(names).toContain('Bingbot');
+    const warning = searchCrawlerWarning(['Bingbot']);
+    expect(warning).toContain('Bingbot builds a search index');
+    expect(warning).toContain('X-Robots-Tag: noindex');
+    expect(warning).toContain('Untick it unless that is what you want; it can still ask');
+    expect(searchCrawlerWarning(['Bingbot', 'YouBot'])).toContain('Untick them unless that is what you want; they can still ask');
+    expect(CONFIG_ERRORS.searchCrawlersRouted(['Bingbot'])).toContain('which builds a search index');
+    expect(searchCrawlerWarning(['Bingbot', 'Applebot', 'YouBot'])).toMatch(/^Bingbot, Applebot and YouBot build search indexes\./);
   });
 
   it('compares names as sets and custom bots by content', () => {
@@ -245,10 +274,23 @@ describe('the Bot settings view', () => {
     const view = createBotsView(ctx);
     view.update();
     expect(view.node.firstElementChild?.querySelector('h1')?.textContent).toBe('Bot settings');
-    const everyone = buttonNamed(view.node, `Everyone (${routable.length})`);
-    expect(everyone.getAttribute('aria-pressed')).toBe('true');
-    expect(buttonNamed(view.node, `Assistants and search (${assistantNames(routable).length})`).getAttribute('aria-pressed')).toBe('false');
+    const every = buttonNamed(view.node, `Every AI agent (${agentNames(routable).length})`);
+    expect(every.getAttribute('aria-pressed')).toBe('true');
+    expect(buttonNamed(view.node, `Assistants only (${assistantNames(routable).length})`).getAttribute('aria-pressed')).toBe('false');
     expect(view.node.querySelectorAll('.bot-row')).toHaveLength(bots.length + 1);
+    expect(view.node.textContent).not.toContain('Search engines are set to receive markdown');
+  });
+
+  it('warns while a search engine is on the list, and stops once it is off', () => {
+    const everyone = routable.map((bot) => bot.name);
+    const { ctx } = makeCtx(makeState({ config: { ...makeState().config, bots: { markdownRouting: everyone, blocked: [], custom: [] } } }));
+    const view = createBotsView(ctx);
+    view.update();
+    expect(view.node.textContent).toContain('Search engines are set to receive markdown');
+    expect(view.node.textContent).toContain('Bingbot');
+    expect(view.node.textContent).toContain('A list you picked by hand.');
+    buttonNamed(view.node, `Every AI agent (${agentNames(routable).length})`).click();
+    expect(view.node.textContent).not.toContain('Search engines are set to receive markdown');
   });
 
   it('names every checkbox after its bot', () => {

@@ -16,6 +16,24 @@ import { AI_PROVIDERS, providerInfo, suggestProvider } from './providers.js';
  */
 export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
   /**
+   * Search-index crawlers on the routing list. Read by `opengeo settings` and by prod at boot, which
+   * is the one place a project configured before this warning existed will see it.
+   *
+   * @param {readonly string[]} names
+   */
+  searchCrawlersRouted: (names) => {
+    const one = names.length === 1;
+    const them = one ? 'it' : 'them';
+    const they = one ? 'it' : 'they';
+    const listed = names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    return (
+      `bots.markdownRouting sends markdown to ${listed}, which ${one ? 'builds a search index' : 'build search indexes'}. ` +
+      `Every markdown response carries X-Robots-Tag: noindex, and at the page's own URL that tells ${them} to drop the page from search results. ` +
+      `Take ${them} off the list unless that is what you want; ${they} can still ask for markdown with an Accept header.`
+    );
+  },
+
+  /**
    * @param {string} field
    * @param {unknown} value
    * @param {string} root

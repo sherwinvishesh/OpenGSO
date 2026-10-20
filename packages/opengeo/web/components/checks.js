@@ -260,7 +260,11 @@ function checkRow(check, fault = false) {
       // Last, and only when there is one, because it is the part the reader acts on.
       check.fix ? el('div', { className: 'check-fix', text: check.fix }) : null,
     ),
-    el('div', { className: 'check-points', text: fault ? 'fix' : points(check) }),
+    el('div', {
+      className: 'check-points',
+      attrs: { title: fault ? 'Fails on the twin agents are served. Outside the score, but --strict fails a build on it' : pointsTitle(check) },
+      text: fault ? 'fix' : points(check),
+    }),
   );
 }
 
@@ -278,6 +282,24 @@ export function points(check) {
   if (!check.scored) return check.status === 'fail' ? 'tip' : `${check.weight}`;
   if (check.status === 'fail') return `-${check.price ?? check.weight}`;
   return `${check.weight}`;
+}
+
+/**
+ * The unit behind `points`, as the cell's tooltip. A fail is priced on the 0-100 headline and a pass
+ * shows its check weight, so two checks of equal weight read "-18" and "9" side by side; this is
+ * what tells them apart.
+ *
+ * @param {Pick<CheckResult, 'status' | 'weight' | 'earned' | 'price' | 'scored'>} check
+ * @returns {string}
+ */
+export function pointsTitle(check) {
+  if (check.status === 'na') return 'Excluded from the score';
+  if (check.status === 'partial') {
+    return `Earned ${check.earned} of this check's weight of ${check.weight}${check.scored ? '' : ', outside the score'}`;
+  }
+  if (!check.scored) return check.status === 'fail' ? 'Outside the score' : `Check weight ${check.weight}, outside the score`;
+  if (check.status === 'fail') return `Fixing this adds ${check.price ?? check.weight} to the 0-100 score`;
+  return `Check weight ${check.weight}, counted in the points line under the score`;
 }
 
 /**

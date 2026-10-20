@@ -69,19 +69,22 @@ Four questions: your site URL and web root, which AI agents get the markdown twi
 and an optional API key. Every default is the current value, so pressing Enter through the whole
 thing changes nothing. It finishes by printing what actually changed.
 
-The routing question has four answers: every crawler OpenGEO knows about, assistants and search
-crawlers only, nobody, or **let me pick, one by one**. The fourth one lists every crawler with a
-number and a tick box, and you toggle them by name or by number:
+The routing question has four answers: every AI agent, assistants only, nobody, or **let me pick,
+one by one**. Neither of the first two includes a search-engine crawler such as Bingbot: a markdown
+response is marked `noindex`, which at the page's own URL would drop the page from that engine's
+results. You can still tick one by hand, and both settings and prod's startup log warn when you
+have. The fourth answer lists every crawler with a number and a tick box, and you toggle them by
+name or by number:
 
 ```
 opengeo settings
 
    1) [x] GPTBot           OpenAI · training
-   2) [x] OAI-SearchBot    OpenAI · search
+   2) [ ] OAI-SearchBot    OpenAI · search
    ...
       +   add              a crawler OpenGEO has never heard of
 
-  26 of 26 selected.
+  18 of 26 selected.
 
   markdown to (name, number, all, none, add, or Enter to finish) none
   markdown to (name, number, all, none, add, or Enter to finish) gptbot claudebot
@@ -89,8 +92,8 @@ opengeo settings
 
 `add` defines a crawler that is not on the list at all: an in-house agent, or an AI product newer
 than your installed version. It asks for a name and guesses the rest, and the answer is stored under
-`bots.custom` in your config, which is the same list the runtime resolves at boot. Restart your site
-for prod to pick it up.
+`bots.custom` in your config, which is the same list the runtime resolves. A development server
+picks it up on its next request; restart a production build.
 
 The key step adds `.env` to `.gitignore` **before** it asks for the key, every time, and says so on
 screen. The prompt is masked. The key is written to `.env` and never to `opengeo.config.json`, which

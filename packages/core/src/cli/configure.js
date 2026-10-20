@@ -8,6 +8,7 @@ import {
   askSiteUrl,
   askWebRoot,
   askRouting,
+  writeSearchCrawlerWarning,
   askProvider,
   writeKeyLocation,
   writeAddedBots,
@@ -182,6 +183,8 @@ export async function runSetup(options) {
   write('\n');
   write(`  ${c.green('ok')} ${createdConfig ? 'Created' : 'Updated'} ${relative(root, configPath) || CONFIG_FILENAME}\n`);
   write(`  ${c.green('ok')} Routing markdown to ${config.bots.markdownRouting.length} AI agent${config.bots.markdownRouting.length === 1 ? '' : 's'}\n`);
+  // Only a list picked by hand can trigger it: neither canned answer includes a search engine.
+  writeSearchCrawlerWarning(write, config.bots);
   write(`  ${c.green('ok')} Blocking ${config.bots.blocked.length === 0 ? 'nobody' : config.bots.blocked.join(', ')}\n`);
   if (provider?.keyWritten) {
     write(`  ${c.green('ok')} Wrote ${KEY_VAR} to ${relative(root, provider.keyWritten.envPath) || ENV_FILENAME}\n`);

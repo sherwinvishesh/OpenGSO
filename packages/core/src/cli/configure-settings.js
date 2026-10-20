@@ -13,6 +13,7 @@ import {
   askProvider,
   writeKeyLocation,
   writeAddedBots,
+  writeSearchCrawlerWarning,
   sameNames,
 } from './configure-steps.js';
 
@@ -68,6 +69,9 @@ export async function runSettings(options) {
   write(`\n${c.bold('OpenGEO settings')}\n`);
   write(`${c.gray(root)}\n`);
   write(`${c.gray(hasConfig ? `${CONFIG_FILENAME} - pick a number to change that one setting.` : `${CONFIG_FILENAME} does not exist yet. Changing anything here creates it.`)}\n`);
+  // On opening, because a project set up before the presets left search engines out may be
+  // routing them without anyone having chosen to.
+  writeSearchCrawlerWarning(write, config.bots);
 
   for (;;) {
     const found = readCredentials(root, config.ai);
@@ -123,6 +127,7 @@ export async function runSettings(options) {
     // thing on the one being replaced, which is a frame nobody ever sees.
     prompter.stage?.('Settings', 0, 0);
     write(`\n  ${c.green('saved')} ${c.gray(relative(root, configPath) || CONFIG_FILENAME)}\n`);
+    if (choice === 'routing') writeSearchCrawlerWarning(write, config.bots);
   }
 
   prompter.settle?.();

@@ -1,6 +1,7 @@
 import { api, ApiError } from '../api.js';
 import {
   KIND_NOTE,
+  agentNames,
   assistantNames,
   createAddCrawler,
   routableOnly,
@@ -8,6 +9,8 @@ import {
   routingModeOf,
   sameCustom,
   sameNames,
+  searchCrawlerNames,
+  searchCrawlerWarning,
   shownBots,
   toggled,
 } from '../components/bot-picker.js';
@@ -66,9 +69,10 @@ export function createBotsView(ctx) {
 
   const errorSlot = el('div', { className: 'contents' });
   const conflictSlot = el('div', { className: 'contents' });
+  const searchSlot = el('div', { className: 'contents' });
   const blockedSlot = el('div', { className: 'contents' });
-  /** @type {Record<'error' | 'conflict' | 'blocked', string>} */
-  const slotShown = { error: '', conflict: '', blocked: '' };
+  /** @type {Record<'error' | 'conflict' | 'search' | 'blocked', string>} */
+  const slotShown = { error: '', conflict: '', search: '', blocked: '' };
 
   const savedNote = el('span', { className: 'muted', text: 'Saved', hidden: true });
   const saveButton = button({ label: 'Save', primary: true, disabled: true, onClick: () => void save() });
@@ -100,6 +104,7 @@ export function createBotsView(ctx) {
     ),
     errorSlot,
     conflictSlot,
+    searchSlot,
     blockedSlot,
     card(
       '',
@@ -123,7 +128,7 @@ export function createBotsView(ctx) {
         el('span', { className: 'mono', text: 'bots.custom' }),
         ' in ',
         el('span', { className: 'mono', text: 'opengeo.config.json' }),
-        ' and behaves exactly like a built-in one: both levers apply to it. Your site loads that list at boot, so restart it after saving.',
+        ' and behaves exactly like a built-in one: both levers apply to it. A development server picks up a saved change on its next request; a production build reads the list when it starts, so restart it.',
       ),
     ),
   );
@@ -192,6 +197,10 @@ export function createBotsView(ctx) {
         { tone: 'warn', title: 'These bots are set to receive markdown and to be blocked' },
         `${conflicts.join(', ')}. A blocked bot that obeys robots.txt will never arrive to be routed, so one of the two settings is doing nothing. Decide which one you meant.`,
       ),
+    );
+    const search = searchCrawlerNames(local.routing, shown);
+    swap(searchSlot, 'search', search.join(', '), () =>
+      banner({ tone: 'warn', title: 'Search engines are set to receive markdown' }, searchCrawlerWarning(search)),
     );
     swap(blockedSlot, 'blocked', local.blocked.length > 0 ? 'on' : '', () =>
       banner(
@@ -313,8 +322,8 @@ export function createBotsView(ctx) {
  */
 function createRoutingPresets(onPick) {
   const title = el('span', { className: 'group-title', style: { margin: '0' }, text: 'Markdown routing', attrs: { id: 'bots-routing-title' } });
-  const all = button({ label: 'Everyone', small: true, onClick: () => onPick('all') });
-  const assistants = button({ label: 'Assistants and search', small: true, onClick: () => onPick('assistants') });
+  const all = button({ label: 'Every AI agent', small: true, onClick: () => onPick('all') });
+  const assistants = button({ label: 'Assistants only', small: true, onClick: () => onPick('assistants') });
   const none = button({ label: 'Nobody', small: true, onClick: () => onPick('none') });
   const note = el('span', { className: 'note note-sm' });
 
@@ -325,8 +334,10 @@ function createRoutingPresets(onPick) {
      * @param {AiBot[]} routable
      */
     update(mode, routable) {
-      setLabel(all, `Everyone (${routable.length})`);
-      setLabel(assistants, `Assistants and search (${assistantNames(routable).length})`);
+      setLabel(all, `Every AI agent (${agentNames(routable).length})`);
+      setLabel(assistants, `Assistants only (${assistantNames(routable).length})`);
+      // Said on the page, because the omission from "every" is deliberate and looks like a bug.
+      all.title = 'Every crawler except search engines such as Bingbot: a markdown response is marked noindex, which would drop the page from their results.';
       all.setAttribute('aria-pressed', String(mode === 'all'));
       assistants.setAttribute('aria-pressed', String(mode === 'assistants'));
       none.setAttribute('aria-pressed', String(mode === 'none'));
