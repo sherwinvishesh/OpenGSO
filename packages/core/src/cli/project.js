@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { loadConfig } from '../shared/config.js';
-import { ERRORS } from '../shared/errors.js';
+import { CONFIG_ERRORS, ERRORS } from '../shared/errors.js';
 import { parseUrl } from '../shared/http.js';
 import { UsageError } from './args.js';
 
@@ -18,7 +18,10 @@ import { UsageError } from './args.js';
  */
 export function resolveProject(args) {
   const dir = args.str('project');
-  return loadConfig(dir ? resolve(process.cwd(), dir) : process.cwd());
+  const loaded = loadConfig(dir ? resolve(process.cwd(), dir) : process.cwd());
+  // On stderr, so a --json run's output is the same with or without a stray key.
+  for (const { key, suggestion } of loaded.unknownKeys ?? []) process.stderr.write(`${CONFIG_ERRORS.unknownConfigKey(key, suggestion)}\n`);
+  return loaded;
 }
 
 /**

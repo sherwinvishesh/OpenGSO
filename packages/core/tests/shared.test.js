@@ -26,6 +26,7 @@ import {
   hasDotSegment,
   routeToTwinUrlPath,
   saveConfig,
+  unknownConfigKeys,
   twinUrl,
   twinUrlPathToRoute,
   basePathOf,
@@ -245,6 +246,37 @@ describe('config', () => {
     expect(loaded.config.site).toBe('http://localhost:3000');
   });
 
+  it('names a key it does not read, and the one it was probably meant to be', () => {
+    expect(
+      unknownConfigKeys({
+        $schema: 'x',
+        site: 'https://example.com',
+        publicdir: 'site',
+        colour: 'red',
+        crawl: { 'max-pages': 5, depth: 2, exclude: [] },
+        bots: { markdownrouting: [] },
+        ai: { provider: 'groq', temprature: 0 },
+      }),
+    ).toEqual([
+      { key: 'publicdir', suggestion: 'publicDir' },
+      { key: 'colour' },
+      { key: 'crawl.max-pages', suggestion: 'crawl.maxPages' },
+      { key: 'crawl.depth', suggestion: 'crawl.maxDepth' },
+      { key: 'bots.markdownrouting', suggestion: 'bots.markdownRouting' },
+      { key: 'ai.temprature' },
+    ]);
+    expect(unknownConfigKeys(defaultConfig())).toEqual([]);
+  });
+
+  it('still loads a config with a key it does not read, and says which', () => {
+    const root = temp();
+    writeFileSync(join(root, 'opengeo.config.json'), JSON.stringify({ site: 'https://example.com', publicdir: 'site' }));
+    const loaded = loadConfig(root);
+    expect(loaded.config.publicDir).toBe('public');
+    expect(loaded.unknownKeys).toEqual([{ key: 'publicdir', suggestion: 'publicDir' }]);
+    saveConfig(root, defaultConfig('https://example.com'));
+    expect(loadConfig(root).unknownKeys).toBeUndefined();
+  });
 });
 
 describe('where the config search stops', () => {

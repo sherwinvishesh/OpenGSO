@@ -16,7 +16,9 @@ uses the defaults below.
 - Any subset is fine. A file with one field takes the defaults for the rest, section by section, so
   `{ "crawl": { "maxPages": 50 } }` keeps the default `maxDepth`.
 - Every field present is checked on load, and a wrong one is reported by name rather than failing
-  later. Fields OpenGEO does not know are left alone, so a config written by a newer version loads.
+  later. Fields OpenGEO does not know are left alone, so a config written by a newer version loads,
+  and each one is named on stderr when a command reads the file, and in `opengeo-prod`'s startup
+  check, with the field it was probably meant to be: `publicdir` gets "Did you mean publicDir?".
 - `publicDir` and `internalDir` must resolve strictly inside the project root. The root is where
   `.env` lives, so neither may be the root itself or anywhere outside it.
 - `opengeo-prod` reads only `publicDir`, `internalDir`, `bots.markdownRouting` and `bots.custom`.

@@ -5,6 +5,7 @@ import { DEFAULT_MARKDOWN_ROUTING } from './bots.js';
 import { CONFIG_ERRORS } from './errors.js';
 import { frameworkWebRoot } from './web-root.js';
 import { siteBaseOf } from './routes.js';
+import { editDistance } from './edit-distance.js';
 
 /**
  * @import { CustomBotInput } from './bots.js'
@@ -53,6 +54,8 @@ export function defaultConfig(site = 'http://localhost:3000') {
  * @property {string} [webRootWhy] Set when there is no config file and `publicDir` came from the
  *   framework in package.json rather than the default, saying why, for the one line that tells the
  *   user where their files went.
+ * @property {Array<{ key: string; suggestion?: string }>} [unknownKeys] Keys in the file OpenGEO does
+ *   not read, from `unknownConfigKeys`. Absent when there are none.
  */
 
 /**
@@ -128,7 +131,8 @@ export function loadConfig(startDir = process.cwd()) {
   const config = mergeConfig(defaultConfig(), /** @type {ConfigPatch} */ (raw));
   const problem = projectDirProblem(dirname(path), config);
   if (problem) throw new ConfigError(problem);
-  return { config, root: dirname(path), path, exists: true };
+  const unknownKeys = unknownConfigKeys(raw);
+  return { config, root: dirname(path), path, exists: true, ...(unknownKeys.length ? { unknownKeys } : {}) };
 }
 
 /**
@@ -225,6 +229,49 @@ export function configPatchProblem(patch) {
     if (value !== undefined && !ok(value)) return CONFIG_ERRORS.badField(section ? `${section}.${key}` : key, expected, value);
   }
   return undefined;
+}
+
+/** Keys a config may hold that no rule above checks: an editor's schema pointer. */
+const UNCHECKED_KEYS = ['$schema'];
+
+/** @param {string} name */
+const squash = (name) => name.toLowerCase().replace(/[-_]/g, '');
+
+/**
+ * The keys of a config that OpenGEO does not read, each with the key it was probably meant to be.
+ *
+ * `configPatchProblem` leaves these alone so that a config written by a newer version still loads,
+ * which also means a `publicdir` or a `crawl.maxpages` is ignored without a word and the run
+ * quietly uses the default. This is what says so. A suggestion is only made for a key within a
+ * couple of edits of one that exists in the same place, ignoring case, dashes and underscores, or
+ * for the end of one, since the flags are `--depth` and `--max-pages` and the fields `maxDepth` and
+ * `maxPages`.
+ *
+ * @param {unknown} raw
+ * @returns {Array<{ key: string; suggestion?: string }>}
+ */
+export function unknownConfigKeys(raw) {
+  if (!isObject(raw)) return [];
+  /** @type {Map<string | undefined, string[]>} */
+  const known = new Map([[undefined, [...UNCHECKED_KEYS, 'crawl', 'generate', 'bots', 'ai']]]);
+  for (const [section, key] of FIELD_RULES) known.set(section, [...(known.get(section) ?? []), key]);
+  /** @type {Array<{ key: string; suggestion?: string }>} */
+  const unknown = [];
+  for (const [section, names] of known) {
+    const holder = section === undefined ? raw : raw[section];
+    if (!isObject(holder)) continue;
+    for (const key of Object.keys(holder)) {
+      if (names.includes(key)) continue;
+      const wanted = squash(key);
+      const near = names
+        .map((name) => ({ name, distance: wanted.length >= 4 && squash(name).endsWith(wanted) ? 0 : editDistance(wanted, squash(name)) }))
+        .filter(({ name, distance }) => distance <= Math.min(2, Math.floor(name.length / 3)))
+        .sort((a, b) => a.distance - b.distance)[0];
+      const path = (/** @type {string} */ name) => (section ? `${section}.${name}` : name);
+      unknown.push({ key: path(key), ...(near ? { suggestion: path(near.name) } : {}) });
+    }
+  }
+  return unknown;
 }
 
 /**

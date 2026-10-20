@@ -393,6 +393,14 @@ describe('startup logging (§7)', () => {
     expect(quiet).not.toContain('search index');
   });
 
+  it('names a config key nothing reads, so a misspelt routing list is not served as the default', () => {
+    const root = project();
+    const lines = buildStartupStatus({ root, store, unknownKeys: [{ key: 'bots.markdownrouting', suggestion: 'bots.markdownRouting' }] }).lines;
+    expect(lines).toContain(
+      '[opengeo-prod]   opengeo.config.json has "bots.markdownrouting", which OpenGEO does not read, so its default is used. Did you mean "bots.markdownRouting"?',
+    );
+  });
+
   it('tells a user with no generated files exactly which package writes them', () => {
     const status = buildStartupStatus({ root: project(), store: undefined });
     const text = status.lines.join('\n');

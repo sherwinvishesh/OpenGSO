@@ -34,6 +34,19 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
   },
 
   /**
+   * A key in opengeo.config.json that nothing reads. Loading carries on, since a newer version may
+   * have written it; this is so a misspelt one is not silently replaced by its default. Here rather
+   * than in ERRORS because prod says it at boot too.
+   *
+   * @param {string} key
+   * @param {string} [suggestion]
+   */
+  unknownConfigKey: (key, suggestion) =>
+    suggestion
+      ? `opengeo.config.json has "${key}", which OpenGEO does not read, so its default is used. Did you mean "${suggestion}"?`
+      : `opengeo.config.json has "${key}", which OpenGEO does not read. Every field it reads is in docs/config.md.`,
+
+  /**
    * @param {string} field
    * @param {unknown} value
    * @param {string} root

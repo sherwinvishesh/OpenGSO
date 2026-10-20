@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
+import { PROPOSED_SUFFIX } from '../generate/files.js';
 import { readManifest } from '../generate/manifest.js';
 import { internalDirPath, loadConfig, publicDirPath } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
@@ -41,9 +42,11 @@ const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.open
  *
  * Staying inside is necessary and not enough. A web root holds whatever the project put there, so
  * on top of it the name has to be one generate writes: a twin under `md/`, one of the three site
- * files and its proposed copy, or a twin the manifest lists beside its page. The last is a lookup
- * rather than a pattern, since `README.md` in the same folder is somebody's own file. No dotfile
- * anywhere in the path, whatever directory it is in.
+ * files and its proposed copy, or a twin beside its page that the manifest lists or that generate
+ * left a proposal next to because the file there was not its own. Those two are lookups rather than a
+ * pattern, since `README.md` in the same folder is somebody's own file. The second is what an agent
+ * is served at that address today, so it is the one the preview shows. No dotfile anywhere in the
+ * path, whatever directory it is in.
  *
  * @param {string} root
  * @param {string} relativePath
@@ -52,10 +55,14 @@ const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.open
 export function readGeneratedFile(root, relativePath) {
   if (relativePath.split('/').some((part) => part.startsWith('.'))) return undefined;
   const loaded = loadConfig(root);
-  if (!GENERATED_FILE.test(relativePath) && !isListedTwin(loaded, relativePath)) return undefined;
   const base = publicDirPath(loaded);
   const path = resolve(base, relativePath);
   if (path !== base && !path.startsWith(base + sep)) return undefined;
+  const generated =
+    GENERATED_FILE.test(relativePath) ||
+    isListedTwin(loaded, relativePath) ||
+    (relativePath.endsWith('.md') && existsSync(`${path}${PROPOSED_SUFFIX}`));
+  if (!generated) return undefined;
   return existsSync(path) && statSync(path).isFile() ? readFileSync(path, 'utf8') : undefined;
 }
 

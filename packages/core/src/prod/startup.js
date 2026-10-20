@@ -10,6 +10,7 @@ export { parseRobots, robotsAllows, robotsRulesFor };
 /**
  * @import { AiBot } from '../shared/bots.js'
  * @import { MarkdownStore } from './store.js'
+ * @import { LoadedConfig } from '../shared/config.js'
  */
 
 /**
@@ -32,6 +33,8 @@ let alreadyLogged = false;
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so the robots.txt
  *   summary covers both.
  * @property {readonly string[]} [routing] `bots.markdownRouting`, checked for search crawlers.
+ * @property {LoadedConfig['unknownKeys']} [unknownKeys] Keys in the config nothing reads, each said
+ *   once, since a misspelt `bots.markdownrouting` otherwise serves the defaults without a word.
  * @property {(line: string) => void} [logger] Injected in tests so the guard and the formatting can
  *   be checked without touching stdout.
  * @property {string} [heading] The first line, for a development server reporting a reload rather
@@ -83,6 +86,7 @@ export function buildStartupStatus(options) {
   for (const problem of problems) lines.push(`[opengeo-prod]   ${problem}`);
   const search = routedSearchCrawlers(options.routing ?? [], options.bots);
   if (search.length > 0) lines.push(`[opengeo-prod]   ${CONFIG_ERRORS.searchCrawlersRouted(search)}`);
+  for (const { key, suggestion } of options.unknownKeys ?? []) lines.push(`[opengeo-prod]   ${CONFIG_ERRORS.unknownConfigKey(key, suggestion)}`);
   if (twins === 0) {
     lines.push('[opengeo-prod]   nothing to serve yet - every request will pass through to the normal site');
   }

@@ -99,7 +99,7 @@ function load(root, options, when, seen) {
   };
 
   if (options.logStartup !== false) {
-    const status = { root: projectRoot, publicDir, store, bots: ctx.bots, routing: ctx.markdownRouting };
+    const status = { root: projectRoot, publicDir, store, bots: ctx.bots, routing: ctx.markdownRouting, unknownKeys: loaded.unknownKeys };
     if (when === 'boot') logStartupStatus(status);
     else logReloadStatus(status);
   }

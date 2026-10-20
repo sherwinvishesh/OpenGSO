@@ -691,6 +691,16 @@ describe('the dashboard on a folder project', () => {
     expect(readGeneratedFile(root, '../opengeo.config.json')).toBeUndefined();
   });
 
+  it('reads back the file an agent is served where generate proposed a twin instead of overwriting', async () => {
+    writeSite({ ...SITE, 'about.html.md': '# About, written by hand' });
+    writeFileSync(join(root, 'opengeo.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
+    const run = await runGenerate({}, options());
+    const pages = /** @type {{ pages: { status: string; file?: string }[] }} */ (run.body).pages;
+    expect(pages.find((page) => page.status === 'proposed')?.file).toBe('about.html.md.opengeo-proposed');
+
+    expect(readGeneratedFile(root, 'about.html.md')).toBe('# About, written by hand');
+    expect(readGeneratedFile(root, 'about.html.md.opengeo-proposed')).toBeUndefined();
+  });
 });
 
 describe('the home screen on a folder project', () => {
