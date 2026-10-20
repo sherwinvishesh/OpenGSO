@@ -56,6 +56,28 @@ const CHROME_STRIP = [
   '[role="complementary"]',
 ].join(',');
 
+/**
+ * Also only in the <body> fallback: modals, which on a page with no landmark are the cookie banner
+ * or a newsletter popup far more often than they are the page. Removed only when they hold less
+ * than half the text, so a page that really is one big dialog keeps its content.
+ */
+const DIALOG_STRIP = ['dialog', '[role="dialog"]', '[role="alertdialog"]', '[aria-modal="true"]'].join(',');
+
+/**
+ * A cookie or consent banner, by the names sites and the common consent tools give them, with the
+ * same fallback-only, under-half-the-text rule. A word next to a chrome word rather than the word
+ * alone, so a recipe card called `cookies-recipe` is not one.
+ */
+const CONSENT_NAME =
+  /\b(cookie|cookies|consent|gdpr)[-_]?(banner|bar|notice|notification|consent|popup|modal|dialog|law|wall|box|container|overlay|prompt|message|alert)\b|\b(onetrust-consent-sdk|onetrust-banner-sdk|CybotCookiebotDialog|usercentrics-root|didomi-host|truste-consent-track|qc-cmp2-container|osano-cm-window|cky-consent-container|cc-window|cc-banner|cookie-law-info-bar)\b/i;
+
+/**
+ * The text of a heading's own permalink: VitePress and Docusaurus put a zero-width space in it,
+ * MkDocs a pilcrow, Hugo and Jekyll themes a "#". Left in, it ends every heading and the title
+ * with a stray character. A link in a heading with real words in it is content and stays.
+ */
+const PERMALINK_TEXT = /^[\s\u200B\uFEFF#¶§🔗]*$/u;
+
 /** Tried in order. The first match wins. */
 const MAIN_SELECTORS = [
   'main',
@@ -112,9 +134,21 @@ export function extractPage(html, options) {
   for (const node of Array.from(root.querySelectorAll(ALWAYS_STRIP))) node.remove();
   if (selector === 'body') {
     for (const node of Array.from(root.querySelectorAll(CHROME_STRIP))) node.remove();
-    warnings.push(
-      'No <main>, <article> or [role="main"] found - fell back to <body> and stripped nav/header/footer. Adding a <main> landmark gives a cleaner twin.',
+    const bodyText = textLength(root);
+    const banners = Array.from(root.querySelectorAll(DIALOG_STRIP)).concat(
+      Array.from(root.querySelectorAll('[id], [class]')).filter((node) =>
+        CONSENT_NAME.test(`${node.id} ${node.getAttribute('class') ?? ''}`),
+      ),
     );
+    for (const node of banners) {
+      if (node.isConnected && textLength(node) <= bodyText / 2) node.remove();
+    }
+    warnings.push(
+      'No <main>, <article> or [role="main"] found - fell back to <body> and stripped the nav, header, footer and any cookie banner. Adding a <main> landmark gives a cleaner twin.',
+    );
+  }
+  for (const anchor of Array.from(root.querySelectorAll('h1 a[href^="#"], h2 a[href^="#"], h3 a[href^="#"], h4 a[href^="#"], h5 a[href^="#"], h6 a[href^="#"]'))) {
+    if (PERMALINK_TEXT.test(anchor.textContent ?? '')) anchor.remove();
   }
   // A <form> is usually a search box or a signup and goes, but ASP.NET WebForms and some CMSs wrap
   // the whole page in one, and stripping that left a twin holding only the title. A form that holds
@@ -143,7 +177,10 @@ export function extractPage(html, options) {
   const wordCount = countWords(markdown);
   const minWords = options.minWords ?? 40;
   if (wordCount < minWords) {
-    warnings.push(ERRORS.thinContent(wordCount, minWords));
+    // A dev server that renders in the browser (VitePress, a Vite single-page app, Angular's) sends
+    // an empty shell, and "fills in its text with JavaScript" is less use than saying what to crawl.
+    const devShell = /<script[^>]+src=["'][^"']*\/@vite\/client["']/.test(html);
+    warnings.push(devShell ? ERRORS.thinContentDevServer(wordCount) : ERRORS.thinContent(wordCount, minWords));
   }
 
   dom.window.close();

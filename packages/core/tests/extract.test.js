@@ -51,6 +51,40 @@ describe('extractPage', () => {
     expect(result.markdown).not.toContain('Site name');
   });
 
+  // The shape Nuxt and React Router apps produce when nobody added a <main>: verified against both,
+  // where the banner's sentence used to open every twin.
+  it('drops a cookie banner and a modal in the <body> fallback', () => {
+    const html = page(`
+      <header><nav><a href="/">Home</a></nav></header>
+      <div class="cookie-banner"><p>We use cookies to remember your settings.</p><button>Accept all</button></div>
+      <div id="onetrust-consent-sdk"><p>Manage your privacy choices here.</p></div>
+      <div role="dialog" aria-label="Newsletter"><p>Subscribe for weekly bread tips.</p></div>
+      <div class="layout"><div class="post"><h1>Field notes</h1><p>Feed the starter equal weights of flour and water every twelve hours at room temperature.</p></div></div>
+    `);
+    const result = extractPage(html, { url: 'https://example.com/' });
+    expect(result.contentRoot).toBe('body');
+    expect(result.markdown).toContain('Feed the starter');
+    expect(result.markdown).not.toContain('We use cookies');
+    expect(result.markdown).not.toContain('privacy choices');
+    expect(result.markdown).not.toContain('weekly bread tips');
+  });
+
+  it('keeps content whose class only mentions cookies, and a page that is one big dialog', () => {
+    const recipe = page(`
+      <div class="cookies-recipe"><h2>Oat cookies</h2><p>Cream the butter and sugar, then fold in the oats.</p></div>
+      <p>Body level content that is long enough to be treated as the real thing by the extractor.</p>
+    `);
+    expect(extractPage(recipe, { url: 'https://example.com/' }).markdown).toContain('Cream the butter');
+
+    const dialog = page(`<div role="dialog"><h1>Terms</h1><p>${'These are the terms of service for the whole site. '.repeat(4)}</p></div>`);
+    expect(extractPage(dialog, { url: 'https://example.com/' }).markdown).toContain('terms of service');
+  });
+
+  it('leaves a modal inside <main> to the page', () => {
+    const html = page(`<main><h1>Gallery</h1><p>Every loaf from this year, in order.</p><dialog open><p>Photo of the March loaf.</p></dialog></main>`);
+    expect(extractPage(html, { url: 'https://example.com/' }).markdown).toContain('Photo of the March loaf');
+  });
+
   it('renders headings, nested lists, code, tables and links', () => {
     const html = page(`
       <main>
@@ -88,6 +122,14 @@ describe('extractPage', () => {
     const result = extractPage(html, { url: 'https://example.com/', minWords: 40 });
     expect(result.wordCount).toBeLessThan(40);
     expect(result.warnings.join(' ')).toMatch(/JavaScript|client/i);
+  });
+
+  it('says to crawl the build, not the dev server, when an empty page is a Vite dev shell', () => {
+    const html = page('<div id="app"></div><script type="module" src="/@vite/client"></script>');
+    const result = extractPage(html, { url: 'http://localhost:5173/', minWords: 40 });
+    const warning = result.warnings.join(' ');
+    expect(warning).toContain('this dev server builds the page in the browser');
+    expect(warning).toContain('npm run build');
   });
 
   it('reads the title and description from the document head', () => {
@@ -144,6 +186,25 @@ describe('extraction keeps the page shape intact', () => {
     const { markdown } = extractPage(html, { url: 'https://example.com/' });
     expect(markdown.match(/^# Install guide$/gm)).toHaveLength(1);
     expect(markdown).toContain('Docs / Guides');
+  });
+
+  it('drops the permalink a docs generator puts in every heading, and keeps the words of a heading that is a link', () => {
+    // VitePress and Docusaurus (zero-width space), MkDocs (pilcrow) and a Hugo theme ("#").
+    const html = page(`<main>
+      <h1 id="intro">Field notes <a class="header-anchor" href="#intro" aria-label="Permalink">\u200B</a></h1>
+      <h2 id="a">Schedule<a class="hash-link" href="#a">\u200B</a></h2>
+      <h2 id="b">Method<a class="headerlink" href="#b" title="Permanent link">¶</a></h2>
+      <h2 id="c"><a href="#c">#</a> Glossary</h2>
+      <h2><a href="#d">Further reading</a></h2>
+      <p>${words}</p></main>`);
+    const { markdown, title } = extractPage(html, { url: 'https://example.com/' });
+    expect(title).toBe('Field notes');
+    expect(markdown).toMatch(/^# Field notes$/m);
+    expect(markdown).toMatch(/^## Schedule$/m);
+    expect(markdown).toMatch(/^## Method$/m);
+    expect(markdown).toMatch(/^## Glossary$/m);
+    expect(markdown).toMatch(/^## Further reading$/m);
+    expect(markdown).not.toMatch(/[\u200B¶]/);
   });
 
   it('turns a link wrapped around a card into a heading link, not a heading inside a link', () => {
