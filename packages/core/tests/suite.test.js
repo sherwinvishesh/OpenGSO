@@ -474,26 +474,33 @@ describe('runTestSuite', () => {
 
 describe('suiteExitCode', () => {
   /**
-   * The same result with the structural tally replaced, so the exit code can be held to a literal
+   * The same result with every check's verdict replaced, so the exit code can be held to a literal
    * for a site that is clean and one that is not.
    *
    * @param {SuiteResult} result
-   * @param {TestResult['score']['counts']} counts
+   * @param {(check: TestResult['checks'][number]) => TestResult['checks'][number]['status']} status
    */
-  const withCounts = (result, counts) => {
+  const withStatuses = (result, status) => {
     const structure = /** @type {TestResult} */ (result.structure);
-    return { ...result, structure: { ...structure, score: { ...structure.score, counts } } };
+    return { ...result, structure: { ...structure, checks: structure.checks.map((check) => ({ ...check, status: status(check) })) } };
   };
 
-  it('lets the structural checks decide whenever there were any', async () => {
-    // The fixture site has no twin routing and no robots.txt, so real checks fail on it.
+  it('lets the scored checks decide whenever there were any', async () => {
+    // The fixture site has no sitemap, so a scored check fails on it.
     const result = await runTestSuite(`${site}/`, { mode: 'full', env: {} });
-    expect(/** @type {TestResult} */ (result.structure).score.counts.fail).toBeGreaterThan(0);
+    expect(/** @type {TestResult} */ (result.structure).score.scored.fail).toBeGreaterThan(0);
     expect(suiteExitCode(result)).toBe(1);
 
-    // Partials and locked lines are not failures: a site at 98/100 with B7 half done exits 0.
-    expect(suiteExitCode(withCounts(result, { pass: 18, partial: 2, fail: 0, locked: 0, na: 1 }))).toBe(0);
-    expect(suiteExitCode(withCounts(result, { pass: 5, partial: 3, fail: 1, locked: 12, na: 1 }))).toBe(1);
+    // Partials and locked lines are not failures: a site with B7 half done exits 0.
+    expect(suiteExitCode(withStatuses(result, (check) => (check.id === 'B7' || check.id === 'A1' ? 'partial' : 'pass')))).toBe(0);
+    expect(suiteExitCode(withStatuses(result, (check) => (check.id === 'A3' ? 'fail' : check.scored ? 'pass' : 'locked')))).toBe(1);
+  });
+
+  it('never fails a build over a suggestion, unless asked to be strict', async () => {
+    const result = await runTestSuite(`${site}/`, { mode: 'full', env: {} });
+    const twinless = withStatuses(result, (check) => (check.scored ? 'pass' : check.id === 'B1' ? 'fail' : 'locked'));
+    expect(suiteExitCode(twinless)).toBe(0);
+    expect(suiteExitCode(twinless, { strict: true })).toBe(1);
   });
 
   it('never fails a build over the content score', async () => {
@@ -501,7 +508,7 @@ describe('suiteExitCode', () => {
     // Every document scored as badly as the model can score it, and the exit code still comes from
     // the checks alone. The two numbers never meet, and this is where that is enforced.
     expect(result.content?.score).toBe(expectedScore(0));
-    const clean = withCounts(result, { pass: 20, partial: 0, fail: 0, locked: 0, na: 1 });
+    const clean = withStatuses(result, () => 'pass');
     expect(suiteExitCode(clean)).toBe(0);
     expect(suiteExitCode({ ...clean, contentError: 'The provider refused the request with 401.' })).toBe(0);
   });

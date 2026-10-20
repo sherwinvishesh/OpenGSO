@@ -2,7 +2,7 @@ import { c } from '../shared/log.js';
 import { PALETTE, ink } from '../shared/render/theme.js';
 import { relativeAge } from '../shared/history.js';
 import { padEnd, terminalWidth, truncate } from '../shared/render/paint.js';
-import { lockedMeter, meter, sparkline } from '../shared/render/meters.js';
+import { meter, sparkline } from '../shared/render/meters.js';
 import { box, wordmark } from './tui/widgets.js';
 
 /**
@@ -40,7 +40,8 @@ export function homeHeader(status, version, width = terminalWidth()) {
 const LABEL_WIDTH = 10;
 
 /**
- * The three status rows, each of which says "unknown" honestly rather than not appearing.
+ * The status rows, each of which says "unknown" honestly rather than not appearing. The one
+ * exception is Ideas, which needs a scored run to have anything to count.
  *
  * @param {HomeStatus} status
  * @param {number} width
@@ -58,9 +59,7 @@ export function statusRows(status, width) {
   }
 
   if (status.score) {
-    const bar = status.score.lockedPoints
-      ? lockedMeter(status.score.value, status.score.lockedPoints, 16)
-      : meter(status.score.value, 16);
+    const bar = meter(status.score.value, 16);
     const parts = [`${bar} ${c.bold(String(status.score.value))}`];
     if (typeof status.score.delta === 'number' && status.score.delta !== 0) {
       const sign = status.score.delta > 0 ? '+' : '';
@@ -70,6 +69,11 @@ export function statusRows(status, width) {
     if (status.score.trend.length > 1) parts.push(sparkline(status.score.trend, PALETTE.muted));
     parts.push(ink.faint(relativeAge(status.score.at)));
     rows.push(`${label('Score')}${parts.join('  ')}`);
+    // The second number, on its own row so it is never mistaken for part of the first.
+    const ideas = status.score.suggestions;
+    if (ideas && ideas.count > 0) {
+      rows.push(`${label('Ideas')}${ideas.adopted} of ${ideas.count} suggestions adopted  ${ink.faint(ideas.adopted === ideas.count ? 'all of them' : 'see the test report')}`);
+    }
   } else {
     rows.push(`${label('Score')}${ink.faint('never tested')}  ${ink.faint('press t')}`);
   }
@@ -126,10 +130,12 @@ export function homeEntries(commands, status) {
  */
 export function plainStatus(status) {
   if (!status.configured) return ['  not configured yet'];
+  const ideas = status.score?.suggestions;
   const rows = [
     status.score ? `  score    ${status.score.value}/100, ${relativeAge(status.score.at)}` : '  score    never tested',
+    ideas && ideas.count > 0 ? `  ideas    ${ideas.adopted} of ${ideas.count} suggestions adopted` : '',
     status.twins > 0 ? `  twins    ${status.twins} pages` : '  twins    none generated',
     status.provider ? `  ai key   ${status.provider.id}` : '  ai key   none',
   ];
-  return rows;
+  return rows.filter(Boolean);
 }

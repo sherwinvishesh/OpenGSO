@@ -3,6 +3,7 @@ import { parseUrl } from '../shared/http.js';
 import { discoverTwins } from './discover.js';
 import { reviewContent } from './quality.js';
 import { testUrl } from './run.js';
+import { failsBuild } from './score.js';
 
 /**
  * @import { AiBot } from '../shared/bots.js'
@@ -208,12 +209,15 @@ function noDocuments(url, discovery) {
 }
 
 /**
- * The exit code a suite result deserves. Structural failures decide it whenever there was one.
+ * The exit code a suite result deserves. Structural failures decide it whenever there was one, and
+ * by default that means a scored check failing outright: see `failsBuild` for why a suggestion does
+ * not, and what `strict` changes.
  *
  * @param {SuiteResult} result
+ * @param {{ strict?: boolean }} [options]
  * @returns {number}
  */
-export function suiteExitCode(result) {
-  if (result.structure) return result.structure.score.counts.fail === 0 ? 0 : 1;
+export function suiteExitCode(result, options = {}) {
+  if (result.structure) return failsBuild(result.structure.checks, options) ? 1 : 0;
   return result.contentError ? 1 : 0;
 }

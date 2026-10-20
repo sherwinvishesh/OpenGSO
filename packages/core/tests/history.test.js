@@ -100,20 +100,19 @@ describe('folding a run into an entry', () => {
     expect(folded.failedIds).toEqual(['A2']);
   });
 
-  it('prices what is waiting behind a locked check', () => {
-    const checks = [fail('B1', 'no twin'), locked('B2', 'B1', 'nothing to inspect'), locked('B3', 'B1', 'nothing to inspect')];
+  it('records how many suggestions the site has adopted, locked ones counted as not yet', () => {
+    const checks = [pass('A2', 'llms.txt'), fail('B1', 'no twin'), locked('B2', 'B1', 'nothing to inspect'), locked('B3', 'B1', 'nothing to inspect')];
     const folded = entryFromSuite(suite({ checks }));
 
     expect(folded.counts?.locked).toBe(2);
-    expect(folded.lockedPoints).toBe(scoreChecks(checks).locked.points);
-    expect(folded.lockedPoints).toBeGreaterThan(0);
+    expect(folded.suggestions).toEqual({ adopted: 1, count: 4 });
   });
 
   it('leaves the optional fields off a clean run rather than writing zeroes', () => {
     const folded = entryFromSuite(suite({ checks: [pass('A1', 'allowed')] }));
 
     expect(folded.failedIds).toBeUndefined();
-    expect(folded.lockedPoints).toBeUndefined();
+    expect(folded.suggestions).toBeUndefined();
     expect(folded.contentScore).toBeUndefined();
   });
 

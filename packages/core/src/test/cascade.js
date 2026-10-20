@@ -10,26 +10,24 @@ import { servesFile } from './checks-site.js';
  */
 
 /**
- * One missing twin costs one check, not twelve (§5).
+ * One missing twin costs one suggestion, not twelve (§5).
  *
  * Without this, a site that has simply never installed OpenGEO fails B1 and then fails eleven more
  * checks that are all restatements of the same fact: you cannot inspect the Content-Type of a
- * document that does not exist, and reporting that as eleven separate defects is not a measurement,
- * it is an echo. It also wrecks the scale. anthropic.com and openai.com are well-built sites that
- * an agent can read perfectly well, and the uncollapsed scorer put both at 38/100, which tells the
- * reader nothing except that the number is not to be trusted.
+ * document that does not exist, and reporting that as eleven separate findings is not a
+ * measurement, it is an echo.
  *
- * So when the twin URL does not answer, everything downstream of it leaves the denominator and the
- * whole verdict on the markdown layer is carried by B1, the heaviest check in the table. Those two
- * sites now score 80: the fundamentals are all there, the markdown layer is not, and the gap
- * between them is one line in the report instead of twelve.
+ * So when the twin URL does not answer, everything downstream of it becomes `locked` behind B1, and
+ * the whole verdict on the markdown layer is carried by B1, the heaviest check in the table. The
+ * twin layer is a set of suggestions, so none of this touches the 0-100; what it changes is the
+ * report, which leads with one suggestion and says how many more apply once a twin is served,
+ * instead of twelve findings about the same missing file. The cascade never locks a scored check.
  *
  * They leave as `locked`, not as `na`. That distinction is the entire difference between a report
- * that says "twelve things do not apply to you" and one that says "twelve things worth 46
- * points are waiting behind a single missing file". The arithmetic is identical; only one of them
- * tells the reader what to do next.
+ * that says "twelve things do not apply to you" and one that says "twelve more things become
+ * measurable the moment you serve a single file". Only one of them tells the reader what to do next.
  *
- * A twin that exists but is wrong is a different situation and is still scored in full detail.
+ * A twin that exists but is wrong is a different situation and is still checked in full detail.
  *
  * @param {CheckResult[]} results
  * @param {Evidence} e
@@ -41,12 +39,14 @@ export function collapseTwinCascade(results, e) {
   return results.map((result) => {
     const why = LOCKED_ON_TWIN[result.id] ?? (result.status === 'pass' ? undefined : LOCKED_ON_LIVE_URL[result.id]);
     if (!why) return result;
+    // A locked check has nothing to fix yet: its blocker's fix is the step, and it carries the count.
+    const { fix: _fix, price: _price, ...rest } = result;
     return {
-      ...result,
+      ...rest,
       status: /** @type {const} */ ('locked'),
       earned: 0,
       lockedBy: 'B1',
-      reason: `No markdown twin at ${e.twinUrl}, so ${why}. The missing twin is scored once, on B1.`,
+      reason: `No markdown twin at ${e.twinUrl}, so ${why}. The missing twin is reported once, on B1.`,
       // What the live site actually said is worth keeping: an AI crawler getting a 403 is a real
       // finding even though it is not this check's to score.
       detail: result.id in LOCKED_ON_LIVE_URL ? result.detail ?? result.reason : result.detail,
@@ -81,9 +81,10 @@ const LOCKED_ON_LIVE_URL = {
 };
 
 /**
- * Every check the cascade can take out of the denominator.
+ * Every check the cascade can lock. All of them are suggestions: the cascade never touches a scored
+ * check, which test-pillar.test.js holds it to.
  *
- * The report prices this list as one block, and docs.test.js adds up their weights to check the
+ * The report shows this list as one block, and docs.test.js adds up their weights to check the
  * number written in docs/checks.md is the number the code would actually produce.
  *
  * @type {readonly string[]}

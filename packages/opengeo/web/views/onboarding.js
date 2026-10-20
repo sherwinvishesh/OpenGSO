@@ -56,16 +56,19 @@ export function probeable(value) {
 
 /**
  * Ranked by points recoverable rather than by check order, because the first line of a first
- * report is the only one everybody reads and it should be the one worth most.
+ * report is the only one everybody reads and it should be the one worth most. The scored fixes come
+ * first; the suggestions fill whatever room is left, heaviest first, the same order the terminal
+ * prints them in.
  *
  * @param {CheckResult[]} checks
  * @returns {CheckResult[]}
  */
 export function nextFixes(checks) {
-  return checks
-    .filter((check) => check.status === 'fail' || check.status === 'partial')
-    .sort((a, b) => b.weight - b.earned - (a.weight - a.earned))
-    .slice(0, 3);
+  /** @param {CheckResult} check */
+  const open = (check) => check.status === 'fail' || check.status === 'partial';
+  const fixes = checks.filter((check) => check.scored && open(check)).sort((a, b) => b.weight - b.earned - (a.weight - a.earned));
+  const ideas = checks.filter((check) => !check.scored && open(check)).sort((a, b) => b.weight - a.weight);
+  return [...fixes, ...ideas].slice(0, 3);
 }
 
 /**
@@ -550,7 +553,7 @@ export function createOnboarding(ctx, onDone) {
   function drawSaved() {
     const score = result?.score;
     setText(savedSite, finishedSite);
-    const sub = scoring ? 'Running the structural test' : score ? `${score.earned} of ${score.possible} applicable points` : '';
+    const sub = scoring ? 'Running the structural test' : score ? `${score.earned} of ${score.possible} points across the scored checks` : '';
     setText(savedSub, sub);
     savedSub.hidden = !sub;
     progress.node.hidden = !scoring;
@@ -635,18 +638,19 @@ function closingScore(result, score, state) {
       ? el(
           'div',
           {},
-          el('div', { className: 'group-title', text: 'Do this next (most points first)' }),
+          el('div', { className: 'group-title', text: next[0]?.scored ? 'Do this next (most points first)' : 'Worth adopting next (outside the score)' }),
           next.map((check) =>
             el(
               'div',
-              { className: 'check' },
+              { className: check.scored ? 'check' : 'check check-suggestion' },
               el('div', { className: 'check-id', text: check.id }),
               el('div', {}, el('div', { className: 'check-title', text: check.title }), el('div', { className: 'check-reason', text: check.fix ?? check.reason })),
-              el('div', { className: 'check-points', text: `+${check.weight - check.earned}` }),
+              // A scored fix is priced in score points, the dial's unit. A suggestion moves no score.
+              el('div', { className: 'check-points', text: check.scored ? `+${check.price ?? check.weight - check.earned}` : 'tip' }),
             ),
           ),
         )
-      : banner({ tone: 'ok', title: 'Nothing to fix' }, 'Every applicable check passed on the first run.'),
+      : banner({ tone: 'ok', title: 'Nothing to fix' }, 'Every check that applies passed on the first run.'),
   ];
 }
 

@@ -76,6 +76,8 @@ export const SYM = {
   // Four characters like the rest, so a column of statuses stays a column.
   partial: () => c.yellow('PART'),
   locked: () => c.gray('LOCK'),
+  // A convention the page has not adopted. Not red: nothing here is broken.
+  suggestion: () => c.cyan('TIP '),
 };
 
 /**

@@ -17,7 +17,7 @@ import { decode, readKeys, splitChunks } from '../src/cli/tui/keys.js';
 import { canUseTui, openScreen, restoreScreens } from '../src/cli/tui/screen.js';
 import { CI_VARIABLES } from '../src/shared/ci.js';
 import { c } from '../src/shared/log.js';
-import { lockedMeter, meter, sparkline } from '../src/shared/render/meters.js';
+import { adoptionMeter, meter, sparkline } from '../src/shared/render/meters.js';
 import { box, listView, textField } from '../src/cli/tui/widgets.js';
 import { PALETTE, contentBand, structuralBand } from '../src/shared/render/theme.js';
 
@@ -221,17 +221,21 @@ describe('meter', () => {
   });
 });
 
-describe('lockedMeter', () => {
-  it('shows earned, locked and empty as three distinct runs', () => {
-    const drawn = stripAnsi(lockedMeter(50, 25, 20));
+describe('adoptionMeter', () => {
+  it('shows adopted, locked and open as three distinct runs', () => {
+    const drawn = stripAnsi(adoptionMeter(5, 5, 20, 20));
     expect(drawn).toHaveLength(20);
-    expect(drawn.startsWith('█'.repeat(10))).toBe(true);
-    expect(drawn).toContain('▒');
-    expect(drawn.endsWith('░')).toBe(true);
+    expect(drawn.startsWith('█'.repeat(5))).toBe(true);
+    expect(drawn).toContain('▒'.repeat(5));
+    expect(drawn.endsWith('░'.repeat(10))).toBe(true);
   });
 
-  it('never overflows its width when earned and locked would sum past a hundred', () => {
-    expect(visibleWidth(lockedMeter(80, 45, 20))).toBe(20);
+  it('never overflows its width when the parts would sum past the whole', () => {
+    expect(visibleWidth(adoptionMeter(12, 12, 15, 20))).toBe(20);
+  });
+
+  it('draws an empty track when there is nothing to adopt', () => {
+    expect(stripAnsi(adoptionMeter(0, 0, 0, 10))).toBe('░'.repeat(10));
   });
 });
 

@@ -204,7 +204,7 @@ export function banner({ tone, title, action }, ...children) {
 }
 
 /**
- * @param {'ok' | 'fail' | 'warn' | 'mute'} tone
+ * @param {'ok' | 'fail' | 'warn' | 'mute' | 'info'} tone
  * @param {...Child} children
  */
 export function pill(tone, ...children) {

@@ -20,6 +20,9 @@
   --warn-soft: #fbf2df;
   --ok: #2f6f4f;
   --ok-soft: #e8f2ec;
+  /* Suggestions: a colour that is neither a verdict nor a warning, since nothing in them is broken. */
+  --info: #2c5f86;
+  --info-soft: #e7f0f7;
   --shadow: 0 1px 2px rgba(20, 20, 18, 0.05), 0 4px 12px rgba(20, 20, 18, 0.04);
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -82,6 +85,8 @@
   --warn-soft: #2b2318;
   --ok: #6cc294;
   --ok-soft: #1c2b23;
+  --info: #7fb4dc;
+  --info-soft: #1a2530;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
   color-scheme: dark;
 }
@@ -480,6 +485,11 @@ summary:focus-visible,
   color: var(--text-3);
 }
 
+.pill-info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
 .banner {
   border-radius: var(--radius);
   padding: var(--s-12) var(--s-16);
@@ -856,6 +866,15 @@ summary:focus-visible,
   color: var(--accent);
 }
 
+/* A suggestion's partial is progress on something optional, not a shortfall, so it is not amber. */
+.check-suggestion .check-meter {
+  color: var(--info);
+}
+
+.check-suggestion .check-meter-fill {
+  background: var(--info);
+}
+
 /* -- the locked block -------------------------------------------------------------------------- */
 
 .locked-head {
@@ -867,7 +886,7 @@ summary:focus-visible,
 }
 
 .locked-points {
-  color: var(--warn);
+  color: var(--info);
   font-size: var(--text-xl);
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;

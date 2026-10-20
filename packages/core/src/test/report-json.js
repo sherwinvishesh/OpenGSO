@@ -25,11 +25,15 @@ export function testJson(result) {
     twinUrl: result.twinUrl,
     framework: result.framework ? { id: result.framework.id, name: result.framework.name } : null,
     counts: result.score.counts,
+    // The scored checks alone, which is what the 0-100 is made of, and the suggestions outside it.
+    scored: result.score.scored,
+    suggestions: result.score.suggestions,
     locked: result.score.locked,
     checks: result.checks.map((check) => ({
       id: check.id,
       title: check.title,
       category: check.category,
+      scored: check.scored,
       importance: check.importance,
       weight: check.weight,
       earned: check.earned,

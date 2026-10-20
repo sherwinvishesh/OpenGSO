@@ -3,14 +3,17 @@ import { card, el, empty, pill } from '../ui.js';
 /** @import { CheckResult, Score } from '../../../core/src/shared/api-types.js' */
 
 /**
- * Failures first, required before recommended, per §5. The order is the point: someone who
- * reads only the first group has read the things that actually stop agents working.
+ * Scored failures first, then the suggestions, per §5. The order is the point: someone who reads
+ * only the first group has read the things that actually stop agents working, and someone who reads
+ * the second has read what would set the site apart.
  *
- * Six groups rather than four, because two statuses had nowhere to go. A partial fell through every
- * filter and vanished from the page entirely while still counting in the score, and the twin cascade
- * arrived as thirteen separate rows each explaining that a document which does not exist cannot be
- * inspected. Both now have a home, and the locked one is a single priced card rather than thirteen
- * shrugs.
+ * The split is the score's own. Seven checks make up the 0-100 and the other fifteen are
+ * suggestions: conventions the best-read sites mostly have not adopted, so not having one is not a
+ * failure. Both kinds pass the same way, so the passing ones are split too, into Passed and Adopted,
+ * and a reader counting to seven never has to subtract.
+ *
+ * The twin cascade arrives as one card rather than twelve rows each explaining that a document which
+ * does not exist cannot be inspected.
  *
  * Group titles are `h2`. They sit straight under the page's `h1`, outside any card, so an `h3` would
  * skip a level.
@@ -18,7 +21,7 @@ import { card, el, empty, pill } from '../ui.js';
 
 const DOCS = 'https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md';
 
-/** @typedef {'ok' | 'fail' | 'warn' | 'mute'} Tone */
+/** @typedef {'ok' | 'fail' | 'warn' | 'mute' | 'info'} Tone */
 
 /**
  * @typedef {object} GroupSpec
@@ -30,38 +33,44 @@ const DOCS = 'https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md
  */
 
 /**
- * The five plain groups, in reading order. Locked is drawn separately, between Partly there and
- * Passed, because it is a priced summary rather than a list.
+ * The plain groups, in reading order. Locked is drawn separately, between Suggestions and Passed,
+ * because it is a summary rather than a list.
  *
  * @param {CheckResult[]} checks
  * @returns {{ before: GroupSpec[]; after: GroupSpec[]; locked: CheckResult[] }}
  */
 export function groupChecks(checks) {
-  /** @param {CheckResult['status']} status */
-  const of = (status) => checks.filter((check) => check.status === status);
-  const failed = of('fail');
+  /**
+   * @param {CheckResult['status']} status
+   * @param {boolean} scored
+   */
+  const of = (status, scored) => checks.filter((check) => check.status === status && Boolean(check.scored) === scored);
+  const suggestions = checks
+    .filter((check) => !check.scored && (check.status === 'fail' || check.status === 'partial'))
+    .sort((a, b) => b.weight - a.weight);
   return {
     before: [
       {
-        title: 'Failed - required',
+        title: 'Failed',
         tone: 'fail',
-        checks: failed.filter((check) => check.importance === 'required'),
-        empty: 'Nothing required is failing.',
+        checks: of('fail', true),
+        empty: 'Nothing scored is failing.',
         note: 'These stop AI agents from reading the page.',
       },
+      { title: 'Partly there', tone: 'warn', checks: of('partial', true), empty: '', note: 'Scored on what they earned, not all or nothing.' },
       {
-        title: 'Failed - recommended',
-        tone: 'warn',
-        checks: failed.filter((check) => check.importance === 'recommended'),
-        empty: 'Nothing recommended is failing.',
-        note: 'These make things better, but nothing here is broken.',
+        title: 'Suggestions',
+        tone: 'info',
+        checks: suggestions,
+        empty: '',
+        note: 'Outside the score. The best-read sites have not adopted these either, so they are what would set this one apart.',
       },
-      { title: 'Partly there', tone: 'warn', checks: of('partial'), empty: '', note: 'Scored on what they earned, not all or nothing.' },
     ],
-    locked: of('locked'),
+    locked: checks.filter((check) => check.status === 'locked'),
     after: [
-      { title: 'Passed', tone: 'ok', checks: of('pass'), empty: 'Nothing passed yet.' },
-      { title: 'Not applicable', tone: 'mute', checks: of('na'), empty: '', note: 'Excluded from the score entirely, not counted as failures.' },
+      { title: 'Passed', tone: 'ok', checks: of('pass', true), empty: 'Nothing scored passed yet.' },
+      { title: 'Adopted', tone: 'info', checks: of('pass', false), empty: '', note: 'Suggestions this site already follows.' },
+      { title: 'Not applicable', tone: 'mute', checks: checks.filter((check) => check.status === 'na'), empty: '', note: 'Excluded entirely, not counted as failures.' },
     ],
   };
 }
@@ -105,10 +114,10 @@ function group({ title, tone, checks, empty: emptyText, note }) {
 let lockedIds = 0;
 
 /**
- * The twin cascade, as one priced card.
+ * The twin cascade, as one card.
  *
- * This is the group the `locked` status exists for. Thirteen rows each saying that a document which
- * does not exist cannot be inspected is not information; the same thirteen, summed and labelled with
+ * This is the group the `locked` status exists for. Twelve rows each saying that a document which
+ * does not exist cannot be inspected is not information; the same twelve, counted and labelled with
  * the one thing that unlocks them, is. Collapsed by default and expandable, because the detail is
  * worth having exactly once and never on the way past.
  *
@@ -118,8 +127,6 @@ let lockedIds = 0;
 function lockedGroup(checks, score) {
   if (checks.length === 0) return null;
 
-  // In score points, like every other price on the page. The per-check figures below are weights.
-  const waiting = score?.locked.gain;
   const blockers = score?.locked.unlockedBy ?? [];
   const blocker = blockers[0] ?? checks[0]?.lockedBy;
 
@@ -142,7 +149,7 @@ function lockedGroup(checks, score) {
   return el(
     'div',
     { className: 'check-group' },
-    groupTitle('Locked', 'mute', checks.length, 'Not failures. Not measurable yet either, so they are outside the score.'),
+    groupTitle('Locked', 'mute', checks.length, 'Not failures, and outside the score: suggestions that cannot be measured yet.'),
     card(
       '',
       el(
@@ -151,8 +158,8 @@ function lockedGroup(checks, score) {
         el(
           'div',
           { className: 'locked-head' },
-          waiting === undefined ? null : el('b', { className: 'locked-points', text: `up to +${waiting} points` }),
-          el('span', { className: 'muted', text: `waiting behind ${blockers.join(' and ') || 'one fix'}` }),
+          el('b', { className: 'locked-points', text: `${checks.length} more ${checks.length === 1 ? 'suggestion applies' : 'suggestions apply'}` }),
+          el('span', { className: 'muted', text: `once ${blockers.join(' and ') || 'one fix'} passes` }),
         ),
         blocker === 'B1'
           ? el(
@@ -183,7 +190,7 @@ function lockedGroup(checks, score) {
 function checkRow(check) {
   return el(
     'div',
-    { className: 'check' },
+    { className: check.scored ? 'check' : 'check check-suggestion' },
     el(
       'div',
       { className: 'check-id' },
@@ -221,17 +228,18 @@ function checkRow(check) {
 }
 
 /**
- * What the check is doing to the score, in the fewest characters that stay honest. A fail is in
- * score points, the headline's unit; a partial's earned/weight is the check's own arithmetic.
+ * What the check is doing to the score, in the fewest characters that stay honest. A scored fail is
+ * in score points, the headline's unit; a partial's earned/weight is the check's own arithmetic. A
+ * suggestion has no price, because adopting it moves no score, so it says what it is instead.
  *
- * @param {Pick<CheckResult, 'status' | 'weight' | 'earned' | 'price'>} check
+ * @param {Pick<CheckResult, 'status' | 'weight' | 'earned' | 'price' | 'scored'>} check
  * @returns {string}
  */
 export function points(check) {
-  if (check.status === 'fail') return `-${check.price ?? check.weight}`;
-  if (check.status === 'partial') return `${check.earned}/${check.weight}`;
-  if (check.status === 'locked') return `${check.weight}`;
   if (check.status === 'na') return 'n/a';
+  if (check.status === 'partial') return `${check.earned}/${check.weight}`;
+  if (!check.scored) return check.status === 'fail' ? 'tip' : `${check.weight}`;
+  if (check.status === 'fail') return `-${check.price ?? check.weight}`;
   return `${check.weight}`;
 }
 

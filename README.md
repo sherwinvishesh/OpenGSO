@@ -53,7 +53,14 @@ npx opengeo test https://your-site.com --structure  # the checks alone. No key, 
 npx opengeo test https://your-site.com --content    # the review alone
 ```
 
-The structural pass is the 0 to 100 score: deterministic, free, reproducible. The content pass is a
+The structural pass is the 0 to 100 score: deterministic, free, reproducible. Seven of its 22
+checks make the number (crawler access, sitemap, server-rendered content, speed, no opt-out tag,
+HTTPS, a working HTML page), so a well-built site scores 100 without installing anything. The other
+fifteen are suggestions, counted as "N of 15 adopted": `llms.txt`, JSON-LD and the markdown layer
+OpenGEO builds. They never lower the score, and they are what sets a site apart. `--strict` makes a
+failing suggestion fail CI too.
+
+The content pass is a
 model reading the markdown documents your site actually serves and rating five things per document,
 definition, keywords, specificity, answerability, and structure and length. The two are printed as
 separate sections and the second is **never** folded into the number. The exit code always comes

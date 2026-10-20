@@ -1,10 +1,10 @@
 import { c, SYM, heading, terminalSafe } from '../shared/log.js';
-import { meter, lockedMeter, sparkline } from '../shared/render/meters.js';
-import { scoreInk, bandColour, contentBand, ink } from '../shared/render/theme.js';
+import { adoptionMeter, meter, sparkline } from '../shared/render/meters.js';
+import { PALETTE, scoreInk, bandColour, contentBand, ink } from '../shared/render/theme.js';
 import { BODY_INDENT, fg, indentWrapped, terminalWidth, wrap as wrapText } from '../shared/render/paint.js';
 import { deltaFor, relativeAge, scoreTrend } from '../shared/history.js';
 import { areaWeight, qualityBand } from './quality.js';
-import { scoreGain } from './score.js';
+import { fixSteps, isSuggestion, scoreGain } from './score.js';
 
 // The JSON side lives in its own file; re-exported so `@opengeo/core/test` offers the same names.
 export { suiteJson, testJson, toJson } from './report-json.js';
@@ -22,7 +22,7 @@ export { suiteJson, testJson, toJson } from './report-json.js';
  *   QualityReview,
  * } from './quality.js'
  * @import { DiscoveryResult } from './discover.js'
- * @import { Score } from './score.js'
+ * @import { FixStep, Score } from './score.js'
  * @import { TestResult } from './run.js'
  */
 
@@ -61,36 +61,31 @@ export function renderReport(result, options = {}) {
   if (result.framework) lines.push(c.gray(`Detected: ${result.framework.name}`));
   lines.push(renderScore(result.url, score, options));
 
-  const failedRequired = checks.filter((r) => r.status === 'fail' && r.importance === 'required');
-  const failedRecommended = checks.filter((r) => r.status === 'fail' && r.importance === 'recommended');
-  const partly = checks.filter((r) => r.status === 'partial');
+  const failed = checks.filter((r) => r.scored && r.status === 'fail');
+  const partly = checks.filter((r) => r.scored && r.status === 'partial');
+  const suggested = checks.filter(isSuggestion).sort((a, b) => b.weight - a.weight);
   const blocked = checks.filter((r) => r.status === 'locked');
-  const passed = checks.filter((r) => r.status === 'pass');
+  const passed = checks.filter((r) => r.scored && r.status === 'pass');
+  const adopted = checks.filter((r) => !r.scored && r.status === 'pass');
   const skipped = checks.filter((r) => r.status === 'na');
 
-  if (failedRequired.length > 0) {
-    lines.push(heading(`Failed - required (${failedRequired.length})`));
-    for (const check of failedRequired) lines.push(...renderCheck(check, score, width));
-  }
-  if (failedRecommended.length > 0) {
-    lines.push(heading(`Failed - recommended (${failedRecommended.length})`));
-    for (const check of failedRecommended) lines.push(...renderCheck(check, score, width));
+  if (failed.length > 0) {
+    lines.push(heading(`Failed (${failed.length})`));
+    for (const check of failed) lines.push(...renderCheck(check, score, width));
   }
   if (partly.length > 0) {
     lines.push(heading(`Partly there (${partly.length})`));
     for (const check of partly) lines.push(...renderCheck(check, score, width));
   }
-  if (blocked.length > 0) lines.push(...renderLocked(blocked, score, width));
-  if (passed.length > 0) {
-    if (options.verbose) {
-      lines.push(heading(`Passed (${passed.length})`));
-      for (const check of passed) lines.push(...renderCheck(check, score, width));
-    } else {
-      lines.push(heading(`Passed (${passed.length})`));
-      lines.push(`  ${c.gray(passed.map((check) => check.id).join(' '))}`);
-      lines.push(`  ${c.gray('Re-run with --verbose to see why each one passed.')}`);
-    }
+  if (suggested.length > 0) {
+    lines.push(heading(`Suggestions (${suggested.length})`));
+    lines.push(...indentWrapped(SUGGESTIONS_INTRO, width, c.gray));
+    lines.push('');
+    for (const check of suggested) lines.push(...renderCheck(check, score, width));
   }
+  if (blocked.length > 0) lines.push(...renderLocked(blocked, score, width));
+  lines.push(...renderPassing('Passed', passed, score, width, options.verbose));
+  lines.push(...renderPassing('Adopted', adopted, score, width, options.verbose));
   if (skipped.length > 0) {
     lines.push(heading(`Not applicable (${skipped.length})`));
     for (const check of skipped) {
@@ -104,6 +99,37 @@ export function renderReport(result, options = {}) {
 }
 
 /**
+ * What the Suggestions group is, in one line. Printed under its heading because a reader who has
+ * just seen 100/100 deserves to know why there is still a list.
+ */
+export const SUGGESTIONS_INTRO =
+  'Conventions for AI agents this page has not adopted. They are outside the score: the best-read sites have not adopted them either, so these are what would set this one apart.';
+
+/**
+ * The passing checks: ids on one line by default, every reason with --verbose. Passed and Adopted
+ * are separate groups because one is the score and the other is the suggestions, and a reader
+ * counting to seven should not have to subtract.
+ *
+ * @param {string} title
+ * @param {CheckResult[]} checks
+ * @param {Score} score
+ * @param {number} width
+ * @param {boolean | undefined} verbose
+ * @returns {string[]}
+ */
+function renderPassing(title, checks, score, width, verbose) {
+  if (checks.length === 0) return [];
+  const lines = [heading(`${title} (${checks.length})`)];
+  if (verbose) {
+    for (const check of checks) lines.push(...renderCheck(check, score, width));
+    return lines;
+  }
+  lines.push(`  ${c.gray(checks.map((check) => check.id).join(' '))}`);
+  lines.push(`  ${c.gray('Re-run with --verbose to see why each one passed.')}`);
+  return lines;
+}
+
+/**
  * One check, at whatever width the terminal actually is.
  *
  * The reason is the product, so it is the thing that gets the space: it wraps rather than running
@@ -112,9 +138,10 @@ export function renderReport(result, options = {}) {
  * measurement, and anything short of a pass carries its `fix` line last, since that is the part the
  * reader is going to act on.
  *
- * A fail is priced in score points, the headline's unit, not by its weight: a check's weight is out
- * of 122 and the headline is out of 100. A partial's `2 of 4` stays in weight, because it is the
- * check's own arithmetic rather than a price.
+ * A scored fail is priced in score points, the headline's unit, not by its weight: a check's weight
+ * is out of 61 and the headline is out of 100. A suggestion carries no price, because adopting it
+ * moves no score. A partial's `2 of 4` stays in weight, because it is the check's own arithmetic
+ * rather than a price.
  *
  * @param {CheckResult} check
  * @param {Score} score
@@ -123,14 +150,15 @@ export function renderReport(result, options = {}) {
  */
 function renderCheck(check, score, width) {
   const symbol =
-    check.status === 'pass' ? SYM.pass()
+    isSuggestion(check) ? SYM.suggestion()
+    : check.status === 'pass' ? SYM.pass()
     : check.status === 'fail' ? SYM.fail()
     : check.status === 'partial' ? SYM.partial()
     : check.status === 'locked' ? SYM.locked()
     : SYM.na();
 
   const tail =
-    check.status === 'fail' ? c.gray(`  -${check.price ?? scoreGain(score, check.weight)} pts`)
+    check.status === 'fail' && check.scored ? c.gray(`  -${check.price ?? scoreGain(score, check.weight)} pts`)
     : check.status === 'partial'
       ? `  ${meter((check.earned / check.weight) * 100, 8)} ${c.yellow(`${check.earned} of ${check.weight}`)}`
       : '';
@@ -143,11 +171,11 @@ function renderCheck(check, score, width) {
 }
 
 /**
- * The twin cascade, as one priced block.
+ * The twin cascade, as one block.
  *
  * This is the section the whole `locked` status exists for. Twelve paragraphs each explaining
  * that a document which does not exist cannot be inspected is not information; the same twelve
- * checks, summed and labelled with the single thing that unlocks them, is.
+ * checks, counted and labelled with the single thing that unlocks them, is.
  *
  * @param {CheckResult[]} blocked
  * @param {Score} score
@@ -157,19 +185,20 @@ function renderCheck(check, score, width) {
 function renderLocked(blocked, score, width) {
   /** @type {string[]} */
   const lines = [];
-  const points = score.locked.gain;
+  const blockers = score.locked.unlockedBy.join(' and ') || 'one fix';
   lines.push(heading(`Locked (${blocked.length})`));
-  lines.push(`  ${c.bold(fg(bandColour('fair'), `up to +${points} points`))} ${c.gray('waiting behind')} ${c.bold(score.locked.unlockedBy.join(' and ') || 'one fix')}`);
+  lines.push(
+    `  ${c.bold(fg(PALETTE.info, `${blocked.length} more ${blocked.length === 1 ? 'suggestion applies' : 'suggestions apply'}`))} ${c.gray('once')} ${c.bold(blockers)} ${c.gray('passes')}`,
+  );
 
   // One sentence naming the fix, taken from the check that is actually blocking, so this stays
   // correct if the cascade is ever keyed on something other than B1.
-  const blocker = score.locked.unlockedBy[0];
-  if (blocker === 'B1') {
+  if (score.locked.unlockedBy[0] === 'B1') {
     lines.push(...indentWrapped('Serve a markdown twin at the .md URL and every one of these becomes measurable. `opengeo generate` writes the files; `opengeo prod` serves them.', width, c.gray));
   }
   lines.push('');
   // The ids and their weights on one line: enough to see the shape of what is waiting without
-  // twelve paragraphs of it. Labelled as weights, since the line above is in score points.
+  // twelve paragraphs of it.
   const priced = blocked.map((check) => `${c.bold(check.id)} ${c.gray(String(check.weight))}`).join('  ');
   lines.push(`  ${priced}  ${c.gray('(check weights)')}`);
   return lines;
@@ -197,11 +226,12 @@ export function renderSetupScore(result, options = {}) {
 }
 
 /**
- * What to do next, ranked by points recovered.
+ * What to do next: scored fixes by points recovered, then the suggestions by weight.
  *
- * Replaces a single line suggesting `--prompt`. The ranking is the useful part: `lost` carries a
- * partial's shortfall rather than its weight, so a check two points from full does not outrank one
- * that earned nothing, and the locked block is priced as a single entry rather than twelve.
+ * The ranking comes from `fixSteps`, which the fix prompt and the dashboard use too, so the three
+ * cannot disagree about what comes first. `lost` carries a partial's shortfall rather than its
+ * weight, so a check two points from full does not outrank one that earned nothing, and the twin's
+ * own step says how many more suggestions it makes measurable rather than listing them.
  *
  * @param {readonly CheckResult[]} checks
  * @param {Score} score
@@ -211,70 +241,66 @@ export function renderSetupScore(result, options = {}) {
 function renderNextSteps(checks, score, width) {
   /** @type {string[]} */
   const lines = [''];
-  const byId = new Map(checks.map((check) => [check.id, check]));
-  /** @type {Array<{ id: string; points: number; recovered: number; text: string }>} */
-  const steps = [];
+  const steps = fixSteps(checks, score);
+  const fixes = steps.filter((step) => !step.suggestion);
+  const ideas = steps.filter((step) => step.suggestion);
 
-  // Every number here is score points, through scoreGain, so the list is in the headline's unit.
-  for (const entry of score.lost) {
-    const check = byId.get(entry.id);
-    let points = scoreGain(score, entry.points);
-    let text = check?.fix ?? check?.title ?? entry.id;
-    // A check that is also holding others hostage is worth its own points plus theirs, and saying
-    // so once beats listing "fix B1" above "unlock B2-B14" as two separate ideas when they are the
-    // same keystroke.
-    if (score.locked.unlockedBy.includes(entry.id)) {
-      points += score.locked.gain;
-      text = `${text} That also unlocks ${score.locked.count} check${score.locked.count === 1 ? '' : 's'}, worth up to ${score.locked.gain} more.`;
-    }
-    steps.push({ id: entry.id, points, recovered: entry.points, text });
-  }
-  // A locked block whose blocker is not itself in `lost` (it passed, but something upstream of the
-  // cascade still did not run) would otherwise go unmentioned.
-  if (score.locked.points > 0 && !score.locked.unlockedBy.some((id) => score.lost.some((entry) => entry.id === id))) {
-    steps.push({
-      id: score.locked.unlockedBy[0] ?? 'locked',
-      points: score.locked.gain,
-      recovered: 0,
-      text: `Serve the markdown twin, which unlocks ${score.locked.count} more checks.`,
-    });
-  }
-  steps.sort((a, b) => b.points - a.points);
-
-  if (steps.length === 0) {
-    lines.push(`  ${ink.ok('Nothing to fix. Every check that applies to this URL passed.')}`);
+  if (fixes.length === 0) {
+    lines.push(`  ${ink.ok(ideas.length > 0 ? 'Nothing to fix. Every scored check passed.' : 'Nothing to fix. Every check that applies to this URL passed.')}`);
     lines.push('');
-    return lines;
+  } else {
+    lines.push(`  ${c.bold('Do this next')} ${c.gray('(most points first)')}`);
+    lines.push('');
+    lines.push(...renderSteps(fixes.slice(0, MAX_NEXT_STEPS), width, true));
+    const rest = fixes.slice(MAX_NEXT_STEPS);
+    if (rest.length > 0) {
+      // Priced together rather than summed, since rounding makes score points not quite additive.
+      const restPoints = scoreGain(score, rest.reduce((sum, step) => sum + step.recovered, 0));
+      lines.push(`  ${c.gray(`plus ${rest.length} smaller ${rest.length === 1 ? 'fix' : 'fixes'} worth ${restPoints} between them: ${rest.map((step) => step.id).join(' ')}`)}`);
+    }
+    lines.push('');
   }
 
-  lines.push(`  ${c.bold('Do this next')} ${c.gray('(most points first)')}`);
+  if (ideas.length > 0) {
+    // Fewer of these than of the fixes: once the score is handled, the first suggestion or two is
+    // the decision, and the full list is already printed above.
+    const shown = ideas.slice(0, fixes.length === 0 ? MAX_NEXT_STEPS : MAX_NEXT_IDEAS);
+    lines.push(`  ${c.bold(fixes.length === 0 ? 'Worth adopting next' : 'Then, to stand out')} ${c.gray('(suggestions, outside the score)')}`);
+    lines.push('');
+    lines.push(...renderSteps(shown, width, fixes.length === 0));
+    const rest = ideas.slice(shown.length);
+    if (rest.length > 0) lines.push(`  ${c.gray(`plus ${rest.length} more: ${rest.map((step) => step.id).join(' ')}`)}`);
+    lines.push('');
+  }
+
+  if (fixes.length === 0 && ideas.length === 0) return lines;
+  lines.push(c.gray('Run the same command with --prompt to get a fix prompt for Claude Code.'));
   lines.push('');
+  return lines;
+}
+
+/**
+ * @param {FixStep[]} steps
+ * @param {number} width
+ * @param {boolean} emphasiseFirst
+ * @returns {string[]}
+ */
+function renderSteps(steps, width, emphasiseFirst) {
+  /** @type {string[]} */
+  const lines = [];
   // Measured rather than counted by hand: two spaces, the four-wide price, two, the three-wide id,
   // two. A literal here drifts the moment any of those five change, and a hanging indent that is
   // one column out is more distracting than no hanging indent at all.
   const gutter = ' '.repeat(2 + NEXT_POINTS_WIDTH + 2 + NEXT_ID_WIDTH + 2);
-  for (const [index, step] of steps.slice(0, MAX_NEXT_STEPS).entries()) {
-    // The price is already the left column, so the "(+3)" a `fix` carries for its own section is
-    // noise here and comes out.
-    const text = step.text.replace(/\s*\(\+\d+\)/g, '');
-    const wrapped = wrapText(text, Math.max(24, width - gutter.length - 2));
+  for (const [index, step] of steps.entries()) {
+    const wrapped = wrapText(step.text, Math.max(24, width - gutter.length - 2));
     // Green throughout, because every number in this column is points coming back rather than
-    // points lost. Ranking already says which one matters most; recolouring by size would be
-    // saying "this fix is bad", which is the opposite of what the list is for.
-    const points = ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
-    const paint = index === 0 ? c.bold : (/** @type {string} */ line) => line;
-    lines.push(`  ${points}  ${c.bold(step.id.padEnd(NEXT_ID_WIDTH))}  ${paint(wrapped[0] ?? '')}`);
+    // points lost. A suggestion has no points to show, so its column says what it is instead.
+    const left = step.suggestion ? ink.info('tip'.padStart(NEXT_POINTS_WIDTH)) : ink.accent(`+${step.points}`.padStart(NEXT_POINTS_WIDTH));
+    const paint = emphasiseFirst && index === 0 ? c.bold : (/** @type {string} */ line) => line;
+    lines.push(`  ${left}  ${c.bold(step.id.padEnd(NEXT_ID_WIDTH))}  ${paint(wrapped[0] ?? '')}`);
     for (const line of wrapped.slice(1)) lines.push(`${gutter}${paint(line)}`);
   }
-  const rest = steps.slice(MAX_NEXT_STEPS);
-  if (rest.length > 0) {
-    // Priced together rather than summed, since rounding makes score points not quite additive.
-    const restPoints = scoreGain(score, rest.reduce((sum, step) => sum + step.recovered, 0));
-    lines.push(`  ${c.gray(`plus ${rest.length} smaller ${rest.length === 1 ? 'fix' : 'fixes'} worth ${restPoints} between them: ${rest.map((step) => step.id).join(' ')}`)}`);
-  }
-  lines.push('');
-  lines.push(c.gray('Run the same command with --prompt to get a fix prompt for Claude Code.'));
-  lines.push('');
   return lines;
 }
 
@@ -282,6 +308,7 @@ function renderNextSteps(checks, score, width) {
 const NEXT_POINTS_WIDTH = 4;
 const NEXT_ID_WIDTH = 3;
 const MAX_NEXT_STEPS = 5;
+const MAX_NEXT_IDEAS = 2;
 
 /**
  * The same, with the continuation lines hanging under the first line's text rather than its marker.
@@ -303,14 +330,16 @@ function indentHanging(marker, text, width, paint) {
  * @returns {string}
  */
 function glyphArrow() {
-  return process.env.OPENGEO_ASCII ? '->' : '\u2192';
+  return process.env.OPENGEO_ASCII ? '->' : '→';
 }
 
 /**
- * The headline: score, meter, counts, and what changed since last time.
+ * The headline: score, meter, how many scored checks passed, where the suggestions stand, and what
+ * changed since last time.
  *
- * The locked points ride on the same meter as a ghosted second segment, so the shape of the bar
- * answers "how much of this is even being measured" without a second number to read.
+ * Two numbers, on purpose. The first is whether an agent can read the page today; the second is
+ * how much of the agent-specific layer the site has adopted, which is what OpenGEO itself adds. A
+ * well-built site with no twin reads 100/100 and 2 of 15, and both halves of that are true.
  *
  * @param {string} url
  * @param {Score} score
@@ -319,34 +348,25 @@ function glyphArrow() {
  */
 function renderScore(url, score, options) {
   const value = String(score.value).padStart(3, ' ');
-  const bar = score.locked.points > 0
-    ? lockedMeter(score.value, lockedShare(score), 24)
-    : meter(score.value, 24, { scale: 'structural' });
-
-  const parts = [`${score.counts.pass} passed`];
-  if (score.counts.partial > 0) parts.push(`${score.counts.partial} partial`);
-  parts.push(`${score.counts.fail} failed`);
-  if (score.counts.locked > 0) parts.push(`${score.counts.locked} locked`);
+  const bar = meter(score.value, 24, { scale: 'structural' });
+  const { scored } = score;
+  const parts = [`${scored.pass} of ${scored.count} scored checks passed`];
+  if (scored.partial > 0) parts.push(`${scored.partial} partial`);
+  if (scored.fail > 0) parts.push(`${scored.fail} failed`);
   if (score.counts.na > 0) parts.push(`${score.counts.na} n/a`);
 
   const headline = `  ${scoreInk(score.value, c.bold(`${value}/100`))}  ${bar}  ${c.gray(parts.join(', '))}`;
+  const lines = [headline];
+  const { suggestions } = score;
+  if (suggestions.count > 0) {
+    const label = 'ideas'.padStart(value.length + 4);
+    const detail = [`${suggestions.adopted} of ${suggestions.count} suggestions adopted`];
+    if (suggestions.locked > 0) detail.push(`${suggestions.locked} waiting on ${score.locked.unlockedBy.join(' and ') || 'one fix'}`);
+    lines.push(`  ${c.gray(label)}  ${adoptionMeter(suggestions.adopted, suggestions.locked, suggestions.count, 24)}  ${c.gray(detail.join(', '))}`);
+  }
   const trend = renderTrend(url, score, options);
-  return `\n${headline}${trend ? `\n${trend}` : ''}\n`;
-}
-
-/**
- * How much of the meter the locked points would occupy if they were being measured.
- *
- * Locked weight is outside the denominator, so it has no share of the current 0-100 to take. What
- * the ghost shows is the fraction of the whole checklist that is not being asked about, which is
- * the honest reading of "there is more of this test than you are seeing".
- *
- * @param {Score} score
- * @returns {number}
- */
-function lockedShare(score) {
-  const whole = score.possible + score.locked.points;
-  return whole === 0 ? 0 : Math.round((score.locked.points / whole) * 100);
+  if (trend) lines.push(trend);
+  return `\n${lines.join('\n')}\n`;
 }
 
 /**

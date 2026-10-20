@@ -77,26 +77,28 @@ function drawMeter(ratio, width, from, to) {
 }
 
 /**
- * A meter with a second, dimmer segment behind it.
+ * How many of the suggestions a site has adopted, as a bar with a second, dimmer segment.
  *
- * Used for locked points: the earned part is lit, the locked part is shown as territory that exists
- * but is not being scored, and the rest is empty. Seeing the three lengths together is the whole
- * argument for why a locked check is not the same as a failed one.
+ * Adopted is lit, in the info colour rather than a band colour, because this is not a grade: zero
+ * of fifteen is where every well-built site starts. The locked suggestions are drawn as territory
+ * that exists but cannot be measured yet, and the open ones are empty. Seeing the three lengths
+ * together is the whole argument for why "waiting on B1" is not the same as "not adopted".
  *
- * @param {number} value
+ * @param {number} adopted
  * @param {number} locked
+ * @param {number} count
  * @param {number} width
  * @returns {string}
  */
-export function lockedMeter(value, locked, width) {
+export function adoptionMeter(adopted, locked, count, width) {
   const g = glyphs();
-  const band = structuralBand(value);
-  const filled = Math.round((Math.max(0, Math.min(100, value)) / 100) * width);
-  const ghost = Math.min(width - filled, Math.round((Math.max(0, locked) / 100) * width));
-  const lit = Array.from({ length: filled }, (_, index) =>
-    fg(mix(bandColour(band), bandBright(band), width === 1 ? 1 : index / (width - 1)), g.blocks[7]),
+  if (count <= 0) return ink.faint(g.empty.repeat(width));
+  const lit = Math.min(width, Math.round((Math.max(0, adopted) / count) * width));
+  const ghost = Math.min(width - lit, Math.round((Math.max(0, locked) / count) * width));
+  const cells = Array.from({ length: lit }, (_, index) =>
+    fg(mix(PALETTE.info, PALETTE.okBright, width === 1 ? 1 : index / (width - 1)), g.blocks[7]),
   ).join('');
-  return lit + ink.faint(g.ghost.repeat(Math.max(0, ghost))) + ink.faint(g.empty.repeat(Math.max(0, width - filled - ghost)));
+  return cells + ink.faint(g.ghost.repeat(ghost)) + ink.faint(g.empty.repeat(Math.max(0, width - lit - ghost)));
 }
 
 /**

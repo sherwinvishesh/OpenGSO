@@ -1,32 +1,37 @@
 /** @import { CheckResult } from './checks.js' */
 
 /**
- * The 0-100 score (§5).
+ * The 0-100 score (§5), over the scored checks only.
  *
- * No letter grade, no tier label - deliberately. Checks that cannot apply to this target (HSTS on
- * localhost) are dropped from the denominator instead of counting as failures, so a local dev run
- * and a production run are both honest numbers rather than one being permanently capped.
+ * No letter grade, no tier label - deliberately. Three kinds of check stay outside the denominator,
+ * for different reasons:
  *
- * Two statuses are outside the denominator, for different reasons. `na` is out because the question
- * does not apply here and never will. `locked` is out because the question cannot be *asked* yet:
- * with no markdown twin there is nothing to inspect for a Content-Type on, and charging B1 plus
- * twelve more failures for one missing file would take a site from 80 to 38 for a single fix. What the
- * score does instead is carry those points as a number the report can show: `locked.points` is what
- * comes into play the moment the prerequisite passes.
+ * - `na`, because the question does not apply here and never will (HSTS on localhost), so a local
+ *   dev run and a production run are both honest numbers rather than one being permanently capped.
+ * - `locked`, because it cannot be *asked* yet: with no markdown twin there is nothing to inspect for
+ *   a Content-Type on, and charging for that would charge one missing file thirteen times.
+ * - a suggestion, because it is a convention the best-read sites have not adopted either, so not
+ *   having it is not a defect. Suggestions are counted on their own, adopted against open, so the
+ *   report can say where the page stands on them without moving the number.
  *
  * @typedef {object} Score
  * @property {number} value
  * @property {number} earned
- * @property {number} possible
- * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} counts
- * @property {Array<{ id: string; points: number }>} lost Points lost, per check, for the fix prompt and the ranked footer.
+ * @property {number} possible Sum of the weights of the scored checks that returned pass, partial or fail.
+ * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} counts Every check's verdict,
+ *   scored or not, so the five add up to the whole catalogue.
+ * @property {{ count: number; pass: number; partial: number; fail: number }} scored The scored checks by verdict, which
+ *   is what the headline counts. `count` leaves out the ones that cannot apply here.
+ * @property {Array<{ id: string; points: number }>} lost Weight lost, per scored check, for the fix prompt and the
+ *   ranked footer.
  *
  *   A partial contributes its shortfall rather than its weight, so a check worth 4 that earned 2
  *   appears here as 2. That is what makes the "do this next" list a genuine ranking: the two points
  *   still available from a partial should not outrank the ten behind a check that earned nothing.
- * @property {{ count: number; points: number; gain: number; unlockedBy: string[] }} locked What is waiting behind a failed prerequisite.
- *   `count` is zero on a healthy run. `points` is check weight; `gain` is the most it could add to the 0-100 headline once the
- *   blocker passes, on top of what the blocker itself adds.
+ * @property {{ count: number; adopted: number; open: number; locked: number }} suggestions Where the page stands on the
+ *   conventions outside the score. `count` leaves out the ones that cannot apply here; `open` is a fail or a partial.
+ * @property {{ count: number; unlockedBy: string[] }} locked What is waiting behind a failed prerequisite. `count` is
+ *   zero on a healthy run.
  */
 
 /**
@@ -39,81 +44,91 @@ export function scoreChecks(results) {
   const counts = { pass: 0, partial: 0, fail: 0, locked: 0, na: 0 };
   /** @type {Score['lost']} */
   const lost = [];
+  const suggestions = { count: 0, adopted: 0, open: 0, locked: 0 };
+  const scored = { count: 0, pass: 0, partial: 0, fail: 0 };
   /** @type {Set<string>} */
-  const lockedIds = new Set();
-  let lockedPoints = 0;
+  const lockedBy = new Set();
 
   for (const result of results) {
-    if (result.status === 'na') {
-      counts.na += 1;
-      continue;
-    }
+    counts[result.status] += 1;
+    if (result.status === 'na') continue;
     if (result.status === 'locked') {
-      counts.locked += 1;
-      lockedPoints += result.weight;
-      if (result.lockedBy) lockedIds.add(result.lockedBy);
+      if (result.lockedBy) lockedBy.add(result.lockedBy);
+      if (!result.scored) {
+        suggestions.count += 1;
+        suggestions.locked += 1;
+      }
       continue;
     }
-
+    if (!result.scored) {
+      suggestions.count += 1;
+      if (result.status === 'pass') suggestions.adopted += 1;
+      else suggestions.open += 1;
+      continue;
+    }
     possible += result.weight;
     earned += result.earned;
-
-    if (result.status === 'pass') {
-      counts.pass += 1;
-      continue;
-    }
-    counts[result.status === 'partial' ? 'partial' : 'fail'] += 1;
-    lost.push({ id: result.id, points: result.weight - result.earned });
+    scored.count += 1;
+    scored[result.status] += 1;
+    if (result.status !== 'pass') lost.push({ id: result.id, points: result.weight - result.earned });
   }
 
   // Rounded once, at the end. Rounding each check's contribution first would let a page of
   // near-misses round its way to a score it did not earn.
   const value = possible === 0 ? 0 : Math.round((earned / possible) * 100);
-  /** @type {Score} */
-  const score = {
+  return {
     value,
     earned: Math.round(earned),
     possible,
     counts,
+    scored,
     lost,
-    locked: { count: counts.locked, points: lockedPoints, gain: 0, unlockedBy: [...lockedIds] },
+    suggestions,
+    locked: { count: counts.locked, unlockedBy: [...lockedBy] },
   };
-  // Measured from where the blocker's own fix leaves the score, since nothing is unlocked before it
-  // passes. Otherwise the block and the blocker's line each claim the same points.
-  const blocker = lost.filter((entry) => lockedIds.has(entry.id)).reduce((sum, entry) => sum + entry.points, 0);
-  score.locked.gain = lockedPoints === 0 ? 0 : Math.max(0, scoreGain(score, blocker, lockedPoints) - scoreGain(score, blocker));
-  return score;
 }
 
 /**
- * How far the 0-100 headline moves if `recovered` check weight is earned back and `unlocked` locked
- * weight comes into the denominator, all of it passing.
+ * How far the 0-100 headline moves if `recovered` check weight is earned back, all of it passing.
  *
- * Check weights total 122 and the headline is out of 100, so a weight is not a score point: a fix
- * printed as "+10" against a 78/100 headline moved it by 15. Every price the report shows goes
+ * The scored weights total 61 and the headline is out of 100, so a weight is not a score point: a
+ * fix printed as "+9" against an 85/100 headline moves it by 15. Every price the report shows goes
  * through here, so there is one currency. It is the change in the rounded headline, floored at 1 so
  * a real gain never reads as "+0" when rounding happens to swallow it.
  *
  * @param {Score} score
  * @param {number} recovered
- * @param {number} [unlocked]
  * @returns {number}
  */
-export function scoreGain(score, recovered, unlocked = 0) {
-  if (recovered <= 0 && unlocked <= 0) return 0;
+export function scoreGain(score, recovered) {
+  if (recovered <= 0) return 0;
   // `score.earned` is rounded for display; the unrounded figure is the denominator minus what is lost.
   const earned = score.possible - score.lost.reduce((sum, entry) => sum + entry.points, 0);
-  const possible = score.possible + unlocked;
-  const after = possible === 0 ? 0 : Math.round(((earned + recovered + unlocked) / possible) * 100);
+  const after = score.possible === 0 ? 0 : Math.round(((earned + recovered) / score.possible) * 100);
   return Math.max(1, after - score.value);
 }
 
+/** The price a check writes into its `fix`, in check weight, until `priceFixes` restates it. */
+const PRICE = /\s*\(\+\d+\)/g;
+
 /**
- * Price every fail and partial in score points, and rewrite the "(+N)" its `fix` carries to match.
+ * A fix line without the "(+N)" price it carries.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripPrice(text) {
+  return text.replace(PRICE, '');
+}
+
+/**
+ * Price every scored fail and partial in score points, and rewrite the "(+N)" its `fix` carries to
+ * match.
  *
  * The checks write their price as a weight, because a check cannot know the denominator. Once the
- * run is scored it can be said in the headline's unit. A locked check's price is dropped: it is worth
- * nothing until its blocker passes, and the blocker's own line carries what unlocking it is worth.
+ * run is scored it can be said in the headline's unit. A suggestion keeps its fix and loses its
+ * price, since adopting it moves no score. A locked check loses it too: nothing can be said about it
+ * until its blocker passes.
  *
  * @param {readonly CheckResult[]} checks
  * @param {Score} score
@@ -121,13 +136,91 @@ export function scoreGain(score, recovered, unlocked = 0) {
  */
 export function priceFixes(checks, score) {
   return checks.map((check) => {
-    if (check.status !== 'fail' && check.status !== 'partial') {
-      return check.fix ? { ...check, fix: check.fix.replace(PRICE, '') } : check;
+    if (!check.scored || (check.status !== 'fail' && check.status !== 'partial')) {
+      return check.fix ? { ...check, fix: stripPrice(check.fix) } : check;
     }
     const price = scoreGain(score, check.weight - check.earned);
     return { ...check, price, fix: check.fix?.replace(PRICE, ` (+${price})`) };
   });
 }
 
-/** The price a check writes into its `fix`, in check weight, until `priceFixes` restates it. */
-const PRICE = /\s*\(\+\d+\)/g;
+/**
+ * A check that fell short and is not part of the score: a convention the page could adopt.
+ *
+ * @param {Pick<CheckResult, 'scored' | 'status'>} check
+ * @returns {boolean}
+ */
+export function isSuggestion(check) {
+  return !check.scored && (check.status === 'fail' || check.status === 'partial');
+}
+
+/**
+ * One entry in the "do this next" list.
+ *
+ * @typedef {object} FixStep
+ * @property {string} id
+ * @property {number} points Score points recovered. Zero for a suggestion.
+ * @property {number} recovered Check weight recovered, so the steps left over can be priced together.
+ * @property {string} text The check's fix, without its price, since the list prints the price as its own column.
+ * @property {number} unlocks How many locked checks this one makes measurable.
+ * @property {boolean} [suggestion]
+ */
+
+/**
+ * What to do next: the scored fixes ranked by score points recovered, most first, then the open
+ * suggestions by weight, so the markdown twin (the one that unlocks the rest) leads them.
+ *
+ * Every step is returned and the renderer decides how many to show. The terminal report, the fix
+ * prompt and the dashboard all rank from here, so they cannot disagree about what comes first.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @param {Score} score
+ * @returns {FixStep[]}
+ */
+export function fixSteps(checks, score) {
+  const byId = new Map(checks.map((check) => [check.id, check]));
+  /** @param {string} id */
+  const unlocks = (id) => (score.locked.unlockedBy.includes(id) ? score.locked.count : 0);
+
+  /** @type {FixStep[]} */
+  const fixes = score.lost.map((entry) => {
+    const check = byId.get(entry.id);
+    return {
+      id: entry.id,
+      points: scoreGain(score, entry.points),
+      recovered: entry.points,
+      text: stripPrice(check?.fix ?? check?.title ?? entry.id),
+      unlocks: unlocks(entry.id),
+    };
+  });
+  fixes.sort((a, b) => b.points - a.points);
+
+  /** @type {FixStep[]} */
+  const suggestions = checks
+    .filter(isSuggestion)
+    .sort((a, b) => b.weight - a.weight)
+    .map((check) => {
+      const count = unlocks(check.id);
+      let text = stripPrice(check.fix ?? check.title);
+      if (count > 0) text = `${text} That also makes ${count} more suggestion${count === 1 ? '' : 's'} measurable.`;
+      return { id: check.id, points: 0, recovered: 0, text, unlocks: count, suggestion: true };
+    });
+
+  return [...fixes, ...suggestions];
+}
+
+/**
+ * Whether a run should fail the build.
+ *
+ * By default only a scored check that failed outright does: a partial is half the work genuinely
+ * done, and a suggestion is a convention most good sites have not adopted, so neither is a broken
+ * build. `strict` adds every open suggestion that failed, for a project that has adopted the
+ * markdown layer and wants CI to notice the day it stops being served.
+ *
+ * @param {readonly CheckResult[]} checks
+ * @param {{ strict?: boolean }} [options]
+ * @returns {boolean}
+ */
+export function failsBuild(checks, options = {}) {
+  return checks.some((check) => check.status === 'fail' && (check.scored || options.strict === true));
+}

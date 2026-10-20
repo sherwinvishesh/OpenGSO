@@ -49,12 +49,12 @@ describe('docs/checks.md', () => {
     }
   });
 
-  it('states the right weight and importance for every check', () => {
+  it('says whether every check is scored, and states its weight', () => {
     for (const check of CHECKS) {
       const section = doc.split(`### ${check.id} - `)[1] ?? '';
-      const claim = section.split('\n').find((line) => line.startsWith('**Required') || line.startsWith('**Recommended'));
-      expect(claim, `${check.id} does not state its importance and weight`).toBeDefined();
-      const expected = `**${check.importance === 'required' ? 'Required' : 'Recommended'}, weight ${check.weight}.**`;
+      const claim = section.split('\n').find((line) => line.startsWith('**Scored') || line.startsWith('**Suggestion'));
+      expect(claim, `${check.id} does not state whether it is scored, and its weight`).toBeDefined();
+      const expected = `**${check.scored ? 'Scored' : 'Suggestion'}, weight ${check.weight}.**`;
       expect(claim, `${check.id} claims "${claim}"`).toBe(expected);
     }
   });
@@ -72,12 +72,21 @@ describe('docs/checks.md', () => {
     /** @param {(c: (typeof CHECKS)[number]) => boolean} predicate */
     const sum = (predicate) =>
       CHECKS.filter(predicate).reduce((total, c) => total + c.weight, 0);
-    const a = { required: sum((c) => c.category === 'A' && c.importance === 'required'), recommended: sum((c) => c.category === 'A' && c.importance === 'recommended') };
-    const b = { required: sum((c) => c.category === 'B' && c.importance === 'required'), recommended: sum((c) => c.category === 'B' && c.importance === 'recommended') };
+    const a = { scored: sum((c) => c.category === 'A' && c.scored), suggestions: sum((c) => c.category === 'A' && !c.scored) };
+    const b = { scored: sum((c) => c.category === 'B' && c.scored), suggestions: sum((c) => c.category === 'B' && !c.scored) };
 
-    expect(doc).toContain(`| **A. Discoverability** | ${a.required} | ${a.recommended} | ${a.required + a.recommended} |`);
-    expect(doc).toContain(`| **B. Implementation** | ${b.required} | ${b.recommended} | ${b.required + b.recommended} |`);
-    expect(doc).toContain(`| **Total** | ${a.required + b.required} | ${a.recommended + b.recommended} | ${a.required + a.recommended + b.required + b.recommended} |`);
+    expect(doc).toContain(`| **A. Discoverability** | ${a.scored} | ${a.suggestions} | ${a.scored + a.suggestions} |`);
+    expect(doc).toContain(`| **B. Implementation** | ${b.scored} | ${b.suggestions} | ${b.scored + b.suggestions} |`);
+    expect(doc).toContain(`| **Total** | ${a.scored + b.scored} | ${a.suggestions + b.suggestions} | ${a.scored + a.suggestions + b.scored + b.suggestions} |`);
+  });
+
+  it('counts the scored checks and the suggestions the way the catalogue does', () => {
+    const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen'];
+    const scored = CHECKS.filter((check) => check.scored).length;
+    const suggestions = CHECKS.length - scored;
+    expect(doc).toContain(`${words[scored][0]?.toUpperCase()}${words[scored].slice(1)} checks make the 0 to 100`);
+    expect(doc).toContain(`The other ${words[suggestions]} are conventions`);
+    expect(doc).toContain(`"N of ${suggestions} adopted"`);
   });
 
   it('counts the checks correctly in its own opening line', () => {
@@ -144,16 +153,16 @@ describe('docs/checks.md', () => {
     expect(section('A4')).not.toMatch(/invalid fails/);
   });
 
-  it('prices the locked block with the weights the cascade actually removes', () => {
+  it('shows the locked block with the weights the cascade actually locks', () => {
     /** @param {string} id */
     const weightOf = (id) => CHECKS.find((check) => check.id === id)?.weight ?? 0;
     const points = TWIN_LOCKED_IDS.reduce((total, id) => total + weightOf(id), 0);
     expect(doc).toContain(`Locked (${TWIN_LOCKED_IDS.length})`);
-    // The headline is in score points, which depend on the page; the weights it sums are not.
-    expect(doc).toMatch(/up to \+\d+ points waiting behind B1/);
+    expect(doc).toContain(`${TWIN_LOCKED_IDS.length} more suggestions apply once B1 passes`);
     expect(doc).toMatch(new RegExp(`which\\s+total ${points}\\.`));
-    // And the id/weight line under it, in the order the report prints them.
-    expect(doc).toContain(TWIN_LOCKED_IDS.map((id) => `${id} ${weightOf(id)}`).join('  '));
+    // And the id/weight line under it, in the order the report prints them, which is the catalogue's.
+    const printed = CHECKS.filter((check) => TWIN_LOCKED_IDS.includes(check.id));
+    expect(doc).toContain(printed.map((check) => `${check.id} ${check.weight}`).join('  '));
   });
 
   it('never invents a check id that does not exist', () => {
@@ -385,8 +394,12 @@ describe('the READMEs', () => {
     const report = ['export function renderReport(', 'function renderLocked(']
       .map((signature) => (source.split(signature)[1] ?? '').split('\n}\n')[0])
       .join('\n');
-    const groups = [...report.matchAll(/heading\(`([A-Z][^`(]*?) \(\$\{/g)].map(([, name]) => name);
-    expect(new Set(groups).size).toBeGreaterThanOrEqual(6);
+    // Passed and Adopted share one renderer, so their names are its first argument.
+    const groups = [
+      ...[...report.matchAll(/heading\(`([A-Z][^`(]*?) \(\$\{/g)].map(([, name]) => name),
+      ...[...report.matchAll(/renderPassing\('([A-Z][^']*)'/g)].map(([, name]) => name),
+    ];
+    expect(new Set(groups).size).toBeGreaterThanOrEqual(7);
     const output = (read('packages/testing/README.md').split('## Output')[1] ?? '').split('\n## ')[0];
     for (const group of groups) expect(output, `the Output section never names "${group}"`).toContain(`\n${group} `);
   });

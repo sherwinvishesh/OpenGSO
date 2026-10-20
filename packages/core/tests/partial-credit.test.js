@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
-import { checkDefinition, partial, ramp, runChecks, scoreChecks } from '@opengeo/core/test';
+import { checkDefinition, failsBuild, partial, ramp, runChecks, scoreChecks } from '@opengeo/core/test';
 import { liveContentHash } from './helpers/live-hash.js';
 /** @import { ProbeResult } from '@opengeo/core/shared' */
 /** @import { CheckResult, Evidence } from '@opengeo/core/test' */
@@ -389,41 +389,52 @@ describe('locked checks', () => {
     }
   });
 
-  it('stay out of the denominator and are priced as one number', () => {
+  it('stay out of the denominator and are counted as suggestions waiting on B1', () => {
     const score = scoreChecks(runChecks(noTwin()));
     expect(score.counts.locked).toBe(12);
-    expect(score.locked.points).toBe(46);
-    expect(score.locked.unlockedBy).toEqual(['B1']);
-    // 46 points of questions nobody can answer yet must not appear in `possible`.
-    expect(score.possible).toBe(76);
-    expect(score.lost.map((entry) => entry.id)).not.toContain('B2');
+    expect(score.locked).toEqual({ count: 12, unlockedBy: ['B1'] });
+    expect(score.suggestions.locked).toBe(12);
+    // Questions nobody can answer yet must not appear in `possible`, and neither do suggestions.
+    expect(score.possible).toBe(61);
+    expect(score.lost).toEqual([]);
   });
 
-  it('do not fail a build, because only a real failure should', () => {
+  it('do not fail a build, because only a scored failure should', () => {
     const results = runChecks(noTwin());
     const failures = results.filter((result) => result.status === 'fail');
-    // B1 is the one charge for the missing twin. Nothing downstream adds a second.
+    // B1 is the one finding for the missing twin. Nothing downstream adds a second.
     expect(failures.map((result) => result.id)).toEqual(['B1']);
+    expect(failsBuild(results)).toBe(false);
   });
 });
 
 describe('score arithmetic', () => {
-  it('counts a partial\'s shortfall in `lost`, not its whole weight', () => {
+  it('counts a scored partial\'s shortfall in `lost`, not its whole weight', () => {
+    const evidence = perfect();
+    evidence.robots = probe({ body: 'User-agent: CCBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n' });
+    const score = scoreChecks(runChecks(evidence));
+    expect(score.lost).toEqual([{ id: 'A1', points: 3 }]);
+    expect(score.scored.partial).toBe(1);
+    expect(score.scored.fail).toBe(0);
+  });
+
+  it('keeps a suggestion\'s partial out of `lost`, since it is outside the score', () => {
     const evidence = perfect();
     evidence.html.headers.set('vary', 'Accept-Encoding');
     const score = scoreChecks(runChecks(evidence));
-    expect(score.lost).toContainEqual({ id: 'B7', points: 2 });
+    expect(score.lost).toEqual([]);
+    expect(score.value).toBe(100);
     expect(score.counts.partial).toBe(1);
-    expect(score.counts.fail).toBe(0);
+    expect(score.suggestions.open).toBe(1);
   });
 
   it('ranks a big shortfall above a small one, so "do this next" is a real ranking', () => {
     const evidence = perfect();
-    evidence.html.headers.set('vary', 'Accept-Encoding');
-    evidence.llms = probe({ ok: false, status: 404, body: '' });
+    evidence.robots = probe({ body: 'User-agent: CCBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n' });
+    evidence.sitemap = probe({ body: '<urlset></urlset>' });
     const ranked = [...scoreChecks(runChecks(evidence)).lost].sort((a, b) => b.points - a.points);
-    expect(ranked[0]).toEqual({ id: 'A2', points: 3 });
-    expect(ranked[1]).toEqual({ id: 'B7', points: 2 });
+    expect(ranked[0]).toEqual({ id: 'A3', points: 6 });
+    expect(ranked[1]).toEqual({ id: 'A1', points: 3 });
   });
 
   it('never lets a partial be worth zero or full marks', () => {

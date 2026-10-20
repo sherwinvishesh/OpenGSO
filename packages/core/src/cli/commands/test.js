@@ -15,6 +15,7 @@ import {
   renderDiscovery,
   renderReport,
   runTestSuite,
+  failsBuild,
   suiteExitCode,
   suiteJson,
   testUrl,
@@ -42,7 +43,7 @@ import { resolveProject, resolveTarget } from '../project.js';
  */
 
 const SPEC = /** @type {const} */ ({
-  booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'structure', 'offline', 'content'],
+  booleans: ['json', 'verbose', 'quality', 'no-quality', 'prompt', 'structure', 'offline', 'content', 'strict'],
   strings: ['project', 'out', 'provider', 'model'],
   numbers: { timeout: { min: 0, exclusive: true }, 'max-docs': { min: 1, integer: true } },
   alias: { v: 'verbose', q: 'quality', nq: 'no-quality' },
@@ -67,6 +68,9 @@ export async function testCommand(ctx) {
   // Seconds on the command line, like generate and prod test; the pillar wants milliseconds.
   const timeout = args.num('timeout');
   const timeoutMs = timeout === undefined ? undefined : timeout * 1000;
+  // Suggestions never fail a build by default. --strict is for a site that has adopted them and
+  // wants CI to notice the day the twin stops being served.
+  const strict = args.bool('strict');
 
   // --prompt replaces the report rather than appending to it: the whole output is meant to be
   // selected and pasted into a coding agent, so anything else in the buffer is in the way. It is
@@ -77,7 +81,7 @@ export async function testCommand(ctx) {
       command: `opengeo test ${target.toString()}`,
       twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/${MD_DIR}/`,
     });
-    return writeOut(prompt, args.str('out'), result.score.counts.fail === 0 ? 0 : 1);
+    return writeOut(prompt, args.str('out'), failsBuild(result.checks, { strict }) ? 1 : 0);
   }
 
   const mode = resolveMode(args);
@@ -126,13 +130,13 @@ export async function testCommand(ctx) {
   // Its one warning goes to stderr, so a --json run's stdout stays clean.
   recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
-  if (json) return writeOut(`${suiteJson(result)}\n`, out, suiteExitCode(result));
+  if (json) return writeOut(`${suiteJson(result)}\n`, out, suiteExitCode(result, { strict }));
 
   // The structural report has already been printed by the progress printer, so that a long content
   // pass never hides the half of the answer that is already known.
   writeContent(result, write);
-  if (out) return writeOut(report.join(''), out, suiteExitCode(result));
-  return suiteExitCode(result);
+  if (out) return writeOut(report.join(''), out, suiteExitCode(result, { strict }));
+  return suiteExitCode(result, { strict });
 }
 
 /** @typedef {TestMode | { error: string }} ModeChoice */

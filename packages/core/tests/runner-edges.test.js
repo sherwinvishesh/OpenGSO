@@ -243,8 +243,8 @@ describe('fix prices, in the headline\'s unit', () => {
 
   it('prices each fix as the change it makes to the 0-100 score, not as its check weight', async () => {
     const result = await testUrl(`${site}/docs/page`);
-    const priced = result.checks.filter((entry) => (entry.status === 'fail' || entry.status === 'partial') && entry.fix);
-    expect(priced.length).toBeGreaterThan(2);
+    const priced = result.checks.filter((entry) => entry.scored && (entry.status === 'fail' || entry.status === 'partial') && entry.fix);
+    expect(priced.length).toBeGreaterThan(0);
     for (const entry of priced) {
       const fixed = result.checks.map((other) => (other.id === entry.id ? { ...other, status: /** @type {const} */ ('pass'), earned: other.weight } : other));
       const moved = Math.max(1, scoreChecks(fixed).value - result.score.value);
@@ -260,12 +260,23 @@ describe('fix prices, in the headline\'s unit', () => {
     }
   });
 
-  it('ranks the next steps in score points, so B1 is not sold as +56 on a 100-point scale', async () => {
+  it('drops the price from a suggestion, since adopting one moves no score', async () => {
+    const result = await testUrl(`${site}/docs/page`);
+    const suggestions = result.checks.filter((entry) => !entry.scored && entry.fix);
+    expect(suggestions.length).toBeGreaterThan(0);
+    for (const entry of suggestions) {
+      expect(entry.fix ?? '', entry.id).not.toMatch(/\(\+\d+\)/);
+      expect(entry.price, entry.id).toBeUndefined();
+    }
+  });
+
+  it('ranks the next steps in score points, and lists B1 as a suggestion rather than selling it as points', async () => {
     const result = await testUrl(`${site}/docs/page`);
     const report = renderReport(result);
-    const top = scoreGain(result.score, 10, result.score.locked.points);
-    expect(report).toMatch(new RegExp(`\\+${top}\\s+B1`));
-    expect(report).not.toContain(`+${10 + result.score.locked.points}`);
+    const top = scoreGain(result.score, 9);
+    expect(report).toMatch(new RegExp(`\\+${top}\\s+A3`));
+    expect(report).toMatch(/tip\s+B1/);
+    expect(report).not.toMatch(/\+\d+\s+B1/);
     expect(result.score.value + top).toBeLessThanOrEqual(100);
   });
 });

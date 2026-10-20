@@ -120,7 +120,8 @@ export {};
  * @property {number} [score] The structural 0-100. Absent in `content` mode, which never runs the checks.
  * @property {number} [contentScore] The content 0-100, kept separate from the structural one exactly as §5 requires.
  * @property {{ pass: number; partial: number; fail: number; locked: number; na: number }} [counts]
- * @property {number} [lockedPoints] Points sitting behind a locked check, so the home screen can price the next fix.
+ * @property {{ adopted: number; count: number }} [suggestions] How many of the suggestions outside the score the site had
+ *   adopted, so the home screen can show the second number without re-running anything.
  * @property {string[]} [failedIds] Ids of the checks that actually failed, so a delta can say what changed rather than only by how much.
  */
 

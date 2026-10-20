@@ -1,7 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkList, docsUrl, groupChecks, points, slug } from '../web/components/checks.js';
-import { lockedShare, pointsLine, scoreColour, sparklinePoints } from '../web/components/score.js';
+import { adoptedShare, pointsLine, scoreColour, sparklinePoints } from '../web/components/score.js';
 import { useDocument } from '../web/ui.js';
 import {
   createTestView,
@@ -44,6 +44,7 @@ function check(over) {
     id: 'A1',
     category: 'A',
     importance: 'required',
+    scored: true,
     title: 'Page answers',
     weight: 4,
     status: 'pass',
@@ -60,18 +61,21 @@ function score(over = {}) {
     earned: 80,
     possible: 100,
     counts: { pass: 2, partial: 1, fail: 1, locked: 2, na: 1 },
+    scored: { count: 3, pass: 1, partial: 1, fail: 1 },
     lost: [],
-    locked: { count: 2, points: 9, gain: 9, unlockedBy: ['B1'] },
+    suggestions: { count: 3, adopted: 1, open: 0, locked: 2 },
+    locked: { count: 2, unlockedBy: ['B1'] },
     ...over,
   };
 }
 
 const CHECKS = [
   check({ id: 'A1' }),
-  check({ id: 'A2', title: 'Robots, allowed?', status: 'fail', earned: 0, reason: 'Blocked.', fix: 'Unblock it.' }),
-  check({ id: 'B7', importance: 'recommended', status: 'partial', earned: 2, reason: 'Half there.' }),
-  check({ id: 'B2', status: 'locked', earned: 0, weight: 5, lockedBy: 'B1', reason: 'No twin.' }),
-  check({ id: 'B3', status: 'locked', earned: 0, weight: 4, lockedBy: 'B1', reason: 'No twin.' }),
+  check({ id: 'A3', title: 'Robots, allowed?', status: 'fail', earned: 0, reason: 'Blocked.', fix: 'Unblock it.' }),
+  check({ id: 'A6', status: 'partial', earned: 2, reason: 'Half there.' }),
+  check({ id: 'A2', scored: false, title: 'llms.txt', status: 'pass', earned: 3, weight: 3, reason: 'Found.' }),
+  check({ id: 'B2', scored: false, status: 'locked', earned: 0, weight: 5, lockedBy: 'B1', reason: 'No twin.' }),
+  check({ id: 'B3', scored: false, status: 'locked', earned: 0, weight: 4, lockedBy: 'B1', reason: 'No twin.' }),
   check({ id: 'A8', status: 'na', earned: 0, reason: 'Localhost.' }),
 ];
 
@@ -218,15 +222,24 @@ describe('test view helpers', () => {
     // A priced fail reads in score points, the headline's unit, not in its weight.
     expect(points(check({ status: 'fail', weight: 5, price: 7 }))).toBe('-7');
     expect(points(check({ status: 'partial', earned: 2, weight: 4 }))).toBe('2/4');
-    expect(points(check({ status: 'locked', weight: 6 }))).toBe('6');
     expect(points(check({ status: 'na' }))).toBe('n/a');
     expect(points(check({ status: 'pass', weight: 3 }))).toBe('3');
+    // A suggestion moves no score, so it is never priced, whatever it carries.
+    expect(points(check({ scored: false, status: 'fail', weight: 10, price: 15 }))).toBe('tip');
+    expect(points(check({ scored: false, status: 'locked', weight: 6 }))).toBe('6');
   });
 
-  it('prices the locked group in score points and labels the per-check figures as weights', () => {
-    const list = checkList(CHECKS, score({ locked: { count: 2, points: 9, gain: 12, unlockedBy: ['B1'] } }));
-    expect(list.querySelector('.locked-points')?.textContent).toBe('up to +12 points');
+  it('counts the locked group as suggestions and labels the per-check figures as weights', () => {
+    const list = checkList(CHECKS, score());
+    expect(list.querySelector('.locked-points')?.textContent).toBe('2 more suggestions apply');
+    expect(list.textContent).toContain('once B1 passes');
     expect(list.querySelector('.locked-prices')?.getAttribute('title')).toBe('Check weights');
+  });
+
+  it('marks a suggestion row so it never reads as a failure', () => {
+    const list = checkList([check({ id: 'B1', scored: false, status: 'fail', earned: 0, weight: 10, reason: 'No twin.' })], score());
+    expect(list.querySelector('.check-suggestion .check-points')?.textContent).toBe('tip');
+    expect(list.textContent).toContain('Nothing scored is failing.');
   });
 
   it('links a check to its heading in docs/checks.md', () => {
@@ -237,13 +250,14 @@ describe('test view helpers', () => {
   it('groups checks failures first', () => {
     const groups = groupChecks(CHECKS);
     expect(groups.before.map((group) => [group.title, group.checks.length])).toEqual([
-      ['Failed - required', 1],
-      ['Failed - recommended', 0],
+      ['Failed', 1],
       ['Partly there', 1],
+      ['Suggestions', 0],
     ]);
     expect(groups.locked.map((entry) => entry.id)).toEqual(['B2', 'B3']);
     expect(groups.after.map((group) => [group.title, group.checks.length])).toEqual([
       ['Passed', 1],
+      ['Adopted', 1],
       ['Not applicable', 1],
     ]);
   });
@@ -252,16 +266,16 @@ describe('test view helpers', () => {
     expect(scoreColour(87, { good: 90, fair: 60 })).toBe('var(--warn)');
     expect(scoreColour(87, { good: 85, fair: 60 })).toBe('var(--ok)');
     expect(scoreColour(10, { good: 85, fair: 60 })).toBe('var(--danger)');
-    expect(lockedShare(score({ possible: 54, locked: { count: 13, points: 46, gain: 46, unlockedBy: ['B1'] } }))).toBeCloseTo(0.46);
-    expect(lockedShare(score({ possible: 0, locked: { count: 0, points: 0, gain: 0, unlockedBy: [] } }))).toBe(0);
+    expect(adoptedShare(score({ suggestions: { count: 15, adopted: 3, open: 0, locked: 12 } }))).toBeCloseTo(0.2);
+    expect(adoptedShare(score({ suggestions: { count: 0, adopted: 0, open: 0, locked: 0 } }))).toBe(0);
   });
 
   it('writes the points line the way the terminal does', () => {
     expect(pointsLine(score(), { name: 'Next.js' })).toBe(
-      '80 of 100 applicable points, with 1 check excluded because it does not apply here, and 9 more waiting behind B1 · Next.js detected',
+      '80 of 100 points across the scored checks, with 1 check excluded because it does not apply here, and 2 suggestions waiting on B1 · Next.js detected',
     );
-    expect(pointsLine(score({ counts: { pass: 1, partial: 0, fail: 0, locked: 0, na: 2 }, locked: { count: 0, points: 0, gain: 0, unlockedBy: [] } }))).toBe(
-      '80 of 100 applicable points, with 2 checks excluded because they do not apply here',
+    expect(pointsLine(score({ counts: { pass: 1, partial: 0, fail: 0, locked: 0, na: 2 }, locked: { count: 0, unlockedBy: [] } }))).toBe(
+      '80 of 100 points across the scored checks, with 2 checks excluded because they do not apply here',
     );
   });
 
@@ -337,16 +351,17 @@ describe('createTestView', () => {
     expect(value.textContent).toBe('80');
     expect(value.style.color).toBe('var(--warn)');
     expect([...view.node.querySelectorAll('.counts > span')].map((node) => node.textContent)).toEqual([
-      '2 passed',
+      '1 of 3 scored passed',
       '1 partly there',
       '1 failed',
+      '1 of 3 suggestions adopted',
       '2 locked',
       '1 not applicable',
     ]);
     expect(view.node.textContent).not.toContain('No result yet');
 
     const titles = [...view.node.querySelectorAll('.group-title')].filter((node) => node.tagName === 'H2').map((node) => node.firstChild?.textContent);
-    expect(titles).toEqual(['Failed - required', 'Failed - recommended', 'Partly there', 'Locked', 'Passed', 'Not applicable']);
+    expect(titles).toEqual(['Failed', 'Partly there', 'Locked', 'Passed', 'Adopted', 'Not applicable']);
     expect(view.node.querySelector('h3')).toBeNull();
 
     const link = /** @type {HTMLAnchorElement} */ (view.node.querySelector('.check-id a'));
@@ -368,7 +383,7 @@ describe('createTestView', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(detail.hidden).toBe(true);
     expect(detail.querySelectorAll('.check')).toHaveLength(2);
-    expect(view.node.textContent).toContain('9 points');
+    expect(view.node.textContent).toContain('2 more suggestions apply');
     expect(view.node.textContent).toContain('Serve a markdown twin at the .md URL');
 
     toggle.click();

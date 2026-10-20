@@ -140,7 +140,7 @@ export function entryFromSuite(result, at = new Date()) {
   if (score) {
     entry.score = score.value;
     entry.counts = { ...score.counts };
-    if (score.locked && score.locked.points > 0) entry.lockedPoints = score.locked.points;
+    if (score.suggestions?.count > 0) entry.suggestions = { adopted: score.suggestions.adopted, count: score.suggestions.count };
     const failed = result.structure?.checks.filter((check) => check.status === 'fail').map((check) => check.id) ?? [];
     if (failed.length > 0) entry.failedIds = failed;
   }

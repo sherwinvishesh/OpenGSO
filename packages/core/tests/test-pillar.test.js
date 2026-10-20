@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
 import { liveContentHash } from './helpers/live-hash.js';
-import { CHECKS, renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
+import { CHECKS, failsBuild, fixSteps, renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
 /** @import { ProbeResult } from '@opengeo/core/shared' */
 /** @import { Evidence } from '@opengeo/core/test' */
 
@@ -254,21 +254,36 @@ describe('category B', () => {
     for (const id of ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'B14']) {
       expect(results.get(id)?.status, `${id} should be locked, not a second charge for one missing twin`).toBe('locked');
       expect(results.get(id)?.lockedBy).toBe('B1');
-      expect(results.get(id)?.reason).toContain('scored once, on B1');
+      expect(results.get(id)?.reason).toContain('reported once, on B1');
+      // A locked check has nothing to act on yet, so it carries no fix of its own to compete with B1's.
+      expect(results.get(id)?.fix).toBeUndefined();
     }
     // The human-facing site is untouched, which is exactly what "broken state" should still show.
     expect(results.get('B13')?.status).toBe('pass');
   });
 
-  it('prices the locked block, so the report can say what one fix is worth', () => {
+  it('counts the locked block as suggestions waiting on B1, outside the score', () => {
     const score = scoreChecks(runChecks(noTwinEvidence()));
     expect(score.counts.locked).toBe(12);
-    // The sum of B2-B14 minus B13, which is not locked because the HTML page still works.
-    expect(score.locked.points).toBe(46);
     expect(score.locked.unlockedBy).toEqual(['B1']);
-    // Locked points are outside the denominator, exactly as n/a used to be. This is the property
-    // that keeps a well-built site without a twin at 80 rather than 38.
-    expect(score.possible).toBe(76);
+    // Every scored check applies and passes; B1 and the twelve behind it are suggestions.
+    expect(score.possible).toBe(61);
+    expect(score.value).toBe(100);
+    // B13 is not locked because the HTML page still works, and A2 and A4 pass on this site, so
+    // B1 is the one open suggestion and the other two adopted ones are llms.txt and JSON-LD.
+    expect(score.suggestions).toEqual({ count: 15, adopted: 2, open: 1, locked: 12 });
+  });
+
+  it('never locks a scored check', () => {
+    /** @type {Set<string>} */
+    const scored = new Set(CHECKS.filter((check) => check.scored).map((check) => check.id));
+    const evidence = noTwinEvidence();
+    // The worst case the cascade sees: no twin, and the live URL failing every probe it makes.
+    evidence.acceptMarkdown = probe({ ok: false, status: 500, headers: new Headers() });
+    evidence.botUa = probe({ ok: false, status: 403, headers: new Headers() });
+    for (const check of runChecks(evidence)) {
+      if (scored.has(check.id)) expect(check.status, check.id).not.toBe('locked');
+    }
   });
 
   it('keeps what the live site actually said, even on a check it no longer scores', () => {
@@ -339,22 +354,50 @@ describe('scoring', () => {
     expect(localScore.value).toBe(100);
   });
 
-  it('weights a required failure more heavily than a recommended one', () => {
-    const missingRequired = goodEvidence();
-    missingRequired.robots = probe({ ok: false, status: 404 });
-    const missingRecommended = goodEvidence();
-    missingRecommended.twin.headers.delete('x-content-type-options');
+  it('lets a scored failure move the score and leaves it alone for a suggestion', () => {
+    const missingScored = goodEvidence();
+    missingScored.robots = probe({ ok: false, status: 404 });
+    const missingSuggestion = goodEvidence();
+    missingSuggestion.twin.headers.delete('x-content-type-options');
 
-    expect(scoreChecks(runChecks(missingRequired)).value).toBeLessThan(
-      scoreChecks(runChecks(missingRecommended)).value,
-    );
+    expect(scoreChecks(runChecks(missingScored)).value).toBeLessThan(100);
+    const suggestion = scoreChecks(runChecks(missingSuggestion));
+    expect(suggestion.value).toBe(100);
+    expect(suggestion.suggestions.open).toBe(1);
   });
 
-  it('records the points lost per failing check, for the fix prompt', () => {
+  it('records the points lost per failing scored check, for the fix prompt', () => {
     const evidence = goodEvidence();
+    evidence.sitemap = probe({ ok: false, status: 404 });
     evidence.llms = probe({ ok: false, status: 404 });
     const score = scoreChecks(runChecks(evidence));
-    expect(score.lost).toEqual([{ id: 'A2', points: 3 }]);
+    // A3 is scored and A2 is a suggestion, so only A3 is a loss.
+    expect(score.lost).toEqual([{ id: 'A3', points: 9 }]);
+    expect(score.suggestions.open).toBe(1);
+  });
+
+  it('fails the build on a scored failure, and on a suggestion only when asked to be strict', () => {
+    const scoredFail = goodEvidence();
+    scoredFail.sitemap = probe({ ok: false, status: 404 });
+    expect(failsBuild(runChecks(scoredFail))).toBe(true);
+
+    const suggestionFail = runChecks(noTwinEvidence());
+    expect(failsBuild(suggestionFail)).toBe(false);
+    expect(failsBuild(suggestionFail, { strict: true })).toBe(true);
+
+    expect(failsBuild(runChecks(goodEvidence()), { strict: true })).toBe(false);
+  });
+
+  it('ranks the scored fixes first, then the suggestions by weight with B1 saying what it unlocks', () => {
+    const evidence = unadoptedSiteEvidence();
+    evidence.sitemap = probe({ ok: false, status: 404 });
+    const checks = runChecks(evidence);
+    const steps = fixSteps(checks, scoreChecks(checks));
+    expect(steps.map((step) => step.id)).toEqual(['A3', 'B1', 'A2', 'A4']);
+    expect(steps[0].points).toBeGreaterThan(0);
+    expect(steps.slice(1).every((step) => step.suggestion && step.points === 0)).toBe(true);
+    expect(steps[1].unlocks).toBe(12);
+    expect(steps[1].text).toContain('12 more suggestions measurable');
   });
 
   it('reports a score of 0 when nothing can be scored', () => {
@@ -367,20 +410,30 @@ describe('scoring', () => {
  *
  * A weight table is only worth anything if the numbers it produces mean something to a person
  * reading them, and the way to know that is to check it against sites whose quality is not in
- * doubt. These two assertions are what stop a well-meaning weight edit from quietly putting the
- * whole web back at 38/100.
+ * doubt. These assertions are what stop a well-meaning edit from quietly putting the best-read sites
+ * on the web below 100 for not having adopted a convention nobody has adopted yet.
  */
 describe('the scale, measured against a site that does everything but markdown', () => {
-  it('puts a site that does everything but the AI conventions at 80', () => {
+  it('puts a site that does everything but the AI conventions at 100, with three suggestions open', () => {
     const score = scoreChecks(runChecks(unadoptedSiteEvidence()));
-    expect(score.value).toBe(80);
-    // The three things it is missing, and nothing else. Twelve echoes of the missing twin would
-    // put this back in the thirties.
-    expect(score.lost.map((entry) => entry.id)).toEqual(['A2', 'A4', 'B1']);
+    expect(score.value).toBe(100);
+    expect(score.lost).toEqual([]);
+    // The three things it is missing, as suggestions, and the twelve that wait on the twin.
+    const open = runChecks(unadoptedSiteEvidence()).filter((check) => !check.scored && check.status === 'fail');
+    expect(open.map((check) => check.id)).toEqual(['A2', 'A4', 'B1']);
+    expect(score.suggestions).toEqual({ count: 15, adopted: 0, open: 3, locked: 12 });
   });
 
-  it('gives the same site most of the last 20 points back once it serves a twin', () => {
-    expect(scoreChecks(runChecks(goodEvidence())).value).toBe(100);
+  it('keeps the same site at 100 once it serves a twin, with every suggestion adopted', () => {
+    const score = scoreChecks(runChecks(goodEvidence()));
+    expect(score.value).toBe(100);
+    expect(score.suggestions).toEqual({ count: 15, adopted: 15, open: 0, locked: 0 });
+  });
+
+  it('moves the number below 100 only for a scored failure', () => {
+    const evidence = unadoptedSiteEvidence();
+    evidence.html = probe({ body: '<!doctype html><html><head><title>x</title></head><body><div id="root"></div></body></html>', headers: evidence.html.headers });
+    expect(scoreChecks(runChecks(evidence)).value).toBeLessThan(100);
   });
 
   it('leaves the markdown twin as the largest single thing anyone can lose', () => {
@@ -512,6 +565,7 @@ describe('the score stays honest when most of the checklist cannot apply', () =>
       id,
       category: /** @type {const} */ ('A'),
       importance: /** @type {const} */ ('required'),
+      scored: true,
       weight,
       title: id,
       status,

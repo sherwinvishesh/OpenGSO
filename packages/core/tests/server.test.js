@@ -750,7 +750,7 @@ describe('the streaming endpoints', () => {
     // A URL instance stringifies to `{}` rather than throwing, which is the failure that would go
     // unnoticed: the frame would arrive, and the field inside it would be an empty object.
     expect(wire).toContain('"twinUrl":"https://example.com/resume.md"');
-    expect(JSON.parse(wire).structure.score.locked.points).toBe(46);
+    expect(JSON.parse(wire).structure.score.suggestions).toEqual({ count: 15, adopted: 0, open: 3, locked: 12 });
   });
 
   it('passes a review phase through as it is, since there is nothing in it a browser cannot read', () => {
@@ -797,12 +797,14 @@ function structuralResult() {
     twinUrl: 'https://example.com/resume.md',
     checks: [],
     score: {
-      value: 78,
+      value: 85,
       earned: 52,
-      possible: 67,
-      counts: { pass: 5, partial: 3, fail: 1, locked: 12, na: 1 },
-      lost: [{ id: 'B1', points: 10 }],
-      locked: { count: 12, points: 46, gain: 9, unlockedBy: ['B1'] },
+      possible: 61,
+      counts: { pass: 5, partial: 3, fail: 2, locked: 12, na: 0 },
+      scored: { count: 7, pass: 6, partial: 0, fail: 1 },
+      lost: [{ id: 'A3', points: 9 }],
+      suggestions: { count: 15, adopted: 0, open: 3, locked: 12 },
+      locked: { count: 12, unlockedBy: ['B1'] },
     },
     evidence,
   };

@@ -1,6 +1,6 @@
 import { terminalText } from '../shared/log.js';
 import { MD_DIR } from '../shared/routes.js';
-import { scoreGain } from './score.js';
+import { isSuggestion, scoreGain, stripPrice } from './score.js';
 
 /**
  * @import { CheckId, CheckResult } from './checks.js'
@@ -119,15 +119,19 @@ const REMEDY = {
  * @returns {string}
  */
 export function buildFixPrompt(result, options = {}) {
-  const failures = result.checks.filter((check) => check.status === 'fail');
+  const failures = result.checks.filter((check) => check.scored && check.status === 'fail');
   // A partial is work in progress, not a pass, and leaving it out was hiding the cheapest points on
   // the report from the one reader who could act on them. It is a separate section rather than more
   // failures because the instruction differs: a failure needs the thing built, a partial needs the
   // last step of something already standing.
-  const partials = [...result.checks.filter((check) => check.status === 'partial')].sort(
+  const partials = [...result.checks.filter((check) => check.scored && check.status === 'partial')].sort(
     (a, b) => b.weight - b.earned - (a.weight - a.earned),
   );
+  // Last, and labelled as optional: an agent handed a list does all of it, and the user should get
+  // the score fixed before a single header is added for a convention most sites have not adopted.
+  const suggestions = result.checks.filter(isSuggestion).sort((a, b) => b.weight - a.weight);
   const blocked = result.checks.filter((check) => check.status === 'locked');
+  const ideas = result.score.suggestions;
   /** @type {string[]} */
   const lines = [];
 
@@ -150,16 +154,28 @@ export function buildFixPrompt(result, options = {}) {
   lines.push(`- Site URL audited: ${quoted(result.url)}`);
   lines.push(`- Expected markdown twin URL: ${quoted(result.twinUrl)}`);
   lines.push(`- Current score: ${result.score.value}/100 (${result.score.earned} of ${result.score.possible} by check weight)`);
+  if (ideas.count > 0) lines.push(`- Suggestions adopted: ${ideas.adopted} of ${ideas.count} (outside the score)`);
   lines.push(`- Detected framework: ${describeFramework(result.framework)}`);
   if (options.command) lines.push(`- Command that produced this: ${quoted(options.command)}`);
   lines.push('');
 
-  if (failures.length === 0 && partials.length === 0) {
+  if (failures.length === 0 && partials.length === 0 && suggestions.length === 0 && blocked.length === 0) {
     lines.push('## Nothing failed');
     lines.push('');
     lines.push('Every check passed. There is no work to do here.');
     lines.push('');
     return lines.join('\n');
+  }
+
+  if (failures.length === 0 && partials.length === 0) {
+    lines.push('## The score is already full');
+    lines.push('');
+    lines.push(
+      `Every scored check passed, so the site reads ${result.score.value}/100 and nothing below changes that.`,
+      'What is left are suggestions: conventions for AI agents that would set the site apart. Confirm',
+      'with the user that they want them before making changes.',
+    );
+    lines.push('');
   }
 
   if (failures.length > 0) {
@@ -174,6 +190,17 @@ export function buildFixPrompt(result, options = {}) {
     lines.push('These already do most of what they should. Each one names the remaining step and what it is worth.');
     lines.push('');
     for (const check of partials) lines.push(...renderPartial(check, result, options));
+  }
+
+  if (suggestions.length > 0) {
+    lines.push(`## Suggestions, not scored (${suggestions.length})`);
+    lines.push('');
+    lines.push(
+      'These are outside the score. The best-read sites mostly have not adopted them either, so they',
+      'are what would set this one apart rather than defects. Do them after everything above, heaviest first.',
+    );
+    lines.push('');
+    for (const check of suggestions) lines.push(...renderSuggestion(check, result, options));
   }
 
   if (blocked.length > 0) {
@@ -202,7 +229,7 @@ export function buildFixPrompt(result, options = {}) {
   lines.push('');
   lines.push('1. Walk through the exact code changes needed, file by file, with the real paths in this repo.');
   lines.push('2. Show a diff against the current setup, not a description of one.');
-  lines.push('3. For each change, say which failed check ID above it fixes.');
+  lines.push('3. For each change, say which check ID above it addresses.');
   lines.push("4. Verify your suggestions against OpenGEO's own published spec and docs before you finish:");
   lines.push(`   - ${DOCS.prod}`);
   lines.push(`   - ${DOCS.generate}`);
@@ -228,7 +255,7 @@ function renderFailure(check, result, options) {
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
-  lines.push(`- Points lost: ${scoreGain(result.score, check.weight)} of 100 (${check.importance})`);
+  lines.push(`- Points lost: ${scoreGain(result.score, check.weight)} of 100`);
   lines.push(`- What happened: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
   // The check's own fix first: it names the cause it observed (an HTML page at the twin URL, a
@@ -262,11 +289,47 @@ function renderPartial(check, result, options) {
   const lines = [];
   lines.push(`### ${check.id} - ${check.title}`);
   lines.push('');
-  lines.push(`- Earned so far: ${check.earned} of ${check.weight} (${check.importance})`);
+  lines.push(`- Earned so far: ${check.earned} of ${check.weight}`);
   lines.push(`- Points still available: ${scoreGain(result.score, check.weight - check.earned)} of 100`);
   lines.push(`- Where it stands: ${quoted(check.reason)}`);
   if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
   lines.push(`- Fix: ${check.fix ?? remedyFor(check, result, options)}`);
+  lines.push('');
+  return lines;
+}
+
+/**
+ * A suggestion: the same evidence as a failure, without a price, since adopting it moves no score.
+ *
+ * @param {CheckResult} check
+ * @param {TestResult} result
+ * @param {FixPromptOptions} options
+ * @returns {string[]}
+ */
+function renderSuggestion(check, result, options) {
+  /** @type {string[]} */
+  const lines = [];
+  lines.push(`### ${check.id} - ${check.title}`);
+  lines.push('');
+  lines.push(
+    check.status === 'partial'
+      ? `- Adopted so far: ${check.earned} of ${check.weight} (a suggestion, worth no score points)`
+      : `- Weight: ${check.weight} (a suggestion, worth no score points)`,
+  );
+  lines.push(`- What happened: ${quoted(check.reason)}`);
+  if (check.detail) lines.push(`- Detail: ${quoted(check.detail)}`);
+  // Stripped here as well as in `priceFixes`, since a price on a suggestion is a promise it cannot keep.
+  const fix = check.fix ? stripPrice(check.fix) : undefined;
+  const remedy = remedyFor(check, result, options);
+  if (fix && check.status !== 'partial') {
+    lines.push(`- Fix: ${fix}`);
+    lines.push(`- Background: ${remedy}`);
+  } else {
+    lines.push(`- Fix: ${fix ?? remedy}`);
+  }
+  if (result.score.locked.unlockedBy.includes(check.id)) {
+    lines.push(`- Unlocks: ${result.score.locked.count} more suggestions, listed below, which cannot be measured until this passes.`);
+  }
   lines.push('');
   return lines;
 }
@@ -287,15 +350,14 @@ function renderLockedSection(blocked, result) {
   const blocker = blocked[0]?.lockedBy ?? 'B1';
   /** @type {string[]} */
   const lines = [];
-  // Unpriced: these are worth nothing until the blocker passes, and the blocker's own section has
-  // its price. What they add after that depends on how they score once measured.
-  lines.push(`## Blocked behind ${blocker} (${blocked.length} checks)`);
+  // Unpriced: they are suggestions, so they are worth no score points once measured either.
+  lines.push(`## Waiting on ${blocker} (${blocked.length} suggestions)`);
   lines.push('');
   lines.push(
     `Nothing was measured for these: they all inspect the markdown response at ${quoted(result.twinUrl)}, which`,
-    `is not being served yet. Fixing ${blocker} makes every one of them measurable, and mounting`,
-    '`opengeo-prod` over generated twins satisfies most of them in the same change. Re-run the audit',
-    'afterwards rather than guessing which of them still need work.',
+    `is not being served yet. They are suggestions too, outside the score. Fixing ${blocker} makes every one`,
+    'of them measurable, and mounting `opengeo-prod` over generated twins satisfies most of them in the',
+    'same change. Re-run the audit afterwards rather than guessing which of them still need work.',
   );
   lines.push('');
   for (const check of blocked) lines.push(`- ${check.id} (weight ${check.weight}) - ${check.title}`);

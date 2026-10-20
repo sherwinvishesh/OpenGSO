@@ -17,7 +17,7 @@ import { deltaFor, lastScored, readHistory, scoreTrend } from '../shared/history
  * @property {string} root
  * @property {boolean} configured
  * @property {string} [site]
- * @property {{ value: number; at: string; delta?: number; trend: number[]; lockedPoints?: number }} [score]
+ * @property {{ value: number; at: string; delta?: number; trend: number[]; suggestions?: { adopted: number; count: number } }} [score]
  * @property {{ id: string; source: string }} [provider]
  * @property {number} twins
  * @property {string} [generatedAt]
@@ -60,7 +60,7 @@ export function readHomeStatus(root) {
       at: last.at,
       delta: deltaFor(history, last)?.points,
       trend: scoreTrend(history, last.url, 16),
-      lockedPoints: last.lockedPoints,
+      suggestions: last.suggestions,
     };
     // A score always belongs to the URL it was measured against, so the header shows that URL
     // rather than the configured one when they differ. Otherwise a run against localhost would be

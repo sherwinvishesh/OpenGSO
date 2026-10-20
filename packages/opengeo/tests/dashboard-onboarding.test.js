@@ -166,6 +166,7 @@ function check(over) {
     id: 'A1',
     category: 'A',
     importance: 'required',
+    scored: true,
     title: 'Page answers',
     weight: 4,
     status: 'pass',
@@ -186,14 +187,16 @@ function testResult(over = {}) {
       earned: 54,
       possible: 100,
       counts: { pass: 1, partial: 1, fail: 2, locked: 0, na: 0 },
+      scored: { count: 3, pass: 1, partial: 1, fail: 1 },
       lost: [],
-      locked: { count: 0, points: 0, unlockedBy: [] },
+      suggestions: { count: 1, adopted: 0, open: 1, locked: 0 },
+      locked: { count: 0, unlockedBy: [] },
     },
     checks: [
       check({ id: 'A1' }),
-      check({ id: 'B1', title: 'Twin exists', weight: 10, status: 'fail', earned: 0, reason: 'No twin.', fix: 'Run generate.' }),
-      check({ id: 'A3', title: 'Sitemap', weight: 3, status: 'fail', earned: 0, reason: 'No sitemap.' }),
-      check({ id: 'B7', title: 'Vary', weight: 4, status: 'partial', earned: 2, reason: 'Half there.' }),
+      check({ id: 'B1', scored: false, title: 'Twin exists', weight: 10, status: 'fail', earned: 0, reason: 'No twin.', fix: 'Run generate.' }),
+      check({ id: 'A3', title: 'Sitemap', weight: 9, status: 'fail', earned: 0, reason: 'No sitemap.' }),
+      check({ id: 'A6', title: 'TTFB', weight: 8, status: 'partial', earned: 6, reason: 'Half there.' }),
     ],
     history: { trend: [], previous: null },
     structure: undefined,
@@ -228,6 +231,16 @@ describe('nextFixes', () => {
       check({ id: 'X5', weight: 9, status: 'locked', earned: 0 }),
     ];
     expect(nextFixes(checks).map((entry) => entry.id)).toEqual(['X2', 'X3', 'X4']);
+  });
+
+  it('puts every scored fix ahead of a suggestion, however heavy the suggestion is', () => {
+    const checks = [
+      check({ id: 'B1', scored: false, weight: 10, status: 'fail', earned: 0 }),
+      check({ id: 'A3', weight: 9, status: 'fail', earned: 0 }),
+      check({ id: 'A2', scored: false, weight: 3, status: 'fail', earned: 0 }),
+      check({ id: 'A4', scored: false, weight: 2, status: 'fail', earned: 0 }),
+    ];
+    expect(nextFixes(checks).map((entry) => entry.id)).toEqual(['A3', 'B1', 'A2']);
   });
 });
 
@@ -524,9 +537,9 @@ describe('createOnboarding', () => {
     await settle();
     await settle();
     await settle();
-    expect(visibleText(view.node)).toContain('54 of 100 applicable points');
+    expect(visibleText(view.node)).toContain('54 of 100 points across the scored checks');
     expect(visibleText(view.node)).toContain('Do this next (most points first)');
-    expect([...view.node.querySelectorAll('.check-points')].map((node) => node.textContent)).toEqual(['+10', '+3', '+2']);
+    expect([...view.node.querySelectorAll('.check-points')].map((node) => node.textContent)).toEqual(['+9', '+2', 'tip']);
     expect(view.node.textContent).toContain('Run generate.');
 
     buttonNamed(view.node, 'Open the dashboard').click();

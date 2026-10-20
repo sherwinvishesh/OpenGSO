@@ -9,88 +9,106 @@ points that actually applied to your page, and nothing else.
 
 ## How the score is computed
 
-Every check carries a weight. Required checks are worth more than recommended ones, because a site
-that fails a required check is not readable by agents at all, while one that fails a recommended
-check is merely leaving something on the table.
+Every check carries a weight, and every check is one of two kinds.
 
-| | Required | Recommended | Total |
+- **Scored.** Seven checks make the 0 to 100: AI crawlers allowed in `robots.txt`, a valid
+  `sitemap.xml`, real content in the raw HTML, a fast first byte, no `noai` tag, HTTPS with HSTS,
+  and the HTML page still answering once the markdown layer is in place. A site that fails one of
+  these is harder for an agent to read, today, whatever conventions it has adopted.
+- **Suggestions.** The other fifteen are conventions for AI agents: `llms.txt`, JSON-LD, the
+  markdown twin and the headers around it. The best-read sites on the web have mostly not adopted
+  them, so not having one is not a defect and never moves the number. They are counted on their
+  own, as "N of 15 adopted", and adopting them is what sets a site apart.
+
+| | Scored | Suggestions | Total |
 |---|---|---|---|
 | **A. Discoverability** | 52 | 5 | 57 |
-| **B. Implementation** | 52 | 13 | 65 |
-| **Total** | 104 | 18 | 122 |
+| **B. Implementation** | 9 | 56 | 65 |
+| **Total** | 61 | 61 | 122 |
 
 ```
 score = round(100 x earned / applicable)
 ```
 
-`applicable` is the sum of the weights of every check that returned pass, partial or fail. A check
-that returns **n/a** or **locked** is dropped from the denominator entirely, never scored as a
-failure. That is the difference between "your site is missing HSTS" and "you are testing against
-`http://localhost:3000`, where HSTS is not a thing". Only the first should cost you points.
+`applicable` is the sum of the weights of every **scored** check that returned pass, partial or
+fail. A suggestion is never in it. A scored check that returns **n/a** is dropped from it too,
+never scored as a failure. That is the difference between "your site is missing HSTS" and "you are
+testing against `http://localhost:3000`, where HSTS is not a thing". Only the first should cost
+you points.
 
-### Five verdicts, not two
+### Six verdicts, not two
 
 | Verdict | In the denominator | Earns |
 |---|---|---|
 | **pass** | yes | the full weight |
 | **partial** | yes | part of the weight, named in the row |
 | **fail** | yes | nothing |
+| **suggestion** | no | nothing; a scored-style fix is still written for it |
 | **locked** | no | nothing, and not because of anything on this page |
 | **n/a** | no | nothing, and there is nothing to fix |
+
+A suggestion is not a separate status: it is a pass, partial or fail on a check that is not scored.
+It still gets the full treatment, the specific reason, the observed value and the fix, so the
+report is as useful on the fifteen as on the seven. It just carries no price, because adopting it
+moves no score.
 
 Thirteen checks are graded rather than binary, because the thing they measure has a middle. Serving
 `Vary: Accept` on the markdown response and not on the HTML is not the same as serving it nowhere,
 and a report that scores those two identically is telling you something false. Every graded check
 says below what a partial is worth and why.
 
-A **partial never fails a build.** `opengeo test` exits 1 only when a check has status `fail`, and
-that rule did not change when partial credit arrived. Exit 2 is reserved for a command line that
-could not be run as written: an unknown option, a missing or malformed value, no URL.
+A **partial never fails a build, and neither does a suggestion.** `opengeo test` exits 1 only when
+a scored check has status `fail`. `--strict` widens that to any check that fails, suggestions
+included, for a project that has adopted the markdown layer and wants CI to notice the day it stops
+being served. Exit 2 is reserved for a command line that could not be run as written: an unknown
+option, a missing or malformed value, no URL.
 
-### One missing twin costs one check
+### One missing twin costs one suggestion
 
 If the markdown twin URL does not answer, the site has no markdown layer, and twelve of the
 category B checks have nothing to look at. You cannot inspect the Content-Type of a document that
-does not exist. Those twelve return **locked**, naming B1 as the check that unlocks them, and leave
-the denominator. The whole verdict on the markdown layer is carried by B1, the heaviest check in
-the table.
+does not exist. Those twelve return **locked**, naming B1 as the check that unlocks them. The whole
+verdict on the markdown layer is carried by B1, the heaviest check in the table, as one suggestion.
 
-This matters more than it sounds. Scored the naive way, one missing file reads as thirteen separate
-defects, and every site on the web that has not adopted the convention lands in the thirties. A
-twin that exists but is served wrong is a different situation, and is still scored in full detail.
+Every check the cascade can lock is a suggestion, so none of this touches the 0 to 100. What it
+changes is the report: one line about the missing file instead of thirteen findings that all say
+the same thing. A twin that exists but is served wrong is a different situation, and every one of
+its checks is still measured in full detail.
 
 Locked is deliberately not spelled n/a. "Not applicable" is what A8 is on localhost: nothing to fix,
-now or ever. A locked check is the opposite of that, so the report prints all twelve as one line
-with a price on it rather than as twelve separate shrugs.
+now or ever. A locked check is the opposite of that, so the report prints all twelve as one block
+that says what unlocks them, rather than as twelve separate shrugs.
 
 ```
 Locked (12)
 -----------
-  up to +3 points waiting behind B1
+  12 more suggestions apply once B1 passes
     Serve a markdown twin at the .md URL and every one of these becomes measurable.
 
-  B2 5  B3 5  B4 3  B5 3  B6 3  B12 2  B14 4  B7 4  B8 3  B9 6  B10 6  B11 2  (check weights)
+  B2 5  B3 5  B4 3  B5 3  B6 3  B7 4  B8 3  B9 6  B10 6  B11 2  B12 2  B14 4  (check weights)
 ```
 
-The headline figure is in score points, the 0-100 unit, and counts only what the twelve could add
-once B1 passes, so it is not added to B1's own price twice. The ids carry their check weights, which
-total 46.
+The ids carry their check weights, which total 46. They are weights and not score points, because
+a suggestion has no price.
 
 ### What the numbers are calibrated against
 
-The weights are set so that the score means something to someone reading it:
+The split is set so that the score means something to someone reading it:
 
+- **A well-built site scores 100 without installing anything.** A site with `robots.txt` open to AI
+  crawlers, a real sitemap, content server-rendered into the HTML, a fast first byte, no opt-out
+  tag, and HTTPS with HSTS has done everything an agent needs today. The leading AI labs' own sites
+  look like that, and they have not adopted `llms.txt`, JSON-LD or a markdown layer either, so
+  those are suggestions rather than points they are missing.
+- **Only a scored failure moves the number below 100.** A missing `llms.txt` or twin is shown, with
+  its fix, as a suggestion. A blocked crawler or a page that only renders with JavaScript costs
+  points, because that is what actually stops an agent.
 - **B1 is the only double-digit check.** Serving the twin is the thing this toolkit exists for, so
-  it is the largest single line in the scale and the first thing the report tells you to fix.
-  Everything else is single digits, which means no individual header detail can sink a site that
-  got the important things right.
-- **A well-built site scores in the 80s without installing anything.** As of this writing
-  `anthropic.com` and `openai.com` both score **80**: robots.txt open to AI crawlers, a real
-  sitemap, content server-rendered into the HTML, a fast first byte, no opt-out tag, HTTPS with
-  HSTS, and an HTML page that still works for humans. What they are missing is llms.txt, JSON-LD
-  and the markdown layer, which is exactly the 20 points they do not have.
+  it is the heaviest suggestion and the first one the report tells you to adopt. Everything else is
+  single digits.
 
-Both properties are pinned by tests, so a weight edit that breaks the calibration fails the suite.
+All three properties are pinned by tests, so a weight edit that breaks the calibration fails the
+suite.
 
 ## Category A: can an AI agent find and understand this site at all
 
@@ -98,7 +116,7 @@ These checks apply to any site, whether or not it uses OpenGEO. You can pass all
 without installing anything.
 
 ### A1 - robots.txt exists and does not disallow known AI bots
-**Required, weight 9.**
+**Scored, weight 9.**
 
 Fetches `/robots.txt` and reads it the way a crawler would: the bot's own `User-agent` group, with
 the wildcard group as the fallback, then the longest `Allow` or `Disallow` rule matching the path
@@ -121,7 +139,7 @@ in `bots.blocked`. Or hand-write one. A missing `robots.txt` also fails, because
 because a crawler finds no rules in it.
 
 ### A2 - llms.txt is present and valid
-**Recommended, weight 3.**
+**Suggestion, weight 3.**
 
 Fetches `/llms.txt` and checks that it is a real markdown document with an `# H1` title and at least
 one link, not an HTML 404 page served with a 200.
@@ -129,7 +147,7 @@ one link, not an HTML 404 page served with a 200.
 `llms.txt` is the table of contents an agent reads first to decide what else to fetch. Without it,
 an agent has to guess your site structure from links.
 
-It is recommended rather than required, and weighted lightly, because it is a young convention with
+It is a suggestion rather than scored, and weighted lightly, because it is a young convention with
 uneven crawler support: an agent that cannot find your `llms.txt` still has `sitemap.xml` and the
 links on the page. Serving the twins matters more, which is why B1 is worth three times as much.
 
@@ -139,7 +157,7 @@ but has no `# Title` heading.
 **Fix:** `opengeo generate` writes one from the same crawl that produces the twins.
 
 ### A3 - sitemap.xml is present and valid
-**Required, weight 9.**
+**Scored, weight 9.**
 
 Fetches `/sitemap.xml` and parses it as a real `<urlset>` with at least one `<loc>`. A
 `<sitemapindex>` is followed: the first 10 sitemaps it lists are fetched at their paths on the site
@@ -154,7 +172,7 @@ first 10 listing the page, passes with that limit stated, because the rest were 
 OpenGEO never overwrites a file it did not write.
 
 ### A4 - Schema.org JSON-LD is present and parses
-**Recommended, weight 2.**
+**Suggestion, weight 2.**
 
 Looks for `<script type="application/ld+json">` in the HTML and parses it. A block that is present
 but does not parse earns only half, because it looks like structured data and delivers none: the
@@ -166,7 +184,7 @@ point it keeps is for having put the block there at all.
 right schema type depends entirely on what the page is.
 
 ### A5 - Real content is in the raw HTML, not only after JS runs
-**Required, weight 9.**
+**Scored, weight 9.**
 
 Parses the raw HTML response with jsdom, with scripts disabled, and measures how many words of real
 content survive. This is the single most important check in category A, because most agents do not
@@ -181,7 +199,7 @@ that makes this one pass. If your site is a client-rendered SPA, OpenGEO's gener
 the same wall and warn you about it.
 
 ### A6 - Time to first byte is fast enough for agent fetches
-**Required, weight 8.**
+**Scored, weight 8.**
 
 Measures TTFB on the HTML request. Agents fetch under a timeout, often a short one, and a slow first
 byte is the most common reason a page is silently skipped.
@@ -193,7 +211,7 @@ line between the two.
 running the CLI, so a cold serverless start or a slow network shows up here.
 
 ### A7 - No noai / noimageai tag is silently blocking AI
-**Required, weight 8.**
+**Scored, weight 8.**
 
 Looks for `noai`, `noimageai` and equivalent directives in `<meta name="robots">` and in the
 `X-Robots-Tag` response header.
@@ -204,7 +222,7 @@ is asking agents to ignore it, which makes everything else you do pointless.
 **Fix:** remove the directive, or accept the failure knowingly.
 
 ### A8 - Served over HTTPS with HSTS
-**Required, weight 9.**
+**Scored, weight 9.**
 
 Checks the scheme the page is finally served over and looks for `Strict-Transport-Security`. An
 `http://` URL that redirects to `https://` is judged on the HTTPS response it lands on, since that is
@@ -222,11 +240,12 @@ These checks probe the runtime contract from the OpenGEO spec. They are what `op
 implements, and both sides import the same header constants, so the audit and the implementation
 cannot disagree about a header name.
 
-If you have not installed `opengeo-prod` or an equivalent, expect these to fail. That is the honest
-answer, not a bug.
+Every one of them is a suggestion except B13, which checks the HTML page still works for people
+once the markdown layer is in place. If you have not installed `opengeo-prod` or an equivalent,
+expect the rest to be open. That is the honest answer, not a bug, and it costs no score.
 
 ### B1 - Markdown twin URL is reachable and returns 2xx
-**Required, weight 10.**
+**Suggestion, weight 10.**
 
 Requests `<path>.md` (so `/resume` becomes `/resume.md`, and `/` becomes `/index.md`) and expects a
 2xx that is not an HTML page. A single-page app or catch-all route that answers every path with its
@@ -236,7 +255,7 @@ HTML shell has no twin, so it fails here and locks the rest. Every other B check
 with the right headers.
 
 ### B2 - Content-Type is exactly text/markdown; charset=utf-8
-**Required, weight 5.**
+**Suggestion, weight 5.**
 
 An exact match, not a prefix match. Agents dispatch on this header, and the strictness is
 deliberate.
@@ -245,7 +264,7 @@ deliberate.
 are readable; neither is what an agent selecting on the media type will find.
 
 ### B3 - Markdown response body is non-empty
-**Required, weight 5.**
+**Suggestion, weight 5.**
 
 A twin that is served correctly and contains nothing is worse than no twin at all, because the agent
 stops looking.
@@ -255,18 +274,18 @@ the letter of the check and complete is the point of it, so a twin holding a tit
 earns close to nothing.
 
 ### B4 - X-Markdown-Tokens is present and a positive integer
-**Recommended, weight 3.**
+**Suggestion, weight 3.**
 
 Lets an agent budget its context before it downloads the body. OpenGEO computes this at generate
 time, so serving it costs no work at request time.
 
 ### B5 - X-Content-Type-Options: nosniff is present
-**Recommended, weight 3.**
+**Suggestion, weight 3.**
 
 Stops a client from re-interpreting the markdown as something else.
 
 ### B6 - X-Robots-Tag on the twin includes noindex
-**Required, weight 3.**
+**Suggestion, weight 3.**
 
 The twin is the same content as the HTML page. Without `noindex` you have published a duplicate of
 every page on your site and asked search engines to index both.
@@ -274,7 +293,7 @@ every page on your site and asked search engines to index both.
 **Partial: 1** when the header is present but does not include `noindex`.
 
 ### B7 - Vary includes Accept, so CDNs cache the two formats separately
-**Required, weight 4.**
+**Suggestion, weight 4.**
 
 Parses `Vary` as a comma-separated token list and looks for `Accept` or `*` as a whole token.
 `Vary: Accept-Encoding` does **not** count, and neither does any other header that merely contains
@@ -293,7 +312,7 @@ HTML routes rather than pretending it passes. The markdown responses themselves 
 `Vary: Accept`, which is the 2 points it earns.
 
 ### B8 - HTML response advertises the twin via Link rel="alternate"
-**Recommended, weight 3.**
+**Suggestion, weight 3.**
 
 `Link: </resume.md>; rel="alternate"; type="text/markdown"` on the HTML response. This is how an
 agent that fetched the HTML discovers there is a better version available, without guessing at a
@@ -305,7 +324,7 @@ OpenGEO never fetches an advertised twin like that. It reports the URL and tests
 conventional address on the site's own origin instead.
 
 ### B9 - Accept: text/markdown receives markdown, not HTML
-**Required, weight 6.**
+**Suggestion, weight 6.**
 
 Requests the original URL with `Accept: text/markdown` and OpenGEO's own User-Agent, which is on no
 bot list, so a markdown response can only have been caused by the Accept header.
@@ -314,7 +333,7 @@ This is content negotiation as HTTP defines it, and it is the mechanism that wor
 OpenGEO has never heard of.
 
 ### B10 - A known AI bot User-Agent receives markdown without an Accept header
-**Required, weight 6.**
+**Suggestion, weight 6.**
 
 Requests the original URL with a GPTBot User-Agent and `Accept: */*`, the header most crawlers send,
 so a markdown response can only have been caused by the User-Agent. When the project's
@@ -330,19 +349,19 @@ keeps citing the page. A redirect the browser request also follows, such as a tr
 not count against either.
 
 ### B11 - An Accept header excluding HTML and markdown returns 406
-**Recommended, weight 2.**
+**Suggestion, weight 2.**
 
 Sends `Accept: application/pdf`, the same request `opengeo prod test` makes, and expects
 `406 Not Acceptable` rather than a cheerful 200 with the wrong type.
 
 ### B12 - X-AEO-Version advertises the spec version implemented
-**Recommended, weight 2.**
+**Suggestion, weight 2.**
 
 Expects `X-AEO-Version: opengeo/1.0`. This is OpenGEO's own version string, naming OpenGEO's
 published behaviour and never a third party's spec. See [the spec](spec.md).
 
 ### B13 - The original HTML URL is still reachable and unaffected
-**Required, weight 9.**
+**Scored, weight 9.**
 
 Requests the page as a browser would and checks that it is still HTML, still 2xx, and still the same
 page.
@@ -351,7 +370,7 @@ This is the check that catches an over-eager middleware. Serving markdown to hum
 them, is a worse outcome than not installing OpenGEO at all.
 
 ### B14 - The served markdown still matches the live page
-**Required, weight 4.**
+**Suggestion, weight 4.**
 
 Re-extracts the live HTML, hashes the result, and compares it against the `X-Markdown-Source-Hash`
 of the served twin and the `last_updated` in its frontmatter. When the hashes differ, it falls back
@@ -377,30 +396,35 @@ agents wrong information.
 Rows are grouped, worst first:
 
 ```
-Failed - required        the things that stop agents working
-Failed - recommended     the things that make them work better
-Partly there             credit earned, with the rest of the points priced
-Locked                   waiting on one other fix, collapsed into a single line
-Passed                   everything that is already right
+Failed                   scored checks that failed: these are what the 0-100 is missing
+Partly there             scored checks with credit earned, and the rest of the points priced
+Suggestions              conventions outside the score that this page has not adopted yet
+Locked                   suggestions waiting on one other fix, collapsed into a single block
+Passed                   scored checks that are already right
+Adopted                  suggestions this page already follows
 Not applicable           nothing to fix here, on this URL
 ```
 
 Each row carries the check id, what it verifies, and the **specific** reason it reached that
 verdict, including the header value actually observed. No generic strings. A partial row also shows
 a small meter and the split, `2 of 4`, so the shape of the shortfall is readable without reading the
-sentence.
+sentence. A suggestion row is marked `TIP` rather than with a cross, because it is not a failure.
 
-The report ends with **Do this next**: every available fix ranked by the points it recovers, so the
-top line is always the most valuable edit you can make to the page.
+The report ends with **Do this next**: every scored fix ranked by the points it recovers, so the
+top line is always the most valuable edit you can make to the page. The suggestions follow under
+their own heading, heaviest first, so the twin (the one that unlocks twelve more) leads them. When
+nothing scored is left to fix, the suggestions are the whole list.
 
 Every price the report prints, the `(+N)` on a fix, the `-N pts` on a failed row and the **Do this
 next** column, is in score points: how far that one fix would move the 0 to 100 headline. A check's
-weight is not that number. The weights total 122 and only the ones that apply are in the
-denominator, so on a page scoring 78/100 the 10-weight B1 is worth +15. The `2 of 4` on a partial is
-the exception, and stays in weight, because it is the check's own arithmetic rather than a price.
+weight is not that number. The scored weights total 61 and only the ones that apply are in the
+denominator, so on a page scoring 85/100 the 9-weight A3 is worth +15. The `2 of 4` on a partial is
+the exception, and stays in weight, because it is the check's own arithmetic rather than a price. A
+suggestion is never priced.
 
-`--prompt` turns that same list into a fix prompt you can paste into a coding agent, partials and
-the one locked-by fix included. It names only `opengeo-prod` and OpenGEO's own documentation.
+`--prompt` turns that same list into a fix prompt you can paste into a coding agent: scored fixes
+first, then the suggestions and the twelve waiting on B1, each marked as outside the score. It names
+only `opengeo-prod` and OpenGEO's own documentation.
 
 ## The other half of a test run
 

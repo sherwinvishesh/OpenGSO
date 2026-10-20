@@ -36,6 +36,7 @@ Modes
 
 Options
   --prompt           print a ready-to-paste fix prompt for your coding agent instead of a report
+  --strict           fail the build on a suggestion that fails too, not only on a scored check
   --verbose, -v      show why each passing check passed, not just the failures
   --json             machine-readable output
   --out <file>       write the output to a file instead of stdout
@@ -82,9 +83,11 @@ and has the twin drifted from the live page.
 score = round(100 x earned / applicable)
 ```
 
-Required checks weigh more than recommended ones. A check that **cannot apply** to the target
-returns n/a and is dropped from the denominator rather than scored as a failure. Testing against
-`http://localhost:3000` should not permanently cost you the HSTS points, so it does not.
+Only the seven scored checks are in `applicable`. A suggestion is counted separately, adopted
+against open, and a failed suggestion never fails a build unless you pass `--strict`. A check that
+**cannot apply** to the target returns n/a and is dropped from the denominator rather than scored
+as a failure. Testing against `http://localhost:3000` should not permanently cost you the HSTS
+points, so it does not.
 
 ### The check nobody else can run
 
@@ -98,15 +101,23 @@ thing that audits it. A markdown twin is a cache, and this is what tells you the
 ## Output
 
 ```
-Failed - required        the things that stop agents working
-Failed - recommended     the things that make them work better
-Partly there             half done: earns part of its weight, with the arithmetic shown
-Locked                   could not be measured because B1 failed, priced as one line
-Passed                   everything that is already right
+Failed                   scored checks that failed: these are what the 0-100 is missing
+Partly there             scored checks half done, with the arithmetic shown
+Suggestions              conventions outside the score that this page has not adopted yet
+Locked                   suggestions that apply once B1 passes, shown as one block
+Passed                   scored checks that are already right
+Adopted                  suggestions this page already follows
 Not applicable           cannot apply to this target, such as HSTS on localhost
 ```
 
 Only the groups that have something in them are printed.
+
+Seven checks make the 0-100: AI crawlers allowed in `robots.txt`, a valid `sitemap.xml`, real
+content in the raw HTML, a fast first byte, no `noai` tag, HTTPS with HSTS, and the HTML page still
+answering. The other fifteen are suggestions, counted on their own as "N of 15 adopted":
+`llms.txt`, JSON-LD, the markdown twin and the headers around it. The best-read sites on the web
+have not adopted those either, so not having them never moves the number. Adopting them is what
+sets a site apart.
 
 Every row carries the check id, what it verifies, and the specific reason for that verdict,
 including the header value actually observed. Never a generic string.

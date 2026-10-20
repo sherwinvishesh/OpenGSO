@@ -4,14 +4,25 @@ The problems people hit first, by what you see. Quoted text is the start of the 
 
 ## `opengeo test`
 
-**B1 fails and B2 to B14 show as locked.** The site serves no markdown twin, so the checks that
-inspect one cannot run. They are reported as a single locked line, worth what they would earn
-together, rather than as thirteen failures. Run `opengeo generate <url>`, then add `opengeo-prod`
-to the server (see its README), restart it, and test again.
+**The score is 100 but the report still lists suggestions.** Expected. Seven checks make the
+score; the other fifteen (`llms.txt`, JSON-LD, the markdown twin and its headers) are suggestions,
+counted as "N of 15 adopted". The best-read sites have not adopted them either, so they never move
+the number. They are what would set your site apart, and `opengeo generate` plus `opengeo-prod`
+adopts most of them at once.
+
+**B1 is a suggestion and B2 to B14 show as locked.** The site serves no markdown twin, so the
+checks that inspect one cannot run. They are reported as a single locked block, "12 more
+suggestions apply once B1 passes", rather than as thirteen findings about one missing file. Run
+`opengeo generate <url>`, then add `opengeo-prod` to the server (see its README), restart it, and
+test again.
+
+**CI passed although a suggestion failed.** Only a scored check that fails sets exit code 1. Pass
+`--strict` to fail the build on any failing check, which is what you want once the markdown layer
+is live and should stay that way.
 
 **B7 scores 2 of 4 on a Next.js site.** Expected. Next's App Router will not let middleware add
 `Vary` to a response it did not create, so the markdown side has it and the HTML side does not. It
-is a partial, not a failure, and does not change the exit code.
+is a partial suggestion, not a failure, and does not change the exit code, even with `--strict`.
 
 **A8 says n/a.** HTTPS and HSTS mean nothing on `localhost`, so the check is left out of the score
 there. Test the deployed URL to measure it.

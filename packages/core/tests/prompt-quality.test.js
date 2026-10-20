@@ -39,15 +39,16 @@ function resultWith(checks, overrides = {}) {
 
 /** @type {CheckResult} */
 const FAILURE = {
-  id: 'B9',
-  category: 'B',
+  id: 'A3',
+  category: 'A',
   importance: 'required',
-  weight: 8,
-  title: 'Accept: text/markdown receives markdown, not HTML',
+  scored: true,
+  weight: 9,
+  title: 'sitemap.xml is present and valid',
   status: 'fail',
   earned: 0,
-  reason: 'Asking for text/markdown returned text/html; charset=utf-8 instead.',
-  detail: 'Response was 200 with an HTML body.',
+  reason: 'Fetching /sitemap.xml returned 404, with text/html; charset=utf-8 instead of XML.',
+  detail: 'Response was 404 with an HTML body.',
 };
 
 /** @type {CheckResult} */
@@ -117,11 +118,11 @@ describe('the fix prompt', () => {
 
   it('gives each failed check its id, points, reason and a fix', () => {
     const prompt = buildFixPrompt(result);
-    expect(prompt).toContain('### B9 - Accept: text/markdown receives markdown, not HTML');
-    // In score points, the headline's unit: B9 is half the weight of this two-check page.
-    expect(prompt).toContain('Points lost: 50 of 100 (required)');
-    expect(prompt).toContain('Asking for text/markdown returned text/html');
-    expect(prompt).toContain('Response was 200 with an HTML body.');
+    expect(prompt).toContain('### A3 - sitemap.xml is present and valid');
+    // In score points, the headline's unit: A3 is half the weight of this two-check page.
+    expect(prompt).toContain('Points lost: 50 of 100');
+    expect(prompt).toContain('Fetching /sitemap.xml returned 404');
+    expect(prompt).toContain('Response was 404 with an HTML body.');
     expect(prompt).toMatch(/- Fix: .{20,}/);
   });
 
@@ -133,7 +134,7 @@ describe('the fix prompt', () => {
     const prompt = buildFixPrompt(result);
     expect(prompt).toContain('1. Walk through the exact code changes');
     expect(prompt).toContain('2. Show a diff');
-    expect(prompt).toContain('3. For each change, say which failed check ID');
+    expect(prompt).toContain('3. For each change, say which check ID');
     expect(prompt).toContain('4. Verify your suggestions against');
   });
 
@@ -159,23 +160,23 @@ describe('the fix prompt', () => {
     /** @type {CheckResult} */
     const partial = {
       ...FAILURE,
-      id: 'B7',
-      weight: 4,
-      title: 'Vary includes Accept, so CDNs cache the two formats separately',
+      id: 'A1',
+      weight: 9,
+      title: 'robots.txt allows AI crawlers',
       status: 'partial',
-      earned: 2,
-      reason: 'Vary does not include Accept on the HTML response.',
+      earned: 6,
+      reason: 'robots.txt turns away CCBot and allows every assistant.',
       detail: undefined,
-      fix: 'Add `Vary: Accept` to the HTML response (+2).',
+      fix: 'Allow CCBot as well, if turning it away was not deliberate (+3).',
     };
     const prompt = buildFixPrompt(resultWith([partial, PASS]));
     expect(prompt).toContain('## Partly working (1)');
-    expect(prompt).toContain('Earned so far: 2 of 4');
-    // 2 of 12 weight is 17 points of the headline (10/12 is 83, 12/12 is 100).
+    expect(prompt).toContain('Earned so far: 6 of 9');
+    // 3 of 18 weight is 17 points of the headline (15/18 is 83, 18/18 is 100).
     expect(prompt).toContain('Points still available: 17 of 100');
-    // The check's own fix, not the generic remedy: the header is already on one response, so
-    // "send Vary: Accept on both" would be describing work that is half done.
-    expect(prompt).toContain('Add `Vary: Accept` to the HTML response');
+    // The check's own fix, not the generic remedy: robots.txt already exists, so "write a
+    // robots.txt" would be describing work that is already done.
+    expect(prompt).toContain('Allow CCBot as well');
   });
 
   it('does not say nothing failed when checks are only partly working', () => {
@@ -200,6 +201,7 @@ describe('the fix prompt', () => {
     const htmlTwin = {
       ...FAILURE,
       id: 'B1',
+      scored: false,
       weight: 10,
       title: 'Markdown twin URL is reachable and returns 2xx',
       reason: 'The twin URL answered with an HTML page.',
@@ -215,20 +217,47 @@ describe('the fix prompt', () => {
     expect(buildFixPrompt(result)).not.toContain('public/md/');
   });
 
-  it('collapses locked checks into one blocked section instead of a dozen fixes', () => {
+  it('collapses locked checks into one waiting section instead of a dozen fixes', () => {
     /** @type {CheckResult[]} */
     const locked = [
-      { ...FAILURE, id: 'B2', weight: 5, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Content-Type', detail: undefined },
-      { ...FAILURE, id: 'B4', weight: 3, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Tokens header', detail: undefined },
+      { ...FAILURE, id: 'B2', scored: false, weight: 5, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Content-Type', detail: undefined },
+      { ...FAILURE, id: 'B4', scored: false, weight: 3, status: 'locked', earned: 0, lockedBy: 'B1', title: 'Tokens header', detail: undefined },
     ];
     /** @type {CheckResult} */
-    const blocker = { ...FAILURE, id: 'B1', weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
-    const prompt = buildFixPrompt(resultWith([blocker, ...locked]));
-    expect(prompt).toContain('## Blocked behind B1 (2 checks)');
+    const blocker = { ...FAILURE, id: 'B1', scored: false, weight: 10, status: 'fail', title: 'Twin reachable', detail: undefined };
+    const prompt = buildFixPrompt(resultWith([blocker, ...locked, PASS]));
+    expect(prompt).toContain('## Waiting on B1 (2 suggestions)');
     expect(prompt).toContain('- B2 (weight 5)');
+    expect(prompt).toContain('- Unlocks: 2 more suggestions');
     // One section, so no locked check gets its own "fix this header" heading against a 404.
     expect(prompt).not.toContain('### B2');
     expect(prompt).not.toContain('### B4');
+  });
+
+  it('puts the suggestions last, unpriced, and says when the score is already full', () => {
+    /** @type {CheckResult} */
+    const llms = {
+      ...FAILURE,
+      id: 'A2',
+      scored: false,
+      weight: 3,
+      title: 'llms.txt is present and well-formed',
+      reason: 'Fetching /llms.txt returned 404.',
+      detail: undefined,
+      fix: 'Add /llms.txt (+5).',
+    };
+    const prompt = buildFixPrompt(resultWith([llms, PASS]));
+    expect(prompt).toContain('## The score is already full');
+    expect(prompt).toContain('## Suggestions, not scored (1)');
+    expect(prompt).toContain('- Weight: 3 (a suggestion, worth no score points)');
+    expect(prompt).toContain('- Suggestions adopted: 0 of 1 (outside the score)');
+    expect(prompt).not.toContain('Points lost');
+    expect(prompt).not.toContain('(+5)');
+    expect(prompt).toContain('What I need from you');
+
+    const both = buildFixPrompt(resultWith([llms, FAILURE, PASS]));
+    expect(both.indexOf('## Failed checks')).toBeLessThan(both.indexOf('## Suggestions, not scored'));
+    expect(both).not.toContain('## The score is already full');
   });
 
   describe('text that came from the site', () => {
@@ -265,7 +294,7 @@ describe('the fix prompt', () => {
   it('still produces a usable prompt when the framework is unknown', () => {
     const prompt = buildFixPrompt(resultWith([FAILURE]));
     expect(prompt).toContain('could not tell from the served HTML');
-    expect(prompt).toContain('### B9');
+    expect(prompt).toContain('### A3');
   });
 });
 

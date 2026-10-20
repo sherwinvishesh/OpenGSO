@@ -111,7 +111,7 @@ describe('reading a project', () => {
       '.opengeo/manifest.json': manifest(4, HOUR_AGO),
       '.opengeo/history.json': history([
         { at: HOUR_AGO, url: 'https://example.com/', mode: 'structure', score: 61 },
-        { at: NOW, url: 'https://example.com/', mode: 'structure', score: 84, lockedPoints: 0 },
+        { at: NOW, url: 'https://example.com/', mode: 'structure', score: 84, suggestions: { adopted: 3, count: 15 } },
       ]),
     });
     const status = readHomeStatus(root);
@@ -122,6 +122,7 @@ describe('reading a project', () => {
     expect(status.score?.value).toBe(84);
     expect(status.score?.delta).toBe(23);
     expect(status.score?.trend).toEqual([61, 84]);
+    expect(status.score?.suggestions).toEqual({ adopted: 3, count: 15 });
   });
 
   it('shows the URL the score was actually taken from, not the one in the config', () => {
@@ -307,6 +308,19 @@ describe('the flat menu, for terminals that cannot do any of this', () => {
     expect(rows.join('\n')).toContain('84/100');
     expect(rows.join('\n')).toContain('3 pages');
     expect(rows.join('\n')).toContain('groq');
+    expect(rows.join('\n')).not.toContain('ideas');
+  });
+
+  it('counts the suggestions on a line of their own once a run has measured them', () => {
+    const rows = plainStatus({
+      project: 'demo',
+      root: '/tmp/demo',
+      configured: true,
+      twins: 0,
+      score: { value: 100, at: NOW, trend: [], suggestions: { adopted: 3, count: 15 } },
+    });
+    expect(rows).toContain('  ideas    3 of 15 suggestions adopted');
+    expect(rows[0]).toContain('100/100');
   });
 
   it('has one line for an unconfigured directory', () => {
