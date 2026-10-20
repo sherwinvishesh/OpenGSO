@@ -1,0 +1,8 @@
+{
+  "site": "http://localhost:3000",
+  "publicDir": "public",
+  "internalDir": ".omnigeo",
+  "extraRoutes": [],
+  "crawl": { "maxPages": 50, "maxDepth": 3, "exclude": [] },
+  "generate": { "tier": "free", "minWords": 40 }
+}

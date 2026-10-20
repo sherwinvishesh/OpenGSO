@@ -2,8 +2,8 @@ import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readManifestChecked, writeManifest, emptyManifest } from '@opengeo/core/generate';
-import { writeFileAtomic } from '@opengeo/core/shared';
+import { readManifestChecked, writeManifest, emptyManifest } from '@omnigeo/core/generate';
+import { writeFileAtomic } from '@omnigeo/core/shared';
 
 // Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
 const posixModes = process.platform !== 'win32';
@@ -12,12 +12,12 @@ const posixModes = process.platform !== 'win32';
  * What a write leaves behind when it is interrupted.
  *
  * A plain writeFileSync truncates the file first and fills it after, so a Ctrl-C, a full disk or a
- * crash in between leaves half a manifest or half a .env. Every file OpenGEO owns is written to a
+ * crash in between leaves half a manifest or half a .env. Every file OmniGEO owns is written to a
  * temporary name beside it and renamed over the original, which the filesystem does in one step:
  * a reader sees the old file or the new one, never a mixture.
  */
 
-const dir = () => mkdtempSync(join(tmpdir(), 'opengeo-atomic-'));
+const dir = () => mkdtempSync(join(tmpdir(), 'omnigeo-atomic-'));
 
 describe('writeFileAtomic', () => {
   it('writes the file, creating its directory, and leaves no temporary file behind', () => {

@@ -1,11 +1,11 @@
 ---
 name: Feature request
-about: Something OpenGEO should do that it does not
+about: Something OmniGEO should do that it does not
 labels: enhancement
 ---
 
 <!--
-Before you write this: OpenGEO deliberately has no headless browser, no per-framework router
+Before you write this: OmniGEO deliberately has no headless browser, no per-framework router
 adapters, no CI-triggered generate, no default blocking of unknown bots, and no score that blends
 the structural checks with an AI review.
 

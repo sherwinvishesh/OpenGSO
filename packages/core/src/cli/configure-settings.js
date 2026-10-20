@@ -20,19 +20,19 @@ import {
 
 /**
  * @import { CustomBotInput } from '../shared/bots.js'
- * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { OmniGeoConfig } from '../shared/config.js'
  * @import { Credentials } from '../shared/env.js'
  * @import { SetupOptions, SetupResult, StepContext } from './configure-steps.js'
  */
 
 /**
- * `opengeo settings`: the menu over the same steps the walkthrough asks in order.
+ * `omnigeo settings`: the menu over the same steps the walkthrough asks in order.
  */
 
 /** @typedef {'site' | 'webroot' | 'routing' | 'blocked' | 'provider' | 'done'} SettingKey */
 
 /**
- * `opengeo settings` - the menu (§12).
+ * `omnigeo settings` - the menu (§12).
  *
  * Deliberately not the walkthrough with different wording. Somebody running `settings` on a working
  * project arrives knowing the one thing they came to change, and making them press Enter through
@@ -55,7 +55,7 @@ export async function runSettings(options) {
   /** @type {StepContext} */
   const ctx = { root, prompter, write, settings: true, hasConfig, preview: options.preview, written: [] };
 
-  /** @type {OpenGeoConfig} */
+  /** @type {OmniGeoConfig} */
   let config = { ...before, bots: { ...before.bots }, ai: { ...before.ai } };
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
   let configPath = join(root, CONFIG_FILENAME);
@@ -68,7 +68,7 @@ export async function runSettings(options) {
   // Before the header, so a prompter that draws a frame has these three lines as its first context
   // rather than leaving them in scrollback underneath a screen nobody can scroll to.
   prompter.stage?.('Settings', 0, 0);
-  write(`\n${c.bold('OpenGEO settings')}\n`);
+  write(`\n${c.bold('OmniGEO settings')}\n`);
   write(`${c.gray(root)}\n`);
   write(`${c.gray(hasConfig ? `${CONFIG_FILENAME} - pick a number to change that one setting.` : `${CONFIG_FILENAME} does not exist yet. Changing anything here creates it.`)}\n`);
   // On opening, because a project set up before the presets left search engines out may be
@@ -171,7 +171,7 @@ function menuLabel(choice) {
 /**
  * The menu itself: every setting on one screen, with what it is set to right now beside it.
  *
- * @param {OpenGeoConfig} config
+ * @param {OmniGeoConfig} config
  * @param {Credentials | undefined} found
  * @returns {Array<{ value: SettingKey; label: string; note?: string }>}
  */
@@ -206,8 +206,8 @@ function menuOptions(config, found) {
 /**
  * What settings mode prints instead of a tutorial: the diff, and nothing when there is not one.
  *
- * @param {OpenGeoConfig} before
- * @param {OpenGeoConfig} after
+ * @param {OmniGeoConfig} before
+ * @param {OmniGeoConfig} after
  * @param {SetupResult['keyWritten']} keyWritten
  * @returns {string[]}
  */
@@ -247,7 +247,7 @@ function describeChanges(before, after, keyWritten) {
 }
 
 /**
- * @param {OpenGeoConfig['ai']} ai
+ * @param {OmniGeoConfig['ai']} ai
  * @returns {string}
  */
 function describeAi(ai) {

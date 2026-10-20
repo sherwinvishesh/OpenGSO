@@ -3,22 +3,22 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defaultConfig, mergeConfig } from '@opengeo/core/shared';
-import { generateFromFiles } from '@opengeo/core/generate';
-import { gatherEvidence, siteFolderOf, testEvidence } from '@opengeo/core/test';
-/** @import { CheckResult } from '@opengeo/core/test' */
+import { defaultConfig, mergeConfig } from '@omnigeo/core/shared';
+import { generateFromFiles } from '@omnigeo/core/generate';
+import { gatherEvidence, siteFolderOf, testEvidence } from '@omnigeo/core/test';
+/** @import { CheckResult } from '@omnigeo/core/test' */
 
 /**
  * A site that lives in a folder of its host, the way GitHub Pages publishes a project site at
  * user.github.io/repo/: generated from its build folder, served by a host that maps the folder to
- * /repo/ and owns everything outside it, and tested the way `opengeo test` would test it.
+ * /repo/ and owns everything outside it, and tested the way `omnigeo test` would test it.
  */
 
 /** @type {string} */
 let root;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-folder-site-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-folder-site-'));
 });
 
 afterEach(() => {
@@ -142,7 +142,7 @@ describe('a site in a folder of its host', () => {
       expect(check(checks, 'A2').reason).toContain(`${site.base}/llms.txt or ${site.base}/repo/llms.txt`);
       expect(check(checks, 'A3').reason).toContain(`${site.base}/sitemap.xml or ${site.base}/repo/sitemap.xml`);
       // Nothing of the site's own was found in the folder, so A1 gives the usual fix.
-      expect(check(checks, 'A1').fix).toContain('opengeo generate');
+      expect(check(checks, 'A1').fix).toContain('omnigeo generate');
     } finally {
       await site.close();
     }

@@ -1,33 +1,33 @@
-# opengeo-testing
+# omnigeo-testing
 
 > **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
 
 Scores any live URL from 0 to 100 on how readable it is to AI agents, and tells you exactly what
 failed and why.
 
-- Works on **any** site, whether or not it uses OpenGEO, whether or not you built it.
+- Works on **any** site, whether or not it uses OmniGEO, whether or not you built it.
 - No letter grades, no tier labels. A number and a list of specific reasons.
 - `--prompt` turns the failures into a fix prompt you can paste into a coding agent, and `--copy`
   puts it straight on your clipboard, ready for Claude Code.
 - An optional second pass has a model read the Markdown your site serves and rate how well it
   actually answers. It never touches the score.
 
-Part of [OpenGEO](https://github.com/sherwinvishesh/OpenGEO).
+Part of [OmniGEO](https://github.com/sherwinvishesh/OmniGEO).
 
 ## Install
 
 Needs Node.js 22 or later.
 
 ```bash
-npx opengeo-testing test https://example.com
+npx omnigeo-testing test https://example.com
 ```
 
-or `npm install --save-dev opengeo-testing`.
+or `npm install --save-dev omnigeo-testing`.
 
 ## Use
 
 ```
-Usage: opengeo test <url> [options]
+Usage: omnigeo test <url> [options]
 
 Modes
   (default)          the structural checks, then an AI review of the Markdown they find
@@ -44,19 +44,19 @@ Options
   --verbose, -v      show why each passing check passed, not just the failures
   --json             machine-readable output
   --out <file>       write the output to a file instead of stdout
-  --provider <name>  which AI provider to review with. `opengeo help providers` lists them
+  --provider <name>  which AI provider to review with. `omnigeo help providers` lists them
   --model <name>     model id (the review only)
   --max-docs <n>     how many documents the review reads (default: 10)
-  --project <dir>    project directory holding opengeo.config.json (default: cwd)
+  --project <dir>    project directory holding omnigeo.config.json (default: cwd)
   --timeout <secs>   per-request timeout (default: 15)
 ```
 
 ## Two passes, one command
 
 ```bash
-opengeo test https://example.com               # checks, then review if a key is configured
-opengeo test https://example.com --structure   # checks alone
-opengeo test https://example.com --content     # review alone
+omnigeo test https://example.com               # checks, then review if a key is configured
+omnigeo test https://example.com --structure   # checks alone
+omnigeo test https://example.com --content     # review alone
 ```
 
 The default run does the structural audit first, then reviews every Markdown document that audit
@@ -69,7 +69,7 @@ The exit code always comes from the structural checks. A model's opinion never f
 ## What it checks
 
 22 checks in two categories. The
-[full catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md) explains every
+[full catalogue](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/checks.md) explains every
 one of them, including what to change when it fails.
 
 **Category A, discoverability (weights totalling 57).** Applies to any site. `robots.txt`, `llms.txt`,
@@ -136,16 +136,16 @@ believe the number.
 ## Fix it with Claude Code: `--prompt` and `--copy`
 
 ```bash
-opengeo test https://example.com --copy              # the report, then the prompt on your clipboard
-opengeo test https://example.com --prompt            # the prompt instead of the report
-opengeo test https://example.com --prompt --only A3  # one check
-opengeo test https://example.com --copy --only B1,B7 # a few
+omnigeo test https://example.com --copy              # the report, then the prompt on your clipboard
+omnigeo test https://example.com --prompt            # the prompt instead of the report
+omnigeo test https://example.com --prompt --only A3  # one check
+omnigeo test https://example.com --copy --only B1,B7 # a few
 ```
 
 Builds a fix prompt carrying the score, the URL, the expected twin URL, the detected framework, and
 every failed check with its id, the points it cost, the actual observed reason, what to change, and
 a "Done when" line naming the command that proves it fixed. Paste it into Claude Code, or any coding
-agent with access to the repository. It references only `opengeo-prod` and OpenGEO's own
+agent with access to the repository. It references only `omnigeo-prod` and OmniGEO's own
 documentation.
 
 `--copy` uses the clipboard your system already has: `pbcopy` on macOS, PowerShell (then `clip`) on
@@ -157,9 +157,9 @@ saves the prompt to a file instead. A failed copy never changes the exit code.
 `--only` scopes the prompt to the checks you name, so a long list can be handed over one job at a
 time. The prompt says the scope out loud, and tells the agent to leave every other check alone.
 
-The same prompts are one click away in two other places. The dashboard (`opengeo start`) draws a
+The same prompts are one click away in two other places. The dashboard (`omnigeo start`) draws a
 **Fix it with Claude Code** card above the checks, a copy button on every group and every failing
-check, and copies everything when you press `c`. The home screen (bare `opengeo`) offers to copy
+check, and copies everything when you press `c`. The home screen (bare `omnigeo`) offers to copy
 the prompt when a test run finishes.
 
 Anything the site sent, such as a header value or a JSON-LD field, is quoted as a single-line code
@@ -212,17 +212,17 @@ It is printed as a **clearly separate section** and is never folded into the str
 Two numbers, two questions. The structural score is deterministic and reproducible; a model's
 opinion is not, and blending the two would make both meaningless.
 
-It needs an API key (`opengeo settings`) and refuses to run under CI. Any of a dozen providers can
+It needs an API key (`omnigeo settings`) and refuses to run under CI. Any of a dozen providers can
 run it, including a model on your own machine:
 
 ```bash
-opengeo help providers                                          # the whole list
-opengeo test https://example.com --content --provider xai       # Grok
-opengeo test https://example.com --content --provider ollama    # local, no key
+omnigeo help providers                                          # the whole list
+omnigeo test https://example.com --content --provider xai       # Grok
+omnigeo test https://example.com --content --provider ollama    # local, no key
 ```
 
 Bringing your own endpoint takes three lines of config. See
-[docs/providers.md](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md).
+[docs/providers.md](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/providers.md).
 
 ## Honest failures
 
@@ -238,6 +238,6 @@ Behaviour behind a cross-host CDN is documented as untested rather than claimed.
 
 ## Reference
 
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md)
-- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/providers.md)
-- [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md)
+- [The check catalogue](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/checks.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/providers.md)
+- [The wire spec](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/spec.md)

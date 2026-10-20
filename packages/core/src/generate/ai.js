@@ -44,7 +44,7 @@ export { DEFAULT_MAX_TOKENS, TruncatedOutputError, callProvider, stripCodeFence 
  * @property {ProviderFn} [call] Defaults to the real HTTP providers.
  * @property {number} [maxTokens]
  * @property {number} [timeoutMs]
- * @property {ProviderOverrides} [overrides] Endpoint overrides for a gateway or a provider OpenGEO
+ * @property {ProviderOverrides} [overrides] Endpoint overrides for a gateway or a provider OmniGEO
  *   does not ship with.
  * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is
  *   testable.

@@ -1,8 +1,8 @@
 /**
- * OpenGEO's own spec version, advertised via the `X-AEO-Version` response header (§7).
- * This names OpenGEO's published behaviour, never a third party's spec.
+ * OmniGEO's own spec version, advertised via the `X-AEO-Version` response header (§7).
+ * This names OmniGEO's published behaviour, never a third party's spec.
  */
-export const AEO_SPEC_VERSION = 'opengeo/1.0';
+export const AEO_SPEC_VERSION = 'omnigeo/1.0';
 
 /** Header name constants, so test and prod can never drift apart on spelling. */
 export const HEADERS = /* @__PURE__ */ Object.freeze({

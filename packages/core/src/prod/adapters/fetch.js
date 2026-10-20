@@ -12,8 +12,8 @@ import { createProjectHandler } from './project.js';
  * Remix middleware, SolidStart, Nitro. It reads the project from disk like the Node adapter does;
  * a runtime with no disk wants `createEdgeMiddleware` instead.
  *
- *   const opengeo = createFetchMiddleware();
- *   export const handle = ({ event, resolve }) => opengeo(event.request, () => resolve(event));
+ *   const omnigeo = createFetchMiddleware();
+ *   export const handle = ({ event, resolve }) => omnigeo(event.request, () => resolve(event));
  */
 
 /**

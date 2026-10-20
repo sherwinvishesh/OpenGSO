@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement privately, through
-a [private advisory on this repository](https://github.com/sherwinvishesh/OpenGEO/security/advisories/new)
+a [private advisory on this repository](https://github.com/sherwinvishesh/OmniGEO/security/advisories/new)
 or by contacting the maintainer, [@sherwinvishesh](https://github.com/sherwinvishesh), on GitHub.
 All complaints will be reviewed and investigated promptly and fairly.
 

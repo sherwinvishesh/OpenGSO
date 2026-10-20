@@ -1,10 +1,10 @@
 # The check catalogue
 
-`opengeo test <url>` runs 22 checks against a live URL and turns them into a single number from
+`omnigeo test <url>` runs 22 checks against a live URL and turns them into a single number from
 0 to 100. This page lists every check: what it looks at, why it matters to an AI agent, and what to
 change when it fails.
 
-There is no letter grade and no tier label anywhere in OpenGEO. A score is a percentage of the
+There is no letter grade and no tier label anywhere in OmniGEO. A score is a percentage of the
 points that actually applied to your page, and nothing else.
 
 ## How the score is computed
@@ -57,7 +57,7 @@ Thirteen checks are graded rather than binary, because the thing they measure ha
 and a report that scores those two identically is telling you something false. Every graded check
 says below what a partial is worth and why.
 
-A **partial never fails a build, and neither does a suggestion.** `opengeo test` exits 1 only when
+A **partial never fails a build, and neither does a suggestion.** `omnigeo test` exits 1 only when
 a scored check has status `fail`. `--strict` widens that to any check that fails, suggestions
 included, for a project that has adopted the markdown layer and wants CI to notice the day it stops
 being served. Exit 2 is reserved for a command line that could not be run as written: an unknown
@@ -112,7 +112,7 @@ suite.
 
 ## Category A: can an AI agent find and understand this site at all
 
-These checks apply to any site, whether or not it uses OpenGEO. You can pass all of category A
+These checks apply to any site, whether or not it uses OmniGEO. You can pass all of category A
 without installing anything.
 
 ### A1 - robots.txt exists and does not disallow known AI bots
@@ -133,7 +133,7 @@ reason line: it names the exact rule and the exact bot.
 disallowed. That reads as a deliberate opt-out rather than a mistake, so it costs 3 points instead
 of 9, and the reason line says so.
 
-**Fix:** `opengeo generate` writes a `robots.txt` that allows every AI bot except the ones you list
+**Fix:** `omnigeo generate` writes a `robots.txt` that allows every AI bot except the ones you list
 in `bots.blocked`. Or hand-write one. A missing `robots.txt` also fails, because agents cannot tell
 "no file" from "no answer", and so does an HTML page answering at `/robots.txt` (a catch-all route),
 because a crawler finds no rules in it.
@@ -154,7 +154,7 @@ links on the page. Serving the twins matters more, which is why B1 is worth thre
 **Partial: 1** when the file is served but is empty or lists no links, **2** when it lists links
 but has no `# Title` heading.
 
-**Fix:** `opengeo generate` writes one from the same crawl that produces the twins.
+**Fix:** `omnigeo generate` writes one from the same crawl that produces the twins.
 
 ### A3 - sitemap.xml is present and valid
 **Scored, weight 9.**
@@ -168,8 +168,8 @@ under test, and the page is looked for in those.
 sitemap that does not list the page under test. An index listing more than 10 sitemaps, none of the
 first 10 listing the page, passes with that limit stated, because the rest were not read.
 
-**Fix:** `opengeo generate` writes one. If your framework already generates a sitemap, keep it:
-OpenGEO never overwrites a file it did not write.
+**Fix:** `omnigeo generate` writes one. If your framework already generates a sitemap, keep it:
+OmniGEO never overwrites a file it did not write.
 
 ### A4 - Schema.org JSON-LD is present and parses
 **Suggestion, weight 2.**
@@ -180,7 +180,7 @@ point it keeps is for having put the block there at all.
 
 **Partial: 1** when a block is present but does not parse, or parses and declares no `@type`.
 
-**Fix:** add a JSON-LD block describing the page. OpenGEO does not generate one for you, because the
+**Fix:** add a JSON-LD block describing the page. OmniGEO does not generate one for you, because the
 right schema type depends entirely on what the page is.
 
 ### A5 - Real content is in the raw HTML, not only after JS runs
@@ -195,7 +195,7 @@ substantive. A heading and a paragraph in the HTML with the rest behind hydratio
 something, and not the same as an empty mount element.
 
 **Fix:** server-render the content, or pre-render it at build time. There is no header you can set
-that makes this one pass. If your site is a client-rendered SPA, OpenGEO's generate step will hit
+that makes this one pass. If your site is a client-rendered SPA, OmniGEO's generate step will hit
 the same wall and warn you about it.
 
 ### A6 - Time to first byte is fast enough for agent fetches
@@ -236,12 +236,12 @@ the denominator, because there is nothing to fix.
 
 ## Category B: is the markdown twin actually served correctly
 
-These checks probe the runtime contract from the OpenGEO spec. They are what `opengeo-prod`
+These checks probe the runtime contract from the OmniGEO spec. They are what `omnigeo-prod`
 implements, and both sides import the same header constants, so the audit and the implementation
 cannot disagree about a header name.
 
 Every one of them is a suggestion except B13, which checks the HTML page still works for people
-once the markdown layer is in place. If you have not installed `opengeo-prod` or an equivalent,
+once the markdown layer is in place. If you have not installed `omnigeo-prod` or an equivalent,
 expect the rest to be open. That is the honest answer, not a bug, and it costs no score.
 
 ### B1 - Markdown twin URL is reachable and returns 2xx
@@ -251,7 +251,7 @@ Requests `<path>.md` (so `/resume` becomes `/resume.md`, and `/` becomes `/index
 2xx that is not an HTML page. A single-page app or catch-all route that answers every path with its
 HTML shell has no twin, so it fails here and locks the rest. Every other B check depends on this one.
 
-**Fix:** run `opengeo generate` to write the twins, then install the middleware so they are served
+**Fix:** run `omnigeo generate` to write the twins, then install the middleware so they are served
 with the right headers.
 
 ### B2 - Content-Type is exactly text/markdown; charset=utf-8
@@ -276,7 +276,7 @@ earns close to nothing.
 ### B4 - X-Markdown-Tokens is present and a positive integer
 **Suggestion, weight 3.**
 
-Lets an agent budget its context before it downloads the body. OpenGEO computes this at generate
+Lets an agent budget its context before it downloads the body. OmniGEO computes this at generate
 time, so serving it costs no work at request time.
 
 ### B5 - X-Content-Type-Options: nosniff is present
@@ -307,7 +307,7 @@ one to not notice, because it only shows up behind a CDN.
 cache is keyed correctly; the reason line names which half is not.
 
 **Known limitation:** the Next.js App Router appends its own values to `Vary` on HTML responses and
-there is no supported way to prevent it. `opengeo test` reports this as a real B7 partial on Next
+there is no supported way to prevent it. `omnigeo test` reports this as a real B7 partial on Next
 HTML routes rather than pretending it passes. The markdown responses themselves carry a clean
 `Vary: Accept`, which is the 2 points it earns.
 
@@ -320,17 +320,17 @@ URL convention.
 
 **Partial: 1** when a `Link` header is present but carries no `rel="alternate"` entry of type
 `text/markdown`, or when the twin it advertises is on another origin or is not `http` or `https`.
-OpenGEO never fetches an advertised twin like that. It reports the URL and tests the twin at the
+OmniGEO never fetches an advertised twin like that. It reports the URL and tests the twin at the
 conventional address on the site's own origin instead.
 
 ### B9 - Accept: text/markdown receives markdown, not HTML
 **Suggestion, weight 6.**
 
-Requests the original URL with `Accept: text/markdown` and OpenGEO's own User-Agent, which is on no
+Requests the original URL with `Accept: text/markdown` and OmniGEO's own User-Agent, which is on no
 bot list, so a markdown response can only have been caused by the Accept header.
 
 This is content negotiation as HTTP defines it, and it is the mechanism that works for agents
-OpenGEO has never heard of.
+OmniGEO has never heard of.
 
 ### B10 - A known AI bot User-Agent receives markdown without an Accept header
 **Suggestion, weight 6.**
@@ -351,13 +351,13 @@ not count against either.
 ### B11 - An Accept header excluding HTML and markdown returns 406
 **Suggestion, weight 2.**
 
-Sends `Accept: application/pdf`, the same request `opengeo prod test` makes, and expects
+Sends `Accept: application/pdf`, the same request `omnigeo prod test` makes, and expects
 `406 Not Acceptable` rather than a cheerful 200 with the wrong type.
 
 ### B12 - X-AEO-Version advertises the spec version implemented
 **Suggestion, weight 2.**
 
-Expects `X-AEO-Version: opengeo/1.0`. This is OpenGEO's own version string, naming OpenGEO's
+Expects `X-AEO-Version: omnigeo/1.0`. This is OmniGEO's own version string, naming OmniGEO's
 published behaviour and never a third party's spec. See [the spec](spec.md).
 
 ### B13 - The original HTML URL is still reachable and unaffected
@@ -367,7 +367,7 @@ Requests the page as a browser would and checks that it is still HTML, still 2xx
 page.
 
 This is the check that catches an over-eager middleware. Serving markdown to humans, or redirecting
-them, is a worse outcome than not installing OpenGEO at all.
+them, is a worse outcome than not installing OmniGEO at all.
 
 ### B14 - The served markdown still matches the live page
 **Suggestion, weight 4.**
@@ -378,7 +378,7 @@ to comparing the concrete facts (numbers, dates, prices) that appear in the live
 twin, and names them.
 
 This is the check no other tool can run, because it requires owning both halves of the pipeline. A
-markdown twin is a cache, and every cache goes stale. OpenGEO does not regenerate on a schedule or
+markdown twin is a cache, and every cache goes stale. OmniGEO does not regenerate on a schedule or
 in CI by design, so this check plus `last_updated` is the safety net.
 
 The hash is taken over the **extracted markdown**, not the raw HTML. Hashing raw HTML would change
@@ -394,7 +394,7 @@ or the same path on the project's `publicOrigin`.
 in the twin. A typo fix and a rewritten page both break the hash, and only one of them is serving
 agents wrong information.
 
-**Fix:** re-run `opengeo generate`.
+**Fix:** re-run `omnigeo generate`.
 
 ## Reading the output
 
@@ -435,7 +435,7 @@ suggestion is never priced.
 
 `--prompt` turns that same list into a fix prompt you can paste into a coding agent: scored fixes
 first, then any check failing on a twin already served, then the suggestions and the twelve waiting
-on B1, each marked as outside the score. It names only `opengeo-prod` and OpenGEO's own
+on B1, each marked as outside the score. It names only `omnigeo-prod` and OmniGEO's own
 documentation. `--copy` puts it on the clipboard instead, `--only A3,B7` scopes it to the checks
 named, and the dashboard has a copy button on every group and every failing check.
 
@@ -446,10 +446,10 @@ the 0 to 100 number. A test run has a second, optional pass, and the two never m
 
 | Command | What runs |
 | --- | --- |
-| `opengeo test <url>` | The checks, then an AI review of every Markdown document they found. The review is skipped with a note when no key is configured. |
-| `opengeo test <url> --structure` | The checks alone. Also spelled `--offline` and `-nq`. |
-| `opengeo test <url> --content` | The AI review alone, for the loop where you are editing the Markdown. |
-| `opengeo test <url> -q` | The full run, with the review required rather than optional. |
+| `omnigeo test <url>` | The checks, then an AI review of every Markdown document they found. The review is skipped with a note when no key is configured. |
+| `omnigeo test <url> --structure` | The checks alone. Also spelled `--offline` and `-nq`. |
+| `omnigeo test <url> --content` | The AI review alone, for the loop where you are editing the Markdown. |
+| `omnigeo test <url> -q` | The full run, with the review required rather than optional. |
 
 The content review reads the documents your site actually serves and gives them **their own score
 out of 100**, weighted across five areas:

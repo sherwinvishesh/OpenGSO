@@ -3,7 +3,7 @@ import { isCI } from '../shared/env.js';
 import { ERRORS } from '../shared/errors.js';
 
 /**
- * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { OmniGeoConfig } from '../shared/config.js'
  * @import { SuiteAi } from '../test/index.js'
  * @import { ApiProgress } from '../shared/api-types.js'
  */
@@ -65,7 +65,7 @@ export const bad = (message, extra = {}) => ({
  * cares about most.
  *
  * @param {string} root
- * @param {OpenGeoConfig} config
+ * @param {OmniGeoConfig} config
  * @param {string} feature
  * @returns {SuiteAi | { error: string }}
  */

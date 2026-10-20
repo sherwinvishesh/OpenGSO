@@ -15,7 +15,7 @@ import { createFsStore, createMemoryStore } from '../store.js';
 
 /**
  * What every Node adapter shares: read the project once, decide each request from memory, and in
- * development notice when `opengeo generate` or `opengeo settings` changed something on disk.
+ * development notice when `omnigeo generate` or `omnigeo settings` changed something on disk.
  *
  * The Next, Node and fetch adapters differ only in how a request gets in and a response gets out.
  * Keeping the loading here is what stops them disagreeing about which config, which crawlers or
@@ -43,7 +43,7 @@ export function createProjectHandler(options = {}) {
   };
 }
 
-/** How stale a development server's twins can be after `opengeo generate` writes new ones. */
+/** How stale a development server's twins can be after `omnigeo generate` writes new ones. */
 const RELOAD_INTERVAL_MS = 1000;
 
 /**

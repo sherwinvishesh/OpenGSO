@@ -90,7 +90,7 @@ const onSigterm = () => {
 
 /**
  * The signal hooks are held only while a screen holds the terminal. Held for good, they ran first
- * and exited on every later Ctrl-C, so `opengeo start` launched from the home screen never got to
+ * and exited on every later Ctrl-C, so `omnigeo start` launched from the home screen never got to
  * close its server.
  *
  * @param {boolean} armed

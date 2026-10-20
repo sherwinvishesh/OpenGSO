@@ -104,7 +104,7 @@ function setAll(target, entries) {
  */
 export function fetchMiddleware(decide) {
   let reported = false;
-  return async function openGeoFetchMiddleware(request, next) {
+  return async function omniGeoFetchMiddleware(request, next) {
     /** @type {ProdDecision} */
     let decision;
     try {

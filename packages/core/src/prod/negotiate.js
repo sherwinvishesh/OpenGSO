@@ -35,7 +35,7 @@ import { isMarkdownPath, normalizeRoute, twinUrlPathToRoute } from '../shared/ro
  * @property {boolean} explicitTwin True when the request targeted the markdown twin URL directly
  *   (`/resume.md`).
  * @property {'markdown' | 'html' | 'not-acceptable'} serve What prod should do.
- * @property {string} reason Plain-language reason, surfaced by `opengeo prod test`.
+ * @property {string} reason Plain-language reason, surfaced by `omnigeo prod test`.
  */
 
 /**

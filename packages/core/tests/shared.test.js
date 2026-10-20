@@ -38,15 +38,15 @@ import {
   parseEnv,
   writeEnvVars,
   unknownCommand,
-} from '@opengeo/core/shared';
-import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@opengeo/core/generate';
+} from '@omnigeo/core/shared';
+import { parseFrontmatter, serializeFrontmatter, withFrontmatter } from '@omnigeo/core/generate';
 
 // Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
 const posixModes = process.platform !== 'win32';
 
-/** @import { CommandName } from '@opengeo/core/shared' */
+/** @import { CommandName } from '@omnigeo/core/shared' */
 
-const temp = () => mkdtempSync(join(tmpdir(), 'opengeo-test-'));
+const temp = () => mkdtempSync(join(tmpdir(), 'omnigeo-test-'));
 
 describe('routes', () => {
   it('spots a dot segment in any spelling, and nothing else', () => {
@@ -123,14 +123,14 @@ describe('tokens and hashing', () => {
 });
 
 describe('frontmatter', () => {
-  it('round-trips the values OpenGEO actually writes', () => {
+  it('round-trips the values OmniGEO actually writes', () => {
     const data = {
       title: 'A "quoted" title',
       url: 'https://example.com/resume',
       last_updated: '2026-01-01T00:00:00.000Z',
       tokens: 412,
       source_hash: 'abc123',
-      generated_by: 'opengeo-free',
+      generated_by: 'omnigeo-free',
       tags: ['one', 'two'],
       draft: false,
     };
@@ -270,7 +270,7 @@ describe('config', () => {
 
   it('still loads a config with a key it does not read, and says which', () => {
     const root = temp();
-    writeFileSync(join(root, 'opengeo.config.json'), JSON.stringify({ site: 'https://example.com', publicdir: 'site' }));
+    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ site: 'https://example.com', publicdir: 'site' }));
     const loaded = loadConfig(root);
     expect(loaded.config.publicDir).toBe('public');
     expect(loaded.unknownKeys).toEqual([{ key: 'publicdir', suggestion: 'publicDir' }]);
@@ -298,26 +298,26 @@ describe('where the config search stops', () => {
   }
 
   it('finds the config at the repository root from a workspace package inside it', () => {
-    const root = tree(['repo/.git/', 'repo/opengeo.config.json', 'repo/packages/web/package.json', 'repo/packages/web/src/']);
-    expect(findConfigFile(join(root, 'repo/packages/web/src'))).toBe(join(root, 'repo/opengeo.config.json'));
+    const root = tree(['repo/.git/', 'repo/omnigeo.config.json', 'repo/packages/web/package.json', 'repo/packages/web/src/']);
+    expect(findConfigFile(join(root, 'repo/packages/web/src'))).toBe(join(root, 'repo/omnigeo.config.json'));
   });
 
   it('does not cross the repository root into a stranger\'s config', () => {
-    const root = tree(['opengeo.config.json', 'repo/.git/', 'repo/src/']);
+    const root = tree(['omnigeo.config.json', 'repo/.git/', 'repo/src/']);
     expect(findConfigFile(join(root, 'repo/src'))).toBeUndefined();
   });
 
   it('stops at the nearest package.json when there is no repository', () => {
-    const root = tree(['opengeo.config.json', 'app/package.json', 'app/src/']);
+    const root = tree(['omnigeo.config.json', 'app/package.json', 'app/src/']);
     expect(findConfigFile(join(root, 'app/src'))).toBeUndefined();
-    writeFileSync(join(root, 'app/opengeo.config.json'), '{}');
-    expect(findConfigFile(join(root, 'app/src'))).toBe(join(root, 'app/opengeo.config.json'));
+    writeFileSync(join(root, 'app/omnigeo.config.json'), '{}');
+    expect(findConfigFile(join(root, 'app/src'))).toBe(join(root, 'app/omnigeo.config.json'));
   });
 
   it('looks only in the directory itself when nothing marks a project', () => {
-    const root = tree(['opengeo.config.json', 'downloads/']);
+    const root = tree(['omnigeo.config.json', 'downloads/']);
     expect(findConfigFile(join(root, 'downloads'))).toBeUndefined();
-    expect(findConfigFile(root)).toBe(join(root, 'opengeo.config.json'));
+    expect(findConfigFile(root)).toBe(join(root, 'omnigeo.config.json'));
   });
 });
 
@@ -339,42 +339,42 @@ describe('API key handling (§11)', () => {
 
   it('removes a variable given as undefined and leaves every other line alone', () => {
     const root = temp();
-    writeFileSync(join(root, '.env'), '# mine\nOPENGEO_BASE_URL=https://old.example/v1\nOTHER=1\n', 'utf8');
-    writeEnvVars(root, { OPENGEO_BASE_URL: undefined, OPENGEO_PROVIDER: 'openai' });
-    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\nOTHER=1\nOPENGEO_PROVIDER=openai\n');
+    writeFileSync(join(root, '.env'), '# mine\nOMNIGEO_BASE_URL=https://old.example/v1\nOTHER=1\n', 'utf8');
+    writeEnvVars(root, { OMNIGEO_BASE_URL: undefined, OMNIGEO_PROVIDER: 'openai' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\nOTHER=1\nOMNIGEO_PROVIDER=openai\n');
   });
 
   it('refuses a value that would break onto a second line, and writes nothing', () => {
     const root = temp();
     for (const value of ['m\nINJECTED=1', 'm\rINJECTED=1', 'm\u0000']) {
-      expect(() => writeEnvVars(root, { OPENGEO_MODEL: value })).toThrow(/OPENGEO_MODEL/);
+      expect(() => writeEnvVars(root, { OMNIGEO_MODEL: value })).toThrow(/OMNIGEO_MODEL/);
     }
     expect(existsSync(join(root, '.env'))).toBe(false);
   });
 
   it.runIf(posixModes)('creates .env readable by its owner only', () => {
     const root = temp();
-    writeEnvVars(root, { OPENGEO_API_KEY: 'sk-test' });
+    writeEnvVars(root, { OMNIGEO_API_KEY: 'sk-test' });
     expect(statSync(join(root, '.env')).mode & 0o777).toBe(0o600);
   });
 
   it('reads a variable written with export, the way a shell-sourced .env is', () => {
-    expect(parseEnv('export OPENGEO_API_KEY=sk-1\nexport  OPENGEO_PROVIDER="openai"\n')).toEqual({
-      OPENGEO_API_KEY: 'sk-1',
-      OPENGEO_PROVIDER: 'openai',
+    expect(parseEnv('export OMNIGEO_API_KEY=sk-1\nexport  OMNIGEO_PROVIDER="openai"\n')).toEqual({
+      OMNIGEO_API_KEY: 'sk-1',
+      OMNIGEO_PROVIDER: 'openai',
     });
   });
 
   it('drops an inline comment, as docs/providers.md shows one', () => {
     const contents = [
-      'OPENGEO_BASE_URL=https://gateway.example.com/v1    # optional',
+      'OMNIGEO_BASE_URL=https://gateway.example.com/v1    # optional',
       'QUOTED="x y" # why',
       'HASHED=sk-a#b',
       'EMPTY= # nothing yet',
       'INSIDE="has # inside"',
     ].join('\n');
     expect(parseEnv(contents)).toEqual({
-      OPENGEO_BASE_URL: 'https://gateway.example.com/v1',
+      OMNIGEO_BASE_URL: 'https://gateway.example.com/v1',
       QUOTED: 'x y',
       HASHED: 'sk-a#b',
       EMPTY: '',
@@ -384,18 +384,18 @@ describe('API key handling (§11)', () => {
 
   it('collapses a duplicated variable, so the value just written is the one that is read', () => {
     const root = temp();
-    writeFileSync(join(root, '.env'), 'OPENGEO_MODEL=a\nOTHER=1\nOPENGEO_MODEL=b\n', 'utf8');
-    writeEnvVars(root, { OPENGEO_MODEL: 'c' });
+    writeFileSync(join(root, '.env'), 'OMNIGEO_MODEL=a\nOTHER=1\nOMNIGEO_MODEL=b\n', 'utf8');
+    writeEnvVars(root, { OMNIGEO_MODEL: 'c' });
     const written = readFileSync(join(root, '.env'), 'utf8');
-    expect(written).toBe('OPENGEO_MODEL=c\nOTHER=1\n');
-    expect(parseEnv(written).OPENGEO_MODEL).toBe('c');
+    expect(written).toBe('OMNIGEO_MODEL=c\nOTHER=1\n');
+    expect(parseEnv(written).OMNIGEO_MODEL).toBe('c');
   });
 
   it('keeps the line endings a .env already uses', () => {
     const root = temp();
-    writeFileSync(join(root, '.env'), '# mine\r\nOPENGEO_MODEL=a\r\nOTHER=1\r\n', 'utf8');
-    writeEnvVars(root, { OPENGEO_MODEL: 'b', OPENGEO_PROVIDER: 'openai' });
-    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\r\nOPENGEO_MODEL=b\r\nOTHER=1\r\nOPENGEO_PROVIDER=openai\r\n');
+    writeFileSync(join(root, '.env'), '# mine\r\nOMNIGEO_MODEL=a\r\nOTHER=1\r\n', 'utf8');
+    writeEnvVars(root, { OMNIGEO_MODEL: 'b', OMNIGEO_PROVIDER: 'openai' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('# mine\r\nOMNIGEO_MODEL=b\r\nOTHER=1\r\nOMNIGEO_PROVIDER=openai\r\n');
     writeFileSync(join(root, '.gitignore'), 'node_modules\r\n', 'utf8');
     ensureEnvGitignored(root);
     expect(readFileSync(join(root, '.gitignore'), 'utf8')).not.toMatch(/[^\r]\n/);
@@ -403,10 +403,10 @@ describe('API key handling (§11)', () => {
 
   it('updates an exported variable in place instead of adding a second one', () => {
     const root = temp();
-    writeFileSync(join(root, '.env'), 'export OPENGEO_PROVIDER=openai\n', 'utf8');
-    writeEnvVars(root, { OPENGEO_PROVIDER: 'groq' });
-    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('export OPENGEO_PROVIDER=groq\n');
-    writeEnvVars(root, { OPENGEO_PROVIDER: undefined });
+    writeFileSync(join(root, '.env'), 'export OMNIGEO_PROVIDER=openai\n', 'utf8');
+    writeEnvVars(root, { OMNIGEO_PROVIDER: 'groq' });
+    expect(readFileSync(join(root, '.env'), 'utf8')).toBe('export OMNIGEO_PROVIDER=groq\n');
+    writeEnvVars(root, { OMNIGEO_PROVIDER: undefined });
     expect(readFileSync(join(root, '.env'), 'utf8')).toBe('\n');
   });
 
@@ -425,17 +425,17 @@ describe('API key handling (§11)', () => {
 
 describe('error copy (§13)', () => {
   it('names the narrow package and the full one when a command is missing', () => {
-    const message = commandUnavailable('generate', 'opengeo-testing');
-    expect(message).toContain('npm install -D opengeo-generate');
-    expect(message).toContain('npm install -D opengeo');
-    expect(message).toContain('opengeo-testing');
+    const message = commandUnavailable('generate', 'omnigeo-testing');
+    expect(message).toContain('npm install -D omnigeo-generate');
+    expect(message).toContain('npm install -D omnigeo');
+    expect(message).toContain('omnigeo-testing');
   });
 
   it('lists only the commands this install can actually run', () => {
-    expect(unknownCommand('publish', ['test'])).toContain('opengeo test');
+    expect(unknownCommand('publish', ['test'])).toContain('omnigeo test');
   });
 
-  it('explains why OpenGEO wants a URL rather than a directory', () => {
+  it('explains why OmniGEO wants a URL rather than a directory', () => {
     expect(ERRORS.missingUrl('test')).toContain('never a source directory');
   });
 
@@ -445,27 +445,27 @@ describe('error copy (§13)', () => {
 
   it('keeps the command-to-package table honest', () => {
     for (const packages of Object.values(COMMAND_PACKAGES)) {
-      expect(packages).toContain('opengeo');
+      expect(packages).toContain('omnigeo');
     }
   });
 
   /**
-   * The suggestion used to be two hand-written lines that named `opengeo-cli` as the wider option.
+   * The suggestion used to be two hand-written lines that named `omnigeo-cli` as the wider option.
    * That is wrong for two of the five commands, and wrong in the worst way: it sends the reader to
    * install a package that still would not have the command. This asserts the property instead of
    * the wording, so the next command added to the table cannot reintroduce it.
    */
   it('never suggests a package that does not ship the command', () => {
     for (const command of /** @type {CommandName[]} */ (Object.keys(COMMAND_PACKAGES))) {
-      const message = commandUnavailable(command, 'opengeo-prod');
+      const message = commandUnavailable(command, 'omnigeo-prod');
       const suggested = [...message.matchAll(/npm install -D (\S+)/g)].map((match) => match[1]);
       expect(suggested.length).toBeGreaterThan(0);
       for (const pkg of suggested) expect(COMMAND_PACKAGES[command]).toContain(pkg);
     }
   });
 
-  it('offers each package once, so `settings` does not name opengeo-cli twice', () => {
-    const suggested = [...commandUnavailable('settings', 'opengeo-testing').matchAll(/npm install -D (\S+)/g)].map(
+  it('offers each package once, so `settings` does not name omnigeo-cli twice', () => {
+    const suggested = [...commandUnavailable('settings', 'omnigeo-testing').matchAll(/npm install -D (\S+)/g)].map(
       (match) => match[1],
     );
     expect(new Set(suggested).size).toBe(suggested.length);
@@ -473,10 +473,10 @@ describe('error copy (§13)', () => {
 
   /** settings and start are commands, not pillars. There are exactly three pillars (§2). */
   it('calls settings and start commands rather than pillars', () => {
-    expect(commandUnavailable('settings', 'opengeo-testing')).toContain('the settings command');
-    expect(commandUnavailable('start', 'opengeo-cli')).toContain('the start command');
-    expect(commandUnavailable('generate', 'opengeo-testing')).toContain('the generate pillar');
-    expect(commandUnavailable('prod test', 'opengeo-testing')).toContain('the prod pillar');
+    expect(commandUnavailable('settings', 'omnigeo-testing')).toContain('the settings command');
+    expect(commandUnavailable('start', 'omnigeo-cli')).toContain('the start command');
+    expect(commandUnavailable('generate', 'omnigeo-testing')).toContain('the generate pillar');
+    expect(commandUnavailable('prod test', 'omnigeo-testing')).toContain('the prod pillar');
   });
 });
 

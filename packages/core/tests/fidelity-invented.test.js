@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractFacts, verifyFidelity } from '@opengeo/core/generate';
+import { extractFacts, verifyFidelity } from '@omnigeo/core/generate';
 
 /**
  * The guard used to look one way only: every fact on the page had to survive. A model that kept

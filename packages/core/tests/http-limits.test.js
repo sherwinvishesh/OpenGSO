@@ -1,12 +1,12 @@
 import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { callProvider, crawlSite } from '@opengeo/core/generate';
-import { MAX_PROBE_BYTES, probe } from '@opengeo/core/shared';
-import { gatherEvidence, testEvidence } from '@opengeo/core/test';
+import { callProvider, crawlSite } from '@omnigeo/core/generate';
+import { MAX_PROBE_BYTES, probe } from '@omnigeo/core/shared';
+import { gatherEvidence, testEvidence } from '@omnigeo/core/test';
 /** @import { IncomingMessage, ServerResponse } from 'node:http' */
 
 /**
- * What a remote server is allowed to make OpenGEO do.
+ * What a remote server is allowed to make OmniGEO do.
  *
  * The tested site and the provider endpoint are both somebody else's machine. Neither gets to make
  * the process hold an unbounded body in memory, and the provider does not get to forward the key

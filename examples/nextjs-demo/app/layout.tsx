@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Aurora Fieldwork',
-  description: 'A small demo site used to exercise the OpenGEO loop end to end.',
+  description: 'A small demo site used to exercise the OmniGEO loop end to end.',
 };
 
 const organizationJsonLd = {
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </header>
         <main style={{ maxWidth: 760, margin: '0 auto', padding: '32px 24px 64px' }}>{children}</main>
         <footer style={{ borderTop: '1px solid #e6e6e2', padding: '16px 24px', fontSize: 13, color: '#6b6f76' }}>
-          <div style={{ maxWidth: 760, margin: '0 auto' }}>Aurora Fieldwork, an OpenGEO demo.</div>
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>Aurora Fieldwork, an OmniGEO demo.</div>
         </footer>
       </body>
     </html>

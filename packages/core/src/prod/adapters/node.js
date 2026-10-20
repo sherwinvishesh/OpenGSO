@@ -54,7 +54,7 @@ export function createNodeMiddleware(options = {}) {
   const decide = createProjectHandler(options);
   let reported = false;
 
-  return function openGeoNodeMiddleware(req, res, next) {
+  return function omniGeoNodeMiddleware(req, res, next) {
     /** @type {ProdDecision} */
     let decision;
     try {

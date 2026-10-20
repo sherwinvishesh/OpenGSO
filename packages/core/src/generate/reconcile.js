@@ -39,11 +39,11 @@ export function samePages(a, b) {
 }
 
 /**
- * Find the twins OpenGEO wrote for pages this run no longer has, and delete them only when asked.
+ * Find the twins OmniGEO wrote for pages this run no longer has, and delete them only when asked.
  *
  * A candidate comes from the previous manifest, either as a page or as an orphan it already listed,
  * so a file no manifest ever vouched for is never considered. It must still be on disk inside the
- * twin directory, be a `.md` file, not be the file of a page this run kept, and still carry OpenGEO's
+ * twin directory, be a `.md` file, not be the file of a page this run kept, and still carry OmniGEO's
  * frontmatter: a twin the user has since taken over, with generated_by: manual or by rewriting it, is
  * theirs. A page this run kept whose twin moved, as it does when a project switches from crawling to
  * reading its files, leaves its old file behind as an orphan.
@@ -85,7 +85,7 @@ export function settleOrphans(previous, manifest, publicDir, twinDir, prune, war
     } catch {
       continue;
     }
-    if (!isOpenGeoTwin(parseFrontmatter(contents).data)) continue;
+    if (!isOmniGeoTwin(parseFrontmatter(contents).data)) continue;
     if (prune) {
       try {
         unlinkSync(absPath);
@@ -104,8 +104,8 @@ export function settleOrphans(previous, manifest, publicDir, twinDir, prune, war
  * @param {Record<string, unknown>} data
  * @returns {boolean}
  */
-export function isOpenGeoTwin(data) {
-  return data.generated_by === 'opengeo-free' || data.generated_by === 'opengeo-ai';
+export function isOmniGeoTwin(data) {
+  return data.generated_by === 'omnigeo-free' || data.generated_by === 'omnigeo-ai';
 }
 
 /**

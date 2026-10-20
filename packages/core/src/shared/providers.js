@@ -2,7 +2,7 @@ import { editDistance } from './edit-distance.js';
 /**
  * The AI provider catalogue (§6, §11).
  *
- * OpenGEO is bring-your-own-key, and "your key" turned out to mean a lot of different things: a
+ * OmniGEO is bring-your-own-key, and "your key" turned out to mean a lot of different things: a
  * Claude key, an OpenAI key, a Qwen key from Alibaba Cloud, a Groq key, a company gateway, or a
  * model running on the user's own laptop. Rather than a switch statement that grows a branch per
  * vendor, every provider is a row in this table, and the wire code in shared/provider-call.js
@@ -70,7 +70,7 @@ import { editDistance } from './edit-distance.js';
  *   `max_completion_tokens`. One field, so neither is broken.
  * @property {string[]} envVars Provider-native variables people already have exported, accepted so
  *   nobody duplicates a key.
- * @property {string} [keysUrl] Where a key comes from. Printed by `opengeo settings` and by the
+ * @property {string} [keysUrl] Where a key comes from. Printed by `omnigeo settings` and by the
  *   "no key" error.
  * @property {boolean} [keyless] No key at all: a model server on the user's own machine.
  * @property {boolean} [userDefined] The endpoint is the user's to name, so `ai.baseUrl` and
@@ -85,7 +85,7 @@ import { editDistance } from './edit-distance.js';
  * @property {string[]} [aliases] Names people type for this provider that are not its id: the
  *   product instead of the company, a common misspelling. Only ever used to suggest the id, never
  *   accepted in its place, so a config file means the same thing on every machine.
- * @property {string} [note] One line the picker and `opengeo help providers` show under the row: what
+ * @property {string} [note] One line the picker and `omnigeo help providers` show under the row: what
  *   is different about this one.
  */
 
@@ -436,7 +436,7 @@ export const PROVIDERS = [
 
 // The three derived tables below are marked pure so a bundle that imports this module and uses none
 // of them can drop them, catalogue and all. `errors.js` imports from here and `config.js` imports
-// `errors.js`, so without the marks `opengeo-prod` ships every provider endpoint. `check:bundles`
+// `errors.js`, so without the marks `omnigeo-prod` ships every provider endpoint. `check:bundles`
 // is what notices if a new top-level call undoes this.
 /** @type {AiProvider[]} */
 export const AI_PROVIDERS = /* @__PURE__ */ PROVIDERS.map((provider) => provider.id);
@@ -473,7 +473,7 @@ export const DEFAULT_MODELS = /** @type {Record<AiProvider, string>} */ (/* @__P
  *
  * "claude", "grok" and "kwen" are what people type, and a list of twenty-five ids is a poor answer
  * to any of them. This is a suggestion and never a substitute: `--provider claude` still stops, so
- * the same config file cannot mean two things on two versions of OpenGEO.
+ * the same config file cannot mean two things on two versions of OmniGEO.
  *
  * @param {string} input
  * @returns {AiProvider | undefined}

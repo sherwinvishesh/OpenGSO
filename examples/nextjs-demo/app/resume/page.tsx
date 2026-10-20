@@ -8,7 +8,7 @@ export default function ResumePage() {
     <article>
       <h1>Engagement record</h1>
       <p>
-        This page exists so the OpenGEO fidelity checks have something concrete to hold onto: real
+        This page exists so the OmniGEO fidelity checks have something concrete to hold onto: real
         dates, real prices, real percentages. Anything that rewrites this page and changes a number
         has failed.
       </p>

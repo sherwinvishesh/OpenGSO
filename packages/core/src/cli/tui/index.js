@@ -1,8 +1,8 @@
 /**
  * The hand-rolled terminal interface layer.
  *
- * Nothing here is exported from `@opengeo/core`'s public entry points: it is used only by core's own
- * CLI, so it costs no addition to the exports map and cannot reach `opengeo-prod`.
+ * Nothing here is exported from `@omnigeo/core`'s public entry points: it is used only by core's own
+ * CLI, so it costs no addition to the exports map and cannot reach `omnigeo-prod`.
  */
 export * from '../../shared/render/paint.js';
 export * from '../../shared/render/theme.js';

@@ -12,7 +12,7 @@ import { readTwins } from './store.js';
  */
 
 /**
- * The module `opengeo prod data` writes: the twins, the manifest and the bot settings, as data an
+ * The module `omnigeo prod data` writes: the twins, the manifest and the bot settings, as data an
  * edge function imports, because there is no disk to read them from at the edge.
  *
  * It holds what the Node adapter would load from the same project and nothing more. A manifest
@@ -20,7 +20,7 @@ import { readTwins } from './store.js';
  * store reads are kept.
  */
 
-export const EDGE_DATA_BASENAME = 'opengeo-edge-data';
+export const EDGE_DATA_BASENAME = 'omnigeo-edge-data';
 
 /** Edge hosts cap a function's size, the strictest around a megabyte compressed. */
 export const EDGE_DATA_WARN_BYTES = 1024 * 1024;
@@ -33,12 +33,12 @@ const OWNED = new RegExp(`^// ${GENERATED_MARKER} \\(`);
  * @property {LoadedConfig} loaded
  * @property {string} [out] Where to write it, relative to the project root. The extension picks the
  *   language: `.ts` or `.mts` writes TypeScript, anything else JavaScript.
- * @property {boolean} [force] Replace a file OpenGEO did not write.
+ * @property {boolean} [force] Replace a file OmniGEO did not write.
  */
 
 /**
  * @typedef {object} EdgeDataResult
- * @property {string} path Absolute path written: the `.opengeo-proposed` one when the file was not ours.
+ * @property {string} path Absolute path written: the `.omnigeo-proposed` one when the file was not ours.
  * @property {string} target The path that was asked for, which is the one to import.
  * @property {boolean} proposed
  * @property {boolean} written False when nothing was written: the module was unchanged, or there were
@@ -51,7 +51,7 @@ const OWNED = new RegExp(`^// ${GENERATED_MARKER} \\(`);
  */
 
 /**
- * `opengeo-edge-data.ts` in a TypeScript project, `.js` elsewhere, at the project root.
+ * `omnigeo-edge-data.ts` in a TypeScript project, `.js` elsewhere, at the project root.
  *
  * @param {string} root
  * @returns {string}
@@ -101,8 +101,8 @@ export function buildEdgeData(loaded) {
 export function renderEdgeDataModule(data, options) {
   const json = JSON.stringify(data, null, 2);
   const lines = [
-    `// ${GENERATED_MARKER} (${AEO_SPEC_VERSION}) with \`opengeo prod data\`. Do not edit it: run that command again`,
-    `// after every \`opengeo generate\`, or the edge keeps serving the twins from before.`,
+    `// ${GENERATED_MARKER} (${AEO_SPEC_VERSION}) with \`omnigeo prod data\`. Do not edit it: run that command again`,
+    `// after every \`omnigeo generate\`, or the edge keeps serving the twins from before.`,
   ];
   if (options.typescript) {
     lines.push(`import type { EdgeData } from '${options.importFrom}';`, '', `const data: EdgeData = ${json};`);
@@ -114,8 +114,8 @@ export function renderEdgeDataModule(data, options) {
 }
 
 /**
- * The package that provides the type in this project: `opengeo-prod` when it is a dependency,
- * `opengeo` when only the umbrella is, and `opengeo-prod` when neither is yet, since that is the
+ * The package that provides the type in this project: `omnigeo-prod` when it is a dependency,
+ * `omnigeo` when only the umbrella is, and `omnigeo-prod` when neither is yet, since that is the
  * one the edge recipe installs.
  *
  * @param {string} root
@@ -130,12 +130,12 @@ export function edgeImportSpecifier(root) {
   } catch {
     // No package.json, or not one we can read: the default below is the right guess for both.
   }
-  if (!('opengeo-prod' in deps) && 'opengeo' in deps) return 'opengeo/prod/edge';
-  return 'opengeo-prod/edge';
+  if (!('omnigeo-prod' in deps) && 'omnigeo' in deps) return 'omnigeo/prod/edge';
+  return 'omnigeo-prod/edge';
 }
 
 /**
- * Write the module, or the proposal beside a file of the same name that OpenGEO did not write.
+ * Write the module, or the proposal beside a file of the same name that OmniGEO did not write.
  *
  * @param {EdgeDataOptions} options
  * @returns {EdgeDataResult}
@@ -163,7 +163,7 @@ export function writeEdgeData(options) {
 
 /**
  * After a generate run: rewrite an edge data module this project already has, at either default
- * name, so the edge never serves the twins from before. Only a file OpenGEO wrote, and never a
+ * name, so the edge never serves the twins from before. Only a file OmniGEO wrote, and never a
  * fresh one: a project that does not deploy to the edge gets nothing new in its root.
  *
  * A module at a custom `--out` path is not found here. The build script that names it is what keeps

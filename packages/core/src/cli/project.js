@@ -11,7 +11,7 @@ import { UsageError } from './args.js';
 
 /**
  * Resolving "which project am I operating on" in one place, so `generate`, `settings` and `start`
- * all agree on where `opengeo.config.json`, `public/` and `.opengeo/` live.
+ * all agree on where `omnigeo.config.json`, `public/` and `.omnigeo/` live.
  *
  * @param {Args} args
  * @returns {LoadedConfig}

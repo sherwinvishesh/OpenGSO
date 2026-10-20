@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
+const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'omnigeo'];
 
 /**
  * `0.0.0` is the placeholder the private root and core carry. `0.1.0` is the version every package

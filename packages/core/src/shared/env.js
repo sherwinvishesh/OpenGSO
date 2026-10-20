@@ -12,25 +12,25 @@ export { isCI } from './ci.js';
  * API key handling (§11).
  *
  * The key is read from a local `.env` and nowhere else. It is never written to
- * opengeo.config.json (which people commit), never sent anywhere but the user's chosen AI provider,
+ * omnigeo.config.json (which people commit), never sent anywhere but the user's chosen AI provider,
  * and `.env` is force-added to `.gitignore` during setup - that gitignore line is the actual
  * mechanism that prevents an accidental leak, so it is not optional.
  */
 
 export const ENV_FILENAME = '.env';
-export const KEY_VAR = 'OPENGEO_API_KEY';
-export const PROVIDER_VAR = 'OPENGEO_PROVIDER';
-export const MODEL_VAR = 'OPENGEO_MODEL';
+export const KEY_VAR = 'OMNIGEO_API_KEY';
+export const PROVIDER_VAR = 'OMNIGEO_PROVIDER';
+export const MODEL_VAR = 'OMNIGEO_MODEL';
 /**
- * Only meaningful for an endpoint OpenGEO does not ship: a gateway, a proxy, a self-hosted server.
+ * Only meaningful for an endpoint OmniGEO does not ship: a gateway, a proxy, a self-hosted server.
  * It lives beside the key rather than in the config file because the two are usually issued
  * together, and because a private hostname is closer to a secret than to a project setting.
  */
-export const BASE_URL_VAR = 'OPENGEO_BASE_URL';
+export const BASE_URL_VAR = 'OMNIGEO_BASE_URL';
 
 /**
  * A leading `export ` is what lets the same file be `source`d by a shell, and every dotenv reader
- * accepts it. Without this the key was read as a variable literally named `export OPENGEO_API_KEY`.
+ * accepts it. Without this the key was read as a variable literally named `export OMNIGEO_API_KEY`.
  */
 const EXPORT_PREFIX = /^export\s+/;
 
@@ -54,7 +54,7 @@ function assignment(rawLine) {
 /**
  * The value as dotenv readers see it. A quoted value ends at its closing quote, so a `#` inside it
  * is kept and a comment after it is not. An unquoted value ends where a `#` follows whitespace: the
- * docs show `OPENGEO_BASE_URL=https://... # optional`, and the comment used to land in the URL. A
+ * docs show `OMNIGEO_BASE_URL=https://... # optional`, and the comment used to land in the URL. A
  * `#` with no space before it is kept, so a key that happens to contain one still reads whole.
  *
  * @param {string} raw
@@ -112,7 +112,7 @@ const SETTING_WORDS = new Set(['base', 'url', 'endpoint', 'host', 'model', 'org'
 const TOO_GENERIC = new Set(['x', 'google', 'command', 'other']);
 
 /**
- * Variables in `.env` that look like an AI provider's key under a name OpenGEO does not read, such
+ * Variables in `.env` that look like an AI provider's key under a name OmniGEO does not read, such
  * as `claude_api` or `OPENAI_KEY`.
  *
  * Names only. A value is never looked at, and nothing found here is ever used as a key: guessing
@@ -161,7 +161,7 @@ function providerWords(provider) {
  *   provider is configured.
  * @property {'env-file' | 'process-env' | 'config'} source Where the key came from, so the UI and
  *   CLI can tell the user exactly where it lives. `config` is a keyless provider named only in
- *   opengeo.config.json: there is no key, and the config is what chose it.
+ *   omnigeo.config.json: there is no key, and the config is what chose it.
  * @property {boolean} [keyless] True for a provider that needs no key at all, where an empty
  *   `apiKey` is the correct answer.
  */
@@ -180,7 +180,7 @@ const NATIVE_KEY_VARS = PROVIDERS.flatMap((provider) =>
 );
 
 /**
- * `OPENGEO_PROVIDER` as written, when it is set to something that is not a provider id. While it is,
+ * `OMNIGEO_PROVIDER` as written, when it is set to something that is not a provider id. While it is,
  * readCredentials finds no key at all, and this is how a caller says why.
  *
  * @param {string} root
@@ -196,7 +196,7 @@ export function unknownEnvProvider(root) {
  * provider-native variable names people already have exported, so nobody has to duplicate a key
  * they've already set up.
  *
- * Without `OPENGEO_PROVIDER`, a key found that way says which keys are on hand, not which provider
+ * Without `OMNIGEO_PROVIDER`, a key found that way says which keys are on hand, not which provider
  * was picked. So the project's configured provider is asked first: an `OPENAI_API_KEY` exported for
  * some other tool must not outrank the Qwen key the project was set up with, and must never pull a
  * project configured for a model on this machine out to a hosted one. Only when the configured
@@ -220,7 +220,7 @@ export function readCredentials(root, configured) {
   const baseUrl = pick(BASE_URL_VAR)?.value;
 
   // A name that is not a provider is a destination nobody can read. Defaulting it to Anthropic sent
-  // a Qwen key to Anthropic for `OPENGEO_PROVIDER=kwen`, so nothing is found until it names one.
+  // a Qwen key to Anthropic for `OMNIGEO_PROVIDER=kwen`, so nothing is found until it names one.
   if (providerVar?.value && !provider) return undefined;
 
   if (explicit) {
@@ -249,8 +249,8 @@ export function readCredentials(root, configured) {
 }
 
 /**
- * The key issued by one particular provider, under its own variable names only. `OPENGEO_API_KEY`
- * is not one of them: it belongs to whichever provider `OPENGEO_PROVIDER` names, and that is
+ * The key issued by one particular provider, under its own variable names only. `OMNIGEO_API_KEY`
+ * is not one of them: it belongs to whichever provider `OMNIGEO_PROVIDER` names, and that is
  * `readCredentials`'s answer, not this one's.
  *
  * @param {string} root
@@ -319,7 +319,7 @@ export function writeEnvVars(root, vars) {
 }
 
 /**
- * The line ending a file already uses, so a line OpenGEO adds does not leave it with two. A file
+ * The line ending a file already uses, so a line OmniGEO adds does not leave it with two. A file
  * written on Windows keeps CRLF; anything else, including a new file, gets LF.
  *
  * @param {string} text
@@ -331,7 +331,7 @@ function lineEnding(text) {
 
 /**
  * Why these values cannot go into `.env`, or nothing if they can. A line break in a model name or a
- * pasted key would write a second variable, `OPENGEO_BASE_URL` included, so control characters are
+ * pasted key would write a second variable, `OMNIGEO_BASE_URL` included, so control characters are
  * refused outright rather than escaped into a syntax every dotenv reader parses differently.
  *
  * @param {Record<string, string | undefined>} vars
@@ -367,6 +367,6 @@ export function ensureEnvGitignored(root) {
   if (present) return { path, added: false, alreadyPresent: true };
   const eol = lineEnding(existing);
   const prefix = existing && !existing.endsWith('\n') ? eol : '';
-  appendFileSync(path, `${prefix}${eol}# Added by OpenGEO - never commit your API key${eol}.env${eol}`, 'utf8');
+  appendFileSync(path, `${prefix}${eol}# Added by OmniGEO - never commit your API key${eol}.env${eol}`, 'utf8');
   return { path, added: true, alreadyPresent: false };
 }

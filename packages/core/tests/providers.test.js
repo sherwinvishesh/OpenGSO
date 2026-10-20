@@ -19,10 +19,10 @@ import {
   resolveAiCall,
   resolveProvider,
   suggestProvider,
-} from '@opengeo/core/shared';
-import { createAiEnhancer } from '@opengeo/core/generate';
-/** @import { OpenGeoConfig } from '@opengeo/core/shared' */
-/** @import { ProviderCall } from '@opengeo/core/generate' */
+} from '@omnigeo/core/shared';
+import { createAiEnhancer } from '@omnigeo/core/generate';
+/** @import { OmniGeoConfig } from '@omnigeo/core/shared' */
+/** @import { ProviderCall } from '@omnigeo/core/generate' */
 
 /**
  * The provider catalogue, and the two things that make it more than a list: `resolveProvider`,
@@ -151,7 +151,7 @@ describe('a provider name that is not an id', () => {
 
 describe("the config default, which cannot import the catalogue", () => {
   // defaultConfig() writes the provider and model out as literals on purpose: shared/config.js is
-  // in `opengeo-prod`'s import graph, and a value import from providers.js would bundle twelve
+  // in `omnigeo-prod`'s import graph, and a value import from providers.js would bundle twelve
   // endpoints and twelve key variable names into the one package that must contain no AI code.
   // check:bundles catches that at build time; these two catch the other half, a catalogue edit
   // that silently leaves the default behind.
@@ -205,7 +205,7 @@ describe('resolveProvider', () => {
 });
 
 describe('the ai block of a config merge', () => {
-  /** @type {OpenGeoConfig['ai']} */
+  /** @type {OmniGeoConfig['ai']} */
   const ai = {
     provider: 'custom',
     model: 'local-1',
@@ -213,9 +213,9 @@ describe('the ai block of a config merge', () => {
     api: 'openai',
     auth: 'bearer',
   };
-  /** @type {OpenGeoConfig} */
+  /** @type {OmniGeoConfig} */
   const base = { ...defaultConfig(), ai };
-  /** @param {Partial<OpenGeoConfig['ai']>} patch */
+  /** @param {Partial<OmniGeoConfig['ai']>} patch */
   const merge = (patch) => mergeConfig(base, { ai: patch }).ai;
 
   it('drops the old endpoint when the provider changes', () => {
@@ -319,14 +319,14 @@ describe('the wire code', () => {
 describe('resolveAiCall', () => {
   // Every variable the resolver reads, cleared so a key exported on the machine running the tests
   // cannot decide an outcome. Restored afterwards.
-  const NAMES = [...PROVIDERS.flatMap((provider) => provider.envVars), 'OPENGEO_API_KEY', 'OPENGEO_PROVIDER', 'OPENGEO_MODEL', 'OPENGEO_BASE_URL'];
+  const NAMES = [...PROVIDERS.flatMap((provider) => provider.envVars), 'OMNIGEO_API_KEY', 'OMNIGEO_PROVIDER', 'OMNIGEO_MODEL', 'OMNIGEO_BASE_URL'];
   /** @type {Record<string, string | undefined>} */
   const saved = {};
   /** @type {string} */
   let root;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'opengeo-ai-call-'));
+    root = mkdtempSync(join(tmpdir(), 'omnigeo-ai-call-'));
     for (const name of NAMES) {
       saved[name] = process.env[name];
       delete process.env[name];
@@ -344,8 +344,8 @@ describe('resolveAiCall', () => {
   /** @param {string[]} lines */
   const env = (lines) => writeFileSync(join(root, '.env'), `${lines.join('\n')}\n`);
   /**
-   * @param {Partial<OpenGeoConfig['ai']>} [ai]
-   * @returns {OpenGeoConfig}
+   * @param {Partial<OmniGeoConfig['ai']>} [ai]
+   * @returns {OmniGeoConfig}
    */
   const config = (ai = {}) => ({
     ...defaultConfig(),
@@ -357,7 +357,7 @@ describe('resolveAiCall', () => {
     return result.call;
   };
 
-  it('points at a key saved under a name OpenGEO does not read, and never uses it', () => {
+  it('points at a key saved under a name OmniGEO does not read, and never uses it', () => {
     env([
       'claude_api=sk-ant-not-a-real-key',
       'OPENAI_KEY=sk-not-real',
@@ -383,7 +383,7 @@ describe('resolveAiCall', () => {
     expect(message).not.toContain('sk-ant-not-a-real-key');
     expect(ERRORS.noApiKey('x')).not.toContain('.env has');
 
-    // The short note a keyless `opengeo test` ends with names them too: the person who wrote
+    // The short note a keyless `omnigeo test` ends with names them too: the person who wrote
     // claude_api= is the one most likely to wonder why the review never runs.
     const skipped = ERRORS.contentReviewSkipped('lookalikes' in result ? result.lookalikes : []);
     expect(skipped).toContain('ANTHROPIC_API_KEY=<the same key>');
@@ -411,9 +411,9 @@ describe('resolveAiCall', () => {
 
   it('drops the endpoint and model of the configured provider when a flag picks another', () => {
     env([
-      'OPENGEO_PROVIDER=custom',
-      'OPENGEO_API_KEY=sk-gateway',
-      'OPENGEO_BASE_URL=https://gateway.corp.example/v1',
+      'OMNIGEO_PROVIDER=custom',
+      'OMNIGEO_API_KEY=sk-gateway',
+      'OMNIGEO_BASE_URL=https://gateway.corp.example/v1',
       'OPENAI_API_KEY=sk-openai',
     ]);
     const custom = config({
@@ -441,7 +441,7 @@ describe('resolveAiCall', () => {
   });
 
   it('keeps the endpoint, model and key when they all belong to the provider being called', () => {
-    env(['OPENGEO_PROVIDER=openai', 'OPENGEO_API_KEY=sk-openai']);
+    env(['OMNIGEO_PROVIDER=openai', 'OMNIGEO_API_KEY=sk-openai']);
     const gateway = config({ provider: 'openai', model: 'gpt-x', baseUrl: 'https://gateway.corp.example/openai' });
     const resolved = call(resolveAiCall(root, gateway));
     expect(resolved).toMatchObject({ provider: 'openai', apiKey: 'sk-openai', model: 'gpt-x', keySource: 'env-file' });
@@ -453,7 +453,7 @@ describe('resolveAiCall', () => {
     // A hand-written `"ai": { "provider": "openai" }` used to inherit the Anthropic default from the
     // merge, and that Claude model id was then sent to OpenAI.
     env(['OPENAI_API_KEY=sk-openai']);
-    const loaded = mergeConfig(defaultConfig(), { ai: /** @type {OpenGeoConfig['ai']} */ ({ provider: 'openai' }) });
+    const loaded = mergeConfig(defaultConfig(), { ai: /** @type {OmniGeoConfig['ai']} */ ({ provider: 'openai' }) });
     expect(call(resolveAiCall(root, loaded)).model).toBe(DEFAULT_MODELS.openai);
   });
 
@@ -489,9 +489,9 @@ describe('resolveAiCall', () => {
     expect(call(resolveAiCall(root, config({ provider: 'qwen' })))).toMatchObject({ provider: 'groq', apiKey: 'gsk-groq' });
   });
 
-  it('sends the key nowhere when OPENGEO_PROVIDER names no provider', () => {
+  it('sends the key nowhere when OMNIGEO_PROVIDER names no provider', () => {
     // It used to fall through to the Anthropic default, so a Qwen key went to Anthropic.
-    env(['OPENGEO_PROVIDER=kwen', 'OPENGEO_API_KEY=sk-qwen']);
+    env(['OMNIGEO_PROVIDER=kwen', 'OMNIGEO_API_KEY=sk-qwen']);
     const result = resolveAiCall(root, config());
     expect(result).toEqual({ error: ERRORS.envProviderUnknown('kwen') });
     expect(ERRORS.envProviderUnknown('kwen')).toContain('Did you mean "qwen"?');
@@ -501,8 +501,8 @@ describe('resolveAiCall', () => {
     expect(call(resolveAiCall(root, config(), { provider: 'openai' }))).toMatchObject({ provider: 'openai', apiKey: 'sk-openai' });
   });
 
-  it('reads OPENGEO_PROVIDER whatever its case', () => {
-    env(['OPENGEO_PROVIDER=OpenAI', 'OPENGEO_API_KEY=sk-openai']);
+  it('reads OMNIGEO_PROVIDER whatever its case', () => {
+    env(['OMNIGEO_PROVIDER=OpenAI', 'OMNIGEO_API_KEY=sk-openai']);
     expect(call(resolveAiCall(root, config()))).toMatchObject({ provider: 'openai', apiKey: 'sk-openai' });
   });
 

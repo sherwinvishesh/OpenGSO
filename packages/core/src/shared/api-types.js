@@ -33,9 +33,9 @@ export {};
 // -- config --------------------------------------------------------------------------------------
 
 /**
- * @typedef {object} OpenGeoConfig
+ * @typedef {object} OmniGeoConfig
  * @property {string} site Base URL the project is generated/tested against. Also the default for a
- *   bare `opengeo test`.
+ *   bare `omnigeo test`.
  * @property {string} [publicOrigin] Where the site is deployed, e.g. `https://example.com`. Every
  *   absolute URL generate writes (sitemap, robots.txt, llms.txt, twin frontmatter and links) uses
  *   it instead of the origin that was crawled, which is usually a dev server.
@@ -63,14 +63,14 @@ export {};
  *   twin. Never blocks anyone - an unlisted bot simply sees the normal site.
  * @property {string[]} bots.blocked Lever 2 (§7): a separate, opt-in list of bots to disallow in
  *   robots.txt. Empty by default; blocking is never the default.
- * @property {CustomBotInput[]} bots.custom Crawlers this project knows about that OpenGEO's shipped
+ * @property {CustomBotInput[]} bots.custom Crawlers this project knows about that OmniGEO's shipped
  *   list does not: an in-house agent, or an AI product newer than the installed version. They
  *   behave exactly like built-in entries - both levers apply to them - and naming one in
  *   `markdownRouting` is what turns it on.
  * @property {object} ai Which AI tool `generate --tier ai` and `test --content` talk to.
  *
  *   The optional fields are the "bring your own provider" surface: name any endpoint that speaks
- *   one of the three API shapes and OpenGEO will use it, with no code change and no wait for a
+ *   one of the three API shapes and OmniGEO will use it, with no code change and no wait for a
  *   release. They are honoured for built-in providers too, because the usual reason to set
  *   `baseUrl` is a company gateway mirroring a vendor's API rather than a brand-new vendor.
  * @property {AiProvider} ai.provider
@@ -295,7 +295,7 @@ export {};
  *
  * - `changed`: the file is different from the one the twin was made from.
  * - `manual`: the file was modified after a hand-written twin was last saved, so the twin may be
- *   behind. OpenGEO never rewrites a hand-written twin, so only its author can bring it up to date.
+ *   behind. OmniGEO never rewrites a hand-written twin, so only its author can bring it up to date.
  * - `missing`: the file is gone, so the twin describes a page that no longer exists.
  * - `new`: a page with no twin at all.
  *
@@ -328,7 +328,7 @@ export {};
 /**
  * @typedef {object} SiteFileResult
  * @property {SiteFileName} name
- * @property {string} path Absolute path actually written, which is the `.opengeo-proposed` path when
+ * @property {string} path Absolute path actually written, which is the `.omnigeo-proposed` path when
  *   status is proposed.
  * @property {SiteFileStatus} status
  * @property {string} [message] Populated for `proposed` and `failed`, using the shared §13 copy.
@@ -363,7 +363,7 @@ export {};
  * @property {ProbeVerdict} verdict
  * @property {string} reason
  * @property {string} [detail]
- * @property {Record<string, string>} headers The §7 headers that came back. Only the ones OpenGEO
+ * @property {Record<string, string>} headers The §7 headers that came back. Only the ones OmniGEO
  *   has an opinion about.
  * @property {string} curl
  */
@@ -439,7 +439,7 @@ export {};
  * @property {string} root
  * @property {string} configPath
  * @property {boolean} configExists
- * @property {OpenGeoConfig} config
+ * @property {OmniGeoConfig} config
  * @property {string} version
  * @property {string} packageName
  * @property {{ present: boolean; provider?: AiProvider; model?: string; source?: string; path: string }} key
@@ -486,7 +486,7 @@ export {};
 
 /**
  * @typedef {object} ConfigResponse
- * @property {OpenGeoConfig} config
+ * @property {OmniGeoConfig} config
  * @property {string} configPath
  */
 
@@ -515,5 +515,5 @@ export {};
  * @typedef {object} ErrorBody
  * @property {string} error
  * @property {boolean} [needsKey] Generate's AI tier was asked for with no key configured.
- * @property {boolean} [configBroken] `opengeo.config.json` exists and cannot be read.
+ * @property {boolean} [configBroken] `omnigeo.config.json` exists and cannot be read.
  */

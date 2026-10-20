@@ -16,7 +16,7 @@ import { classify } from './negotiate.js';
  */
 
 /**
- * The framework-agnostic heart of opengeo-prod (§7).
+ * The framework-agnostic heart of omnigeo-prod (§7).
  *
  * It is a pure function over a request: no I/O, no AI, no API key, no per-request computation
  * beyond a map lookup. Everything a hosting target needs is in the returned decision, so each

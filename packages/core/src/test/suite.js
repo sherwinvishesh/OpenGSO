@@ -72,7 +72,7 @@ export function isTestMode(value) {
  * @property {string} [publicOrigin] The project's `publicOrigin`, so B14 compares a twin with the page it was made from.
  * @property {SuiteAi} [ai] Absent means the content pass reports "no key" instead of running.
  * @property {readonly LookalikeKey[]} [lookalikeKeys] `.env` lines that look like a key under a name
- *   OpenGEO does not read, named in the "no key" message.
+ *   OmniGEO does not read, named in the "no key" message.
  * @property {boolean} [requireContent] The caller asked for the content pass by name (`-q`, or the dashboard's own toggle). Turns a
  *   missing key from a note into a refusal, because silently doing less than was asked for is the
  *   one outcome nobody can debug.
@@ -214,7 +214,7 @@ function noDocuments(url, discovery) {
       ? 'The site publishes llms.txt or sitemap.xml, but none of the documents they point at came back as Markdown.'
       : 'The site publishes neither llms.txt nor sitemap.xml, so there was nothing to enumerate.',
     '',
-    'Run `opengeo generate <url>` to write the twins first, then review them.',
+    'Run `omnigeo generate <url>` to write the twins first, then review them.',
   );
   return lines.join('\n');
 }

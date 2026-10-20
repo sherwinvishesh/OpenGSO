@@ -16,7 +16,7 @@ import { startServer } from '../src/server/server.js';
  * a generate run streamed from its first frame to its last.
  */
 
-const OPTIONS = { version: '0.0.0-test', packageName: 'opengeo' };
+const OPTIONS = { version: '0.0.0-test', packageName: 'omnigeo' };
 
 /** @type {string} */
 let root;
@@ -24,7 +24,7 @@ let root;
 let webRoot;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-wire-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-wire-'));
   webRoot = join(root, 'web');
   mkdirSync(webRoot, { recursive: true });
   writeFileSync(join(webRoot, 'index.html'), '<!doctype html><title>dash</title>');
@@ -141,7 +141,7 @@ describe('a refusal, on a loopback launch', () => {
     });
     expect(response.status).toBe(403);
     expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
-    expect(existsSync(join(root, '.opengeo'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo'))).toBe(false);
   });
 
   it('refuses a JSON body that does not parse, and treats an empty one as no body', async () => {
@@ -153,7 +153,7 @@ describe('a refusal, on a loopback launch', () => {
     });
     expect(broken.status).toBe(400);
     expect(JSON.parse(broken.body).error).toContain('not valid JSON');
-    expect(existsSync(join(root, 'opengeo.config.json'))).toBe(false);
+    expect(existsSync(join(root, 'omnigeo.config.json'))).toBe(false);
 
     // An empty body reaches the handler as no body, so it is the missing URL that is refused.
     const empty = await raw(running.port, {
@@ -228,7 +228,7 @@ describe('a refusal, on a token-gated launch', () => {
     const exchange = await raw(running.port, { path: '/settings?tab=bots&token=launch-token', headers: host });
     expect(exchange.status).toBe(303);
     expect(exchange.headers.location).toBe('/settings?tab=bots');
-    expect(String(exchange.headers['set-cookie'])).toContain(`opengeo_token_${running.port}=launch-token`);
+    expect(String(exchange.headers['set-cookie'])).toContain(`omnigeo_token_${running.port}=launch-token`);
     expectHardened(exchange);
   });
 
@@ -411,6 +411,6 @@ describe('a streamed generate run, frame by frame', () => {
 
     expect(done?.data.status).toBe(200);
     expect(done?.data.body.pages.map((/** @type {{ route: string }} */ page) => page.route).sort()).toEqual(['/', '/about']);
-    expect(existsSync(join(root, '.opengeo', 'manifest.json'))).toBe(true);
+    expect(existsSync(join(root, '.omnigeo', 'manifest.json'))).toBe(true);
   });
 });

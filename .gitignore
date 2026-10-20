@@ -10,7 +10,7 @@ out/
 .env.local
 .DS_Store
 
-# .opengeo/manifest.json is deliberately NOT ignored: opengeo-prod reads it at boot,
+# .omnigeo/manifest.json is deliberately NOT ignored: omnigeo-prod reads it at boot,
 # so it has to travel with the deploy the same way public/md/*.md does.
 
 # Local Claude Code workspace: CLAUDE.md, the manual testing playbook, slash commands,
@@ -23,14 +23,14 @@ CLAUDE.md
 # work here. Earlier commits still contain it, which is fine and deliberate.
 idea.md
 
-# .opengeo/history.json is the opposite: a local record of test runs on one machine. It feeds the
+# .omnigeo/history.json is the opposite: a local record of test runs on one machine. It feeds the
 # home screen's score delta and the dashboard sparkline, and it means nothing anywhere else.
-**/.opengeo/history.json
-**/.opengeo/history.corrupt-*.json
+**/.omnigeo/history.json
+**/.omnigeo/history.corrupt-*.json
 
 # Running the CLI from the repo root writes its output here. These rules are anchored to the root
 # on purpose: examples/nextjs-demo has the same three paths and tracks them, because they are the
 # demo's generated output and prod reads them.
-/.opengeo/
-/opengeo.config.json
+/.omnigeo/
+/omnigeo.config.json
 /public/

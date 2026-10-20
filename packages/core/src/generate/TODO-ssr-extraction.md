@@ -12,7 +12,7 @@ per-framework adapter. `examples/nextjs-demo` exercises that end to end on every
 It has also been checked once by hand against real server output, not fixtures: an article page with
 a header, a nav, a cookie banner, an aside and a footer, built and served by Nuxt 4.4, SvelteKit 3.1,
 Astro 6.4 and React Router 8.5 (the last streams its responses by default). Each was crawled with
-`generate`, rebuilt so the twins shipped, served behind `opengeo-prod`, and scored 100/100 by `test`
+`generate`, rebuilt so the twins shipped, served behind `omnigeo-prod`, and scored 100/100 by `test`
 with 14 of 15 suggestions adopted. The Nuxt and React Router pages had no landmark at all and went
 through the `body` fallback; before the banner rule below, both twins opened with the banner's
 sentence.

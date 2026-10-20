@@ -30,7 +30,7 @@ export class SourceFilesError extends Error {
 /**
  * One crawl, three outputs (§6).
  *
- * This is the whole of `opengeo generate` above the CLI: discover routes by following links, turn
+ * This is the whole of `omnigeo generate` above the CLI: discover routes by following links, turn
  * each discovered page into a markdown twin, then write robots.txt, llms.txt and sitemap.xml from
  * that same page list. Nothing is fetched twice - the HTML the crawl already downloaded is handed
  * straight to the generator.
@@ -58,7 +58,7 @@ export class SourceFilesError extends Error {
  * @property {number} [maxDepth]
  * @property {number} [timeoutMs]
  * @property {boolean} [skipSiteFiles] Skip robots.txt / llms.txt / sitemap.xml entirely.
- * @property {boolean} [prune] Delete orphaned twins OpenGEO wrote, rather than only reporting them.
+ * @property {boolean} [prune] Delete orphaned twins OmniGEO wrote, rather than only reporting them.
  *   Refused, with a warning, on a run that cannot tell a deleted page from one it did not reach.
  * @property {string} [siteName]
  * @property {string} [siteDescription]
@@ -97,7 +97,7 @@ export async function generateSite(options) {
   /** @type {string[]} */
   const warnings = [];
   const origin = publicOriginOf(config, site);
-  // A crawl's routes are paths on the server it crawls, and its twins go where opengeo-prod serves
+  // A crawl's routes are paths on the server it crawls, and its twins go where omnigeo-prod serves
   // them from. Neither has a place for the folder a site like that is published in, and its build
   // folder, read as files, does.
   if (basePathOf(origin)) throw new SourceFilesError(ERRORS.folderSiteCrawl(origin));
@@ -200,7 +200,7 @@ export async function generateSite(options) {
  * robots.txt, llms.txt and sitemap.xml for what a run left in the manifest.
  *
  * Driven off the manifest rather than this run's page list, so a single-page rerun and a
- * fully-cached rerun both still describe the whole site. A file OpenGEO could not write, or that is
+ * fully-cached rerun both still describe the whole site. A file OmniGEO could not write, or that is
  * somebody else's, adds its message to `warnings`.
  *
  * @param {LoadedConfig} loaded

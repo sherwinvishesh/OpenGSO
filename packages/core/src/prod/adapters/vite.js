@@ -13,7 +13,7 @@ import { createNodeMiddleware } from './node.js';
  * A built single-page app is static files, so in production the twins are served wherever those
  * files are, at their `.md` URLs, and serving them to crawlers at the page's own URL is a job for
  * the host's edge (see `createEdgeMiddleware`). This plugin makes the dev server and `vite preview`
- * behave the way that production setup will, so `opengeo test` against localhost measures it.
+ * behave the way that production setup will, so `omnigeo test` against localhost measures it.
  */
 
 /**
@@ -23,7 +23,7 @@ import { createNodeMiddleware } from './node.js';
  */
 
 /**
- * @typedef {object} OpenGeoVitePlugin
+ * @typedef {object} OmniGeoVitePlugin
  * @property {string} name
  * @property {(server: ViteServerLike) => void} configureServer
  * @property {(server: ViteServerLike) => void} configurePreviewServer
@@ -35,11 +35,11 @@ import { createNodeMiddleware } from './node.js';
  * server answers a `.md` URL without the headers a twin carries.
  *
  * @param {ProjectOptions} [options]
- * @returns {OpenGeoVitePlugin}
+ * @returns {OmniGeoVitePlugin}
  */
-export function opengeo(options = {}) {
+export function omnigeo(options = {}) {
   return {
-    name: 'opengeo',
+    name: 'omnigeo',
     configureServer(server) {
       server.middlewares.use(createNodeMiddleware({ root: server.config.root, reload: true, ...options }));
     },
@@ -49,4 +49,4 @@ export function opengeo(options = {}) {
   };
 }
 
-export default opengeo;
+export default omnigeo;

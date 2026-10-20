@@ -18,7 +18,7 @@ import { box, wordmark } from './tui/widgets.js';
  * Setup as a full-screen stepper, without a second implementation of setup.
  *
  * The temptation here is to write a TUI onboarding flow beside the flat one, and then to have two
- * things that both know what OpenGEO asks and in what order. This is a `Prompter` instead: the same
+ * things that both know what OmniGEO asks and in what order. This is a `Prompter` instead: the same
  * `runSetup`, the same four steps, the same questions in the same order, drawn differently. When
  * the gate is closed there is no stepper at all and `createPrompter` answers, so a pipe, a CI job
  * and `--yes` behave exactly as they did before any of this existed.
@@ -46,7 +46,7 @@ import { box, wordmark } from './tui/widgets.js';
 
 /**
  * @typedef {ScreenOptions & {
- *   tag?: string; // Shown as the tag in the top right of the frame, e.g. `opengeo 0.1.0`.
+ *   tag?: string; // Shown as the tag in the top right of the frame, e.g. `omnigeo 0.1.0`.
  *   title?: string; // The title in the frame's top edge. Defaults to the wordmark.
  * }} StepperOptions
  */

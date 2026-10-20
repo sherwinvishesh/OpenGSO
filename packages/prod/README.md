@@ -1,4 +1,4 @@
-# opengeo-prod
+# omnigeo-prod
 
 > **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
 
@@ -9,34 +9,34 @@ Runtime middleware that serves your markdown twins to AI agents at the same URL 
 - **Never blocks anybody.** It cannot: there is no blocking branch in the package.
 - Every request is a map lookup. Nothing is parsed, crawled or generated at request time.
 
-Part of [OpenGEO](https://github.com/sherwinvishesh/OpenGEO). This is the *serving* half; the files
-it serves are written by [`opengeo-generate`](https://github.com/sherwinvishesh/OpenGEO/blob/main/packages/generate/README.md).
+Part of [OmniGEO](https://github.com/sherwinvishesh/OmniGEO). This is the *serving* half; the files
+it serves are written by [`omnigeo-generate`](https://github.com/sherwinvishesh/OmniGEO/blob/main/packages/generate/README.md).
 
 ## Install
 
-Needs Node.js 22 or later. The `opengeo-prod/edge` entry imports no Node module, so it also runs
+Needs Node.js 22 or later. The `omnigeo-prod/edge` entry imports no Node module, so it also runs
 on edge runtimes. The package is an ES module; a CommonJS server can still
-`require('opengeo-prod/node')` on Node 22.12 or later, and on an earlier 22 uses
-`await import('opengeo-prod/node')` instead.
+`require('omnigeo-prod/node')` on Node 22.12 or later, and on an earlier 22 uses
+`await import('omnigeo-prod/node')` instead.
 
 ```bash
-npm install opengeo-prod
+npm install omnigeo-prod
 ```
 
 ## Next.js
 
-`opengeo-prod` imports nothing from `next`. On Next 16, a `proxy.ts` at the project root (or in
+`omnigeo-prod` imports nothing from `next`. On Next 16, a `proxy.ts` at the project root (or in
 `src/`) owns the two Next-specific lines:
 
 ```ts
 import { NextResponse } from 'next/server';
-import { applyPassthroughHeaders, createNextMiddleware } from 'opengeo-prod/next';
+import { applyPassthroughHeaders, createNextMiddleware } from 'omnigeo-prod/next';
 
 // Built once at module scope, so a request is a lookup and nothing else.
-const opengeo = createNextMiddleware({ root: process.cwd() });
+const omnigeo = createNextMiddleware({ root: process.cwd() });
 
 export function proxy(request: Request) {
-  const { response, headers } = opengeo(request);
+  const { response, headers } = omnigeo(request);
   if (response) return response;          // markdown, a 304, or a 406
 
   const next = NextResponse.next();
@@ -59,8 +59,8 @@ deprecated; `npx @next/codemod@canary middleware-to-proxy .` renames it. If you 
 [Edge runtimes](#edge-runtimes) below.
 
 **Under `next dev` there is nothing to restart.** At most once a second the adapter checks whether
-`opengeo.config.json`, the manifest or a twin changed, and if one did it loads them again and logs
-`[opengeo-prod] reloaded after a change on disk`. In production (`next start`, or any
+`omnigeo.config.json`, the manifest or a twin changed, and if one did it loads them again and logs
+`[omnigeo-prod] reloaded after a change on disk`. In production (`next start`, or any
 `NODE_ENV=production`) it reads them once, at boot, and a request never touches the disk. Pass
 `reload: false` to turn the check off in development too.
 
@@ -71,22 +71,22 @@ Next's app-page runtime calls `res.setHeader('vary', ...)` while rendering, whic
 
 Markdown responses are unaffected and carry a clean `Vary: Accept`.
 
-`opengeo test` scores this as a B7 partial, 2 of 4, rather than special-casing it, and `opengeo
+`omnigeo test` scores this as a B7 partial, 2 of 4, rather than special-casing it, and `omnigeo
 prod test` reports it as a warning that names the exact `Vary` string Next produced. Verified against
 Next 16.3.4 and 16.3.8.
 
 ## Every other framework
 
-One adapter per kind of server, not per framework. Each reads the same `opengeo.config.json`,
-`public/` and `.opengeo/manifest.json`, so they all decide a request the same way.
+One adapter per kind of server, not per framework. Each reads the same `omnigeo.config.json`,
+`public/` and `.omnigeo/manifest.json`, so they all decide a request the same way.
 
 | Entry | Your server | Shape |
 | --- | --- | --- |
-| `opengeo-prod/next` | Next.js | above |
-| `opengeo-prod/node` | Express, Connect, Polka, Fastify, Koa, Nest, Nuxt, h3, Angular SSR and Qwik City on Express | `(req, res, next)` |
-| `opengeo-prod/fetch` | Hono, SvelteKit, Astro, React Router, SolidStart, Bun, Deno | `(request, next) => Response` |
-| `opengeo-prod/vite` | `vite` and `vite preview`: vanilla, React, Vue, Svelte, Solid, Lit | a plugin |
-| `opengeo-prod/edge` | Cloudflare Workers, Vercel and Netlify edge functions, Deno Deploy | `(request, next) => Response`, no disk |
+| `omnigeo-prod/next` | Next.js | above |
+| `omnigeo-prod/node` | Express, Connect, Polka, Fastify, Koa, Nest, Nuxt, h3, Angular SSR and Qwik City on Express | `(req, res, next)` |
+| `omnigeo-prod/fetch` | Hono, SvelteKit, Astro, React Router, SolidStart, Bun, Deno | `(request, next) => Response` |
+| `omnigeo-prod/vite` | `vite` and `vite preview`: vanilla, React, Vue, Svelte, Solid, Lit | a plugin |
+| `omnigeo-prod/edge` | Cloudflare Workers, Vercel and Netlify edge functions, Deno Deploy | `(request, next) => Response`, no disk |
 
 Every recipe below was run against a real app on the version named, with an AI agent, a browser,
 `Accept: text/markdown`, the `.md` twin URL, a `HEAD`, a 406 and a page with no twin, in development
@@ -97,7 +97,7 @@ run yet, so they are listed by the shape they share rather than as verified.
 ### Express, Connect, Polka, Fastify
 
 ```js
-import { createNodeMiddleware } from 'opengeo-prod/node';
+import { createNodeMiddleware } from 'omnigeo-prod/node';
 
 app.use(createNodeMiddleware()); // first, before your routes and static files
 ```
@@ -111,17 +111,17 @@ A `Vary` already on the response, such as `Accept-Encoding` from compression, is
 is added to it. A route that sets `Vary` itself after the middleware has run replaces the whole
 header, which takes `Accept` out of it: append instead (`res.vary('Accept-Encoding')` in Express,
 `ctx.vary()` in Koa), or leave `Vary` to the middleware. On Fastify, `reply.header('vary', ...)`
-always replaces it. `opengeo prod test` reports a page whose `Vary` lost `Accept`.
+always replaces it. `omnigeo prod test` reports a page whose `Vary` lost `Accept`.
 
 ### Koa
 
 Koa has no `next` to hand a Node middleware, so the adapter says whether it answered:
 
 ```js
-const opengeo = createNodeMiddleware();
+const omnigeo = createNodeMiddleware();
 
 app.use(async (ctx, next) => {
-  if (opengeo(ctx.req, ctx.res)) {
+  if (omnigeo(ctx.req, ctx.res)) {
     ctx.respond = false; // the twin has been sent
     return;
   }
@@ -134,9 +134,9 @@ Verified on Koa 3.2.
 ### Nuxt, Nitro and h3
 
 ```js
-// server/middleware/opengeo.js
+// server/middleware/omnigeo.js
 import { fromNodeMiddleware } from 'h3';
-import { createNodeMiddleware } from 'opengeo-prod/node';
+import { createNodeMiddleware } from 'omnigeo-prod/node';
 
 export default fromNodeMiddleware(createNodeMiddleware());
 ```
@@ -146,11 +146,11 @@ Verified on Nuxt 4.4 (h3 1.15) under `nuxt dev` and the built `.output/server`.
 ### Hono
 
 ```js
-import { createFetchMiddleware } from 'opengeo-prod/fetch';
+import { createFetchMiddleware } from 'omnigeo-prod/fetch';
 
-const opengeo = createFetchMiddleware();
+const omnigeo = createFetchMiddleware();
 
-app.use((c, next) => opengeo(c.req.raw, async () => {
+app.use((c, next) => omnigeo(c.req.raw, async () => {
   await next();
   return c.res;
 }));
@@ -163,11 +163,11 @@ the same place (see [Edge runtimes](#edge-runtimes)).
 
 ```js
 // src/hooks.server.js
-import { createFetchMiddleware } from 'opengeo-prod/fetch';
+import { createFetchMiddleware } from 'omnigeo-prod/fetch';
 
-const opengeo = createFetchMiddleware();
+const omnigeo = createFetchMiddleware();
 
-export const handle = ({ event, resolve }) => opengeo(event.request, () => resolve(event));
+export const handle = ({ event, resolve }) => omnigeo(event.request, () => resolve(event));
 ```
 
 Verified on SvelteKit 3.1 with `adapter-node`. If you already have a `handle`, put this first
@@ -177,11 +177,11 @@ inside `sequence(...)`.
 
 ```js
 // src/middleware.js
-import { createFetchMiddleware } from 'opengeo-prod/fetch';
+import { createFetchMiddleware } from 'omnigeo-prod/fetch';
 
-const opengeo = createFetchMiddleware();
+const omnigeo = createFetchMiddleware();
 
-export const onRequest = (context, next) => opengeo(context.request, next);
+export const onRequest = (context, next) => omnigeo(context.request, next);
 ```
 
 Verified on Astro 6.4 with `@astrojs/node` 10, on pages rendered on demand. A prerendered page is
@@ -191,11 +191,11 @@ a static file, and runs middleware only at build time: serve those the way a sta
 
 ```jsx
 // app/root.jsx
-import { createFetchMiddleware } from 'opengeo-prod/fetch';
+import { createFetchMiddleware } from 'omnigeo-prod/fetch';
 
-const opengeo = createFetchMiddleware();
+const omnigeo = createFetchMiddleware();
 
-export const middleware = [({ request }, next) => opengeo(request, next)];
+export const middleware = [({ request }, next) => omnigeo(request, next)];
 ```
 
 Verified on React Router 8.5 under `react-router dev` and `react-router-serve`. Route middleware
@@ -208,7 +208,7 @@ middleware sits behind the `v8_middleware` future flag. On a custom Express serv
 
 ```ts
 // src/server.ts, before express.static and the Angular handler
-import { createNodeMiddleware } from 'opengeo-prod/node';
+import { createNodeMiddleware } from 'omnigeo-prod/node';
 
 app.use(createNodeMiddleware());
 ```
@@ -222,7 +222,7 @@ client-only Angular build is static files: see Static sites below for what that 
 
 ```tsx
 // src/entry.express.tsx, after `const app = express()` (from `npm run qwik add express`)
-import { createNodeMiddleware } from 'opengeo-prod/node';
+import { createNodeMiddleware } from 'omnigeo-prod/node';
 
 app.use(createNodeMiddleware());
 ```
@@ -237,9 +237,9 @@ routes are prerendered, so turn that off where the adapter is configured:
 
 ```js
 // vite.config.js
-import opengeo from 'opengeo-prod/vite';
+import omnigeo from 'omnigeo-prod/vite';
 
-export default { plugins: [opengeo()] };
+export default { plugins: [omnigeo()] };
 ```
 
 Verified on Vite 8.3, under `vite` and `vite preview`, with a single-page app, and in front of
@@ -254,7 +254,7 @@ so there is nowhere to put middleware. Two ways to serve the twins:
 - **An edge function** in front of the host's static files, as in [Edge runtimes](#edge-runtimes).
   It answers at the `.md` URLs, gives agents the markdown at the page's own URL, and sets every
   header.
-- **No server code at all.** Build, run `opengeo generate` on the build folder, and deploy that
+- **No server code at all.** Build, run `omnigeo generate` on the build folder, and deploy that
   folder. Generate reads the HTML files and writes each twin beside its page (`guide/index.html`
   gets `guide.md`), so any static host serves it at its `.md` URL. A static host cannot negotiate,
   so an agent asking for the page itself still gets HTML, and the headers the B checks look for
@@ -264,7 +264,7 @@ so there is nowhere to put middleware. Two ways to serve the twins:
   the folder in every URL generate writes.
 
 ```bash
-npx vitepress build docs && npx opengeo generate docs/.vitepress/dist --origin https://your-site.com
+npx vitepress build docs && npx omnigeo generate docs/.vitepress/dist --origin https://your-site.com
 ```
 
 Verified on VitePress 1.6 with `vitepress preview`, which served the twins as `text/markdown`. The
@@ -278,12 +278,12 @@ add `srcExclude: ['public/**']` to `.vitepress/config` if you do.
 The adapters are thin. Underneath is a pure function: hand it a request, get back a decision.
 
 ```js
-import { createFsStore, createProdHandler, resolveBots } from 'opengeo-prod';
+import { createFsStore, createProdHandler, resolveBots } from 'omnigeo-prod';
 
 const handle = createProdHandler({
-  store: createFsStore({ root: process.cwd(), publicDir: 'public', internalDir: '.opengeo' }),
+  store: createFsStore({ root: process.cwd(), publicDir: 'public', internalDir: '.omnigeo' }),
   markdownRouting: ['ClaudeBot', 'GPTBot', 'Perplexity-User'],
-  bots: resolveBots(config.bots.custom), // the project's own crawlers, from opengeo.config.json
+  bots: resolveBots(config.bots.custom), // the project's own crawlers, from omnigeo.config.json
 });
 
 const decision = handle({ url, method, headers });
@@ -292,13 +292,13 @@ const decision = handle({ url, method, headers });
 A decision is one of: serve this markdown with these headers, return a 406, or pass through with
 these headers added to whatever you were going to send. A 406 is only ever returned on a route that
 has a twin; an API route asking for JSON passes through untouched. `fetchMiddleware(handle)` from
-`opengeo-prod/edge` turns it into the fetch-style middleware above.
+`omnigeo-prod/edge` turns it into the fetch-style middleware above.
 
-### Crawlers OpenGEO does not ship with
+### Crawlers OmniGEO does not ship with
 
-A project can define its own agents under `bots.custom` in `opengeo.config.json`, added through
-`opengeo settings` or the dashboard's Bot settings tab. Every adapter picks them up from the config,
-and `opengeo prod data` carries them to the edge. Like everything else they are read once at boot,
+A project can define its own agents under `bots.custom` in `omnigeo.config.json`, added through
+`omnigeo settings` or the dashboard's Bot settings tab. Every adapter picks them up from the config,
+and `omnigeo prod data` carries them to the edge. Like everything else they are read once at boot,
 so in production a crawler added later needs a restart. On a development server the adapter reloads
 it with the config.
 
@@ -306,7 +306,7 @@ it with the config.
 
 | Store | Use it when |
 |---|---|
-| `createFsStore` | Node runtime. Reads `public/md/**` through `.opengeo/manifest.json`. |
+| `createFsStore` | Node runtime. Reads `public/md/**` through `.omnigeo/manifest.json`. |
 | `createManifestStore` | Edge runtime, or anywhere without disk. Takes an inlined manifest. |
 | `createMemoryStore` | Tests. |
 
@@ -314,36 +314,36 @@ All three are loaded once. None of them touch the filesystem per request.
 
 ### When something goes wrong
 
-No adapter can take a page down. A broken `opengeo.config.json` is logged once and every request
-goes to your app as if OpenGEO were not installed. So does a request the handler cannot decide, for
+No adapter can take a page down. A broken `omnigeo.config.json` is logged once and every request
+goes to your app as if OmniGEO were not installed. So does a request the handler cannot decide, for
 whatever reason, logged once per process. A broken config costs you the markdown, never the site.
 
 ## Edge runtimes
 
-An edge function has no disk, so the twins travel as data. `opengeo prod data` writes them, with
+An edge function has no disk, so the twins travel as data. `omnigeo prod data` writes them, with
 your routing and custom crawlers, into one module:
 
 ```bash
-npx opengeo-prod prod data      # writes opengeo-edge-data.js (.ts in a TypeScript project)
+npx omnigeo-prod prod data      # writes omnigeo-edge-data.js (.ts in a TypeScript project)
 ```
 
-Run it after `opengeo generate` and before your bundler; as the first step of your build script is
-simplest. When `opengeo generate` runs in a project that already has the module, it refreshes it
+Run it after `omnigeo generate` and before your bundler; as the first step of your build script is
+simplest. When `omnigeo generate` runs in a project that already has the module, it refreshes it
 too. It writes nothing when there are no twins, rather than an empty module that would quietly turn
-the markdown off, and like everything OpenGEO writes it never replaces a file it did not write
+the markdown off, and like everything OmniGEO writes it never replaces a file it did not write
 (`--force` does). It warns past 1 MB, since edge hosts cap a function's size.
 
-Then import from `opengeo-prod/edge`, which imports no Node module, so an edge bundler takes it:
+Then import from `omnigeo-prod/edge`, which imports no Node module, so an edge bundler takes it:
 
 ```js
 // A Cloudflare Worker in front of its static assets
-import { createEdgeMiddleware } from 'opengeo-prod/edge';
-import data from './opengeo-edge-data.js';
+import { createEdgeMiddleware } from 'omnigeo-prod/edge';
+import data from './omnigeo-edge-data.js';
 
-const opengeo = createEdgeMiddleware({ data });
+const omnigeo = createEdgeMiddleware({ data });
 
 export default {
-  fetch: (request, env) => opengeo(request, () => env.ASSETS.fetch(request)),
+  fetch: (request, env) => omnigeo(request, () => env.ASSETS.fetch(request)),
 };
 ```
 
@@ -355,14 +355,14 @@ edge functions and Deno Deploy among them, though only workerd has been run.
 
 On Next.js, Edge middleware is the same idea: return `decision.response` from a
 `createProdHandler({ store: createManifestStore(data), ... })` when there is one, otherwise
-`NextResponse.next()` with `applyPassthroughHeaders`. Do not import `opengeo-prod/next` there: it is
+`NextResponse.next()` with `applyPassthroughHeaders`. Do not import `omnigeo-prod/next` there: it is
 the Node adapter and reads the disk. There is no startup log at the edge; check a deployment with
-`opengeo prod test` instead.
+`omnigeo prod test` instead.
 
 ## Verifying a deployment
 
 ```bash
-npx opengeo-prod prod test https://your-site.com/some-page
+npx omnigeo-prod prod test https://your-site.com/some-page
 ```
 
 Five probes, each isolating exactly one variable, reported under the lever they belong to:
@@ -387,40 +387,40 @@ you route markdown to that your own `robots.txt` disallows, that gets its own se
 The exit code follows the failures, not the warnings. A warning is a real finding, but it is the
 kind a CDN can cause and that you may knowingly accept.
 
-`prod test` and `prod data` are the only two commands in this package. `opengeo-prod generate`
+`prod test` and `prod data` are the only two commands in this package. `omnigeo-prod generate`
 will tell you, by name, which package to install instead.
 
 ## Startup logging
 
-On boot, once per process, `opengeo-prod` reports what it found:
+On boot, once per process, `omnigeo-prod` reports what it found:
 
 ```
-[opengeo-prod] startup check
-[opengeo-prod] robots.txt: found - blocking no AI bots
-[opengeo-prod] llms.txt: found
-[opengeo-prod] sitemap.xml: found
-[opengeo-prod] markdown twins loaded: 3
+[omnigeo-prod] startup check
+[omnigeo-prod] robots.txt: found - blocking no AI bots
+[omnigeo-prod] llms.txt: found
+[omnigeo-prod] sitemap.xml: found
+[omnigeo-prod] markdown twins loaded: 3
 ```
 
 There is a module-scoped guard, so this happens at startup and never per request. When a file is
 missing it says so and names the command that would create it. Pass `logStartup: false` to silence
 it.
 
-If `opengeo.config.json` is broken (malformed JSON, a field of the wrong type, a `publicDir` outside
-the project), no adapter throws. It logs one `[opengeo-prod]` line to stderr naming the
+If `omnigeo.config.json` is broken (malformed JSON, a field of the wrong type, a `publicDir` outside
+the project), no adapter throws. It logs one `[omnigeo-prod]` line to stderr naming the
 problem, serves no markdown, and passes every request through to the normal site until the file is
 fixed. A broken config costs you the markdown, never the site.
 
 ## The two levers
 
-`opengeo-prod` implements exactly one of OpenGEO's two bot settings.
+`omnigeo-prod` implements exactly one of OmniGEO's two bot settings.
 
 **`bots.markdownRouting` (lever 1) chooses a format.** A bot on this list gets markdown. A bot not on
 it gets the normal HTML page, exactly like a human visitor. An agent nobody has heard of gets HTML,
 not a 403. Unknown means unknown, not hostile.
 
 **`bots.blocked` (lever 2) is not implemented here at all.** Blocking is expressed through the
-`robots.txt` that `opengeo generate` writes. It is advisory, it lives in a file your users can read,
+`robots.txt` that `omnigeo generate` writes. It is advisory, it lives in a file your users can read,
 and there is no code in this package that could enforce it. That is deliberate, not an omission.
 
 `bots.custom` is neither lever. It widens the catalogue of crawlers that can be recognised at all,
@@ -434,5 +434,5 @@ this at all, so the HTML path is left alone unless the request asked for somethi
 
 ## Reference
 
-- [The wire spec](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/spec.md) - headers, negotiation, the twin URL convention.
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGEO/blob/main/docs/checks.md) - what `opengeo test` verifies, and why.
+- [The wire spec](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/spec.md) - headers, negotiation, the twin URL convention.
+- [The check catalogue](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/checks.md) - what `omnigeo test` verifies, and why.

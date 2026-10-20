@@ -1,7 +1,7 @@
 /**
  * Minimal YAML frontmatter, deliberately not a YAML library.
  *
- * OpenGEO only ever writes a flat map of strings, numbers, booleans and string arrays, and only
+ * OmniGEO only ever writes a flat map of strings, numbers, booleans and string arrays, and only
  * ever reads back frontmatter it wrote. A full YAML parser would be a dependency in every published
  * package for a feature this small.
  */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConfig } from '@opengeo/core/shared';
+import { defaultConfig } from '@omnigeo/core/shared';
 import {
   buildFixPrompt,
   CHECKS,
@@ -16,9 +16,9 @@ import {
   reviewQuality,
   scoreChecks,
   scoreFindings,
-} from '@opengeo/core/test';
-/** @import { CheckResult, TestResult } from '@opengeo/core/test' */
-/** @import { ProviderCall } from '@opengeo/core/generate' */
+} from '@omnigeo/core/test';
+/** @import { CheckResult, TestResult } from '@omnigeo/core/test' */
+/** @import { ProviderCall } from '@omnigeo/core/generate' */
 
 /**
  * Framework detection, the fix prompt, and the quality layer. The three of them share one property
@@ -159,8 +159,8 @@ describe('the fix prompt', () => {
     /** @type {Array<[import('../src/shared/framework.js').FrameworkId, string]>} */
     const statics = [['vitepress', 'docs/.vitepress/dist'], ['docusaurus', 'build'], ['vite', 'dist']];
     for (const [id, out] of statics) {
-      expect(line(id)).toContain('opengeo-prod/edge');
-      expect(line(id)).toContain(`\`opengeo generate ${out}\``);
+      expect(line(id)).toContain('omnigeo-prod/edge');
+      expect(line(id)).toContain(`\`omnigeo generate ${out}\``);
     }
     expect(line('gatsby')).not.toMatch(/build script/);
   });
@@ -187,15 +187,15 @@ describe('the fix prompt', () => {
     expect(prompt).toContain('4. Verify your suggestions against');
   });
 
-  it('references only opengeo-prod and OpenGEO docs, never a competitor', () => {
+  it('references only omnigeo-prod and OmniGEO docs, never a competitor', () => {
     const prompt = buildFixPrompt(result).toLowerCase();
-    // Named in §14 as the landscape OpenGEO sits in. A fix prompt handed to an agent with
+    // Named in §14 as the landscape OmniGEO sits in. A fix prompt handed to an agent with
     // file access must not send it to install any of them.
     for (const competitor of ['firecrawl', 'jina', 'r.jina.ai', 'mintlify', 'gitbook', 'readme.io', 'llmstxt.org', 'markdowner', 'urltomarkdown', 'pure.md']) {
       expect(prompt, `should not mention ${competitor}`).not.toContain(competitor);
     }
     for (const url of prompt.match(/https?:\/\/[^\s)]+/g) ?? []) {
-      expect(url, `${url} points outside OpenGEO`).toMatch(/^https?:\/\/(github\.com\/sherwinvishesh\/opengeo|example\.com)/);
+      expect(url, `${url} points outside OmniGEO`).toMatch(/^https?:\/\/(github\.com\/sherwinvishesh\/omnigeo|example\.com)/);
     }
   });
 
@@ -311,12 +311,12 @@ describe('the fix prompt', () => {
 
   it('points a plain HTML site at generating from its folder, and nobody else', () => {
     const plain = { id: /** @type {const} */ ('plain'), name: 'plain HTML', evidence: 'the page loads no JavaScript bundle' };
-    const hint = '`opengeo generate <folder>` reads them directly';
+    const hint = '`omnigeo generate <folder>` reads them directly';
     expect(buildFixPrompt(resultWith([FAILURE, PASS], { framework: plain }))).toContain(hint);
     expect(buildFixPrompt(resultWith([FAILURE, PASS], { framework: { id: 'nextjs', name: 'Next.js', evidence: '/_next/' } }))).not.toContain(hint);
     // Already generating from files: the prompt names the real folder, so the hint would repeat it.
     const configured = buildFixPrompt(resultWith([FAILURE, PASS], { framework: plain }), { folder: 'site', twinDir: 'site/' });
-    expect(configured).toContain('`opengeo generate site` reads the HTML files in site/');
+    expect(configured).toContain('`omnigeo generate site` reads the HTML files in site/');
     expect(configured).not.toContain(hint);
   });
 
@@ -333,7 +333,7 @@ describe('the fix prompt', () => {
       title: 'Twin is fresh',
       reason: 'The live page has changed since the twin was generated.',
       detail: 'The live page now states 1 fact the twin does not: "$13,750".',
-      fix: 'Re-run `opengeo generate` (+4).',
+      fix: 'Re-run `omnigeo generate` (+4).',
     };
     /** @type {CheckResult} */
     const llms = { ...FAILURE, id: 'A2', scored: false, weight: 3, title: 'llms.txt', reason: 'Missing.', detail: undefined };
@@ -390,10 +390,10 @@ describe('the fix prompt', () => {
   });
 
   it('tells the agent how to prove each fix, with the command the user ran', () => {
-    const prompt = buildFixPrompt(result, { command: 'opengeo test https://example.com/resume --strict' });
-    expect(prompt).toContain('- Done when: ` opengeo test https://example.com/resume --strict ` reports A3 as passing.');
+    const prompt = buildFixPrompt(result, { command: 'omnigeo test https://example.com/resume --strict' });
+    expect(prompt).toContain('- Done when: ` omnigeo test https://example.com/resume --strict ` reports A3 as passing.');
     // Without one it falls back to the plain audit of the same URL.
-    expect(buildFixPrompt(result)).toContain('` opengeo test https://example.com/resume ` reports A3 as passing.');
+    expect(buildFixPrompt(result)).toContain('` omnigeo test https://example.com/resume ` reports A3 as passing.');
   });
 
   it('says a host or CDN setting is a setting, rather than inventing a file for it', () => {
@@ -426,10 +426,10 @@ describe('the fix prompt', () => {
 
     it('leaves out the tools a scoped check has no use for', () => {
       const ttfb = buildFixPrompt(wide, { only: ['A6'] });
-      expect(ttfb).not.toContain('`opengeo-prod` is the runtime middleware');
-      expect(ttfb).not.toContain('`opengeo generate <url>`');
-      expect(ttfb).toContain('`opengeo test <url>` re-runs exactly this audit');
-      expect(buildFixPrompt(wide, { only: ['A3'] })).toContain('`opengeo generate <url>`');
+      expect(ttfb).not.toContain('`omnigeo-prod` is the runtime middleware');
+      expect(ttfb).not.toContain('`omnigeo generate <url>`');
+      expect(ttfb).toContain('`omnigeo test <url>` re-runs exactly this audit');
+      expect(buildFixPrompt(wide, { only: ['A3'] })).toContain('`omnigeo generate <url>`');
     });
 
     it('brings the blocker along with a locked check, since nothing else can move it', () => {
@@ -437,7 +437,7 @@ describe('the fix prompt', () => {
       expect(prompt).toContain('- Scope: only B5 and B1.');
       expect(prompt).toContain('### B1');
       expect(prompt).toContain('## Waiting on B1 (1 suggestions)');
-      expect(prompt).toContain('`opengeo-prod` is the runtime middleware');
+      expect(prompt).toContain('`omnigeo-prod` is the runtime middleware');
     });
 
     it('calls a prompt of suggestions an adoption, and never claims the score is full', () => {
@@ -465,10 +465,10 @@ describe('the fix prompt', () => {
     /** @type {CheckResult} */
     const llms = { ...FAILURE, id: 'A2', scored: false, weight: 3, title: 'llms.txt', reason: 'Missing.', detail: undefined };
     const full = resultWith([FAILURE, partial, llms, PASS]);
-    const set = fixPromptSet(full, { command: 'opengeo test https://example.com/resume', only: ['A3'] });
+    const set = fixPromptSet(full, { command: 'omnigeo test https://example.com/resume', only: ['A3'] });
 
     it('has the whole report as one prompt, ignoring any scope it was handed', () => {
-      expect(set.all).toBe(buildFixPrompt(full, { command: 'opengeo test https://example.com/resume' }));
+      expect(set.all).toBe(buildFixPrompt(full, { command: 'omnigeo test https://example.com/resume' }));
     });
 
     it('has one prompt per group with work in it, and none for an empty group', () => {
@@ -487,9 +487,9 @@ describe('the fix prompt', () => {
 
   it('reads where the twins live from the config, for a crawled site and a folder alike', () => {
     const crawled = defaultConfig();
-    expect(fixPromptOptions(crawled, 'https://example.com/')).toEqual({ command: 'opengeo test https://example.com/', twinDir: 'public/md/' });
+    expect(fixPromptOptions(crawled, 'https://example.com/')).toEqual({ command: 'omnigeo test https://example.com/', twinDir: 'public/md/' });
     const folder = { ...crawled, publicDir: 'site/', generate: { ...crawled.generate, source: /** @type {const} */ ('files') } };
-    expect(fixPromptOptions(folder, 'https://example.com/')).toEqual({ command: 'opengeo test https://example.com/', twinDir: 'site/', folder: 'site' });
+    expect(fixPromptOptions(folder, 'https://example.com/')).toEqual({ command: 'omnigeo test https://example.com/', twinDir: 'site/', folder: 'site' });
   });
 });
 

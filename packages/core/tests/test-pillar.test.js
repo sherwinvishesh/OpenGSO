@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
+import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@omnigeo/core/shared';
 import { liveContentHash } from './helpers/live-hash.js';
-import { CHECKS, failsBuild, fixSteps, renderReport, runChecks, scoreChecks, testEvidence } from '@opengeo/core/test';
-/** @import { ProbeResult } from '@opengeo/core/shared' */
-/** @import { Evidence } from '@opengeo/core/test' */
+import { CHECKS, failsBuild, fixSteps, renderReport, runChecks, scoreChecks, testEvidence } from '@omnigeo/core/test';
+/** @import { ProbeResult } from '@omnigeo/core/shared' */
+/** @import { Evidence } from '@omnigeo/core/test' */
 
 /**
  * The whole checklist is driven from synthetic evidence, so these tests exercise the real check
@@ -94,7 +94,7 @@ function goodEvidence() {
 }
 
 /**
- * A site that never installed OpenGEO: real HTML, no `.md` layer anywhere. This is what the whole
+ * A site that never installed OmniGEO: real HTML, no `.md` layer anywhere. This is what the whole
  * web looks like today, so it is the case the scale has to get right.
  *
  * @returns {Evidence}
@@ -423,7 +423,7 @@ describe('scoring', () => {
     expect(plain).toContain('--strict fails a build on it');
     expect(plain).toContain('Every scored check passed, but B14 fails on the twin agents are served.');
     expect(plain).toContain('Fix the twin next');
-    expect(plain).toMatch(/fix {2}B14 {2}Re-run `opengeo generate`/);
+    expect(plain).toMatch(/fix {2}B14 {2}Re-run `omnigeo generate`/);
     expect(plain).not.toContain('Nothing to fix');
     expect(plain).not.toContain('Worth adopting next');
     expect(plain).not.toContain('this page has not adopted');
@@ -566,7 +566,7 @@ describe('B14 staleness and drift', () => {
     const cosmetic = byId(evidence).get('B14');
     expect(cosmetic?.status).toBe('partial');
     expect(cosmetic?.reason).toContain('cosmetic');
-    expect(cosmetic?.fix).toContain('opengeo generate');
+    expect(cosmetic?.fix).toContain('omnigeo generate');
     expect(cosmetic?.detail).toContain('deadbeefdeadbeef');
 
     // A real rewrite: a fact on the live page is nowhere in the twin.
@@ -581,7 +581,7 @@ describe('B14 staleness and drift', () => {
     // stale, and the fact that moved is the part a reader needs first.
     expect(real?.reason).toContain('The live page now states 1 fact the twin does not: "2025"');
     expect(real?.reason).not.toContain('model');
-    expect(real?.fix).toContain('opengeo generate');
+    expect(real?.fix).toContain('omnigeo generate');
     expect(real?.detail).toContain('deadbeefdeadbeef');
   });
 

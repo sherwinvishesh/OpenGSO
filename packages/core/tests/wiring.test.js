@@ -26,13 +26,13 @@ const coreTarget = (/** @type {string} */ target) => join('packages/core', targe
 const strip = (/** @type {string} */ path) => path.replace(/^\.\//, '');
 
 /**
- * The file a `@opengeo/core...` specifier resolves to through core's exports, or nothing.
+ * The file a `@omnigeo/core...` specifier resolves to through core's exports, or nothing.
  *
  * @param {string} specifier
  * @returns {string | undefined}
  */
 function resolveCore(specifier) {
-  const subpath = `.${specifier.slice('@opengeo/core'.length)}`;
+  const subpath = `.${specifier.slice('@omnigeo/core'.length)}`;
   if (coreExports[subpath]) return coreTarget(coreExports[subpath]);
   for (const [key, target] of Object.entries(coreExports)) {
     if (!key.includes('*')) continue;
@@ -60,7 +60,7 @@ const entries = PACKAGE_DIRS.flatMap((dir) =>
         name: /** @type {string} */ (readJson(`packages/${dir}/package.json`).name),
         file: `packages/${dir}/src/${file}`,
         source,
-        specifiers: [...source.matchAll(/from '(@opengeo\/core[^']*)'/g)].map(([, specifier]) => specifier),
+        specifiers: [...source.matchAll(/from '(@omnigeo\/core[^']*)'/g)].map(([, specifier]) => specifier),
       };
     }),
 );
@@ -78,12 +78,12 @@ describe("core's exports, tsconfig paths and the package entries agree", () => {
 
   it('gives every core export a tsconfig paths entry naming the same file, and no other entries', () => {
     // tsc resolves core through the workspace without `paths`, but tsup's declaration build does
-    // not, so a missing entry only shows up as a published .d.ts importing @opengeo/core.
+    // not, so a missing entry only shows up as a published .d.ts importing @omnigeo/core.
     if (!paths) return;
     const expected = Object.fromEntries(
-      Object.entries(coreExports).map(([subpath, target]) => [`@opengeo/core${subpath.slice(1)}`, `./${coreTarget(target)}`]),
+      Object.entries(coreExports).map(([subpath, target]) => [`@omnigeo/core${subpath.slice(1)}`, `./${coreTarget(target)}`]),
     );
-    const coreKeys = Object.keys(paths).filter((key) => key.startsWith('@opengeo/core'));
+    const coreKeys = Object.keys(paths).filter((key) => key.startsWith('@omnigeo/core'));
     expect(coreKeys.sort()).toEqual(Object.keys(expected).sort());
     for (const [key, target] of Object.entries(expected)) {
       expect(paths[key], `tsconfig.base.json paths["${key}"]`).toEqual([target]);
@@ -137,7 +137,7 @@ describe('COMMAND_PACKAGES matches what each package wires up', () => {
     if (block === undefined) return [];
     /** @type {Record<string, string>} */
     const importedFrom = Object.fromEntries(
-      [...entry.source.matchAll(/import \{ (\w+) \} from '@opengeo\/core\/cli\/commands\/([\w-]+)'/g)].map(
+      [...entry.source.matchAll(/import \{ (\w+) \} from '@omnigeo\/core\/cli\/commands\/([\w-]+)'/g)].map(
         ([, name, module]) => [name, module],
       ),
     );

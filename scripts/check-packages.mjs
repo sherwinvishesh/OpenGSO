@@ -10,7 +10,7 @@
  * 2. imports each entry in `exports` by package name, which goes through the exports map the way a
  *    user's `import` does;
  * 3. asks `npm pack --dry-run` for the file list and checks every bin and export target is in it,
- *    nothing from `src/` or `tests/` is, and the `opengeo` tarball carries the dashboard.
+ *    nothing from `src/` or `tests/` is, and the `omnigeo` tarball carries the dashboard.
  *
  * Everything is read from each package.json, so a new export is covered without editing this
  * file. Run after `npm run build`.
@@ -23,8 +23,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const requireFrom = createRequire(import.meta.url);
-const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
-/** Files the `opengeo` tarball must carry, and files it must not. */
+const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'omnigeo'];
+/** Files the `omnigeo` tarball must carry, and files it must not. */
 const DASHBOARD = { present: ['web/index.html', 'web/app.js', 'web/styles.css'], absent: ['web/tsconfig.json'] };
 
 /** @type {string[]} */
@@ -103,7 +103,7 @@ for (const dir of PACKAGES) {
   const promised = [...Object.values(pkg.bin ?? {}).map(clean), ...[...exportsMap.values()].flat(), 'README.md'];
   for (const file of promised) if (!shipped.has(file)) failures.push(`${label}: the tarball is missing ${file}`);
   for (const file of shipped) if (/^(src|tests)\//.test(file)) failures.push(`${label}: the tarball ships ${file}`);
-  if (dir === 'opengeo') {
+  if (dir === 'omnigeo') {
     for (const file of DASHBOARD.present) if (!shipped.has(file)) failures.push(`${label}: the tarball is missing the dashboard's ${file}`);
     for (const file of DASHBOARD.absent) if (shipped.has(file)) failures.push(`${label}: the tarball ships ${file}`);
   }

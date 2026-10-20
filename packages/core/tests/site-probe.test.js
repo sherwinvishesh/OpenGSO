@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { previewLines } from '../src/cli/setup-preview.js';
-import { detectFramework } from '@opengeo/core/test';
+import { detectFramework } from '@omnigeo/core/test';
 import { detectWebRoot, previewSite } from '../src/shared/site-probe.js';
 import { stripAnsi } from '../src/shared/render/paint.js';
 import { BROWSER_UA } from '../src/shared/http.js';
@@ -175,7 +175,7 @@ describe('previewSite', () => {
     expect(twinCall?.options.headOnly).toBe(true);
   });
 
-  it('tells a twin served by opengeo-prod apart from one that merely answers', async () => {
+  it('tells a twin served by omnigeo-prod apart from one that merely answers', async () => {
     const served = fakeProbe({
       [SITE]: { body: '<h1>Pricing</h1>' },
       [TWIN]: { headers: { [HEADERS.aeoVersion]: '1' } },
@@ -223,11 +223,11 @@ describe('previewLines', () => {
     expect(text).toContain('Server-rendering is the fix');
   });
 
-  it('names opengeo-prod when the twin is already being served by it', () => {
+  it('names omnigeo-prod when the twin is already being served by it', () => {
     const text = say({ url: SITE, ok: true, status: 200, ttfbMs: 20, twin: { url: TWIN, ok: true, status: 200, served: true } });
 
     expect(text).toContain('markdown twin is already being served');
-    expect(text).toContain('opengeo-prod');
+    expect(text).toContain('omnigeo-prod');
   });
 
   it('points a missing twin at the two commands that create one', () => {
@@ -243,7 +243,7 @@ describe('detectWebRoot', () => {
   let root;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'opengeo-webroot-'));
+    root = mkdtempSync(join(tmpdir(), 'omnigeo-webroot-'));
   });
 
   afterEach(() => {

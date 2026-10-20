@@ -8,11 +8,11 @@ import { c } from '../shared/log.js';
  */
 
 /**
- * The by-hand crawler picker behind the `custom` option in `opengeo start` and `opengeo settings`.
+ * The by-hand crawler picker behind the `custom` option in `omnigeo start` and `omnigeo settings`.
  *
  * The three canned answers (every agent, assistants only, nobody) cover almost every project, so
  * this exists for the two cases they cannot: a site that wants a specific handful of agents, and a
- * site whose crawler is not in OpenGEO's list at all - an in-house agent, or an AI product newer
+ * site whose crawler is not in OmniGEO's list at all - an in-house agent, or an AI product newer
  * than the installed version. Adding one here writes it into `bots.custom` in the config, which is
  * the same list prod reads at boot, so a crawler added at this prompt is routable immediately.
  *
@@ -164,7 +164,7 @@ function render(out, list, chosen, options) {
     out(`  ${number} ${mark} ${name}  ${tail}\n`);
   }
   if (options.allowAdd) {
-    out(`  ${' '.repeat(numberWidth)}  ${c.gray('+')}  ${c.gray('add'.padEnd(width))}  ${c.gray('a crawler OpenGEO has never heard of')}\n`);
+    out(`  ${' '.repeat(numberWidth)}  ${c.gray('+')}  ${c.gray('add'.padEnd(width))}  ${c.gray('a crawler OmniGEO has never heard of')}\n`);
   }
   out(`\n  ${c.gray(`${chosen.size} of ${list.length} selected.`)}\n`);
 }

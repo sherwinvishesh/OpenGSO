@@ -4,7 +4,7 @@ url: "http://localhost:3000/about"
 last_updated: "2026-09-05T02:01:33.434Z"
 tokens: 205
 source_hash: "61cb5cd3dc69251d"
-generated_by: "opengeo-free"
+generated_by: "omnigeo-free"
 description: "Who runs Aurora Fieldwork, how we work, and what we will not do."
 ---
 

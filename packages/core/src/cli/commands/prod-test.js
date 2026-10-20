@@ -17,7 +17,7 @@ const SPEC = /** @type {const} */ ({
 });
 
 /**
- * `opengeo prod test <url>` (§7).
+ * `omnigeo prod test <url>` (§7).
  *
  * The exit code follows the failures, not the warnings. A warning here is a real finding, but it
  * is the kind a CDN can cause and a user may knowingly accept; failing the command on it would

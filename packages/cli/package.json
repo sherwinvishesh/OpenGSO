@@ -1,7 +1,7 @@
 {
-  "name": "opengeo-cli",
+  "name": "omnigeo-cli",
   "version": "0.1.0",
-  "description": "All three OpenGEO pillars behind one command: test, generate and prod test.",
+  "description": "All three OmniGEO pillars behind one command: test, generate and prod test.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
@@ -11,20 +11,20 @@
     "llm",
     "markdown"
   ],
-  "homepage": "https://github.com/sherwinvishesh/OpenGEO",
+  "homepage": "https://github.com/sherwinvishesh/OmniGEO",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sherwinvishesh/OpenGEO.git",
+    "url": "git+https://github.com/sherwinvishesh/OmniGEO.git",
     "directory": "packages/cli"
   },
   "bugs": {
-    "url": "https://github.com/sherwinvishesh/OpenGEO/issues"
+    "url": "https://github.com/sherwinvishesh/OmniGEO/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "opengeo": "./dist/cli.js"
+    "omnigeo": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -41,7 +41,7 @@
     "jsdom": "^26.1.0"
   },
   "devDependencies": {
-    "@opengeo/core": "*",
+    "@omnigeo/core": "*",
     "tsup": "^9.0.0",
     "typescript": "^5.8.3"
   }

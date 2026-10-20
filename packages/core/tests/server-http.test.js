@@ -16,7 +16,7 @@ import { startServer } from '../src/server/server.js';
  * A client that relies on any of these can change only if this file changes with it.
  */
 
-const OPTIONS = { version: '0.0.0-test', packageName: 'opengeo' };
+const OPTIONS = { version: '0.0.0-test', packageName: 'omnigeo' };
 
 /** @type {string} */
 let root;
@@ -26,7 +26,7 @@ let webRoot;
 let running;
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-http-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-http-'));
   webRoot = join(root, 'web');
   mkdirSync(join(webRoot, 'views'), { recursive: true });
   writeFileSync(join(webRoot, 'index.html'), '<!doctype html><title>dash</title>');
@@ -143,7 +143,7 @@ describe('static files', () => {
     expect(response.status).toBe(500);
     const body = await response.text();
     expect(body).toContain(webRoot);
-    expect(body).toContain('reinstalling opengeo');
+    expect(body).toContain('reinstalling omnigeo');
     expect(body).not.toContain('npm run build');
   });
 });
@@ -201,7 +201,7 @@ describe('what the API refuses over the wire', () => {
       expect(response.status, String(size)).toBe(400);
       expect(/** @type {{ error: string }} */ (await response.json()).error).toContain('too large');
     }
-    expect(existsSync(join(root, 'opengeo.config.json'))).toBe(false);
+    expect(existsSync(join(root, 'omnigeo.config.json'))).toBe(false);
   });
 
   it('still reads a body right up to the cap', async () => {
@@ -372,7 +372,7 @@ describe('a run nobody is watching', () => {
     await new Promise((wait) => setTimeout(wait, 100));
 
     expect(requested).not.toContain('/b');
-    expect(existsSync(join(root, '.opengeo', 'manifest.json'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo', 'manifest.json'))).toBe(false);
   });
 
   it('refuses a second run of the same kind while the first is going, and allows one after', async () => {

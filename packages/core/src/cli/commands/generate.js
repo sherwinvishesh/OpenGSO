@@ -96,7 +96,7 @@ export async function generateCommand(ctx) {
   }
   if (!json) {
     const what = source.kind === 'url' ? site : source.file ? join(source.folder, source.file) : `${source.folder}/`;
-    process.stdout.write(`\n${c.bold('OpenGEO')} ${c.gray('generate')}  ${what}${aiLabel}\n`);
+    process.stdout.write(`\n${c.bold('OmniGEO')} ${c.gray('generate')}  ${what}${aiLabel}\n`);
   }
 
   // Taken before the run writes one, so the closing hint is for somebody who has never done this.
@@ -280,7 +280,7 @@ export async function generateCommand(ctx) {
     }
   }
 
-  const crawlWarnings = report.warnings.filter((w) => !w.includes('.opengeo-proposed'));
+  const crawlWarnings = report.warnings.filter((w) => !w.includes('.omnigeo-proposed'));
   const notes = [...(report.notes ?? []), ...saved];
   const skipped = report.scan?.skipped ?? [];
   if (crawlWarnings.length + notes.length + skipped.length > 0) {
@@ -304,13 +304,13 @@ export async function generateCommand(ctx) {
     }
   }
   // A crawled site keeps sending agents HTML until its server answers with the twins, and nothing
-  // above says so. Once, on the first run: after that, \`opengeo test\` is the one that says it.
+  // above says so. Once, on the first run: after that, \`omnigeo test\` is the one that says it.
   if (firstCrawl && written > 0) {
     const next =
-      'Next: agents still get HTML until your server serves these twins. Add opengeo-prod to it ' +
+      'Next: agents still get HTML until your server serves these twins. Add omnigeo-prod to it ' +
       '(its README has the few lines for Next.js, Express, Nuxt, SvelteKit, Astro, React Router, Angular, ' +
       'Qwik, Vite and edge functions), then run ' +
-      `\`opengeo test ${site}\` to check.`;
+      `\`omnigeo test ${site}\` to check.`;
     process.stdout.write(`\n${hanging('  ', next)}\n`);
   }
   process.stdout.write('\n');
@@ -348,7 +348,7 @@ function resolveSource(args, loaded) {
     if (!configured) return { kind: 'url', target: resolveTarget(args, loaded, 'generate') };
     const folder = shownPath(publicDirPath(loaded));
     if (args.bool('single')) throw new UsageError(ERRORS.filesSingleNeedsPage(folder));
-    return { kind: 'files', loaded, folder, command: 'opengeo generate', create: false, tip: false };
+    return { kind: 'files', loaded, folder, command: 'omnigeo generate', create: false, tip: false };
   }
   if (/^https?:\/\//i.test(raw)) return { kind: 'url', target: resolveTarget(args, loaded, 'generate') };
 
@@ -363,7 +363,7 @@ function resolveSource(args, loaded) {
     const folder = shownPath(webRoot);
     const inside = relative(webRoot, path);
     if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) throw new UsageError(ERRORS.htmlFileOutsideWebRoot(raw, folder));
-    return { kind: 'files', loaded, file: inside.split(sep).join('/'), folder, command: 'opengeo generate', create: false, tip: false };
+    return { kind: 'files', loaded, file: inside.split(sep).join('/'), folder, command: 'omnigeo generate', create: false, tip: false };
   }
   if (!stats.isDirectory()) throw new UsageError(ERRORS.notUrlOrFolder(raw));
 
@@ -376,13 +376,13 @@ function resolveSource(args, loaded) {
   const publicDir = inProject.split(sep).join('/');
   if (loaded.exists) {
     if (publicDirPath(loaded) !== path) throw new UsageError(ERRORS.filesWebRootMismatch(folder, shownPath(publicDirPath(loaded))));
-    const command = configured ? 'opengeo generate' : `opengeo generate ${folder}`;
+    const command = configured ? 'omnigeo generate' : `omnigeo generate ${folder}`;
     return { kind: 'files', loaded, folder, command, create: false, tip: !configured };
   }
   // No config yet: this run is how the project gets one. The folder is the web root, and the
   // config only reaches disk once the run has found pages in it.
   const config = mergeConfig(loaded.config, { publicDir, generate: { source: 'files' } });
-  return { kind: 'files', loaded: { ...loaded, config }, folder, command: 'opengeo generate', create: true, tip: false };
+  return { kind: 'files', loaded: { ...loaded, config }, folder, command: 'omnigeo generate', create: true, tip: false };
 }
 
 /**
@@ -400,7 +400,7 @@ function rememberFiles(source, project, origin, result) {
   /** @type {string[]} */
   const notes = [];
   if (source.create) {
-    // `site` is what `opengeo test` checks when it is given no URL, and for a folder of files the
+    // `site` is what `omnigeo test` checks when it is given no URL, and for a folder of files the
     // published site is the only one there is.
     // A site in a folder of its host is tested at its home page, `https://user.github.io/repo/`.
     const site = origin && basePathOf(origin) ? `${origin}/` : origin;
@@ -462,7 +462,7 @@ function printFreshness(source, json) {
     return 1;
   }
   const safe = terminalSafe(report);
-  process.stdout.write(`\n${c.bold('OpenGEO')} ${c.gray('generate --check')}  ${source.folder}/\n`);
+  process.stdout.write(`\n${c.bold('OmniGEO')} ${c.gray('generate --check')}  ${source.folder}/\n`);
   if (safe.stale.length === 0) {
     process.stdout.write(`\n  ${c.green('up to date')} ${c.gray(`All ${safe.checked} ${safe.checked === 1 ? 'twin matches its page' : 'twins match their pages'}.`)}\n\n`);
     return 0;

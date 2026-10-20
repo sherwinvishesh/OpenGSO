@@ -1,7 +1,7 @@
 /**
- * The Vite plugin: `import { opengeo } from 'opengeo-prod/vite'`, then `plugins: [opengeo()]`.
+ * The Vite plugin: `import { omnigeo } from 'omnigeo-prod/vite'`, then `plugins: [omnigeo()]`.
  *
  * Serves the twins from `vite` and `vite preview` the way the production middleware will.
  */
-export * from '@opengeo/core/prod/vite';
-export { default } from '@opengeo/core/prod/vite';
+export * from '@omnigeo/core/prod/vite';
+export { default } from '@omnigeo/core/prod/vite';

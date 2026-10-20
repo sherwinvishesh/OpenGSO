@@ -13,16 +13,16 @@ import { fetchMiddleware } from '../respond.js';
  * The edge adapter: Cloudflare Workers and Pages Functions, Vercel and Netlify edge functions, Deno
  * Deploy, and anything else with `Request` and `Response` but no disk.
  *
- * The twins travel as data, in the module `opengeo prod data` writes after `opengeo generate`. It
+ * The twins travel as data, in the module `omnigeo prod data` writes after `omnigeo generate`. It
  * carries the project's markdown routing and custom crawlers too, so the edge decides exactly what
- * a Node server reading `opengeo.config.json` would.
+ * a Node server reading `omnigeo.config.json` would.
  */
 
 /**
- * What `opengeo prod data` writes, and what a hand-written build step has to produce.
+ * What `omnigeo prod data` writes, and what a hand-written build step has to produce.
  *
  * @typedef {object} EdgeData
- * @property {StoreManifest} manifest `.opengeo/manifest.json`, as generate wrote it.
+ * @property {StoreManifest} manifest `.omnigeo/manifest.json`, as generate wrote it.
  * @property {Record<string, string>} contents Every twin's text, keyed by the manifest's `file`.
  * @property {readonly string[]} [markdownRouting] `bots.markdownRouting` from the config.
  * @property {readonly CustomBotInput[]} [customBots] `bots.custom` from the config.

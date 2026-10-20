@@ -1,7 +1,7 @@
 /**
- * opengeo-prod: the runtime half of OpenGEO (§7).
+ * omnigeo-prod: the runtime half of OmniGEO (§7).
  *
- * Serves the markdown twins that `opengeo generate` already wrote to disk. It never generates,
+ * Serves the markdown twins that `omnigeo generate` already wrote to disk. It never generates,
  * never calls an AI provider, and never needs an API key.
  */
-export * from '@opengeo/core/prod';
+export * from '@omnigeo/core/prod';

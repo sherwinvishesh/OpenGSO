@@ -3,8 +3,8 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { callProvider, readManifestChecked } from '@opengeo/core/generate';
-import { createFsStore } from '@opengeo/core/prod';
+import { callProvider, readManifestChecked } from '@omnigeo/core/generate';
+import { createFsStore } from '@omnigeo/core/prod';
 import { handleApi } from '../src/server/api.js';
 /** @import { IncomingMessage, ServerResponse } from 'node:http' */
 
@@ -21,7 +21,7 @@ import { handleApi } from '../src/server/api.js';
 let root;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-malformed-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-malformed-'));
 });
 
 afterEach(() => {
@@ -46,8 +46,8 @@ async function serve(handler) {
 describe("prod's manifest", () => {
   /** @param {string} text */
   function writeManifestText(text) {
-    mkdirSync(join(root, '.opengeo'), { recursive: true });
-    writeFileSync(join(root, '.opengeo', 'manifest.json'), text);
+    mkdirSync(join(root, '.omnigeo'), { recursive: true });
+    writeFileSync(join(root, '.omnigeo', 'manifest.json'), text);
   }
 
   it('starts with no twins and a reason, rather than throwing, when the file is valid JSON but not a manifest', () => {
@@ -137,7 +137,7 @@ describe('a provider reply that is not the shape it should be', () => {
 });
 
 describe('a dashboard API body that is not the shape it should be', () => {
-  const OPTIONS = { version: '0.0.0-test', packageName: 'opengeo' };
+  const OPTIONS = { version: '0.0.0-test', packageName: 'omnigeo' };
   /**
    * @param {string} path
    * @param {unknown} body

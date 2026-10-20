@@ -68,7 +68,7 @@ let site;
 /** @type {string} */
 let root;
 
-const ENV_KEYS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'BUILDKITE', 'OPENGEO_NO_TUI'];
+const ENV_KEYS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CIRCLECI', 'BUILDKITE', 'OMNIGEO_NO_TUI'];
 /** @type {Record<string, string | undefined>} */
 const savedEnv = {};
 
@@ -86,7 +86,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-run-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-run-'));
   passEverything = false;
   clipboard.copied = [];
   clipboard.works = true;
@@ -136,7 +136,7 @@ async function captured(action) {
  * @param {string[]} argv
  */
 function run(command, argv) {
-  return captured(() => command({ argv, packageName: 'opengeo', version: '0.0.0-test' }));
+  return captured(() => command({ argv, packageName: 'omnigeo', version: '0.0.0-test' }));
 }
 
 /**
@@ -144,7 +144,7 @@ function run(command, argv) {
  * @param {Partial<Record<import('../src/shared/errors.js').CommandName, CommandHandler>>} [commands]
  */
 function cli(argv, commands = { test: testCommand, generate: generateCommand, 'prod test': prodTestCommand }) {
-  return captured(() => runCli({ packageName: 'opengeo-cli', version: '9.9.9', commands, argv }));
+  return captured(() => runCli({ packageName: 'omnigeo-cli', version: '9.9.9', commands, argv }));
 }
 
 /** @param {string} text */
@@ -155,7 +155,7 @@ describe('runCli, before any command runs', () => {
     for (const flag of ['--version', '-v']) {
       const { code, stdout, stderr } = await cli([flag]);
       expect(code).toBe(0);
-      expect(stdout).toBe('opengeo-cli 9.9.9\n');
+      expect(stdout).toBe('omnigeo-cli 9.9.9\n');
       expect(stderr).toBe('');
     }
   });
@@ -164,7 +164,7 @@ describe('runCli, before any command runs', () => {
     for (const flag of ['--help', '-h', 'help']) {
       const { code, stdout, stderr } = await cli([flag]);
       expect(code).toBe(0);
-      expect(plain(stdout)).toContain('opengeo-cli');
+      expect(plain(stdout)).toContain('omnigeo-cli');
       expect(stderr).toBe('');
     }
   });
@@ -241,7 +241,7 @@ describe('runCli, before any command runs', () => {
   });
 });
 
-describe('opengeo test, as a script sees it', () => {
+describe('omnigeo test, as a script sees it', () => {
   it('puts only the JSON on stdout with --json, and exits 1 because checks fail', async () => {
     const { code, stdout } = await cli(['test', site, '--project', root, '--structure', '--json']);
     const json = JSON.parse(stdout);
@@ -277,7 +277,7 @@ describe('opengeo test, as a script sees it', () => {
     const { code, stdout } = await run(testCommand, [site, '--project', root, '--structure', '--copy']);
     expect(code).toBe(1);
     expect(clipboard.copied).toHaveLength(1);
-    expect(clipboard.copied[0]).toContain(`opengeo test ${site}`);
+    expect(clipboard.copied[0]).toContain(`omnigeo test ${site}`);
     const lines = plain(stdout).trimEnd().split('\n');
     expect(lines[lines.length - 1]).toMatch(/^Copied the fix prompt for Claude Code \(\d+ fix(es)? and \d+ suggestions?\)/);
     // The report's own hint about --copy would be telling the user to do what just happened.
@@ -330,7 +330,7 @@ describe('opengeo test, as a script sees it', () => {
   it('records the run in history even with --json, without a word on stdout about it', async () => {
     const { stdout } = await run(testCommand, [site, '--project', root, '--structure', '--json']);
     expect(() => JSON.parse(stdout)).not.toThrow();
-    expect(existsSync(join(root, '.opengeo', 'history.json'))).toBe(true);
+    expect(existsSync(join(root, '.omnigeo', 'history.json'))).toBe(true);
   });
 
   it('refuses an unknown option before fetching anything', async () => {
@@ -362,7 +362,7 @@ describe('opengeo test, as a script sees it', () => {
   });
 });
 
-describe('opengeo generate, as a script sees it', () => {
+describe('omnigeo generate, as a script sees it', () => {
   it('exits 0 for a site whose every page was written, and --json stays pure', async () => {
     const { code, stdout } = await cli(['generate', site, '--project', root, '--single', '--json']);
     expect(code).toBe(0);
@@ -375,7 +375,7 @@ describe('opengeo generate, as a script sees it', () => {
     expect(code).toBe(EXIT_USAGE);
     expect(stdout).toBe('');
     expect(stderr).toContain('premium');
-    expect(existsSync(join(root, '.opengeo'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo'))).toBe(false);
   });
 
   it('refuses the AI tier under CI before crawling, with the shared error', async () => {
@@ -383,12 +383,12 @@ describe('opengeo generate, as a script sees it', () => {
     const { code, stderr } = await run(generateCommand, [site, '--project', root, '--tier', 'ai']);
     expect(code).toBe(1);
     expect(plain(stderr)).toContain(ERRORS.ciBlocked("generate's AI tier").split('\n')[0]);
-    expect(existsSync(join(root, '.opengeo'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo'))).toBe(false);
   });
 
 });
 
-describe('opengeo prod test, as a script sees it', () => {
+describe('omnigeo prod test, as a script sees it', () => {
   it('puts only the JSON on stdout with --json, and its exit code follows ok', async () => {
     const { code, stdout } = await cli(['prod', 'test', site, '--project', root, '--json']);
     const json = JSON.parse(stdout);
@@ -414,19 +414,19 @@ describe('opengeo prod test, as a script sees it', () => {
   });
 });
 
-describe('opengeo settings with nobody at the keyboard', () => {
+describe('omnigeo settings with nobody at the keyboard', () => {
   it('takes every default with --yes, writes a config and exits 0', async () => {
     const { code } = await run(settingsCommand, ['--yes', '--project', root]);
     expect(code).toBe(0);
-    expect(existsSync(join(root, 'opengeo.config.json'))).toBe(true);
+    expect(existsSync(join(root, 'omnigeo.config.json'))).toBe(true);
     // No probe and no closing test, so no run was recorded.
-    expect(existsSync(join(root, '.opengeo', 'history.json'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo', 'history.json'))).toBe(false);
   });
 
   it('refuses an unknown option without writing anything', async () => {
     const { code } = await run(settingsCommand, ['--yes', '--project', root, '--colour']);
     expect(code).toBe(EXIT_USAGE);
-    expect(existsSync(join(root, 'opengeo.config.json'))).toBe(false);
+    expect(existsSync(join(root, 'omnigeo.config.json'))).toBe(false);
   });
 });
 
@@ -457,7 +457,7 @@ describe('runHome off the alternate screen', () => {
     let written = '';
     output.on('data', (/** @type {Buffer} */ chunk) => (written += chunk.toString()));
     const code = await runHome({
-      packageName: 'opengeo',
+      packageName: 'omnigeo',
       version: '0.0.0',
       commands: { test: testCommand },
       root,
@@ -478,7 +478,7 @@ describe('runHome off the alternate screen', () => {
       ran.push(ctx.argv);
       return 1;
     };
-    const done = runHome({ packageName: 'opengeo', version: '0.0.0', commands: { test }, root, input: term.input, output: term.output });
+    const done = runHome({ packageName: 'omnigeo', version: '0.0.0', commands: { test }, root, input: term.input, output: term.output });
 
     await term.waitFor('choose a number');
     term.input.write(`${term.numberOf('Test')}\n`);

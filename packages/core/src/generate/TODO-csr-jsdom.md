@@ -9,13 +9,13 @@ which means **no script on the page ever executes**. jsdom is used here as a spe
 parser and nothing more. The same is true of `crawl.js`, which discovers routes from `<a href>` in
 the parsed-but-not-executed DOM, and of `test/live-page.js`, which parses the page for the test checks.
 
-So for a purely client-rendered page, OpenGEO today sees `<div id="root"></div>` and says so:
+So for a purely client-rendered page, OmniGEO today sees `<div id="root"></div>` and says so:
 
 - `extractPage` warns `Only N words extracted (threshold M). If this page renders its content
-  with JavaScript, OpenGEO cannot see it yet` and names this file,
+  with JavaScript, OmniGEO cannot see it yet` and names this file,
 - `pickContentRoot` refuses a landmark with under 40 characters of text, so an empty `<main>`
   shell does not mask the problem,
-- the A5 check fails in `opengeo test` with the same explanation.
+- the A5 check fails in `omnigeo test` with the same explanation.
 
 The tool is honest about the gap. It just does not close it.
 
@@ -26,7 +26,7 @@ settle before reading the DOM. Each of those three words carries a real problem.
 
 1. **`dangerously` is the actual name of the flag, and it is accurate.** It executes arbitrary
    remote JavaScript inside the user's Node process, with access to whatever that process can
-   reach. `opengeo generate` runs on a developer's laptop against their own site, which is the
+   reach. `omnigeo generate` runs on a developer's laptop against their own site, which is the
    mildest possible version of this, but it is still remote code execution by design and needs to
    be an explicit opt-in flag with the risk spelled out, never a silent upgrade.
 

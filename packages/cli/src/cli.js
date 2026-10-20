@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
-import { main } from '@opengeo/core/cli';
-import { generateCommand } from '@opengeo/core/cli/commands/generate';
-import { prodDataCommand } from '@opengeo/core/cli/commands/prod-data';
-import { prodTestCommand } from '@opengeo/core/cli/commands/prod-test';
-import { settingsCommand } from '@opengeo/core/cli/commands/settings';
-import { testCommand } from '@opengeo/core/cli/commands/test';
+import { main } from '@omnigeo/core/cli';
+import { generateCommand } from '@omnigeo/core/cli/commands/generate';
+import { prodDataCommand } from '@omnigeo/core/cli/commands/prod-data';
+import { prodTestCommand } from '@omnigeo/core/cli/commands/prod-test';
+import { settingsCommand } from '@omnigeo/core/cli/commands/settings';
+import { testCommand } from '@omnigeo/core/cli/commands/test';
 
 // Read at run time rather than stamped in at build time. The bundle sits in dist/ and the source in
 // src/, both one level below package.json, so the same path works from either.

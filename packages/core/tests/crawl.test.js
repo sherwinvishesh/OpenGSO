@@ -2,10 +2,10 @@ import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { dedupeRoutes, extractLinks, isCrawlable } from '@opengeo/core/generate';
-import { renderLlmsTxt, renderRobotsTxt, renderSitemapXml, writeSiteFiles, GENERATED_MARKER } from '@opengeo/core/generate';
-/** @import { AiBot } from '@opengeo/core/shared' */
-/** @import { SitePage } from '@opengeo/core/generate' */
+import { dedupeRoutes, extractLinks, isCrawlable } from '@omnigeo/core/generate';
+import { renderLlmsTxt, renderRobotsTxt, renderSitemapXml, writeSiteFiles, GENERATED_MARKER } from '@omnigeo/core/generate';
+/** @import { AiBot } from '@omnigeo/core/shared' */
+/** @import { SitePage } from '@omnigeo/core/generate' */
 
 const ORIGIN = 'https://example.com';
 
@@ -198,7 +198,7 @@ describe('renderSitemapXml', () => {
 });
 
 describe('writeSiteFiles', () => {
-  const scratch = () => mkdtempSync(join(tmpdir(), 'opengeo-files-'));
+  const scratch = () => mkdtempSync(join(tmpdir(), 'omnigeo-files-'));
 
   it('writes all three on a clean directory', () => {
     const dir = scratch();
@@ -217,8 +217,8 @@ describe('writeSiteFiles', () => {
 
     expect(robots?.status).toBe('proposed');
     expect(readFileSync(join(dir, 'robots.txt'), 'utf8')).toContain('Disallow: /staging');
-    expect(existsSync(join(dir, 'robots.txt.opengeo-proposed'))).toBe(true);
-    expect(robots?.message).toContain('opengeo-proposed');
+    expect(existsSync(join(dir, 'robots.txt.omnigeo-proposed'))).toBe(true);
+    expect(robots?.message).toContain('omnigeo-proposed');
   });
 
   it('does not take a file for its own just because it mentions the marker', () => {
@@ -255,7 +255,7 @@ describe('writeSiteFiles', () => {
     expect(second.map((r) => r.status)).toEqual(['unchanged', 'unchanged', 'unchanged']);
   });
 
-  it('honours a hand-edit to a file OpenGEO wrote, as long as the marker stays', () => {
+  it('honours a hand-edit to a file OmniGEO wrote, as long as the marker stays', () => {
     const dir = scratch();
     writeSiteFiles(options({ publicDir: dir }));
     const path = join(dir, 'robots.txt');
@@ -329,7 +329,7 @@ describe('crawlSite', () => {
   }
 
   it('follows links breadth-first and visits each route exactly once', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base });
       const routes = result.pages.map((p) => p.route);
@@ -342,7 +342,7 @@ describe('crawlSite', () => {
   });
 
   it('treats /about and /about/ as the same route', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base });
       expect(result.pages.filter((p) => p.route === '/about')).toHaveLength(1);
@@ -351,7 +351,7 @@ describe('crawlSite', () => {
   });
 
   it('stays on the origin and skips assets', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base });
       expect(result.pages.every((p) => p.url.startsWith(base))).toBe(true);
@@ -360,7 +360,7 @@ describe('crawlSite', () => {
   });
 
   it('returns the fetched HTML so nothing has to be downloaded twice', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base });
       expect(result.pages.find((p) => p.route === '/about')?.html).toContain('<h1>About</h1>');
@@ -368,7 +368,7 @@ describe('crawlSite', () => {
   });
 
   it('stops at the page cap and says so', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, maxPages: 2 });
       expect(result.pages).toHaveLength(2);
@@ -380,7 +380,7 @@ describe('crawlSite', () => {
 
   it('counts every request against the page cap, not only the ones that succeeded', async () => {
     const { createServer } = await import('node:http');
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     let requests = 0;
     const links = Array.from({ length: 50 }, (_, i) => `<a href="/missing-${i}">x</a>`).join('');
     const server = createServer((req, res) => {
@@ -402,7 +402,7 @@ describe('crawlSite', () => {
   });
 
   it('stops at the depth cap and says so', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, maxDepth: 1 });
       expect(result.pages.map((p) => p.route)).toContain('/about');
@@ -414,7 +414,7 @@ describe('crawlSite', () => {
   });
 
   it('picks up extraRoutes the crawl could never reach', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, extraRoutes: ['/hidden'] });
       expect(result.pages.map((p) => p.route)).toContain('/hidden');
@@ -422,7 +422,7 @@ describe('crawlSite', () => {
   });
 
   it('honours exclusions', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, exclude: ['/deep'] });
       expect(result.pages.map((p) => p.route)).not.toContain('/deep/one');
@@ -430,7 +430,7 @@ describe('crawlSite', () => {
   });
 
   it('records a failed page instead of aborting the crawl', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, extraRoutes: ['/does-not-exist'] });
       expect(result.failures.map((f) => f.route)).toContain('/does-not-exist');
@@ -439,7 +439,7 @@ describe('crawlSite', () => {
   });
 
   it('skips a route that turns out not to be HTML', async () => {
-    const { crawlSite } = await import('@opengeo/core/generate');
+    const { crawlSite } = await import('@omnigeo/core/generate');
     await withServer(async (base) => {
       const result = await crawlSite({ site: base, extraRoutes: ['/feed.xml'] });
       expect(result.pages.map((p) => p.route)).not.toContain('/feed.xml');

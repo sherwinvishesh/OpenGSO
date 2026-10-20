@@ -69,7 +69,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-cmd-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-cmd-'));
   seen.testUrl.length = 0;
   seen.runTestSuite.length = 0;
 });
@@ -98,7 +98,7 @@ async function run(command, argv) {
     return true;
   });
   try {
-    const code = await command({ argv, packageName: 'opengeo', version: '0.0.0-test' });
+    const code = await command({ argv, packageName: 'omnigeo', version: '0.0.0-test' });
     return { code, stdout, stderr };
   } finally {
     vi.restoreAllMocks();
@@ -113,9 +113,9 @@ async function run(command, argv) {
 const capture = (thunk) => run(() => thunk(), []);
 
 /** @param {string[]} argv */
-const ctx = (argv) => ({ argv, packageName: 'opengeo', version: '0.0.0-test' });
+const ctx = (argv) => ({ argv, packageName: 'omnigeo', version: '0.0.0-test' });
 
-describe('opengeo test --timeout', () => {
+describe('omnigeo test --timeout', () => {
   it('reads the value as seconds, the unit the help page and every other command use', async () => {
     await run(testCommand, [site, '--project', root, '--structure', '--json', '--timeout', '30']);
 
@@ -137,11 +137,11 @@ describe('opengeo test --timeout', () => {
   });
 });
 
-describe('opengeo start, opening the browser', () => {
+describe('omnigeo start, opening the browser', () => {
   it('survives a machine with no opener binary, which reports it as an asynchronous error event', async () => {
     // No error listener is attached here on purpose: if openBrowser does not attach one, the
-    // ENOENT is an unhandled 'error' event and the run dies, as `opengeo start` did on headless Linux.
-    const child = openBrowser('http://127.0.0.1:1/', 'opengeo-no-such-opener-binary');
+    // ENOENT is an unhandled 'error' event and the run dies, as `omnigeo start` did on headless Linux.
+    const child = openBrowser('http://127.0.0.1:1/', 'omnigeo-no-such-opener-binary');
     await new Promise((resolve) => child?.once('close', resolve));
     expect(child?.listenerCount('error')).toBeGreaterThan(0);
   });
@@ -169,13 +169,13 @@ describe('a first run with nobody at the keyboard', () => {
 
     expect(result.config.site).toBe(site);
     expect(requests).toBe(0);
-    expect(existsSync(join(root, '.opengeo', 'history.json'))).toBe(false);
+    expect(existsSync(join(root, '.omnigeo', 'history.json'))).toBe(false);
   });
 });
 
-describe('opengeo generate with no config file', () => {
+describe('omnigeo generate with no config file', () => {
   it('writes where the framework serves files, and says so', async () => {
-    rmSync(join(root, 'opengeo.config.json'), { force: true });
+    rmSync(join(root, 'omnigeo.config.json'), { force: true });
     writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@sveltejs/kit': '2.0.0' } }), 'utf8');
 
     const { code, stdout } = await run(generateCommand, [site, '--project', root, '--single']);
@@ -187,17 +187,17 @@ describe('opengeo generate with no config file', () => {
   });
 
   it('says nothing about it when the answer is the usual public/', async () => {
-    rmSync(join(root, 'opengeo.config.json'), { force: true });
+    rmSync(join(root, 'omnigeo.config.json'), { force: true });
     writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { next: '16.0.0' } }), 'utf8');
 
     const { stdout } = await run(generateCommand, [site, '--project', root, '--single']);
 
     expect(existsSync(join(root, 'public', 'md', 'index.md'))).toBe(true);
-    expect(stdout).not.toContain('No opengeo.config.json here');
+    expect(stdout).not.toContain('No omnigeo.config.json here');
   });
 });
 
-describe('opengeo generate --json', () => {
+describe('omnigeo generate --json', () => {
   it('writes nothing to stdout but the JSON, so it can be piped into jq', async () => {
     const { stdout } = await run(generateCommand, [site, '--project', root, '--json', '--single']);
 
@@ -206,29 +206,29 @@ describe('opengeo generate --json', () => {
   });
 });
 
-describe('opengeo generate, the first time', () => {
+describe('omnigeo generate, the first time', () => {
   it('says the twins are not served yet and what serves them, once', async () => {
     const first = await run(generateCommand, [site, '--project', root, '--single']);
     expect(first.code).toBe(0);
     const said = first.stdout.replace(/\s+/g, ' ');
     expect(said).toContain('agents still get HTML until your server serves these twins');
-    expect(said).toContain('Add opengeo-prod to it');
+    expect(said).toContain('Add omnigeo-prod to it');
     expect(said).toMatch(/README has the few lines for Next\.js, Express, Nuxt/);
-    expect(said).toContain(`opengeo test ${site}`);
+    expect(said).toContain(`omnigeo test ${site}`);
 
     const again = await run(generateCommand, [site, '--project', root, '--single', '--force']);
     expect(again.stdout).not.toContain('agents still get HTML');
   });
 });
 
-describe('opengeo test --out', () => {
+describe('omnigeo test --out', () => {
   it('writes the human report to the file instead of the terminal', async () => {
     const file = join(root, 'report.txt');
     const { stdout } = await run(testCommand, [site, '--structure', '--out', file, '--project', root]);
     const written = readFileSync(file, 'utf8');
-    expect(written).toContain('OpenGEO test');
+    expect(written).toContain('OmniGEO test');
     expect(written).toContain('/100');
-    expect(stdout).not.toContain('OpenGEO test');
+    expect(stdout).not.toContain('OmniGEO test');
     expect(stdout).toContain(`Wrote ${file}`);
   });
 });
@@ -264,7 +264,7 @@ describe('a command line that cannot mean what it says', () => {
 
 describe('exit codes', () => {
   /** @param {{ argv: string[] }} ctx */
-  const cli = ({ argv }) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv });
+  const cli = ({ argv }) => runCli({ packageName: 'omnigeo', version: '0.0.0', commands: { test: testCommand }, argv });
 
   it('exits 2 for a command line that cannot run, and 1 only for what the run found', async () => {
     expect((await run(cli, ['tset', site])).code).toBe(2);
@@ -277,9 +277,9 @@ describe('exit codes', () => {
   });
 });
 
-describe('opengeo help <command>', () => {
+describe('omnigeo help <command>', () => {
   /** @param {string[]} argv */
-  const cli = (argv) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv });
+  const cli = (argv) => runCli({ packageName: 'omnigeo', version: '0.0.0', commands: { test: testCommand }, argv });
 
   it('prints the same page as <command> --help', async () => {
     const asked = await capture(() => cli(['test', '--help']));
@@ -289,30 +289,30 @@ describe('opengeo help <command>', () => {
       expect(stdout, argv.join(' ')).not.toContain('Exit codes');
     }
     expect((await capture(() => cli(['help', 'test']))).stdout).toBe(asked.stdout);
-    expect((await capture(() => cli(['help', 'prod', 'test']))).stdout).toContain('opengeo prod test');
+    expect((await capture(() => cli(['help', 'prod', 'test']))).stdout).toContain('omnigeo prod test');
   });
 
   it('says so when there is no such command to explain', async () => {
     const { code, stderr } = await capture(() => cli(['help', 'tset']));
     expect(code).toBe(2);
-    expect(stderr).toContain('Unknown command: `opengeo tset`');
+    expect(stderr).toContain('Unknown command: `omnigeo tset`');
   });
 });
 
-describe('opengeo prod without test', () => {
+describe('omnigeo prod without test', () => {
   it('points at prod test, the one command under it', async () => {
     for (const argv of [['prod'], ['prod', site], ['help', 'prod']]) {
       const { code, stderr } = await capture(() =>
-        runCli({ packageName: 'opengeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv }),
+        runCli({ packageName: 'omnigeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv }),
       );
       expect(code, argv.join(' ')).toBe(2);
-      expect(stderr, argv.join(' ')).toContain('opengeo prod test <url>');
+      expect(stderr, argv.join(' ')).toContain('omnigeo prod test <url>');
     }
   });
 
   it('says nothing about prod for any other unknown command', async () => {
     const { stderr } = await capture(() =>
-      runCli({ packageName: 'opengeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv: ['tset'] }),
+      runCli({ packageName: 'omnigeo', version: '0.0.0', commands: { 'prod test': prodTestCommand }, argv: ['tset'] }),
     );
     expect(stderr).not.toContain('<url>');
   });
@@ -349,7 +349,7 @@ describe('colour, on a terminal, for output that is not going to it', () => {
 
   it('writes plain text to a stderr that is a pipe', async () => {
     const { stderr } = await run(
-      ({ argv }) => runCli({ packageName: 'opengeo', version: '0.0.0', commands: { test: testCommand }, argv }),
+      ({ argv }) => runCli({ packageName: 'omnigeo', version: '0.0.0', commands: { test: testCommand }, argv }),
       ['test', '--project', root],
     );
     expect(stderr).toContain('Error');

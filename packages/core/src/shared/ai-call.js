@@ -4,7 +4,7 @@ import { ERRORS } from './errors.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './providers.js';
 
 /**
- * @import { OpenGeoConfig } from './config.js'
+ * @import { OmniGeoConfig } from './config.js'
  * @import { Credentials, LookalikeKey } from './env.js'
  * @import { AiProvider, ProviderOverrides } from './providers.js'
  */
@@ -35,7 +35,7 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './prov
  *
  * `usage` marks the one error that is the command line's fault, a `--provider` that does not exist.
  *
- * `lookalikes` are `.env` lines that look like a key under a name OpenGEO does not read, for the
+ * `lookalikes` are `.env` lines that look like a key under a name OmniGEO does not read, for the
  * message to point at.
  *
  * @typedef {{ call: AiCall } | { missing: AiProvider; lookalikes: LookalikeKey[] } | { error: string; usage?: boolean }} AiResolution
@@ -43,7 +43,7 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './prov
 
 /**
  * @param {string} root
- * @param {Pick<OpenGeoConfig, 'ai'>} config
+ * @param {Pick<OmniGeoConfig, 'ai'>} config
  * @param {{ provider?: string; model?: string }} [flags]
  * @returns {AiResolution}
  */

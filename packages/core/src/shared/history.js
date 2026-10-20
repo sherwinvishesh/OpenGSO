@@ -21,7 +21,7 @@ import { writeFileAtomic } from './fs.js';
  *
  * It lives in `internalDir` beside `manifest.json` on purpose. That directory is the one place the
  * generator guarantees is not web-served, and a public history of a site's own audit failures is
- * exactly the file an attacker would enjoy. `opengeo-prod` never reads it.
+ * exactly the file an attacker would enjoy. `omnigeo-prod` never reads it.
  *
  * It is a convenience, never a source of truth. Every read is best-effort: a corrupt or
  * hand-edited file yields an empty history rather than an exception, because a broken cache must
@@ -158,7 +158,7 @@ export function entryFromSuite(result, at = new Date()) {
  * Append a run, best-effort.
  *
  * Recording a score is never worth failing a test run over, so every filesystem error here is
- * swallowed: a read-only checkout, a `.opengeo` owned by root from a container mount, a full disk.
+ * swallowed: a read-only checkout, a `.omnigeo` owned by root from a container mount, a full disk.
  * The caller gets `undefined` and carries on printing the report.
  *
  * A file that is there but cannot be read is renamed to `history.corrupt-<time>.json` first. If

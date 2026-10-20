@@ -5,9 +5,9 @@ import { fg, gradient, hex } from './paint.js';
 /**
  * One palette for the terminal, deliberately the same hues as the dashboard's CSS tokens.
  *
- * The two halves of OpenGEO are one product, and a green that means "passing" in the browser has to
+ * The two halves of OmniGEO are one product, and a green that means "passing" in the browser has to
  * be the same green that means "passing" in the report. These are the dark-theme values from
- * `packages/opengeo/web/src/styles.css`, nudged up in lightness: a terminal background is not
+ * `packages/omnigeo/web/src/styles.css`, nudged up in lightness: a terminal background is not
  * guaranteed to be dark, and a colour picked for `#131413` disappears on a white profile.
  */
 export const PALETTE = /* @__PURE__ */ Object.freeze({

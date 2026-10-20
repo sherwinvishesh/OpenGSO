@@ -10,7 +10,7 @@ import { ok, bad, resolveCredentials } from './api-shared.js';
 /**
  * @import { History, HistoryEntry, SuiteAi, SuiteProgress, TestMode, TestResult } from '../test/index.js'
  * @import { ApiProgress, StructurePayload, PreviewResponse } from '../shared/api-types.js'
- * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { OmniGeoConfig } from '../shared/config.js'
  * @import { ApiOptions, ApiResponse } from './api-shared.js'
  */
 
@@ -98,7 +98,7 @@ export async function runTest(body, options) {
     signal: options.signal,
     onProgress: options.onProgress ? (event) => options.onProgress?.(testFrame(event, loaded.config)) : undefined,
   });
-  // The dashboard has nowhere to show this, so it goes to the terminal `opengeo start` is running in.
+  // The dashboard has nowhere to show this, so it goes to the terminal `omnigeo start` is running in.
   recordRun(internalDir, result, { onWarning: (message) => process.stderr.write(`${message}\n`) });
 
   return ok({
@@ -138,7 +138,7 @@ export async function runTest(body, options) {
  * derived from. The other four pass through as they are.
  *
  * @param {SuiteProgress} event
- * @param {OpenGeoConfig} [config] The project's, for the fix prompts to name its twin directory.
+ * @param {OmniGeoConfig} [config] The project's, for the fix prompts to name its twin directory.
  *   Without one the frame carries no prompts.
  * @returns {ApiProgress}
  */
@@ -154,7 +154,7 @@ export function testFrame(event, config) {
  * because a browser that assembled its own would be a second prompt to keep in step with the first.
  *
  * @param {TestResult} result
- * @param {OpenGeoConfig} [config]
+ * @param {OmniGeoConfig} [config]
  * @returns {StructurePayload}
  */
 function structurePayload(result, config) {

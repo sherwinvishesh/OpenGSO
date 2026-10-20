@@ -1,5 +1,5 @@
-import { extractPage } from '@opengeo/core/generate';
-import { contentHash } from '@opengeo/core/shared';
+import { extractPage } from '@omnigeo/core/generate';
+import { contentHash } from '@omnigeo/core/shared';
 
 /**
  * The hash generate would stamp into a twin built from this HTML.

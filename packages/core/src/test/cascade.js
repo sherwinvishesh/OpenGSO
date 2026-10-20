@@ -12,7 +12,7 @@ import { servesFile } from './checks-site.js';
 /**
  * One missing twin costs one suggestion, not twelve (§5).
  *
- * Without this, a site that has simply never installed OpenGEO fails B1 and then fails eleven more
+ * Without this, a site that has simply never installed OmniGEO fails B1 and then fails eleven more
  * checks that are all restatements of the same fact: you cannot inspect the Content-Type of a
  * document that does not exist, and reporting that as eleven separate findings is not a
  * measurement, it is an echo.

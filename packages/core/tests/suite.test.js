@@ -8,12 +8,12 @@ import {
   sitemapTwins,
   suiteExitCode,
   suiteJson,
-} from '@opengeo/core/test';
-import { resolveMode } from '@opengeo/core/cli/commands/test';
+} from '@omnigeo/core/test';
+import { resolveMode } from '@omnigeo/core/cli/commands/test';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { ProviderCall } from '@opengeo/core/generate' */
-/** @import { SuiteProgress, SuiteResult, TestResult } from '@opengeo/core/test' */
+/** @import { ProviderCall } from '@omnigeo/core/generate' */
+/** @import { SuiteProgress, SuiteResult, TestResult } from '@omnigeo/core/test' */
 
 /**
  * The two halves of a test run, and the sequencer that decides which of them happen.
@@ -24,7 +24,7 @@ import { resolveMode } from '@opengeo/core/cli/commands/test';
  * reproducible.
  */
 
-const MD_HOME = '# Home\n\nOpenGEO turns a website into something an agent can read.';
+const MD_HOME = '# Home\n\nOmniGEO turns a website into something an agent can read.';
 const MD_ABOUT = '# About\n\nFounded in 2019. Three people.';
 
 /** Whether the site advertises llms.txt and sitemap.xml. Flipped per test. */
@@ -480,7 +480,7 @@ describe('runTestSuite', () => {
     const result = await runTestSuite(`${site}/nowhere`, { mode: 'content', ai: ai(), env: {} });
     expect(result.contentError).toMatch(/No Markdown documents/);
     expect(result.contentError).toMatch(/neither llms\.txt nor sitemap\.xml/);
-    expect(result.contentError).toMatch(/opengeo generate/);
+    expect(result.contentError).toMatch(/omnigeo generate/);
   });
 
   it('probes B10 with a crawler the project actually routes', async () => {

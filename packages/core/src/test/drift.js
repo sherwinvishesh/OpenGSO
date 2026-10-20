@@ -20,13 +20,13 @@ import { SSR_MIN_WORDS, liveExtract } from './live-page.js';
 /**
  * B14 - staleness and drift.
  *
- * This is the check §5 singles out as the one only OpenGEO can make, and the reason is
- * structural: OpenGEO owns both halves of the pipeline, so it knows the hash of the HTML each twin
+ * This is the check §5 singles out as the one only OmniGEO can make, and the reason is
+ * structural: OmniGEO owns both halves of the pipeline, so it knows the hash of the HTML each twin
  * was built from. Nothing that only inspects a live site from the outside can tell "this markdown
  * is a faithful copy of the current page" apart from "this markdown was accurate six months ago".
  *
  * It matters more here than it would elsewhere, because §6 rules out regenerating in CI. Nothing
- * catches a forgotten `opengeo generate` except this check.
+ * catches a forgotten `omnigeo generate` except this check.
  *
  * @param {Evidence} e
  * @returns {CheckResult}
@@ -94,7 +94,7 @@ export function checkDrift(e) {
         `The live page has changed since the twin was generated${age ? ` ${age}` : ''}, but every number, date and price on it still appears in the twin, so the drift is cosmetic so far.`,
         {
           detail: `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}.`,
-          fix: 'Re-run `opengeo generate` to bring the twin back in step before the next edit makes it wrong (+2).',
+          fix: 'Re-run `omnigeo generate` to bring the twin back in step before the next edit makes it wrong (+2).',
         },
       );
     }
@@ -104,11 +104,11 @@ export function checkDrift(e) {
       'B14',
       `The live page has changed since the twin was generated${age ? ` ${age}` : ''}, so agents are being served stale content. ${drift.errors[0]}`,
       `Twin source_hash ${sourceHash}, the live page's content hashes to ${liveHash}.`,
-      'Re-run `opengeo generate` (+4).',
+      'Re-run `omnigeo generate` (+4).',
     );
   }
 
-  // No hash anywhere: a hand-written twin, or one produced by something other than OpenGEO. Fall back
+  // No hash anywhere: a hand-written twin, or one produced by something other than OmniGEO. Fall back
   // to comparing the facts on the live page against the facts in the twin, which is slower to
   // reason about but works without any bookkeeping.
   const report = verifyFidelity(extracted.markdown, parsed.body, { minWordRatio: 0.4, rejectInvented: false, candidate: 'twin' });
@@ -121,14 +121,14 @@ export function checkDrift(e) {
   if (report.errors.length === 1) {
     return partial('B14', 2, `The twin has drifted from the live page in one place${age ? `, and was last updated ${age}` : ''}. ${report.errors[0]}`, {
       detail: 'The twin reports no source hash, so this was compared fact by fact rather than by hash.',
-      fix: 'Re-run `opengeo generate` (+2).',
+      fix: 'Re-run `omnigeo generate` (+2).',
     });
   }
   return fail(
     'B14',
     `The twin no longer matches the live page${age ? `, and was last updated ${age}` : ''}. ${report.errors[0]}`,
     `The twin reports no source hash, so this was compared fact by fact rather than by hash. ${report.errors.length} facts differ.`,
-    'Re-run `opengeo generate` (+4).',
+    'Re-run `omnigeo generate` (+4).',
   );
 }
 

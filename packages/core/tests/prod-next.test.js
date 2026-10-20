@@ -3,11 +3,11 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MARKDOWN_CONTENT_TYPE, createFsStore } from '@opengeo/core/prod';
-import { createNextMiddleware } from '@opengeo/core/prod/next';
+import { MARKDOWN_CONTENT_TYPE, createFsStore } from '@omnigeo/core/prod';
+import { createNextMiddleware } from '@omnigeo/core/prod/next';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { NextMiddlewareResult } from '@opengeo/core/prod/next' */
+/** @import { NextMiddlewareResult } from '@omnigeo/core/prod/next' */
 
 /**
  * The Next adapter is built at module scope in the user's proxy.ts, so anything it throws while
@@ -31,15 +31,15 @@ afterEach(async () => {
  * @param {string | undefined} configText
  */
 function project(configText) {
-  const root = mkdtempSync(join(tmpdir(), 'opengeo-next-'));
+  const root = mkdtempSync(join(tmpdir(), 'omnigeo-next-'));
   mkdirSync(join(root, 'public', 'md'), { recursive: true });
-  mkdirSync(join(root, '.opengeo'), { recursive: true });
+  mkdirSync(join(root, '.omnigeo'), { recursive: true });
   writeFileSync(join(root, 'public', 'md', 'resume.md'), '---\ntitle: "Resume"\n---\n# Resume\n');
   writeFileSync(
-    join(root, '.opengeo', 'manifest.json'),
+    join(root, '.omnigeo', 'manifest.json'),
     JSON.stringify({ pages: { '/resume': { route: '/resume', file: 'md/resume.md', tokens: 3 } } }),
   );
-  if (configText !== undefined) writeFileSync(join(root, 'opengeo.config.json'), configText);
+  if (configText !== undefined) writeFileSync(join(root, 'omnigeo.config.json'), configText);
   return root;
 }
 
@@ -81,7 +81,7 @@ describe('a config file the adapter cannot use', () => {
 
     const middleware = createNextMiddleware({ root: project(text) });
     expect(errors).toHaveBeenCalledTimes(1);
-    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[opengeo-prod\] .*opengeo\.config\.json/);
+    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[omnigeo-prod\] .*omnigeo\.config\.json/);
     expect(String(errors.mock.calls[0]?.[0])).not.toContain('\n');
     expect(log).not.toHaveBeenCalled();
 
@@ -108,7 +108,7 @@ describe('a manifest entry that points outside publicDir', () => {
     const root = project(undefined);
     writeFileSync(join(root, 'secret.md'), '# DATABASE_PASSWORD=hunter2\n');
     writeFileSync(
-      join(root, '.opengeo', 'manifest.json'),
+      join(root, '.omnigeo', 'manifest.json'),
       JSON.stringify({
         pages: {
           '/resume': { route: '/resume', file: 'md/resume.md', tokens: 3 },
@@ -133,7 +133,7 @@ describe('a manifest entry that points outside publicDir', () => {
     const root = project(undefined);
     writeFileSync(join(root, 'public', 'md', '..notes.md'), '# Notes\n');
     writeFileSync(
-      join(root, '.opengeo', 'manifest.json'),
+      join(root, '.omnigeo', 'manifest.json'),
       JSON.stringify({ pages: { '/notes': { route: '/notes', file: 'md/..notes.md', tokens: 1 } } }),
     );
     expect(createFsStore({ root }).routes()).toEqual(['/notes']);
@@ -219,7 +219,7 @@ describe('reloading on a development server', () => {
     const middleware = createNextMiddleware({ root, reload: true, logStartup: false });
     writeFileSync(join(root, 'public', 'md', 'about.md'), '---\ntitle: "About"\n---\n# About\n');
     rewrite(
-      join(root, '.opengeo', 'manifest.json'),
+      join(root, '.omnigeo', 'manifest.json'),
       JSON.stringify({ pages: { '/about': { route: '/about', file: 'md/about.md', tokens: 2 } } }),
     );
     advance(1000);
@@ -229,11 +229,11 @@ describe('reloading on a development server', () => {
 
   it('notices the first generate on a server started before there was a manifest', async () => {
     const { root } = quiet(project('{}'));
-    rmSync(join(root, '.opengeo', 'manifest.json'));
+    rmSync(join(root, '.omnigeo', 'manifest.json'));
     const middleware = createNextMiddleware({ root, reload: true, logStartup: false });
     expect(await twin(middleware)).toBeNull();
     rewrite(
-      join(root, '.opengeo', 'manifest.json'),
+      join(root, '.omnigeo', 'manifest.json'),
       JSON.stringify({ pages: { '/resume': { route: '/resume', file: 'md/resume.md', tokens: 3 } } }),
     );
     advance(1000);
@@ -253,13 +253,13 @@ describe('reloading on a development server', () => {
   it('fails open when the config breaks mid-session, and recovers when it is fixed', async () => {
     const { root, errors } = quiet(project('{}'));
     const middleware = createNextMiddleware({ root, reload: true, logStartup: false });
-    const config = join(root, 'opengeo.config.json');
+    const config = join(root, 'omnigeo.config.json');
 
     rewrite(config, '{ "site": ');
     advance(1000);
     expect(await twin(middleware)).toBeNull();
     expect(errors).toHaveBeenCalledTimes(1);
-    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[opengeo-prod\] markdown is off/);
+    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[omnigeo-prod\] markdown is off/);
 
     advance(1000);
     await twin(middleware);
@@ -274,7 +274,7 @@ describe('reloading on a development server', () => {
     const { root } = quiet(project(undefined));
     const middleware = createNextMiddleware({ root, reload: true, logStartup: false });
     expect(await twin(middleware)).toContain('# Resume');
-    rewrite(join(root, 'opengeo.config.json'), '{ "publicDir": "site" }');
+    rewrite(join(root, 'omnigeo.config.json'), '{ "publicDir": "site" }');
     advance(1000);
     expect(await twin(middleware)).toBeNull();
   });
@@ -290,7 +290,7 @@ describe('reloading on a development server', () => {
     expect(await twin(middleware)).toBe('# Resume');
     expect(errors).toHaveBeenCalledTimes(1);
     expect(String(errors.mock.calls[0]?.[0])).toBe(
-      '[opengeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: EPIPE: the terminal went away',
+      '[omnigeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: EPIPE: the terminal went away',
     );
 
     advance(1000);

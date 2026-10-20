@@ -3,11 +3,11 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { configPatchProblem, defaultConfig, loadConfig, mergeConfig } from '@opengeo/core/shared';
-import { generateSite } from '@opengeo/core/generate';
+import { configPatchProblem, defaultConfig, loadConfig, mergeConfig } from '@omnigeo/core/shared';
+import { generateSite } from '@omnigeo/core/generate';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { LoadedConfig } from '@opengeo/core/shared' */
+/** @import { LoadedConfig } from '@omnigeo/core/shared' */
 
 /**
  * Generate usually runs against a dev server, and every absolute URL it wrote came from that
@@ -50,7 +50,7 @@ afterAll(async () => {
 function project(publicOrigin) {
   const config = defaultConfig(site);
   if (publicOrigin) config.publicOrigin = publicOrigin;
-  return { config, root: mkdtempSync(join(tmpdir(), 'opengeo-origin-')), exists: true };
+  return { config, root: mkdtempSync(join(tmpdir(), 'omnigeo-origin-')), exists: true };
 }
 
 /**
@@ -104,8 +104,8 @@ describe('publicOrigin', () => {
     expect(configPatchProblem({ publicOrigin: 'https://example.com/#top' })).toContain('publicOrigin');
     expect(configPatchProblem({ publicOrigin: 'ftp://example.com' })).toContain('publicOrigin');
 
-    const root = mkdtempSync(join(tmpdir(), 'opengeo-origin-config-'));
-    writeFileSync(join(root, 'opengeo.config.json'), JSON.stringify({ publicOrigin: 'https://example.com' }));
+    const root = mkdtempSync(join(tmpdir(), 'omnigeo-origin-config-'));
+    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ publicOrigin: 'https://example.com' }));
     expect(loadConfig(root).config.publicOrigin).toBe('https://example.com');
     expect(mergeConfig(defaultConfig(), {}).publicOrigin).toBeUndefined();
   });

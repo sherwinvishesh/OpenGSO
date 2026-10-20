@@ -1,16 +1,16 @@
 # AI providers
 
-OpenGEO is bring-your-own-key, and most of it needs no key at all. The 0 to 100 structural test, the
-whole free generate tier, and `opengeo-prod` never call a model. A key buys exactly two things:
+OmniGEO is bring-your-own-key, and most of it needs no key at all. The 0 to 100 structural test, the
+whole free generate tier, and `omnigeo-prod` never call a model. A key buys exactly two things:
 
-- `opengeo generate --tier ai`, the polish pass over the extracted Markdown
-- `opengeo test --content`, the review of how well those documents read to an agent
+- `omnigeo generate --tier ai`, the polish pass over the extracted Markdown
+- `omnigeo test --content`, the review of how well those documents read to an agent
 
 ## The list
 
 Every provider below is a row in one table, `packages/core/src/shared/providers.js`. Adding one is a
-row, not a code change, because OpenGEO dispatches on the **API shape** a provider speaks rather
-than on the vendor's name. There are three shapes in the whole market and OpenGEO speaks all three.
+row, not a code change, because OmniGEO dispatches on the **API shape** a provider speaks rather
+than on the vendor's name. There are three shapes in the whole market and OmniGEO speaks all three.
 
 | Provider | `--provider` | Default model | Keys |
 | --- | --- | --- | --- |
@@ -40,11 +40,11 @@ than on the vendor's name. There are three shapes in the whole market and OpenGE
 | LM Studio, on this machine | `lmstudio` | `openai/gpt-oss-20b` | no key |
 | Your own endpoint | `custom` | you name it | your own |
 
-`opengeo help providers` prints the same table from the code, so it is never out of date.
+`omnigeo help providers` prints the same table from the code, so it is never out of date.
 
 Each default is a fast, inexpensive model from that vendor, because rewriting a page is
 summarising work and a site can have hundreds of them. Any model the provider serves works: set
-`ai.model`, pass `--model`, or answer the model question in `opengeo settings`.
+`ai.model`, pass `--model`, or answer the model question in `omnigeo settings`.
 
 Names people actually type are understood as suggestions. `--provider claude`, `kwen` or `grok`
 stops and asks `Did you mean "anthropic"?` (or `qwen`, or `xai`) rather than guessing, so one config
@@ -67,19 +67,19 @@ file can never mean two different things.
 Three places, all equivalent:
 
 ```bash
-opengeo settings                       # interactive, writes .env and .gitignore for you
-opengeo test <url> --provider groq     # one run, overriding whatever is configured
-opengeo start                          # the dashboard, under Settings
+omnigeo settings                       # interactive, writes .env and .gitignore for you
+omnigeo test <url> --provider groq     # one run, overriding whatever is configured
+omnigeo start                          # the dashboard, under Settings
 ```
 
 The key is written to `.env` in your project, after `.env` is added to `.gitignore`, and never
-anywhere else. It is never written to `opengeo.config.json`, never returned by the local API, and
-never attached to any request except the direct call to the provider you picked. OpenGEO has no
+anywhere else. It is never written to `omnigeo.config.json`, never returned by the local API, and
+never attached to any request except the direct call to the provider you picked. OmniGEO has no
 telemetry.
 
 ## Keys you already have
 
-If a provider's own variable is already exported, OpenGEO uses it and you configure nothing:
+If a provider's own variable is already exported, OmniGEO uses it and you configure nothing:
 
 ```
 ANTHROPIC_API_KEY      OPENAI_API_KEY       GEMINI_API_KEY / GOOGLE_API_KEY
@@ -91,32 +91,32 @@ CEREBRAS_API_KEY       SAMBANOVA_API_KEY    DEEPINFRA_API_KEY / DEEPINFRA_TOKEN
 HF_TOKEN               NVIDIA_API_KEY       NOVITA_API_KEY
 ```
 
-When several are set, the provider in `opengeo.config.json` is asked first, so an
+When several are set, the provider in `omnigeo.config.json` is asked first, so an
 `OPENAI_API_KEY` exported for some other tool never outranks the Qwen key a project was set up
 with. Only when that provider has no key does another one stand in, in the order of the table
 above. A project set up for Ollama or LM Studio stays on this machine whatever else is exported.
 
-OpenGEO's own variables win over all of those, and `.env` wins over the shell:
+OmniGEO's own variables win over all of those, and `.env` wins over the shell:
 
 ```
-OPENGEO_PROVIDER=xai
-OPENGEO_API_KEY=...
-OPENGEO_MODEL=grok-4.3
-OPENGEO_BASE_URL=https://gateway.example.com/v1    # optional
+OMNIGEO_PROVIDER=xai
+OMNIGEO_API_KEY=...
+OMNIGEO_MODEL=grok-4.3
+OMNIGEO_BASE_URL=https://gateway.example.com/v1    # optional
 ```
 
-`OPENGEO_PROVIDER` has to be one of the ids in the table. If it names something else, the key next
+`OMNIGEO_PROVIDER` has to be one of the ids in the table. If it names something else, the key next
 to it is not sent anywhere, and every AI run says what is wrong until it is fixed.
 
 A key is only ever sent to the provider that issued it. `--provider groq` uses `GROQ_API_KEY`, or
-`OPENGEO_API_KEY` when `OPENGEO_PROVIDER` is `groq`. If the only key available belongs to another
+`OMNIGEO_API_KEY` when `OMNIGEO_PROVIDER` is `groq`. If the only key available belongs to another
 provider, the run stops and says so rather than sending it. The same goes for the rest of the
 address: a model, `baseUrl`, `api`, `auth`, `headers` or `params` set for one provider is not
 carried over when a flag picks another.
 
 ## A model on your own machine
 
-Ollama and LM Studio need no key and no network. Nothing leaves the machine, and `opengeo settings`
+Ollama and LM Studio need no key and no network. Nothing leaves the machine, and `omnigeo settings`
 will not ask you for a key when you pick either one.
 
 ### Ollama
@@ -124,7 +124,7 @@ will not ask you for a key when you pick either one.
 ```bash
 OLLAMA_CONTEXT_LENGTH=32768 ollama serve    # in another terminal
 ollama pull llama3.2
-opengeo test https://example.com --content --provider ollama
+omnigeo test https://example.com --content --provider ollama
 ```
 
 Start the server with a larger context than its default. A long page is otherwise cut short before
@@ -135,7 +135,7 @@ the model sees it, and the rewrite quietly loses its second half.
 Open the Developer tab, switch the server on, and load a model. Use the id LM Studio shows for it:
 
 ```bash
-opengeo generate https://example.com --tier ai --provider lmstudio --model openai/gpt-oss-20b
+omnigeo generate https://example.com --tier ai --provider lmstudio --model openai/gpt-oss-20b
 ```
 
 It listens on `http://localhost:1234/v1`. If you moved it, set `ai.baseUrl`.
@@ -144,9 +144,9 @@ It listens on `http://localhost:1234/v1`. If you moved it, set `ai.baseUrl`.
 
 **Alibaba Qwen.** Keys are tied to a region. The default address is the international one
 (Singapore). A key from the China console needs
-`"baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"` in `opengeo.config.json`.
+`"baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1"` in `omnigeo.config.json`.
 
-**Perplexity.** Sonar is built for search. OpenGEO switches search off for the default model, so it
+**Perplexity.** Sonar is built for search. OmniGEO switches search off for the default model, so it
 rewrites the page it was given rather than one it found, but a general model is the better fit.
 
 **Hugging Face.** The token needs the "Make calls to Inference Providers" permission, and a token
@@ -172,7 +172,7 @@ without it is refused.
 ## Thinking, and other request flags
 
 A rewrite is not a reasoning problem, and a model that thinks first is slower and costs more for
-the same page. So for its own default models OpenGEO sends the flag each vendor uses to keep
+the same page. So for its own default models OmniGEO sends the flag each vendor uses to keep
 thinking short or off (`reasoning_effort`, `thinking`, `enable_thinking` and so on). A model you
 choose yourself is sent exactly what you configure and nothing more, because the same flag can be
 refused by a different model.
@@ -183,15 +183,15 @@ refused by a different model.
 { "ai": { "provider": "openai", "model": "gpt-6", "params": { "reasoning_effort": "low", "temperature": 0.2 } } }
 ```
 
-- Objects are merged key by key into what OpenGEO sends, so `{ "generationConfig": { "temperature":
-  0.2 } }` on Gemini keeps the output limit OpenGEO sets.
+- Objects are merged key by key into what OmniGEO sends, so `{ "generationConfig": { "temperature":
+  0.2 } }` on Gemini keeps the output limit OmniGEO sets.
 - `null` removes a field, including one of the default flags: `{ "thinking": null }`.
-- `model`, `messages`, `system`, `contents`, `systemInstruction` and `stream` are OpenGEO's and are
+- `model`, `messages`, `system`, `contents`, `systemInstruction` and `stream` are OmniGEO's and are
   never overwritten. A config that sets one is refused with the reason.
 
 Some models always think, whatever they are sent (Claude Opus 5.5 is one). Thinking counts toward
 the output limit, so on a long page it can leave too little room and the twin comes back cut off,
-which OpenGEO catches and replaces with the algorithmic version. Turning the effort down fixes it:
+which OmniGEO catches and replaces with the algorithmic version. Turning the effort down fixes it:
 
 ```json
 { "ai": { "provider": "anthropic", "model": "claude-opus-5-5", "params": { "output_config": { "effort": "low" } } } }
@@ -200,13 +200,13 @@ which OpenGEO catches and replaces with the algorithmic version. Turning the eff
 ## Add your own AI tool
 
 Anything that speaks the OpenAI, Anthropic or Gemini request format works, including a company
-gateway, a proxy, vLLM, llama.cpp's server, LiteLLM, or a vendor OpenGEO has never heard of.
+gateway, a proxy, vLLM, llama.cpp's server, LiteLLM, or a vendor OmniGEO has never heard of.
 
 **1. Pick the shape it speaks.** Almost everything is `openai`, which means it has a
 `POST /chat/completions`. Anthropic's own API is `anthropic` (`POST /messages`) and Google's is
 `gemini` (`POST /models/<model>:generateContent`).
 
-**2. Put the address in `opengeo.config.json`.** It is not a secret, so it belongs in the file your
+**2. Put the address in `omnigeo.config.json`.** It is not a secret, so it belongs in the file your
 team shares:
 
 ```json
@@ -234,8 +234,8 @@ team shares:
 **3. Put the key in `.env`.**
 
 ```
-OPENGEO_PROVIDER=custom
-OPENGEO_API_KEY=...
+OMNIGEO_PROVIDER=custom
+OMNIGEO_API_KEY=...
 ```
 
 Set `"auth": "none"` and skip the key entirely if the endpoint does not authenticate.
@@ -243,11 +243,11 @@ Set `"auth": "none"` and skip the key entirely if the endpoint does not authenti
 Then use it like any other provider:
 
 ```bash
-opengeo test https://example.com --content
-opengeo generate https://example.com --tier ai
+omnigeo test https://example.com --content
+omnigeo generate https://example.com --tier ai
 ```
 
-`opengeo settings` walks through the same three answers interactively, and the dashboard has the
+`omnigeo settings` walks through the same three answers interactively, and the dashboard has the
 same fields under Settings.
 
 ### Overriding a built-in
@@ -264,7 +264,7 @@ restates them, so a new key can never inherit the previous provider's endpoint.
 
 ## If it does not work
 
-`opengeo` names the missing field rather than failing at the HTTP layer:
+`omnigeo` names the missing field rather than failing at the HTTP layer:
 
 ```
 Provider "custom" is not fully configured. Missing: ai.baseUrl, ai.model
@@ -283,7 +283,7 @@ that status almost always means:
 | 5xx | The provider's own problem. Try again later |
 
 A 404 from your own gateway almost always means the wrong `api` shape. A 401 means `auth` is wrong
-for that endpoint. Both are one field in `opengeo.config.json`.
+for that endpoint. Both are one field in `omnigeo.config.json`.
 
-When a model declines to rewrite a page under its own safety rules, OpenGEO says so and keeps the
+When a model declines to rewrite a page under its own safety rules, OmniGEO says so and keeps the
 algorithmic version of that page. The key is fine, and nothing else in the run is affected.

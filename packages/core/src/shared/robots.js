@@ -1,8 +1,8 @@
 /**
  * Reading robots.txt the way a crawler does (RFC 9309).
  *
- * One implementation for both readers: the A1 check in `opengeo test`, and the startup summary and
- * `prod test` in opengeo-prod. Because prod imports it, it has no dependencies and no `node:`
+ * One implementation for both readers: the A1 check in `omnigeo test`, and the startup summary and
+ * `prod test` in omnigeo-prod. Because prod imports it, it has no dependencies and no `node:`
  * modules, only string work.
  */
 

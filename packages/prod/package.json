@@ -1,5 +1,5 @@
 {
-  "name": "opengeo-prod",
+  "name": "omnigeo-prod",
   "version": "0.1.0",
   "description": "Runtime middleware that serves markdown to AI agents at the same URL. Zero dependencies.",
   "license": "Apache-2.0",
@@ -11,20 +11,20 @@
     "content-negotiation",
     "nextjs"
   ],
-  "homepage": "https://github.com/sherwinvishesh/OpenGEO",
+  "homepage": "https://github.com/sherwinvishesh/OmniGEO",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sherwinvishesh/OpenGEO.git",
+    "url": "git+https://github.com/sherwinvishesh/OmniGEO.git",
     "directory": "packages/prod"
   },
   "bugs": {
-    "url": "https://github.com/sherwinvishesh/OpenGEO/issues"
+    "url": "https://github.com/sherwinvishesh/OmniGEO/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "opengeo": "./dist/cli.js"
+    "omnigeo": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -38,7 +38,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
   },
   "devDependencies": {
-    "@opengeo/core": "*",
+    "@omnigeo/core": "*",
     "tsup": "^9.0.0",
     "typescript": "^5.8.3"
   },

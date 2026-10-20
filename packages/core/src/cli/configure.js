@@ -17,23 +17,23 @@ import {
 import { runSettings } from './configure-settings.js';
 
 /**
- * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { OmniGeoConfig } from '../shared/config.js'
  * @import { StepContext } from './configure-steps.js'
  */
 
 /**
- * The interactive configuration flow, behind both `opengeo start` and `opengeo settings` (§11, §12).
+ * The interactive configuration flow, behind both `omnigeo start` and `omnigeo settings` (§11, §12).
  *
  * Four questions, in an order chosen so nobody is asked for a secret before the thing that keeps
  * the secret safe exists: `.gitignore` is updated *before* the key is written, every time, and the
  * command says so on screen. That gitignore line is the actual leak-prevention mechanism, not the
  * documentation around it.
  *
- * A key is optional and the prompt says so plainly. Most of OpenGEO needs no key at all, and a
+ * A key is optional and the prompt says so plainly. Most of OmniGEO needs no key at all, and a
  * setup flow that implied otherwise would make the free path feel like the degraded one.
  *
  * The two modes share the five steps and nothing else, because they are not the same interaction.
- * `first-run` (`runSetup`) is a walkthrough: it opens by saying what OpenGEO is, asks the questions
+ * `first-run` (`runSetup`) is a walkthrough: it opens by saying what OmniGEO is, asks the questions
  * in order, and ends by naming the three commands to try next. `settings` (`runSettings`) is a menu:
  * every setting on one screen with its current value beside it, pick a number, change that one
  * thing, land back on the menu. Somebody running settings on a working project already knows the one
@@ -68,9 +68,9 @@ export function setupMode(root) {
 }
 
 /**
- * What OpenGEO is, in the six lines somebody who just typed `opengeo` will actually read.
+ * What OmniGEO is, in the six lines somebody who just typed `omnigeo` will actually read.
  *
- * A bare `opengeo` lands here, so this is the product's first screen for most people. It says what
+ * A bare `omnigeo` lands here, so this is the product's first screen for most people. It says what
  * the problem is before it says what the tool does, because "Markdown twin" means nothing until you
  * have been told that agents are reading HTML written for browsers and getting it wrong.
  *
@@ -81,7 +81,7 @@ function writeIntro(write) {
   write(`\n${c.bold('What this is')}\n`);
   write(`  ${c.gray('AI agents read your site by scraping pages built for browsers, and they lose things:')}\n`);
   write(`  ${c.gray('nav chrome, scripts and layout come through, prices and dates sometimes do not.')}\n`);
-  write(`  ${c.gray('OpenGEO serves those agents a clean Markdown copy of every page, at the same URL,')}\n`);
+  write(`  ${c.gray('OmniGEO serves those agents a clean Markdown copy of every page, at the same URL,')}\n`);
   write(`  ${c.gray('and measures whether it is working.')}\n\n`);
   write(`  ${c.bold('test')}      ${c.gray('score a live URL out of 100, then have a model read the Markdown')}\n`);
   write(`  ${c.bold('generate')}  ${c.gray('write a .md twin of every page, plus robots.txt, llms.txt, sitemap.xml')}\n`);
@@ -124,14 +124,14 @@ export async function runSetup(options) {
     if (!prompter.stage) write(heading(title));
   };
 
-  write(`\n${c.bold('OpenGEO setup')}\n`);
+  write(`\n${c.bold('OmniGEO setup')}\n`);
   write(`${c.gray(root)}\n`);
   write(`${c.gray(hasConfig ? `${CONFIG_FILENAME} exists - its current values are the defaults below.` : `${CONFIG_FILENAME} will be created here.`)}\n`);
   writeIntro(write);
 
   // 1. Site ------------------------------------------------------------------------------------
   step(1, 'Your site', '1/4  Your site');
-  write(`\n${c.gray('OpenGEO always works against a URL, never a source directory: it has to see what your')}\n`);
+  write(`\n${c.gray('OmniGEO always works against a URL, never a source directory: it has to see what your')}\n`);
   write(`${c.gray('site actually serves. A local dev server is fine.')}\n\n`);
   const site = await askSiteUrl(ctx, base.site);
   const publicDir = await askWebRoot(ctx, base.publicDir);
@@ -145,12 +145,12 @@ export async function runSetup(options) {
 
   // 3. Blocking --------------------------------------------------------------------------------
   step(3, 'Blocking', '3/4  Blocking (a separate lever)');
-  write(`\n${c.gray('Blocking is not the same setting as routing, and OpenGEO never turns it on for you.')}\n`);
-  write(`${c.gray('It is written into robots.txt by `opengeo generate`, is advisory, and starts empty.')}\n\n`);
-  // Not offered on a first run. Putting the question in front of a new user would imply OpenGEO
+  write(`\n${c.gray('Blocking is not the same setting as routing, and OmniGEO never turns it on for you.')}\n`);
+  write(`${c.gray('It is written into robots.txt by `omnigeo generate`, is advisory, and starts empty.')}\n\n`);
+  // Not offered on a first run. Putting the question in front of a new user would imply OmniGEO
   // thinks they should be blocking somebody.
   write(`  ${c.gray('Nothing is blocked.')}\n`);
-  write(`  ${c.gray(`Run \`opengeo settings\` if you ever want to change that.`)}\n`);
+  write(`  ${c.gray(`Run \`omnigeo settings\` if you ever want to change that.`)}\n`);
   // The one step that tells rather than asks. In scrollback that is the end of it, but a prompter
   // drawing frames would paint step 4 straight over these four lines, so it holds for a keypress.
   await prompter.pause?.();
@@ -158,7 +158,7 @@ export async function runSetup(options) {
   // 4. API key ---------------------------------------------------------------------------------
   step(4, 'AI provider', '4/4  AI provider (optional)');
   write(`\n${c.gray('Everything that matters works without one: the structural 0-100 test, the whole free')}\n`);
-  write(`${c.gray('generate tier, and opengeo-prod. A key only unlocks `generate --tier ai` and')}\n`);
+  write(`${c.gray('generate tier, and omnigeo-prod. A key only unlocks `generate --tier ai` and')}\n`);
   write(`${c.gray('`test --content`, and it is only ever sent to the provider you pick below.')}\n\n`);
   // The only step that writes before the config is saved: .gitignore goes in ahead of the key.
   const provider = await askProvider(ctx, base).catch((error) => {
@@ -170,7 +170,7 @@ export async function runSetup(options) {
   prompter.settle?.();
 
   const createdConfig = !existsSync(join(root, CONFIG_FILENAME));
-  /** @type {OpenGeoConfig} */
+  /** @type {OmniGeoConfig} */
   const config = {
     ...base,
     site,
@@ -202,14 +202,14 @@ export async function runSetup(options) {
 
   // A number beats a homework list. When the caller can run the structural test it does so here and
   // setup ends on the score the site has right now, which is also the only honest way to show what
-  // the rest of OpenGEO is for. Without one, the three commands are still the best available close.
+  // the rest of OmniGEO is for. Without one, the three commands are still the best available close.
   if (options.finish) {
     await options.finish(result, write);
   } else {
     write(`\n${c.bold('Next')}\n`);
-    write(`  opengeo test ${site}${c.gray('       score the page as it is today')}\n`);
-    write(`  opengeo generate ${site}${c.gray('   write the twins, robots.txt, llms.txt, sitemap.xml')}\n`);
-    write(`  opengeo prod test ${site}${c.gray('  once the middleware is wired in')}\n`);
+    write(`  omnigeo test ${site}${c.gray('       score the page as it is today')}\n`);
+    write(`  omnigeo generate ${site}${c.gray('   write the twins, robots.txt, llms.txt, sitemap.xml')}\n`);
+    write(`  omnigeo prod test ${site}${c.gray('  once the middleware is wired in')}\n`);
     write('\n');
   }
 

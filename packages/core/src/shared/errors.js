@@ -1,5 +1,5 @@
 /**
- * Every user-facing error string in OpenGEO lives here (§13).
+ * Every user-facing error string in OmniGEO lives here (§13).
  *
  * One shared module, imported by all five published packages, so wording only ever changes in one
  * place and a limited install can tell the user exactly which package to reach for instead.
@@ -10,13 +10,13 @@ import { AI_PROVIDERS, providerInfo, suggestProvider } from './providers.js';
 /** @import { AiProvider } from './providers.js' */
 
 /**
- * The errors config loading can raise, kept apart from `ERRORS` because `opengeo-prod` loads the
+ * The errors config loading can raise, kept apart from `ERRORS` because `omnigeo-prod` loads the
  * config on every boot and `ERRORS` reaches into the provider catalogue. Nothing in here may
  * reference a provider, or prod's bundle grows AI code and `check:bundles` fails the build.
  */
 export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
   /**
-   * Search-index crawlers on the routing list. Read by `opengeo settings` and by prod at boot, which
+   * Search-index crawlers on the routing list. Read by `omnigeo settings` and by prod at boot, which
    * is the one place a project configured before this warning existed will see it.
    *
    * @param {readonly string[]} names
@@ -34,7 +34,7 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
   },
 
   /**
-   * A key in opengeo.config.json that nothing reads. Loading carries on, since a newer version may
+   * A key in omnigeo.config.json that nothing reads. Loading carries on, since a newer version may
    * have written it; this is so a misspelt one is not silently replaced by its default. Here rather
    * than in ERRORS because prod says it at boot too.
    *
@@ -43,8 +43,8 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   unknownConfigKey: (key, suggestion) =>
     suggestion
-      ? `opengeo.config.json has "${key}", which OpenGEO does not read, so its default is used. Did you mean "${suggestion}"?`
-      : `opengeo.config.json has "${key}", which OpenGEO does not read. Every field it reads is in docs/config.md.`,
+      ? `omnigeo.config.json has "${key}", which OmniGEO does not read, so its default is used. Did you mean "${suggestion}"?`
+      : `omnigeo.config.json has "${key}", which OmniGEO does not read. Every field it reads is in docs/config.md.`,
 
   /**
    * @param {string} field
@@ -53,10 +53,10 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   dirOutsideProject: (field, value, root) =>
     [
-      `${field} in opengeo.config.json is ${JSON.stringify(value)}, which is not a directory inside the project.`,
+      `${field} in omnigeo.config.json is ${JSON.stringify(value)}, which is not a directory inside the project.`,
       ``,
       `It has to be a relative path to a folder below ${root}, such as "public". The project root`,
-      `itself is refused too: it holds .env, and anything OpenGEO can read or write there is too much.`,
+      `itself is refused too: it holds .env, and anything OmniGEO can read or write there is too much.`,
     ].join('\n'),
 
   /**
@@ -65,7 +65,7 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {unknown} value
    */
   badField: (field, expected, value) =>
-    `${field} in opengeo.config.json has to be ${expected}, and it is ${JSON.stringify(value) ?? String(value)}.`,
+    `${field} in omnigeo.config.json has to be ${expected}, and it is ${JSON.stringify(value) ?? String(value)}.`,
 
   /**
    * @param {string} path
@@ -75,22 +75,22 @@ export const CONFIG_ERRORS = /* @__PURE__ */ Object.freeze({
     [
       `${path} could not be read: ${reason}`,
       ``,
-      `Fix the file by hand, or delete it and run \`opengeo settings\` to write a fresh one.`,
+      `Fix the file by hand, or delete it and run \`omnigeo settings\` to write a fresh one.`,
     ].join('\n'),
 
   /**
-   * The one line opengeo-prod logs at boot instead of crashing the site. One line, because it lands
+   * The one line omnigeo-prod logs at boot instead of crashing the site. One line, because it lands
    * in a hosting platform's deploy log next to everything else.
    *
    * @param {string} problem A message from one of the entries above.
    */
   prodFailedOpen: (problem) =>
-    `[opengeo-prod] markdown is off, and every request passes through to the normal site, until opengeo.config.json is fixed: ${problem.split('\n')[0]}`,
+    `[omnigeo-prod] markdown is off, and every request passes through to the normal site, until omnigeo.config.json is fixed: ${problem.split('\n')[0]}`,
 });
 
 /**
  * Problems prod's twin store reports at boot. Same rule as `CONFIG_ERRORS`: this ships inside
- * opengeo-prod, so nothing in here may reference a provider.
+ * omnigeo-prod, so nothing in here may reference a provider.
  */
 export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
   /**
@@ -100,35 +100,35 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   twinOutsidePublicDir: (route, file, publicDir) =>
     `Manifest lists ${route} at ${file}, which resolves outside ${publicDir}, so it was not loaded. ` +
-    'OpenGEO only ever writes twins inside publicDir: rerun `opengeo generate` to rewrite the manifest.',
+    'OmniGEO only ever writes twins inside publicDir: rerun `omnigeo generate` to rewrite the manifest.',
 
   /** @param {string} manifestFile */
   manifestHasNoPages: (manifestFile) =>
-    `${manifestFile} is JSON but has no page table, so no twins were loaded. Rerun \`opengeo generate\` to rewrite it.`,
+    `${manifestFile} is JSON but has no page table, so no twins were loaded. Rerun \`omnigeo generate\` to rewrite it.`,
 
   /**
    * @param {string} key The entry's key in the page table.
    * @param {string} manifestFile
    */
   manifestEntryUnusable: (key, manifestFile) =>
-    `${manifestFile} lists ${key} without a route and a file, so it was not loaded. Rerun \`opengeo generate\` to rewrite the manifest.`,
+    `${manifestFile} lists ${key} without a route and a file, so it was not loaded. Rerun \`omnigeo generate\` to rewrite the manifest.`,
 
   /** @param {string} manifestFile */
   noManifest: (manifestFile) =>
-    `No manifest at ${manifestFile}. Run \`opengeo generate <url>\` to create the markdown twins.`,
+    `No manifest at ${manifestFile}. Run \`omnigeo generate <url>\` to create the markdown twins.`,
 
   /**
    * @param {string} manifestFile
    * @param {string} reason
    */
   unreadableManifest: (manifestFile, reason) =>
-    `Could not read ${manifestFile}: ${reason}. Rerun \`opengeo generate\` to rewrite it.`,
+    `Could not read ${manifestFile}: ${reason}. Rerun \`omnigeo generate\` to rewrite it.`,
 
   /**
    * @param {string} route
    * @param {string} file Absolute path of the twin that is not there.
    */
-  twinMissing: (route, file) => `Manifest lists ${route} but ${file} is missing. Rerun \`opengeo generate\`.`,
+  twinMissing: (route, file) => `Manifest lists ${route} but ${file} is missing. Rerun \`omnigeo generate\`.`,
 
   /**
    * @param {string} route
@@ -136,7 +136,7 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} reason
    */
   twinUnreadable: (route, file, reason) =>
-    `Manifest lists ${route} but ${file} could not be read: ${reason}. Rerun \`opengeo generate\`.`,
+    `Manifest lists ${route} but ${file} could not be read: ${reason}. Rerun \`omnigeo generate\`.`,
 
   /**
    * The edge store's version of `twinMissing`: the caller built the data module and left this one out.
@@ -145,7 +145,7 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} file The manifest's `file` value.
    */
   contentNotSupplied: (route, file) =>
-    `Manifest lists ${route} but no content was supplied for ${file}. Regenerate the data module after \`opengeo generate\`.`,
+    `Manifest lists ${route} but no content was supplied for ${file}. Regenerate the data module after \`omnigeo generate\`.`,
 
   /**
    * Logged when a development server notices the twins changed on disk and the new ones cannot be
@@ -154,7 +154,7 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} reason
    */
   reloadFailed: (reason) =>
-    `[opengeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: ${reason.split('\n')[0]}`,
+    `[omnigeo-prod] the files changed on disk but could not be reloaded, so the previous twins are still being served: ${reason.split('\n')[0]}`,
 });
 
 /**
@@ -169,10 +169,10 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} reason
    */
   requestFailedOpen: (reason) =>
-    `[opengeo-prod] a request could not be checked for a markdown twin, so it went to the normal site (later ones are not logged): ${reason.split('\n')[0]}`,
+    `[omnigeo-prod] a request could not be checked for a markdown twin, so it went to the normal site (later ones are not logged): ${reason.split('\n')[0]}`,
 
   /**
-   * `opengeo prod data` with nothing to bundle. Nothing is written: an edge function built from an
+   * `omnigeo prod data` with nothing to bundle. Nothing is written: an edge function built from an
    * empty module would deploy fine and serve no markdown, which is the failure nobody notices.
    *
    * @param {string[]} problems
@@ -184,7 +184,7 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
       ...problems.slice(0, 5).map((problem) => `  ${problem}`),
       ...(problems.length > 5 ? [`  ...and ${problems.length - 5} more`] : []),
       // Every problem that leads here already says to run generate, so it is said once.
-      ...(problems.length > 0 ? [] : [`Run \`opengeo generate <url>\` first, then this again.`]),
+      ...(problems.length > 0 ? [] : [`Run \`omnigeo generate <url>\` first, then this again.`]),
     ].join('\n'),
 
   /**
@@ -193,7 +193,7 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   edgeDataProposed: (target, proposed) =>
     [
-      `${target} already exists and OpenGEO did not write it, so it was left alone.`,
+      `${target} already exists and OmniGEO did not write it, so it was left alone.`,
       `The edge data went to ${proposed} instead. Point --out somewhere else, or use --force to replace it.`,
     ].join('\n'),
 
@@ -213,11 +213,11 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} reason
    */
   edgeDataRefreshFailed: (file, reason) =>
-    `Could not refresh ${file}, so the edge still has the twins from before: ${reason.split('\n')[0]}. Run \`opengeo prod data\` to retry.`,
+    `Could not refresh ${file}, so the edge still has the twins from before: ${reason.split('\n')[0]}. Run \`omnigeo prod data\` to retry.`,
 
   /** @param {string} arg */
   edgeDataTakesNoUrl: (arg) =>
-    `\`opengeo prod data\` reads the twins on disk and takes no URL (got ${arg}). Run \`opengeo generate ${arg}\` first if they are not there yet.`,
+    `\`omnigeo prod data\` reads the twins on disk and takes no URL (got ${arg}). Run \`omnigeo generate ${arg}\` first if they are not there yet.`,
 });
 
 /** @typedef {'test' | 'generate' | 'settings' | 'start' | 'prod test' | 'prod data'} CommandName */
@@ -228,12 +228,12 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
  * @type {Record<CommandName, string[]>}
  */
 export const COMMAND_PACKAGES = {
-  test: ['opengeo', 'opengeo-cli', 'opengeo-testing'],
-  generate: ['opengeo', 'opengeo-cli', 'opengeo-generate'],
-  settings: ['opengeo', 'opengeo-cli'],
-  start: ['opengeo'],
-  'prod test': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
-  'prod data': ['opengeo', 'opengeo-cli', 'opengeo-prod'],
+  test: ['omnigeo', 'omnigeo-cli', 'omnigeo-testing'],
+  generate: ['omnigeo', 'omnigeo-cli', 'omnigeo-generate'],
+  settings: ['omnigeo', 'omnigeo-cli'],
+  start: ['omnigeo'],
+  'prod test': ['omnigeo', 'omnigeo-cli', 'omnigeo-prod'],
+  'prod data': ['omnigeo', 'omnigeo-cli', 'omnigeo-prod'],
 };
 
 /** @type {Record<CommandName, string>} */
@@ -241,8 +241,8 @@ export const COMMAND_BLURB = {
   test: 'scores a live URL 0-100 for AI-readiness',
   generate: 'writes the .md twins, robots.txt, llms.txt and sitemap.xml',
   settings: 'changes the site, the bot lists and the API key, in your terminal',
-  start: 'sets the project up, then opens the OpenGEO dashboard',
-  'prod test': 'verifies a deployed opengeo-prod middleware is serving correctly',
+  start: 'sets the project up, then opens the OmniGEO dashboard',
+  'prod test': 'verifies a deployed omnigeo-prod middleware is serving correctly',
   'prod data': 'bundles the twins into a module for edge functions, which have no disk',
 };
 
@@ -252,12 +252,12 @@ export const COMMAND_BLURB = {
  * @type {Record<CommandName, string>}
  */
 export const NARROWEST_PACKAGE = {
-  test: 'opengeo-testing',
-  generate: 'opengeo-generate',
-  settings: 'opengeo-cli',
-  start: 'opengeo',
-  'prod test': 'opengeo-prod',
-  'prod data': 'opengeo-prod',
+  test: 'omnigeo-testing',
+  generate: 'omnigeo-generate',
+  settings: 'omnigeo-cli',
+  start: 'omnigeo',
+  'prod test': 'omnigeo-prod',
+  'prod data': 'omnigeo-prod',
 };
 
 /**
@@ -275,10 +275,10 @@ const PILLAR_OF = {
 
 /**
  * Shown when a limited install is asked for a command it doesn't include - e.g. someone installed
- * only `opengeo-testing` and ran `opengeo generate`.
+ * only `omnigeo-testing` and ran `omnigeo generate`.
  *
  * The suggestions are derived rather than written out, because two of the five commands make the
- * hand-written version wrong: `opengeo-cli` does not ship `start`, and it is itself the narrowest
+ * hand-written version wrong: `omnigeo-cli` does not ship `start`, and it is itself the narrowest
  * package that ships `settings`. Both cases used to recommend a package that would not have helped.
  *
  * @param {CommandName} command
@@ -289,22 +289,22 @@ export function commandUnavailable(command, installedPackage) {
   const narrowest = NARROWEST_PACKAGE[command];
   const pillar = PILLAR_OF[command];
   const ways =
-    narrowest === 'opengeo'
-      ? [`The fix:`, `  npm install -D opengeo`]
+    narrowest === 'omnigeo'
+      ? [`The fix:`, `  npm install -D omnigeo`]
       : [
           `Two ways forward:`,
           `  just this one thing   npm install -D ${narrowest}`,
-          `  all of OpenGEO        npm install -D opengeo`,
+          `  all of OmniGEO        npm install -D omnigeo`,
         ];
   return [
-    `\`opengeo ${command}\` isn't part of ${installedPackage}.`,
+    `\`omnigeo ${command}\` isn't part of ${installedPackage}.`,
     ``,
     `You have ${installedPackage} installed, which doesn't include the ${pillar ? `${pillar} pillar` : `${command} command`}.`,
-    `\`opengeo ${command}\` ${COMMAND_BLURB[command]}.`,
+    `\`omnigeo ${command}\` ${COMMAND_BLURB[command]}.`,
     ``,
     ...ways,
     ``,
-    `Packages that ship \`opengeo ${command}\`: ${COMMAND_PACKAGES[command].join(', ')}.`,
+    `Packages that ship \`omnigeo ${command}\`: ${COMMAND_PACKAGES[command].join(', ')}.`,
   ].join('\n');
 }
 
@@ -318,16 +318,16 @@ export function unknownCommand(command, available) {
   // outright rather than left for the reader to find in the list below.
   const prod =
     command.split(' ')[0] === 'prod'
-      ? [`\`opengeo prod\` has two commands under it: opengeo prod test <url>, and opengeo prod data`]
+      ? [`\`omnigeo prod\` has two commands under it: omnigeo prod test <url>, and omnigeo prod data`]
       : [];
   return [
-    `Unknown command: \`opengeo ${command}\`.`,
+    `Unknown command: \`omnigeo ${command}\`.`,
     ...prod,
     ``,
     available.length > 0
-      ? `This install can run: ${available.map((c) => `opengeo ${c}`).join(', ')}.`
+      ? `This install can run: ${available.map((c) => `omnigeo ${c}`).join(', ')}.`
       : `This install ships no CLI commands.`,
-    `Run \`opengeo --help\` for the full list.`,
+    `Run \`omnigeo --help\` for the full list.`,
   ].join('\n');
 }
 
@@ -358,7 +358,7 @@ function statusHint(status, model) {
   if (status === 400 || status === 422) return `  The provider refused the request itself: usually a model id it does not offer${asked}, or a field in ai.params it does not accept.`;
   if (status === 401 || status === 403) return '  The key was refused. Check it is a key for this provider, that it is still active, and that the account has credit.';
   if (status === 402) return '  The account is out of credit. Top it up with the provider and run this again.';
-  if (status === 404) return `  Nothing at that address: usually a model id the provider does not offer${asked}, or an ai.baseUrl or ai.api that is wrong. \`opengeo help providers\` lists each provider's default model.`;
+  if (status === 404) return `  Nothing at that address: usually a model id the provider does not offer${asked}, or an ai.baseUrl or ai.api that is wrong. \`omnigeo help providers\` lists each provider's default model.`;
   if (status === 429) return '  Rate limited, or out of quota for now. Waiting a minute and running it again usually works.';
   if (status >= 500) return '  The provider had a problem on its side. Running it again in a few minutes usually works.';
   return undefined;
@@ -373,12 +373,12 @@ function statusHint(status, model) {
  */
 function stopCause(status, rerun) {
   if (status === 402) return `The account is out of credit: top it up with the provider and ${rerun}.`;
-  if (status === 404) return `That model, or that address, does not exist at this provider: check the model id (and ai.baseUrl if you set one) and ${rerun}. \`opengeo help providers\` lists each provider's default model.`;
-  return `That is almost always the API key or the account it belongs to: check it with \`opengeo settings\` and ${rerun}.`;
+  if (status === 404) return `That model, or that address, does not exist at this provider: check the model id (and ai.baseUrl if you set one) and ${rerun}. \`omnigeo help providers\` lists each provider's default model.`;
+  return `That is almost always the API key or the account it belongs to: check it with \`omnigeo settings\` and ${rerun}.`;
 }
 
 /**
- * `.env` lines that hold a key under a name OpenGEO does not read, each with the name to use.
+ * `.env` lines that hold a key under a name OmniGEO does not read, each with the name to use.
  * Named, never used: guessing which line is a key is how one ends up sent somewhere it was not
  * meant for.
  *
@@ -390,7 +390,7 @@ function lookalikeLines(lookalikes) {
     const info = providerInfo(/** @type {import('./providers.js').AiProvider} */ (provider));
     return [
       ``,
-      `.env has ${name}, which looks like ${/^[aeiou]/i.test(info.label) ? 'an' : 'a'} ${info.label} key, but OpenGEO only reads`,
+      `.env has ${name}, which looks like ${/^[aeiou]/i.test(info.label) ? 'an' : 'a'} ${info.label} key, but OmniGEO only reads`,
       `the names providers document, so it was not used. Rename that line to:`,
       `  ${info.envVars[0]}=<the same key>`,
     ];
@@ -425,23 +425,23 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   missingUrl: (command) =>
     command === 'generate'
       ? [
-          `\`opengeo generate\` needs a URL or a folder.`,
+          `\`omnigeo generate\` needs a URL or a folder.`,
           ``,
           `Give it the address of a running site to crawl it, or the folder your HTML files are in to`,
           `read them straight off disk:`,
           ``,
-          `  opengeo generate http://localhost:3000`,
-          `  opengeo generate https://your-site.com`,
-          `  opengeo generate site`,
+          `  omnigeo generate http://localhost:3000`,
+          `  omnigeo generate https://your-site.com`,
+          `  omnigeo generate site`,
         ].join('\n')
       : [
-          `\`opengeo ${command}\` needs a URL.`,
+          `\`omnigeo ${command}\` needs a URL.`,
           ``,
-          `OpenGEO always works against a URL, never a source directory - it has to see what your site`,
+          `OmniGEO always works against a URL, never a source directory - it has to see what your site`,
           `actually serves over HTTP: real headers, real response, real rendering result.`,
           ``,
-          `  opengeo ${command} http://localhost:3000`,
-          `  opengeo ${command} https://your-site.com`,
+          `  omnigeo ${command} http://localhost:3000`,
+          `  omnigeo ${command} https://your-site.com`,
         ].join('\n'),
 
   /**
@@ -456,9 +456,9 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `"${value}" is not a URL, and there is no folder or .html file by that name here.`,
       ``,
       local
-        ? `If it is your dev server, add the scheme: opengeo generate http://${value}`
+        ? `If it is your dev server, add the scheme: omnigeo generate http://${value}`
         : domainish
-          ? `If it is a site, add the scheme: opengeo generate https://${value}`
+          ? `If it is a site, add the scheme: omnigeo generate https://${value}`
           : `A site's address needs the scheme, e.g. https://your-site.com.`,
       `If it is your site's folder, check the path: it is read from ${process.cwd()}.`,
     ].join('\n');
@@ -470,21 +470,21 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} value */
   invalidUrl: (value) =>
-    `"${value}" isn't a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000 or https://your-site.com.`,
+    `"${value}" isn't a URL OmniGEO can fetch. Include the scheme, e.g. http://localhost:3000 or https://your-site.com.`,
 
   /** The same refusal, inline under a field that is still waiting for an answer. */
   urlNeedsScheme: 'That does not look like a URL. It needs http:// or https://.',
 
   /** @param {string} value */
-  setupUrlRefused: (value) => `"${value}" is not a URL OpenGEO can fetch. Include the scheme, e.g. http://localhost:3000.`,
+  setupUrlRefused: (value) => `"${value}" is not a URL OmniGEO can fetch. Include the scheme, e.g. http://localhost:3000.`,
 
   /** @param {string} value */
   setupUrlGaveUp: (value) =>
-    `"${value}" is not a URL OpenGEO can fetch, and setup ran out of attempts. Nothing was written.`,
+    `"${value}" is not a URL OmniGEO can fetch, and setup ran out of attempts. Nothing was written.`,
 
   /** @param {string} value */
   endpointNotUrl: (value) =>
-    `"${value}" is not a URL OpenGEO can call. Include the scheme, e.g. https://gateway.example.com/v1.`,
+    `"${value}" is not a URL OmniGEO can call. Include the scheme, e.g. https://gateway.example.com/v1.`,
 
   noEndpointGiven: 'No endpoint given, so nothing was written.',
 
@@ -492,10 +492,10 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   setupCancelled: 'Setup was cancelled. Nothing was written.',
 
-  /** The label in front of the reason setup stopped, from `opengeo start`. */
+  /** The label in front of the reason setup stopped, from `omnigeo start`. */
   setupStopped: 'setup stopped',
 
-  /** The same label, from `opengeo settings`. */
+  /** The same label, from `omnigeo settings`. */
   settingsStopped: 'settings stopped',
 
   /** @param {string} reason */
@@ -520,7 +520,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {number} port
    */
   portInUse: (port) =>
-    `Something is already listening on ${port}. Try \`opengeo start -p ${port < 65535 ? port + 1 : port - 1}\`.`,
+    `Something is already listening on ${port}. Try \`omnigeo start -p ${port < 65535 ? port + 1 : port - 1}\`.`,
 
   /** @param {string[]} flags */
   unknownOptions: (flags) => `Unknown option${flags.length === 1 ? '' : 's'}: ${flags.join(', ')}`,
@@ -565,7 +565,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     'Print the prompt with --prompt and copy it from there, or save it with --prompt --out fix-prompt.md.',
 
   /** @param {string} tier */
-  unknownTier: (tier) => `Unknown tier "${tier}". OpenGEO has two: free (algorithmic, no key) and ai (BYOK).`,
+  unknownTier: (tier) => `Unknown tier "${tier}". OmniGEO has two: free (algorithmic, no key) and ai (BYOK).`,
 
   /** A dashboard API request whose body is not a JSON object. */
   requestNotObject: () => 'The request body has to be a JSON object.',
@@ -579,7 +579,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   noGeneratedFile: (relative) => `There is no generated file at ${relative}.`,
 
   /** @param {string} api */
-  unknownApiShape: (api) => `Unknown API shape "${api}". OpenGEO speaks three: anthropic, openai, gemini.`,
+  unknownApiShape: (api) => `Unknown API shape "${api}". OmniGEO speaks three: anthropic, openai, gemini.`,
 
   /** @param {string} auth */
   unknownAuthStyle: (auth) => `Unknown auth style "${auth}". Use one of: bearer, x-api-key, x-goog-api-key, none.`,
@@ -624,16 +624,16 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {number} queued
    */
   crawlPageCap: (maxPages, queued) =>
-    `Stopped at the ${maxPages}-page cap (every request counts, failed ones too) with ${queued} route${queued === 1 ? '' : 's'} still queued. Raise crawl.maxPages in opengeo.config.json to go further.`,
+    `Stopped at the ${maxPages}-page cap (every request counts, failed ones too) with ${queued} route${queued === 1 ? '' : 's'} still queued. Raise crawl.maxPages in omnigeo.config.json to go further.`,
 
   /** @param {number} maxDepth */
   crawlDepthCap: (maxDepth) =>
-    `Stopped following links at depth ${maxDepth}. Raise crawl.maxDepth in opengeo.config.json, or list the deeper routes in extraRoutes.`,
+    `Stopped following links at depth ${maxDepth}. Raise crawl.maxDepth in omnigeo.config.json, or list the deeper routes in extraRoutes.`,
 
   /**
    * @param {string} feature
    * @param {readonly { name: string; provider: string }[]} [lookalikes] `.env` lines that look like
-   *   a key under a name OpenGEO does not read. Named first, because "none is configured" is not
+   *   a key under a name OmniGEO does not read. Named first, because "none is configured" is not
    *   what the person who wrote `claude_api=sk-ant-...` believes, and they are right.
    */
   noApiKey: (feature, lookalikes = []) =>
@@ -641,28 +641,28 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `${feature} needs an AI provider, and none is configured.`,
       ...lookalikeLines(lookalikes),
       ``,
-      `OpenGEO is bring-your-own-key, and it does not care whose. Set one up with:`,
-      `  opengeo settings`,
+      `OmniGEO is bring-your-own-key, and it does not care whose. Set one up with:`,
+      `  omnigeo settings`,
       ``,
       `Or add it to .env yourself:`,
-      `  OPENGEO_PROVIDER=anthropic`,
-      `  OPENGEO_API_KEY=sk-...`,
+      `  OMNIGEO_PROVIDER=anthropic`,
+      `  OMNIGEO_API_KEY=sk-...`,
       ``,
-      `Providers OpenGEO ships with:`,
+      `Providers OmniGEO ships with:`,
       ...wrapList(AI_PROVIDERS, 68).map((line) => `  ${line}`),
       ``,
       `\`ollama\` runs on this machine and needs no key at all. \`custom\` points at any endpoint`,
       `speaking the OpenAI, Anthropic or Gemini shape: set ai.baseUrl and ai.model in`,
-      `opengeo.config.json, or run \`opengeo settings\` and pick "something else".`,
+      `omnigeo.config.json, or run \`omnigeo settings\` and pick "something else".`,
       ``,
-      `Only these need a key: generate's AI tier, and \`opengeo test --content\`.`,
-      `Structural tests, generate's free tier, and opengeo-prod never need one.`,
+      `Only these need a key: generate's AI tier, and \`omnigeo test --content\`.`,
+      `Structural tests, generate's free tier, and omnigeo-prod never need one.`,
     ].join('\n'),
 
   /**
    * The content review was not asked for by name, so a missing key is a note under the report and
    * not the full set-up guide `noApiKey` gives a command that cannot run without one. Every
-   * keyless `opengeo test` ends with this, so it stays short. The first line is the reason, which
+   * keyless `omnigeo test` ends with this, so it stays short. The first line is the reason, which
    * is all the dashboard shows.
    *
    * @param {readonly { name: string; provider: string }[]} [lookalikes]
@@ -670,8 +670,8 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   contentReviewSkipped: (lookalikes = []) =>
     [
       `No AI provider is configured, so only the structural checks ran.`,
-      `The score above never needs one. \`opengeo settings\` sets one up when you want the writing`,
-      `reviewed too, and \`opengeo help providers\` lists every provider it ships with.`,
+      `The score above never needs one. \`omnigeo settings\` sets one up when you want the writing`,
+      `reviewed too, and \`omnigeo help providers\` lists every provider it ships with.`,
       ...lookalikeLines(lookalikes),
     ].join('\n'),
 
@@ -687,8 +687,8 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     [
       `The "${provider}" provider is missing ${missing.join(' and ')}.`,
       ``,
-      `An endpoint OpenGEO does not ship with has to be described before it can be called. In`,
-      `opengeo.config.json:`,
+      `An endpoint OmniGEO does not ship with has to be described before it can be called. In`,
+      `omnigeo.config.json:`,
       ``,
       `  "ai": {`,
       `    "provider": "${provider}",`,
@@ -698,7 +698,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `  }`,
       ``,
       `"api" is the wire format that endpoint speaks: openai, anthropic or gemini.`,
-      `\`opengeo settings\` asks for all of it if you would rather answer questions.`,
+      `\`omnigeo settings\` asks for all of it if you would rather answer questions.`,
     ].join('\n'),
 
   /**
@@ -737,18 +737,18 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} file */
   twinNotOurs: (file) =>
-    `${file} already exists and OpenGEO did not write it, so it was left alone and the twin went to ${file}.opengeo-proposed. Add generated_by: manual to its frontmatter to serve yours, or use --force to replace it.`,
+    `${file} already exists and OmniGEO did not write it, so it was left alone and the twin went to ${file}.omnigeo-proposed. Add generated_by: manual to its frontmatter to serve yours, or use --force to replace it.`,
 
   /** @param {string} file */
   wouldOverwrite: (file) =>
     [
-      `${file} already exists and wasn't written by OpenGEO - leaving it alone.`,
+      `${file} already exists and wasn't written by OmniGEO - leaving it alone.`,
       ``,
       `A hand-written file here often carries intentional rules a blind overwrite would erase.`,
-      `OpenGEO wrote its proposed version to ${file}.opengeo-proposed instead, so you can diff and`,
+      `OmniGEO wrote its proposed version to ${file}.omnigeo-proposed instead, so you can diff and`,
       `merge whatever you actually want.`,
       ``,
-      `To overwrite for real: opengeo generate <url> --force`,
+      `To overwrite for real: omnigeo generate <url> --force`,
     ].join('\n'),
 
   /** @param {string} dir */
@@ -756,7 +756,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     [
       `No generated markdown found in ${dir}.`,
       ``,
-      `Run \`opengeo generate <url>\` first - prod only ever serves files that already exist on disk.`,
+      `Run \`omnigeo generate <url>\` first - prod only ever serves files that already exist on disk.`,
     ].join('\n'),
 
   /**
@@ -768,12 +768,12 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     return [
       `Unknown AI provider "${provider}".${meant && meant !== provider ? ` Did you mean "${meant}"?` : ''}`,
       ``,
-      `OpenGEO supports:`,
+      `OmniGEO supports:`,
       ...wrapList(supported, 68).map((line) => `  ${line}`),
       ``,
       `If yours is not on that list it is still supported: pick "custom", give it a baseUrl and a`,
-      `model, and OpenGEO will talk to it. No code change, no waiting for a release.`,
-      `\`opengeo help providers\` shows each one with its default model and where its keys come from.`,
+      `model, and OmniGEO will talk to it. No code change, no waiting for a release.`,
+      `\`omnigeo help providers\` shows each one with its default model and where its keys come from.`,
     ].join('\n');
   },
 
@@ -786,9 +786,9 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   envProviderUnknown: (value) => {
     const meant = suggestProvider(value);
     return [
-      `OPENGEO_PROVIDER is set to "${value}", which is not a provider OpenGEO knows.${meant ? ` Did you mean "${meant}"?` : ''}`,
+      `OMNIGEO_PROVIDER is set to "${value}", which is not a provider OmniGEO knows.${meant ? ` Did you mean "${meant}"?` : ''}`,
       `The key next to it is not sent anywhere until that names one. Fix it in .env (or your shell),`,
-      `or run \`opengeo settings\` and pick the provider from the list.`,
+      `or run \`omnigeo settings\` and pick the provider from the list.`,
     ].join('\n');
   },
 
@@ -801,15 +801,15 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   keyForOtherProvider: (provider, keyProvider) => {
     const native = providerInfo(provider).envVars[0];
     return [
-      `The ${provider} provider was asked for, but the only key OpenGEO found belongs to ${keyProvider}, so`,
+      `The ${provider} provider was asked for, but the only key OmniGEO found belongs to ${keyProvider}, so`,
       `nothing was sent. A key only ever goes to the provider that issued it.`,
       ``,
       `To use ${provider}, give it its own key in .env:`,
       ...(native ? [`  ${native}=...`, `or:`] : []),
-      `  OPENGEO_PROVIDER=${provider}`,
-      `  OPENGEO_API_KEY=...`,
+      `  OMNIGEO_PROVIDER=${provider}`,
+      `  OMNIGEO_API_KEY=...`,
       ``,
-      `Or run \`opengeo settings\` and pick ${provider}.`,
+      `Or run \`omnigeo settings\` and pick ${provider}.`,
     ].join('\n');
   },
 
@@ -835,8 +835,8 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       ``,
       `Expected them at: ${webRoot}`,
       ``,
-      `They ship in the opengeo package's web/ folder, so reinstalling opengeo puts them back. There is`,
-      `nothing to build: in a clone they are packages/opengeo/web as checked out. --web <dir> points the`,
+      `They ship in the omnigeo package's web/ folder, so reinstalling omnigeo puts them back. There is`,
+      `nothing to build: in a clone they are packages/omnigeo/web as checked out. --web <dir> points the`,
       `dashboard at any folder with an index.html.`,
     ].join('\n'),
 
@@ -860,7 +860,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     [
       `Something went wrong inside the dashboard server.`,
       ``,
-      `The details are in the terminal running \`opengeo start\`. They stay there rather than being`,
+      `The details are in the terminal running \`omnigeo start\`. They stay there rather than being`,
       `sent to the browser, because they can carry file paths from this machine.`,
     ].join('\n'),
 
@@ -868,7 +868,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
     [
       `The AI provider cannot be changed through /api/config.`,
       ``,
-      `Use the AI provider card in Settings, which posts to /api/key, or run \`opengeo settings\`.`,
+      `Use the AI provider card in Settings, which posts to /api/key, or run \`omnigeo settings\`.`,
       `Both save the provider, endpoint and key together and check them first, so a stored key is`,
       `never pointed at a host nobody typed it for.`,
     ].join('\n'),
@@ -879,7 +879,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `Refused: this dashboard only answers to the address it was started on, and the request was`,
       `addressed to ${host === undefined ? 'no host at all' : `"${host}"`}.`,
       ``,
-      `Open the URL that \`opengeo start\` printed. A page reaching this server under any other name`,
+      `Open the URL that \`omnigeo start\` printed. A page reaching this server under any other name`,
       `is how a website tries to talk to a local server through DNS rebinding.`,
     ].join('\n'),
 
@@ -888,7 +888,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `Refused: this dashboard is reachable from the network, so every request needs the token it was`,
       `started with, and this one had none or the wrong one.`,
       ``,
-      `Open the full URL that \`opengeo start\` printed, including ?token=. The token changes every time`,
+      `Open the full URL that \`omnigeo start\` printed, including ?token=. The token changes every time`,
       `the dashboard starts, so a URL from an earlier launch no longer works.`,
     ].join('\n'),
 
@@ -899,9 +899,9 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    */
   providerRedirected: (provider, status, location) =>
     [
-      `The ${provider} API answered ${status} with a redirect${location ? ` to ${redirectHost(location)}` : ''}, and OpenGEO does not follow it.`,
+      `The ${provider} API answered ${status} with a redirect${location ? ` to ${redirectHost(location)}` : ''}, and OmniGEO does not follow it.`,
       `A redirect would send your key to a host you did not configure. If the endpoint moved, put`,
-      `its new address in ai.baseUrl in opengeo.config.json.`,
+      `its new address in ai.baseUrl in omnigeo.config.json.`,
     ].join('\n'),
 
   /**
@@ -992,7 +992,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} origin */
   loopbackPublicOrigin: (origin) =>
-    `sitemap.xml, robots.txt, llms.txt and every twin point at ${origin}, which only this machine can reach. Deployed like this, they send crawlers and agents nowhere. Set "publicOrigin" in opengeo.config.json to where the site is deployed, e.g. "https://example.com", and run generate again.`,
+    `sitemap.xml, robots.txt, llms.txt and every twin point at ${origin}, which only this machine can reach. Deployed like this, they send crawlers and agents nowhere. Set "publicOrigin" in omnigeo.config.json to where the site is deployed, e.g. "https://example.com", and run generate again.`,
 
   /** @param {string} why */
   pruneRefused: (why) =>
@@ -1006,7 +1006,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {number} count */
   orphansFound: (count) =>
-    `${count === 1 ? 'This twin was' : `These ${count} twins were`} written by OpenGEO for a page this run did not find. ${count === 1 ? 'It is' : 'They are'} no longer listed in llms.txt or sitemap.xml or served by opengeo-prod, but the file${count === 1 ? ' is' : 's are'} still on disk and a static host still serves ${count === 1 ? 'it' : 'them'}. If the page is gone for good, run generate again with --prune to delete ${count === 1 ? 'it' : 'them'}.`,
+    `${count === 1 ? 'This twin was' : `These ${count} twins were`} written by OmniGEO for a page this run did not find. ${count === 1 ? 'It is' : 'They are'} no longer listed in llms.txt or sitemap.xml or served by omnigeo-prod, but the file${count === 1 ? ' is' : 's are'} still on disk and a static host still serves ${count === 1 ? 'it' : 'them'}. If the page is gone for good, run generate again with --prune to delete ${count === 1 ? 'it' : 'them'}.`,
 
   // Every caller prints the route beside this, so it is not repeated here.
   unsafeRoute: 'Has a "." or ".." segment, so its twin would be written outside public/md/ - skipped. List the route without them.',
@@ -1029,15 +1029,15 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    */
   filesAtProjectRoot: (folder, name) =>
     [
-      `${folder} is the project root, and OpenGEO will not use the project root as the web root.`,
+      `${folder} is the project root, and OmniGEO will not use the project root as the web root.`,
       ``,
       `Generate writes the twins, robots.txt, llms.txt and sitemap.xml into the folder it reads, and`,
       `everything in that folder gets published. The project root is also where .env (your AI key) and`,
-      `OpenGEO's own .opengeo/ folder live, so publishing it would publish them.`,
+      `OmniGEO's own .omnigeo/ folder live, so publishing it would publish them.`,
       ``,
       `Move the site's pages, styles and scripts into a folder of their own and point generate at it:`,
       ``,
-      `  opengeo generate site`,
+      `  omnigeo generate site`,
       ``,
       `GitHub Pages can publish from a docs/ folder; Netlify, Vercel and Cloudflare Pages take any folder`,
       `as the publish directory.`,
@@ -1045,7 +1045,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
       `If ${folder} already is the site's own folder and holds nothing else, run generate from the folder`,
       `above it instead, which makes that one the project:`,
       ``,
-      `  cd .. && opengeo generate ${name}`,
+      `  cd .. && omnigeo generate ${name}`,
     ].join('\n'),
 
   /**
@@ -1057,11 +1057,11 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} page */
   filesSingleNeedsSite: (page) =>
-    `${page} is one page of a site generate has not read yet, so it does not know which folder is the web root. Generate the whole folder once, e.g. \`opengeo generate site\`; after that, \`opengeo generate site/about.html\` regenerates a single page.`,
+    `${page} is one page of a site generate has not read yet, so it does not know which folder is the web root. Generate the whole folder once, e.g. \`omnigeo generate site\`; after that, \`omnigeo generate site/about.html\` regenerates a single page.`,
 
   /** @param {string} folder */
   filesSingleNeedsPage: (folder) =>
-    `--single regenerates one page, and ${folder} is a folder. Name the page instead: opengeo generate ${folder.replace(/\/+$/, '')}/about.html`,
+    `--single regenerates one page, and ${folder} is a folder. Name the page instead: omnigeo generate ${folder.replace(/\/+$/, '')}/about.html`,
 
   /**
    * @param {string} folder The folder that was asked for, relative to the project.
@@ -1069,17 +1069,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    */
   filesWebRootMismatch: (folder, publicDir) =>
     [
-      `opengeo.config.json says the web root is ${publicDir}/, but generate was pointed at ${folder}/.`,
+      `omnigeo.config.json says the web root is ${publicDir}/, but generate was pointed at ${folder}/.`,
       ``,
-      `  opengeo generate ${publicDir}        read the configured folder`,
+      `  omnigeo generate ${publicDir}        read the configured folder`,
       ``,
-      `Or, if ${folder}/ is where the site really lives, set "publicDir": "${folder}" in opengeo.config.json`,
-      `(\`opengeo settings\` asks for it) and run this again.`,
+      `Or, if ${folder}/ is where the site really lives, set "publicDir": "${folder}" in omnigeo.config.json`,
+      `(\`omnigeo settings\` asks for it) and run this again.`,
     ].join('\n'),
 
   /** @param {string} folder */
   filesWebRootMissing: (folder) =>
-    `The web root ${folder}/ does not exist. Generate reads the HTML files in it, so point it at the folder your site is published from, e.g. opengeo generate site.`,
+    `The web root ${folder}/ does not exist. Generate reads the HTML files in it, so point it at the folder your site is published from, e.g. omnigeo generate site.`,
 
   /** @param {number} words */
   thinContentDevServer: (words) =>
@@ -1093,7 +1093,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {number} threshold
    */
   thinContent: (words, threshold) =>
-    `Only ${words} words of content (the warning starts below ${threshold}). If the page fills in its text with JavaScript, OpenGEO cannot see that text: it reads the HTML without running scripts, the way most AI crawlers do. If the page really is that short, lower generate.minWords.`,
+    `Only ${words} words of content (the warning starts below ${threshold}). If the page fills in its text with JavaScript, OmniGEO cannot see that text: it reads the HTML without running scripts, the way most AI crawlers do. If the page really is that short, lower generate.minWords.`,
 
   /** @param {string} folder */
   noHtmlFiles: (folder) =>
@@ -1116,7 +1116,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} base */
   folderSiteCrawl: (base) =>
-    `${base} is a site in a folder of its host, and generate crawls only a site at the root of one. Build the site and generate from the build folder instead: opengeo generate <the build folder> --origin ${base}, which writes each twin beside its page.`,
+    `${base} is a site in a folder of its host, and generate crawls only a site at the root of one. Build the site and generate from the build folder instead: omnigeo generate <the build folder> --origin ${base}, which writes each twin beside its page.`,
 
   /** @param {string} base */
   robotsOutsideFolder: (base) => {
@@ -1126,7 +1126,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} origin */
   filesOriginUnknown: (origin) =>
-    `No public address is known for this site, so sitemap.xml, llms.txt and every twin point at ${origin}, which only this machine can reach. Run generate again with --origin https://your-domain.com and OpenGEO will remember it.`,
+    `No public address is known for this site, so sitemap.xml, llms.txt and every twin point at ${origin}, which only this machine can reach. Run generate again with --origin https://your-domain.com and OmniGEO will remember it.`,
 
   /**
    * @param {string} origin
@@ -1140,7 +1140,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} configured
    */
   originDiffersFromConfig: (given, configured) =>
-    `This run used --origin ${given}, but opengeo.config.json says "publicOrigin": "${configured}". The next run without --origin goes back to ${configured}; change it there to make ${given} stick.`,
+    `This run used --origin ${given}, but omnigeo.config.json says "publicOrigin": "${configured}". The next run without --origin goes back to ${configured}; change it there to make ${given} stick.`,
 
   /**
    * Pages whose canonical link names some other page, or one address shared by several of them.
@@ -1163,7 +1163,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {number} max */
   filesCapped: (max) =>
-    `The folder holds more than ${max} pages, so only the first ${max} were read (the home page first, then in path order). Raise crawl.maxPages in opengeo.config.json, or pass --max-pages, to read them all.`,
+    `The folder holds more than ${max} pages, so only the first ${max} were read (the home page first, then in path order). Raise crawl.maxPages in omnigeo.config.json, or pass --max-pages, to read them all.`,
 
   /** @param {string} folder */
   noJekyllWritten: (folder) =>
@@ -1171,7 +1171,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} folder */
   jekyllSource: (folder) =>
-    `${folder}/ is the source of a Jekyll site, and Jekyll turns every .md file with frontmatter into an HTML page, so twins written here would never be served as markdown, and index.md would be built over index.html. Build the site first (bundle exec jekyll build), run opengeo generate _site, and publish _site as it is: on GitHub Pages, with a GitHub Actions workflow rather than from the branch.`,
+    `${folder}/ is the source of a Jekyll site, and Jekyll turns every .md file with frontmatter into an HTML page, so twins written here would never be served as markdown, and index.md would be built over index.html. Build the site first (bundle exec jekyll build), run omnigeo generate _site, and publish _site as it is: on GitHub Pages, with a GitHub Actions workflow rather than from the branch.`,
 
   /** @param {string} folder */
   jekyllWillConvertTwins: (folder) =>
@@ -1193,26 +1193,26 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} configPath */
   filesConfigCreated: (configPath) =>
-    `Saved ${configPath} with this folder as the web root, so \`opengeo generate\`, the dashboard and \`opengeo-prod\` all find it from now on.`,
+    `Saved ${configPath} with this folder as the web root, so \`omnigeo generate\`, the dashboard and \`omnigeo-prod\` all find it from now on.`,
 
   /** @param {string} why */
   webRootFromFramework: (why) =>
-    `No opengeo.config.json here, so the files went where the framework serves them: ${why}. Set "publicDir" in opengeo.config.json to put them somewhere else.`,
+    `No omnigeo.config.json here, so the files went where the framework serves them: ${why}. Set "publicDir" in omnigeo.config.json to put them somewhere else.`,
 
   /** @param {string} origin */
-  filesOriginSaved: (origin) => `Saved "publicOrigin": "${origin}" to opengeo.config.json, so the next run uses it without --origin.`,
+  filesOriginSaved: (origin) => `Saved "publicOrigin": "${origin}" to omnigeo.config.json, so the next run uses it without --origin.`,
 
   filesSourceTip:
-    'To make a bare `opengeo generate` and the dashboard read these files too, set "generate": { "source": "files" } in opengeo.config.json.',
+    'To make a bare `omnigeo generate` and the dashboard read these files too, set "generate": { "source": "files" } in omnigeo.config.json.',
 
   /** @param {string} folder */
   checkBeforeGenerate: (folder) =>
-    `Nothing has been generated from ${folder}/ yet, so there is no twin to compare. Run \`opengeo generate ${folder}\` first.`,
+    `Nothing has been generated from ${folder}/ yet, so there is no twin to compare. Run \`omnigeo generate ${folder}\` first.`,
 
   fileNeedsFilesSource: 'A single file can only be regenerated in a project that reads its HTML files ("generate": { "source": "files" }).',
 
   checkNeedsFiles:
-    '--check compares each twin with the HTML file it was made from, and a crawled site has no file to compare with. `opengeo test <url>` checks a crawled site\'s twins against its live pages instead (check B14). To check a folder, run `opengeo generate <folder> --check`.',
+    '--check compares each twin with the HTML file it was made from, and a crawled site has no file to compare with. `omnigeo test <url>` checks a crawled site\'s twins against its live pages instead (check B14). To check a folder, run `omnigeo generate <folder> --check`.',
 
   // -- freshness ----------------------------------------------------------------------------------
 
@@ -1236,7 +1236,7 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
    * @param {string} saved
    */
   staleManual: (file, twin, modified, saved) =>
-    `${file} was modified ${modified}, after your hand-written twin ${twin} was last saved ${saved}. OpenGEO never rewrites it, so update it yourself or remove generated_by: manual to let generate take it over.`,
+    `${file} was modified ${modified}, after your hand-written twin ${twin} was last saved ${saved}. OmniGEO never rewrites it, so update it yourself or remove generated_by: manual to let generate take it over.`,
 
   /**
    * @param {string} file

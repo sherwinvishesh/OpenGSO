@@ -2,9 +2,9 @@ import { defineConfig } from 'tsup';
 import { recordBundle } from '../../scripts/bundle-meta.mjs';
 
 /**
- * Two builds: the importable middleware library, and the CLI that ships `opengeo prod test`.
+ * Two builds: the importable middleware library, and the CLI that ships `omnigeo prod test`.
  *
- * Only the library gets type declarations, and only the CLI gets a shebang. `@opengeo/core/prod`
+ * Only the library gets type declarations, and only the CLI gets a shebang. `@omnigeo/core/prod`
  * imports neither jsdom nor any provider code, which is what keeps this package dependency-free
  * (§3) - `npm run check:bundles` asserts it.
  */
@@ -32,7 +32,7 @@ export default defineConfig([
     // consumers with types that resolve to nothing.
     dts: { resolve: true },
     sourcemap: false,
-    noExternal: [/@opengeo\/core/],
+    noExternal: [/@omnigeo\/core/],
     esbuildPlugins: [recordBundle('library')],
   },
   {
@@ -43,7 +43,7 @@ export default defineConfig([
     clean: false,
     dts: false,
     sourcemap: false,
-    noExternal: [/@opengeo\/core/],
+    noExternal: [/@omnigeo\/core/],
     banner: { js: '#!/usr/bin/env node' },
     esbuildPlugins: [recordBundle('cli')],
   },

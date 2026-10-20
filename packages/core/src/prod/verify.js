@@ -21,9 +21,9 @@ import { summarizeRobots } from './startup.js';
  */
 
 /**
- * `opengeo prod test <url>` (§7).
+ * `omnigeo prod test <url>` (§7).
  *
- * This is not a second scorer. `opengeo test` grades a site; this answers a narrower and more
+ * This is not a second scorer. `omnigeo test` grades a site; this answers a narrower and more
  * operational question: is the middleware actually installed, and are the two bot levers doing
  * what the config says they should?
  *
@@ -199,15 +199,15 @@ function judgeRoutedBot(bot, ua, result, url) {
     return {
       ...base,
       verdict: 'fail',
-      reason: `No ${HEADERS.aeoVersion} on the response, so opengeo-prod is not running at this URL.`,
-      detail: 'Install opengeo-prod and put its middleware in front of your pages (proxy.ts on Next.js; its README has Express, Nuxt, SvelteKit, Astro, React Router, Vite and edge recipes), then re-run this command.',
+      reason: `No ${HEADERS.aeoVersion} on the response, so omnigeo-prod is not running at this URL.`,
+      detail: 'Install omnigeo-prod and put its middleware in front of your pages (proxy.ts on Next.js; its README has Express, Nuxt, SvelteKit, Astro, React Router, Vite and edge recipes), then re-run this command.',
     };
   }
   return {
     ...base,
     verdict: 'fail',
-    reason: `opengeo-prod answered but served HTML to ${bot.name}.`,
-    detail: `Either ${bot.name} is missing from bots.markdownRouting, or there is no twin for this route yet - run \`opengeo generate\`.`,
+    reason: `omnigeo-prod answered but served HTML to ${bot.name}.`,
+    detail: `Either ${bot.name} is missing from bots.markdownRouting, or there is no twin for this route yet - run \`omnigeo generate\`.`,
   };
 }
 
@@ -236,7 +236,7 @@ function judgeUnknownBot(result, url) {
       verdict: 'fail',
       reason: `An unrecognised bot got ${result.status}. Something on this host blocks bots it does not know.`,
       detail:
-        'opengeo-prod has no blocking code path, so this is a CDN, WAF or host rule. Every AI product launched since the bot list was last updated looks exactly like this request.',
+        'omnigeo-prod has no blocking code path, so this is a CDN, WAF or host rule. Every AI product launched since the bot list was last updated looks exactly like this request.',
     };
   }
   if (isMarkdownResponse(result)) {
@@ -258,7 +258,7 @@ function judgeUnknownBot(result, url) {
     ...base,
     verdict: 'fail',
     reason: `An unrecognised bot got ${result.status}.`,
-    detail: 'Expected the ordinary page. OpenGEO never blocks a bot it does not recognise.',
+    detail: 'Expected the ordinary page. OmniGEO never blocks a bot it does not recognise.',
   };
 }
 
@@ -301,14 +301,14 @@ function judgeAcceptMarkdown(result, url) {
     return {
       ...base,
       verdict: 'fail',
-      reason: `No ${HEADERS.aeoVersion} on the response, so opengeo-prod is not running at this URL.`,
+      reason: `No ${HEADERS.aeoVersion} on the response, so omnigeo-prod is not running at this URL.`,
     };
   }
   return {
     ...base,
     verdict: 'fail',
-    reason: 'opengeo-prod answered but did not honour Accept: text/markdown.',
-    detail: 'Most often this means no twin exists for this route yet. Run `opengeo generate <url>`.',
+    reason: 'omnigeo-prod answered but did not honour Accept: text/markdown.',
+    detail: 'Most often this means no twin exists for this route yet. Run `omnigeo generate <url>`.',
   };
 }
 
@@ -411,7 +411,7 @@ function judgeNotAcceptable(result, url) {
     return {
       ...base,
       verdict: 'fail',
-      reason: `Answered ${result.status} with no ${HEADERS.aeoVersion}, so opengeo-prod is not running at this URL.`,
+      reason: `Answered ${result.status} with no ${HEADERS.aeoVersion}, so omnigeo-prod is not running at this URL.`,
     };
   }
   return {
@@ -419,7 +419,7 @@ function judgeNotAcceptable(result, url) {
     verdict: 'fail',
     reason: `Answered ${result.status} instead of 406 to \`Accept: ${HOSTILE_ACCEPT}\`.`,
     detail:
-      'prod only sends 406 on a route that has a twin, so either there is no twin for this route yet (run `opengeo generate <url>`), or something upstream is answering before the middleware sees the request.',
+      'prod only sends 406 on a route that has a twin, so either there is no twin for this route yet (run `omnigeo generate <url>`), or something upstream is answering before the middleware sees the request.',
   };
 }
 
@@ -447,7 +447,7 @@ function judgeBlocked(result, who) {
     verdict: 'fail',
     reason: `${who} answered ${result.status}, which is a block, not a routing decision.`,
     detail:
-      'opengeo-prod contains no blocking code. Blocking lives in robots.txt (lever 2) and is advisory; a hard block here comes from a CDN, WAF or host rule.',
+      'omnigeo-prod contains no blocking code. Blocking lives in robots.txt (lever 2) and is advisory; a hard block here comes from a CDN, WAF or host rule.',
   };
 }
 
@@ -477,7 +477,7 @@ function readRobots(url, result, bots) {
       allowed: [],
       notes: [
         `No robots.txt (${result.status}), so nothing is blocked.`,
-        'Run `opengeo generate <url>` to write one, or hand-write it. prod never writes this file.',
+        'Run `omnigeo generate <url>` to write one, or hand-write it. prod never writes this file.',
       ],
     };
   }
@@ -488,12 +488,12 @@ function readRobots(url, result, bots) {
   notes.push(
     blocked.length > 0
       ? `Disallowed at the site root: ${blocked.join(', ')}.`
-      : 'No AI bot is disallowed. That is the default, and OpenGEO never adds a block you did not ask for.',
+      : 'No AI bot is disallowed. That is the default, and OmniGEO never adds a block you did not ask for.',
   );
   if (allowed.length > 0) {
     notes.push(`Explicitly named and allowed: ${allowed.length} AI bot${allowed.length === 1 ? '' : 's'}.`);
   }
-  notes.push('This list comes from bots.blocked and is written by `opengeo generate`. prod itself never blocks anyone.');
+  notes.push('This list comes from bots.blocked and is written by `omnigeo generate`. prod itself never blocks anyone.');
   return { url, found: true, blocked, allowed, notes };
 }
 

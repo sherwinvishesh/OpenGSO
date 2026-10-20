@@ -11,7 +11,7 @@ import {
   handleRequest,
   identifyBot,
   logStartupStatus,
-} from '@opengeo/core/prod';
+} from '@omnigeo/core/prod';
 import { resetStartupLogForTests } from '../src/prod/startup.js';
 import { resolveBot, verifyProd } from '../src/prod/verify.js';
 import { prodVerificationToJson, renderProdVerification } from '../src/prod/verify-report.js';
@@ -94,7 +94,7 @@ beforeAll(async () => {
       }
 
       const ua = req.headers['user-agent'] ?? '';
-      // A WAF rule, not OpenGEO: prod has no code that can produce this.
+      // A WAF rule, not OmniGEO: prod has no code that can produce this.
       if (blockUnknownBots && !identifyBot(ua) && /bot/i.test(ua)) {
         res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
         res.end('blocked');
@@ -199,7 +199,7 @@ describe('lever 1 - markdown routing', () => {
     const unknown = probeById(result.probes, 'unknown-bot');
     expect(unknown.verdict).toBe('fail');
     expect(unknown.status).toBe(403);
-    expect(unknown.detail).toContain('opengeo-prod has no blocking code path');
+    expect(unknown.detail).toContain('omnigeo-prod has no blocking code path');
     // A recognised, routed bot is unaffected, which is how the user can tell the two apart.
     expect(probeById(result.probes, 'routed-bot').verdict).toBe('pass');
   });
@@ -281,7 +281,7 @@ describe('lever 2 - blocking', () => {
     robotsBody = null;
     const result = await verifyProd(site);
     expect(result.robots.found).toBe(false);
-    expect(result.robots.notes.join(' ')).toContain('opengeo generate');
+    expect(result.robots.notes.join(' ')).toContain('omnigeo generate');
     expect(result.ok).toBe(true);
   });
 
@@ -363,7 +363,7 @@ describe('startup logging (§7)', () => {
    * @returns {string}
    */
   function project() {
-    const root = mkdtempSync(join(tmpdir(), 'opengeo-startup-'));
+    const root = mkdtempSync(join(tmpdir(), 'omnigeo-startup-'));
     mkdirSync(join(root, 'public'), { recursive: true });
     return root;
   }
@@ -397,14 +397,14 @@ describe('startup logging (§7)', () => {
     const root = project();
     const lines = buildStartupStatus({ root, store, unknownKeys: [{ key: 'bots.markdownrouting', suggestion: 'bots.markdownRouting' }] }).lines;
     expect(lines).toContain(
-      '[opengeo-prod]   opengeo.config.json has "bots.markdownrouting", which OpenGEO does not read, so its default is used. Did you mean "bots.markdownRouting"?',
+      '[omnigeo-prod]   omnigeo.config.json has "bots.markdownrouting", which OmniGEO does not read, so its default is used. Did you mean "bots.markdownRouting"?',
     );
   });
 
   it('tells a user with no generated files exactly which package writes them', () => {
     const status = buildStartupStatus({ root: project(), store: undefined });
     const text = status.lines.join('\n');
-    expect(text).toContain('opengeo-generate');
+    expect(text).toContain('omnigeo-generate');
     expect(text).toContain('every request will pass through to the normal site');
   });
 

@@ -50,7 +50,7 @@ const MAX_DEPTH = 32;
 /**
  * Every page under `webRoot`.
  *
- * Skipped without a word: anything starting with `.` (`.git`, `.env`, `.opengeo`), anything starting
+ * Skipped without a word: anything starting with `.` (`.git`, `.env`, `.omnigeo`), anything starting
  * with `_` (`_next/`, `_includes/`, `_layout.html`: framework internals and template partials, never
  * a page on their own), `node_modules`, and symbolic links, which could lead out of the project.
  * Skipped with a line in `skipped`: error and verification pages.
@@ -146,7 +146,7 @@ export function fileToRoute(file, form = 'clean') {
 }
 
 /**
- * Whether a path names an HTML page, which is what lets `opengeo generate site/about.html` mean
+ * Whether a path names an HTML page, which is what lets `omnigeo generate site/about.html` mean
  * "this one page".
  *
  * @param {string} file

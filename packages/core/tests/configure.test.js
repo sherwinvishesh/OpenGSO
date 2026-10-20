@@ -17,8 +17,8 @@ import { DEFAULT_MODELS } from '../src/shared/providers.js';
  * ordering is to observe the disk at the moment the secret is asked for. `onSecret` below does
  * exactly that: it runs inside the prompt, before any key exists.
  *
- * `runSetup` is one function behind two commands, so everything here covers both: `opengeo start`
- * runs it in `first-run` mode, `opengeo settings` in `settings` mode.
+ * `runSetup` is one function behind two commands, so everything here covers both: `omnigeo start`
+ * runs it in `first-run` mode, `omnigeo settings` in `settings` mode.
  */
 
 /**
@@ -106,13 +106,13 @@ function scripted(script) {
   };
 }
 
-describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
+describe('the setup flow behind `omnigeo start` and `omnigeo settings`', () => {
   /** @type {string} */
   let root;
   const silent = () => {};
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'opengeo-setup-'));
+    root = mkdtempSync(join(tmpdir(), 'omnigeo-setup-'));
   });
 
   afterEach(() => {
@@ -121,10 +121,10 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
 
   describe('the first screen most people see', () => {
     /**
-     * A bare `opengeo` runs `start`, which runs this, so for a lot of users this text is the
+     * A bare `omnigeo` runs `start`, which runs this, so for a lot of users this text is the
      * product's introduction. It has to say what the problem is before it says what the tool does.
      */
-    it('says what OpenGEO is before it asks the first question', async () => {
+    it('says what OmniGEO is before it asks the first question', async () => {
       let transcript = '';
       const prompter = scripted({ ask: ['http://localhost:3000'], choose: ['all', 'skip'] });
 
@@ -221,8 +221,8 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(result.keyWritten?.provider).toBe('anthropic');
     });
 
-    it('drops an old OPENGEO_BASE_URL when the new provider names no endpoint', async () => {
-      writeFileSync(join(root, ENV_FILENAME), `${KEY_VAR}=sk-old\nOPENGEO_BASE_URL=https://gateway.example/v1\n`, 'utf8');
+    it('drops an old OMNIGEO_BASE_URL when the new provider names no endpoint', async () => {
+      writeFileSync(join(root, ENV_FILENAME), `${KEY_VAR}=sk-old\nOMNIGEO_BASE_URL=https://gateway.example/v1\n`, 'utf8');
       const prompter = scripted({
         ask: ['http://localhost:3000'],
         choose: ['all', 'anthropic'],
@@ -386,7 +386,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       expect(transcript).not.toContain('search index');
     });
 
-    it('adds a crawler OpenGEO has never heard of and routes to it in the same pass', async () => {
+    it('adds a crawler OmniGEO has never heard of and routes to it in the same pass', async () => {
       const prompter = scripted({
         ask: [
           'http://localhost:3000',
@@ -694,7 +694,7 @@ describe('the setup flow behind `opengeo start` and `opengeo settings`', () => {
       await runSetup({ root, prompter, out: (text) => (transcript += text) });
 
       expect(transcript).toContain(`Using ollama ${DEFAULT_MODELS.ollama}, which needs no key`);
-      expect(transcript).not.toContain('Wrote OPENGEO_API_KEY');
+      expect(transcript).not.toContain('Wrote OMNIGEO_API_KEY');
       expect(transcript).not.toContain('so the key cannot be committed');
       expect(transcript).toContain('no key: this provider runs without one');
     });
@@ -883,7 +883,7 @@ describe('when the input stream ends mid-flow', () => {
   let root;
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'opengeo-setup-eof-'));
+    root = mkdtempSync(join(tmpdir(), 'omnigeo-setup-eof-'));
   });
 
   afterEach(() => {
@@ -974,7 +974,7 @@ describe('what setup works out for itself', () => {
   const silent = () => {};
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'opengeo-setup-'));
+    root = mkdtempSync(join(tmpdir(), 'omnigeo-setup-'));
   });
 
   afterEach(() => {
@@ -1170,7 +1170,7 @@ describe('what setup works out for itself', () => {
     });
 
     expect(transcript).toContain('scored http://localhost:3000');
-    expect(transcript).not.toContain('opengeo prod test');
+    expect(transcript).not.toContain('omnigeo prod test');
     expect(result.configPath).toContain(CONFIG_FILENAME);
   });
 
@@ -1201,7 +1201,7 @@ describe('what setup works out for itself', () => {
     expect(transcript).toContain('1/4');
     expect(transcript).toContain('4/4');
     // The old close, still the right one when there is no test to run.
-    expect(transcript).toContain('opengeo prod test http://localhost:3000');
+    expect(transcript).toContain('omnigeo prod test http://localhost:3000');
     expect(transcript).not.toContain('Detected');
     expect(transcript).not.toContain('Reachable');
   });

@@ -26,7 +26,7 @@ import { DEFAULT_MODELS } from '../src/shared/providers.js';
 /** @import { Evidence, TestResult } from '../src/test/index.js' */
 
 /**
- * The dashboard server is the only part of OpenGEO that listens on a socket, which makes it the
+ * The dashboard server is the only part of OmniGEO that listens on a socket, which makes it the
  * only part with an attack surface worth the name. Two properties are worth more than the rest of
  * this file put together, and both are asserted here rather than argued for in a comment:
  *
@@ -37,14 +37,14 @@ import { DEFAULT_MODELS } from '../src/shared/providers.js';
  * check the wrapping, not the pipeline.
  */
 
-const OPTIONS = { version: '0.0.0-test', packageName: 'opengeo' };
+const OPTIONS = { version: '0.0.0-test', packageName: 'omnigeo' };
 const KEY = 'sk-test-not-a-real-key';
 
 /** @type {string} */
 let root;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'opengeo-server-'));
+  root = mkdtempSync(join(tmpdir(), 'omnigeo-server-'));
 });
 
 afterEach(() => {
@@ -196,7 +196,7 @@ describe('the launch token, for a bind the network can reach', () => {
     expect(await rawRequest(port, '/api/state', host)).toBe(401);
     expect(await rawRequest(port, '/', host)).toBe(401);
     expect(await rawRequest(port, '/?token=wrong', host)).toBe(401);
-    expect(await rawRequest(port, '/api/state', { ...host, cookie: `opengeo_token_${port}=wrong` })).toBe(401);
+    expect(await rawRequest(port, '/api/state', { ...host, cookie: `omnigeo_token_${port}=wrong` })).toBe(401);
   });
 
   it('trades the printed URL for a cookie and takes the token out of the address bar', async () => {
@@ -342,7 +342,7 @@ describe('the API', () => {
 });
 
 /**
- * The dashboard's crawler table is where a project adds an agent OpenGEO has never heard of, so
+ * The dashboard's crawler table is where a project adds an agent OmniGEO has never heard of, so
  * everything on this path arrives as free text from a form. It is normalized rather than trusted,
  * and a patch that cannot be normalized is refused whole rather than half-written.
  */
@@ -427,7 +427,7 @@ describe('the key never leaks through the API (§11)', () => {
   /**
    * The key form validates the endpoint and saves it together with the key. The config endpoint
    * validated neither, so one POST could point a stored key at any host and the next AI run would
-   * send it there. Even a bare provider change re-routes a generic OPENGEO_API_KEY to a new vendor.
+   * send it there. Even a bare provider change re-routes a generic OMNIGEO_API_KEY to a new vendor.
    */
   it('refuses any AI provider change through the config endpoint, leaving the config untouched', async () => {
     await post('/api/key', { provider: 'anthropic', apiKey: KEY, model: 'claude-test' });
@@ -448,7 +448,7 @@ describe('the key never leaks through the API (§11)', () => {
   });
 
   /**
-   * `.env` outranks the config, so an OPENGEO_BASE_URL left over from a gateway sent the next
+   * `.env` outranks the config, so an OMNIGEO_BASE_URL left over from a gateway sent the next
    * provider's key to the gateway. Saving without a base URL has to mean "no base URL", everywhere.
    */
   it('forgets the old endpoint when a key is saved without one', async () => {
@@ -498,7 +498,7 @@ describe('the key never leaks through the API (§11)', () => {
 
   it('refuses a model or key with a line break before touching .gitignore or .env', async () => {
     for (const body of [
-      { provider: 'anthropic', apiKey: KEY, model: 'claude\nOPENGEO_BASE_URL=https://evil.example' },
+      { provider: 'anthropic', apiKey: KEY, model: 'claude\nOMNIGEO_BASE_URL=https://evil.example' },
       { provider: 'anthropic', apiKey: `${KEY}\rINJECTED=1` },
     ]) {
       const response = await post('/api/key', body);
@@ -542,14 +542,14 @@ describe('reading generated files', () => {
 
   it('reads only what generate writes, never another file that happens to sit in the web root', async () => {
     writeFileSync(join(root, 'public', 'robots.txt'), 'User-agent: *');
-    writeFileSync(join(root, 'public', 'robots.txt.opengeo-proposed'), 'User-agent: GPTBot');
+    writeFileSync(join(root, 'public', 'robots.txt.omnigeo-proposed'), 'User-agent: GPTBot');
     writeFileSync(join(root, 'public', '.env'), `KEY=${KEY}`);
     writeFileSync(join(root, 'public', 'secrets.json'), '{}');
     mkdirSync(join(root, 'public', 'md', '.hidden'));
     writeFileSync(join(root, 'public', 'md', '.hidden', 'x.md'), 'x');
 
     expect(readGeneratedFile(root, 'robots.txt')).toBe('User-agent: *');
-    expect(readGeneratedFile(root, 'robots.txt.opengeo-proposed')).toBe('User-agent: GPTBot');
+    expect(readGeneratedFile(root, 'robots.txt.omnigeo-proposed')).toBe('User-agent: GPTBot');
     expect(readGeneratedFile(root, '.env')).toBeUndefined();
     expect(readGeneratedFile(root, 'secrets.json')).toBeUndefined();
     expect(readGeneratedFile(root, 'md/.hidden/x.md')).toBeUndefined();
@@ -664,7 +664,7 @@ describe('the web root and the internal directory stay inside the project', () =
       { publicDir: '/etc' },
       { publicDir: '../sibling' },
       { internalDir: '..' },
-      { internalDir: '/tmp/opengeo' },
+      { internalDir: '/tmp/omnigeo' },
     ]) {
       const response = await post('/api/config', patch);
       expect(response.status, JSON.stringify(patch)).toBe(400);
@@ -771,7 +771,7 @@ describe('the streaming endpoints', () => {
     const frame = testFrame({ phase: 'structure-done', result }, defaultConfig());
     const prompts = frame.phase === 'structure-done' ? frame.structure.prompts : undefined;
     expect(prompts?.summary).toBe('1 fix');
-    expect(prompts?.all).toContain('opengeo test https://example.com/resume');
+    expect(prompts?.all).toContain('omnigeo test https://example.com/resume');
     expect(Object.keys(prompts?.groups ?? {})).toEqual(['failed']);
     expect(Object.keys(prompts?.checks ?? {})).toEqual(['A3']);
     expect(prompts?.checks.A3).toContain('A3');

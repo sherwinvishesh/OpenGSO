@@ -1,18 +1,18 @@
-# `opengeo-prod` API
+# `omnigeo-prod` API
 
-Every export of the six `opengeo-prod` entry points. The package's
+Every export of the six `omnigeo-prod` entry points. The package's
 [README](../packages/prod/README.md) shows how to wire them into each framework; this page is the
-list. `opengeo` re-exports the same six as `opengeo/prod`, `opengeo/prod/next`, `opengeo/prod/node`,
-`opengeo/prod/fetch`, `opengeo/prod/vite` and `opengeo/prod/edge`.
+list. `omnigeo` re-exports the same six as `omnigeo/prod`, `omnigeo/prod/next`, `omnigeo/prod/node`,
+`omnigeo/prod/fetch`, `omnigeo/prod/vite` and `omnigeo/prod/edge`.
 
 | Entry | For | Contents |
 | --- | --- | --- |
-| `opengeo-prod/next` | Next.js `proxy.ts` (`middleware.ts` on Next 15) | `createNextMiddleware` and `applyPassthroughHeaders`. |
-| `opengeo-prod/node` | `(req, res, next)` servers: Express, Connect, Polka, Fastify, Koa, Nest, h3 and Nuxt | `createNodeMiddleware`. |
-| `opengeo-prod/fetch` | Servers on Node that pass `Request` around: Hono, SvelteKit, Astro, React Router, SolidStart | `createFetchMiddleware`. |
-| `opengeo-prod/vite` | `vite` and `vite preview` | `opengeo`, the plugin, also the default export. |
-| `opengeo-prod/edge` | Edge runtimes, or anywhere without a disk | `createEdgeMiddleware`, the request handling, the stores that take data rather than read files, and the helpers below. No `node:` import anywhere. |
-| `opengeo-prod` | Anything the adapters do not cover | Everything in `opengeo-prod/edge`, plus `createFsStore`, `buildStartupStatus` and `logStartupStatus`. |
+| `omnigeo-prod/next` | Next.js `proxy.ts` (`middleware.ts` on Next 15) | `createNextMiddleware` and `applyPassthroughHeaders`. |
+| `omnigeo-prod/node` | `(req, res, next)` servers: Express, Connect, Polka, Fastify, Koa, Nest, h3 and Nuxt | `createNodeMiddleware`. |
+| `omnigeo-prod/fetch` | Servers on Node that pass `Request` around: Hono, SvelteKit, Astro, React Router, SolidStart | `createFetchMiddleware`. |
+| `omnigeo-prod/vite` | `vite` and `vite preview` | `omnigeo`, the plugin, also the default export. |
+| `omnigeo-prod/edge` | Edge runtimes, or anywhere without a disk | `createEdgeMiddleware`, the request handling, the stores that take data rather than read files, and the helpers below. No `node:` import anywhere. |
+| `omnigeo-prod` | Anything the adapters do not cover | Everything in `omnigeo-prod/edge`, plus `createFsStore`, `buildStartupStatus` and `logStartupStatus`. |
 
 The four adapters for a server with a disk (Next, Node, fetch and Vite) read the project the same
 way, so they cannot disagree about which config, which crawlers or which twins a site has.
@@ -22,7 +22,7 @@ built once at startup. The one exception is an adapter on a development server, 
 second whether the files changed and builds a new store if they did.
 
 None of them can take a page down. A request the handler cannot decide goes to the application as
-if OpenGEO were not installed, and the reason is logged once per process.
+if OmniGEO were not installed, and the reason is logged once per process.
 
 ## Handling a request
 
@@ -53,7 +53,7 @@ The decision is one of three:
 
 ## The adapters
 
-Each of these reads `opengeo.config.json`, builds the store and the crawler list once, and logs the
+Each of these reads `omnigeo.config.json`, builds the store and the crawler list once, and logs the
 startup status. If the config cannot be loaded it logs one line and passes every request through.
 They take the same options:
 
@@ -69,7 +69,7 @@ They take the same options:
 
 Outside production they also reload: at most once a second it compares the modification times of the
 config and of every file the store read, and when one changed it builds everything again and logs
-"reloaded after a change on disk". So `opengeo generate` during `next dev` shows up on the next
+"reloaded after a change on disk". So `omnigeo generate` during `next dev` shows up on the next
 request without a restart. A config that breaks mid-session fails open the same way it would at
 boot, and comes back when it is fixed. A reload that fails for any other reason keeps the twins
 already loaded. In production (`NODE_ENV=production`) none of this runs, and a request stays a map
@@ -80,7 +80,7 @@ lookup.
 
 **`applyPassthroughHeaders(target, headers)`** sets each header on `target.headers`.
 
-**`createNodeMiddleware(options?)`** returns `(req, res, next?) => true | undefined`. When OpenGEO
+**`createNodeMiddleware(options?)`** returns `(req, res, next?) => true | undefined`. When OmniGEO
 owns the request (a twin, a 304 or a 406) it answers on `res` and returns `true`. Otherwise it sets
 the passthrough headers on `res`, merging `Vary` and `Link` into whatever is already there, calls
 `next()` if there is one, and returns nothing, so a framework without `next` (Koa) can tell the two
@@ -91,13 +91,13 @@ twins by their full path.
 **`createFetchMiddleware(options?)`** returns `(request, next) => Promise<Response>`, where `next`
 runs the rest of the application and resolves to its response. It is called with no arguments.
 
-**`opengeo(options?)`** (`opengeo-prod/vite`, also the default export) is a Vite plugin that puts
+**`omnigeo(options?)`** (`omnigeo-prod/vite`, also the default export) is a Vite plugin that puts
 `createNodeMiddleware` in front of `vite` and `vite preview`, ahead of the SPA fallback and the
 static file server, with `root` taken from Vite's. It imports nothing from `vite`.
 
-**`createEdgeMiddleware({ data, markdownRouting?, specVersion? })`** (`opengeo-prod/edge`) is the
+**`createEdgeMiddleware({ data, markdownRouting?, specVersion? })`** (`omnigeo-prod/edge`) is the
 fetch middleware for a runtime with no disk. `data` is an `EdgeData`: `{ manifest, contents,
-markdownRouting?, customBots? }`, the module `opengeo prod data` writes. It carries the project's
+markdownRouting?, customBots? }`, the module `omnigeo prod data` writes. It carries the project's
 routing and custom crawlers, so the edge decides what a Node server reading the config would.
 `markdownRouting` here overrides the one in `data`.
 

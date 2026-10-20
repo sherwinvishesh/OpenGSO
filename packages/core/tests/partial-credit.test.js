@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@opengeo/core/shared';
-import { checkDefinition, failsBuild, partial, ramp, runChecks, scoreChecks } from '@opengeo/core/test';
+import { AEO_SPEC_VERSION, MARKDOWN_CONTENT_TYPE } from '@omnigeo/core/shared';
+import { checkDefinition, failsBuild, partial, ramp, runChecks, scoreChecks } from '@omnigeo/core/test';
 import { liveContentHash } from './helpers/live-hash.js';
-/** @import { ProbeResult } from '@opengeo/core/shared' */
-/** @import { CheckResult, Evidence } from '@opengeo/core/test' */
+/** @import { ProbeResult } from '@omnigeo/core/shared' */
+/** @import { CheckResult, Evidence } from '@omnigeo/core/test' */
 
 /**
  * Partial credit, band by band.

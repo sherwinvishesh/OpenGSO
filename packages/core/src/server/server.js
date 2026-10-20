@@ -12,7 +12,7 @@ import { handleApi } from './api.js';
  */
 
 /**
- * The `opengeo start` server (§8).
+ * The `omnigeo start` server (§8).
  *
  * `node:http` and nothing else. The dashboard is a pile of static files plus a JSON API that calls
  * the same core functions the CLI calls, so shipping it costs the published package no runtime
@@ -359,7 +359,7 @@ export function launchToken(host) {
  * @returns {string}
  */
 function tokenCookie(port) {
-  return `opengeo_token_${port}`;
+  return `omnigeo_token_${port}`;
 }
 
 /**

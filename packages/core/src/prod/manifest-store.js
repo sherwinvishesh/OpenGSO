@@ -33,7 +33,7 @@ import { STORE_ERRORS } from '../shared/errors.js';
  * @property {number} size
  * @property {string[]} problems Non-fatal problems found while loading, reported by the startup log.
  * @property {string[]} [sources] The files it was loaded from, the manifest first, so a development
- *   server can tell when `opengeo generate` has run again. Empty for a store built from data.
+ *   server can tell when `omnigeo generate` has run again. Empty for a store built from data.
  */
 
 /**
@@ -140,7 +140,7 @@ export function entityTag(body) {
 
 /**
  * Strip a leading `---` frontmatter block. Done once per file at load; the served body is the
- * markdown a reader actually wants, without OpenGEO's bookkeeping at the top.
+ * markdown a reader actually wants, without OmniGEO's bookkeeping at the top.
  *
  * @param {string} raw
  * @returns {string}

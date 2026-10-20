@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
  */
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '../../..');
-const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengeo'];
+const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'omnigeo'];
 
 describe('every entry file runs from source with plain node', () => {
   for (const dir of PACKAGES) {
@@ -33,7 +33,7 @@ describe('every entry file runs from source with plain node', () => {
       const result = run('--help');
       expect(result.stderr).toBe('');
       expect(result.status).toBe(0);
-      expect(result.stdout).toContain(`OpenGEO ${pkg.name} ${pkg.version}`);
+      expect(result.stdout).toContain(`OmniGEO ${pkg.name} ${pkg.version}`);
     });
   }
 });
@@ -44,8 +44,8 @@ describe('no TypeScript source is tracked', () => {
       .split('\n')
       .filter(Boolean)
       // The dashboard is rewritten in plain JavaScript separately, and examples/ stays TypeScript
-      // on purpose: it shows a TypeScript user what wiring OpenGEO into their app looks like.
-      .filter((path) => !path.startsWith('packages/opengeo/web/') && !path.startsWith('examples/'));
+      // on purpose: it shows a TypeScript user what wiring OmniGEO into their app looks like.
+      .filter((path) => !path.startsWith('packages/omnigeo/web/') && !path.startsWith('examples/'));
     expect(tracked).toEqual([]);
   });
 });

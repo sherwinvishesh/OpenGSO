@@ -9,7 +9,7 @@
 
 /**
  * @typedef {object} ProjectOptions
- * @property {string} [root] Project root - where opengeo.config.json, public/ and .opengeo/ live.
+ * @property {string} [root] Project root - where omnigeo.config.json, public/ and .omnigeo/ live.
  *   Defaults to the working directory, which is where every framework's server starts.
  * @property {string} [publicDir]
  * @property {string} [internalDir]
@@ -20,7 +20,7 @@
  *   per process (§7).
  * @property {MarkdownStore} [store] Pre-built store, for tests or for a build-time-inlined manifest.
  * @property {boolean} [reload] Re-read the config and the twins when they change on disk, checked at
- *   most once a second. On by default outside production, so `opengeo generate` during a dev server
+ *   most once a second. On by default outside production, so `omnigeo generate` during a dev server
  *   shows up without a restart. Off in production, where a request stays a map lookup.
  */
 

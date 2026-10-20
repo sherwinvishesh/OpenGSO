@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "specVersion": "omnigeo/1.0",
+  "site": "http://localhost:3000",
+  "generatedAt": "2026-10-20T20:20:42.340Z",
+  "pages": {
+    "/": {
+      "route": "/",
+      "url": "http://localhost:3000/",
+      "title": "Aurora Fieldwork",
+      "file": "md/index.md",
+      "tokens": 188,
+      "wordCount": 144,
+      "sourceHash": "13b1ef2062093e30",
+      "lastUpdated": "2026-09-05T02:01:33.416Z",
+      "tier": "free",
+      "description": "A small demo site used to exercise the OmniGEO loop end to end."
+    },
+    "/about": {
+      "route": "/about",
+      "url": "http://localhost:3000/about",
+      "title": "About",
+      "file": "md/about.md",
+      "tokens": 205,
+      "wordCount": 157,
+      "sourceHash": "61cb5cd3dc69251d",
+      "lastUpdated": "2026-09-05T02:01:33.434Z",
+      "tier": "free",
+      "description": "Who runs Aurora Fieldwork, how we work, and what we will not do."
+    },
+    "/resume": {
+      "route": "/resume",
+      "url": "http://localhost:3000/resume",
+      "title": "Engagement record",
+      "file": "md/resume.md",
+      "tokens": 314,
+      "wordCount": 241,
+      "sourceHash": "46d0a003f821b8c5",
+      "lastUpdated": "2026-10-20T20:20:42.363Z",
+      "tier": "free",
+      "description": "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
+    }
+  }
+}

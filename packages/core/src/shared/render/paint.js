@@ -37,7 +37,7 @@ export { colourDepth };
  * @returns {boolean}
  */
 export function unicodeOk() {
-  if (process.env.OPENGEO_ASCII) return false;
+  if (process.env.OMNIGEO_ASCII) return false;
   if (process.platform === 'win32') return Boolean(process.env.WT_SESSION || process.env.TERM_PROGRAM);
   const locale = process.env.LC_ALL || process.env.LC_CTYPE || process.env.LANG || '';
   return /utf-?8/i.test(locale);
@@ -341,7 +341,7 @@ export function indentWrapped(text, width, paint = (value) => value) {
 export function canRedraw(output = process.stdout) {
   if (!output.isTTY) return false;
   if (isCI()) return false;
-  if (process.env.OPENGEO_NO_TUI) return false;
+  if (process.env.OMNIGEO_NO_TUI) return false;
   return colourDepth() > 0;
 }
 
