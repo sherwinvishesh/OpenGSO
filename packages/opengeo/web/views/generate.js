@@ -42,11 +42,14 @@ export function twinPath(page) {
 
 /**
  * @param {GenerateResponse} result
+ * @param {'free' | 'ai'} [tier] What the run asked for. An AI run says how many pages the model
+ *   actually wrote, since a refused key or a fidelity fallback still leaves every page written.
  * @returns {string}
  */
-export function pagesSummary(result) {
+export function pagesSummary(result, tier = 'free') {
   const count = (/** @type {GeneratePageResult['status']} */ status) => result.pages.filter((page) => page.status === status).length;
-  return `${count('written')} written, ${count('cached')} unchanged, ${count('failed')} failed in ${(result.durationMs / 1000).toFixed(1)}s`;
+  const ai = tier === 'ai' ? `, ${result.pages.filter((page) => page.tier === 'ai').length} AI-enhanced` : '';
+  return `${count('written')} written, ${count('cached')} unchanged, ${count('failed')} failed${ai} in ${(result.durationMs / 1000).toFixed(1)}s`;
 }
 
 /**
@@ -159,7 +162,7 @@ export function createGenerateView(ctx) {
     const input = fromFiles() ? { tier, force: force.checked } : { url: urlInput.value, tier, single: single.checked, force: force.checked };
     try {
       result = await startRun('generate', (signal) => api.generate(input, progress.set, signal));
-      fill(resultSlot, results(result, ctx.state().root));
+      fill(resultSlot, results(result, ctx.state().root, tier));
       busy = false;
       sync();
       await ctx.reload();
@@ -269,9 +272,14 @@ export function freshnessCard(state) {
  *
  * @param {GenerateResponse} result
  * @param {string} root
+ * @param {'free' | 'ai'} tier
  */
-function results(result, root) {
+function results(result, root, tier) {
   const warnings = result.warnings.length;
+  // A provider that refuses on the first page gives every later page the same warning. Saying it
+  // once keeps the pages that had something else to say readable.
+  /** @type {Set<string>} */
+  const seen = new Set();
   return [
     warnings
       ? banner({ tone: 'warn', title: `${warnings} warning${warnings === 1 ? '' : 's'}` }, result.warnings.join(' '))
@@ -279,7 +287,7 @@ function results(result, root) {
     result.notes?.length ? banner({ tone: 'info' }, result.notes.join(' ')) : null,
     card(
       '',
-      cardHead({ title: 'Pages', sub: pagesSummary(result) }),
+      cardHead({ title: 'Pages', sub: pagesSummary(result, tier) }),
       el(
         'table',
         { className: 'table' },
@@ -296,7 +304,7 @@ function results(result, root) {
             el('th', { text: 'Notes' }),
           ),
         ),
-        el('tbody', {}, result.pages.map(pageRow)),
+        el('tbody', {}, result.pages.map((page) => pageRow(page, seen))),
       ),
     ),
     card(
@@ -313,20 +321,36 @@ function results(result, root) {
   ];
 }
 
-/** @param {GeneratePageResult} page */
-function pageRow(page) {
+/**
+ * @param {GeneratePageResult} page
+ * @param {Set<string>} seen Warnings an earlier row already showed.
+ */
+function pageRow(page, seen) {
   const tone = page.status === 'failed' ? 'fail' : page.status === 'written' ? 'ok' : 'mute';
-  const notes = [page.reason, ...page.warnings].filter(Boolean).join(' ');
+  // A repeat keeps its first sentence, which says what happened to this page; the advice after it
+  // is on an earlier row.
+  const warnings = page.warnings.map((warning) => {
+    if (seen.has(warning)) return firstSentence(warning);
+    seen.add(warning);
+    return warning;
+  });
+  const notes = [page.reason, ...warnings].filter(Boolean).join('\n');
   return el(
     'tr',
     {},
     // A page read from a file is named by that file, which is what the person edits.
     el('td', { className: 'mono' }, page.sourceFile ?? page.route, page.sourceFile ? el('div', { className: 'muted', text: page.route }) : null),
-    el('td', {}, pill(tone, page.status)),
+    el('td', {}, pill(tone, page.status), page.tier === 'ai' ? [' ', pill('info', 'AI')] : null),
     el('td', { className: 'num', text: page.wordCount ? String(page.wordCount) : '' }),
     el('td', { className: 'num', text: page.tokens ? String(page.tokens) : '' }),
-    el('td', { className: 'muted', text: notes }),
+    // The warnings were written for a terminal, so their line breaks are part of the meaning.
+    el('td', { className: 'muted' }, el('span', { className: 'pre-wrap', text: notes })),
   );
+}
+
+/** @param {string} text */
+export function firstSentence(text) {
+  return text.split(/(?<=\.)\s/)[0] ?? text;
 }
 
 /**

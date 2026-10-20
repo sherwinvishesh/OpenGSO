@@ -543,7 +543,7 @@ function contentCards(result, bands) {
   }
 
   return [
-    summaryCard(content, result.discovery?.rejected ?? [], bands),
+    summaryCard(content, result.discovery?.rejected ?? [], bands, result.mode !== 'content'),
     // Every recommendation is drawn, even two with the same text: deduplicating by the action would
     // hide an edit the model asked for twice.
     content.recommendations.length > 0
@@ -564,14 +564,15 @@ function contentCards(result, bands) {
  * @param {ContentReview} content
  * @param {Array<{ url: string; reason: string }>} rejected
  * @param {BandThresholds} bands
+ * @param {boolean} scored Whether the structural score is on the page above this card.
  */
-function summaryCard(content, rejected, bands) {
+function summaryCard(content, rejected, bands, scored) {
   const read = content.documents.length;
   return card(
     '',
     cardHead({
       title: 'Content review',
-      sub: `${content.provider} / ${content.model}. How good the Markdown is, scored apart from the structural 0-100 above.`,
+      sub: `${content.provider} / ${content.model}. How good the Markdown is, scored apart from the structural 0-100${scored ? ' above' : ''}.`,
       right: content.score !== undefined ? pill(toneFor(content.score, bands), `${content.score} / 100`) : null,
     }),
     el(

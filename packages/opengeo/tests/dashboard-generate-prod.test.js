@@ -3,7 +3,7 @@ import { JSDOM } from 'jsdom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../web/api.js';
 import { useDocument } from '../web/ui.js';
-import { createGenerateView, lastRunText, mdRelPath, pagesSummary } from '../web/views/generate.js';
+import { createGenerateView, firstSentence, lastRunText, mdRelPath, pagesSummary } from '../web/views/generate.js';
 import { createProdView, probeTranscript, routableNames } from '../web/views/prod.js';
 
 /**
@@ -129,6 +129,21 @@ describe('generate helpers', () => {
   it('summarises a run in the words the table head uses', () => {
     const result = generated([['/', 'written'], ['/a', 'cached'], ['/b', 'failed'], ['/c', 'written']]);
     expect(pagesSummary(result)).toBe('2 written, 1 unchanged, 1 failed in 1.2s');
+  });
+
+  it('shortens a repeated warning to the sentence that says what happened', () => {
+    expect(firstSentence('Not sent, so the free version was kept. Check the model id.\nThen run it again.')).toBe(
+      'Not sent, so the free version was kept.',
+    );
+    expect(firstSentence('One line with no full stop')).toBe('One line with no full stop');
+  });
+
+  it('counts the pages the model wrote on an AI run, including none', () => {
+    const result = generated([['/', 'written'], ['/a', 'written']]);
+    expect(pagesSummary(result, 'ai')).toBe('2 written, 0 unchanged, 0 failed, 0 AI-enhanced in 1.2s');
+    const first = result.pages[0];
+    if (first) first.tier = 'ai';
+    expect(pagesSummary(result, 'ai')).toBe('2 written, 0 unchanged, 0 failed, 1 AI-enhanced in 1.2s');
   });
 
   it('describes the last run from the manifest, or its absence', () => {

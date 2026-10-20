@@ -215,7 +215,9 @@ export async function generateCommand(ctx) {
     for (const warning of page.warnings) {
       const repeat = warned.has(warning);
       warned.add(warning);
-      process.stdout.write(`${hanging(`          ${c.yellow('warn')} `, repeat ? c.gray('same as above') : warning)}\n`);
+      // A repeat keeps its first sentence, which says what happened to this page; the advice after
+      // it is printed once, above.
+      process.stdout.write(`${hanging(`          ${c.yellow('warn')} `, repeat ? warning.split(/(?<=\.)\s/)[0] ?? warning : warning)}\n`);
     }
   }
 
