@@ -30,11 +30,11 @@
     "install:global:fast": "node scripts/install-global.mjs --no-build"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
+    "@changesets/cli": "^3.0.3",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.15.3",
-    "tsup": "^8.5.0",
+    "tsup": "^9.0.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.2"
+    "vitest": "^5.0.5"
   }
 }
