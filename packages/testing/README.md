@@ -1,6 +1,6 @@
 # opengso-testing
 
-> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+> **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
 Scores any live URL from 0 to 100 on how readable it is to AI agents, and tells you exactly what
 failed and why.

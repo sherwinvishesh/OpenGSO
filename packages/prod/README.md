@@ -1,6 +1,6 @@
 # opengso-prod
 
-> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+> **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
 Runtime middleware that serves your markdown twins to AI agents at the same URL a human visits.
 

@@ -8,8 +8,8 @@ The five published packages (`opengso`, `opengso-cli`, `opengso-testing`, `openg
 `opengso-prod`) follow semver. They are one `fixed` group in Changesets, so they always share a
 version, and a release of any of them releases all five. Today all five are `0.1.0`.
 
-Nothing is on npm yet. Until 1.0, any minor release may change a command, a flag, a config field
-or an export.
+The first release on npm was 0.1.0, on 2026-10-20. Until 1.0, any minor release may change a
+command, a flag, a config field or an export.
 
 ## The spec version: `opengso/1.0`
 

@@ -10,7 +10,8 @@ Say which package and version (or commit) you tested, what an attacker can do, a
 it. You will get an answer through the advisory, and the fix is credited to you unless you ask
 otherwise.
 
-OpenGSO is pre-release and nothing is on npm yet, so only the `main` branch is supported.
+Until 1.0, only the newest release on npm and the `main` branch are supported: a fix ships in a new
+release, not as a patch to an older one.
 
 ## What OpenGSO runs, and where
 

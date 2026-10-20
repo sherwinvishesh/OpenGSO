@@ -1,6 +1,6 @@
 # opengso-cli
 
-> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+> **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
 All three OpenGSO pillars behind one command: `test`, `generate`, `prod test`, `prod data`, and
 `settings`.

@@ -386,11 +386,11 @@ describe('the READMEs', () => {
   const docFiles = readdirSync(join(repoRoot, 'docs')).filter((file) => file.endsWith('.md'));
   const proseFiles = [...READMES, 'CONTRIBUTING.md', 'examples/nextjs-demo/README.md', ...docFiles.map((file) => `docs/${file}`)];
 
-  it('say, under the title, that nothing is on npm yet', () => {
-    // Remove this test, and the notice, in the release that first publishes.
+  it('say, under the title, that the APIs may change before 1.0', () => {
+    // Remove this test, and the notice, in the 1.0 release.
     for (const file of READMES) {
       expect(read(file).split('\n').slice(0, 4).join('\n'), file).toContain(
-        '> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.',
+        '> **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.',
       );
     }
   });

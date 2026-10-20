@@ -1,6 +1,6 @@
 # opengso-generate
 
-> **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
+> **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
 Turns a live site into the files AI agents actually want: a clean Markdown twin of every page, plus
 `robots.txt`, `llms.txt` and `sitemap.xml`, all from a single crawl.
