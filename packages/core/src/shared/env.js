@@ -98,6 +98,61 @@ export function readEnvFile(root) {
 }
 
 /**
+ * @typedef {object} LookalikeKey
+ * @property {string} name The variable as written in `.env`, such as `claude_api`.
+ * @property {AiProvider} provider The provider its name points at.
+ */
+
+const SECRET_WORDS = new Set(['key', 'api', 'apikey', 'token', 'secret']);
+// Settings that sit beside a key under the same prefix, and are not one: OPENAI_API_BASE,
+// OPENAI_ORG_ID, ANTHROPIC_MODEL.
+const SETTING_WORDS = new Set(['base', 'url', 'endpoint', 'host', 'model', 'org', 'organization', 'id', 'project', 'version', 'region']);
+// Words too common to mean an AI provider on their own: X_API_KEY is as likely to be Twitter's, and
+// GOOGLE_MAPS_API_KEY is nobody's Gemini key.
+const TOO_GENERIC = new Set(['x', 'google', 'command', 'other']);
+
+/**
+ * Variables in `.env` that look like an AI provider's key under a name OpenGEO does not read, such
+ * as `claude_api` or `OPENAI_KEY`.
+ *
+ * Names only. A value is never looked at, and nothing found here is ever used as a key: guessing
+ * which provider a name meant is exactly how a key ends up sent to the wrong one. It exists so the
+ * "no key" message can name the line to rename instead of claiming there is nothing there.
+ *
+ * @param {string} root
+ * @returns {LookalikeKey[]}
+ */
+export function lookalikeKeyVars(root) {
+  /** @type {Record<string, string>} */
+  let fileEnv;
+  try {
+    fileEnv = readEnvFile(root);
+  } catch {
+    return [];
+  }
+  const accepted = new Set([KEY_VAR, PROVIDER_VAR, MODEL_VAR, BASE_URL_VAR, ...PROVIDERS.flatMap((p) => p.envVars)]);
+  /** @type {LookalikeKey[]} */
+  const found = [];
+  for (const name of Object.keys(fileEnv)) {
+    if (accepted.has(name)) continue;
+    const words = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    if (!words.some((word) => SECRET_WORDS.has(word)) || words.some((word) => SETTING_WORDS.has(word))) continue;
+    const provider = PROVIDERS.find((p) => !p.keyless && p.envVars.length > 0 && providerWords(p).some((word) => words.includes(word)));
+    if (provider) found.push({ name, provider: provider.id });
+  }
+  return found;
+}
+
+/**
+ * @param {(typeof PROVIDERS)[number]} provider
+ * @returns {string[]}
+ */
+function providerWords(provider) {
+  const prefixes = provider.envVars.map((name) => name.split('_')[0]?.toLowerCase() ?? '');
+  return [provider.id, ...(provider.aliases ?? []), ...prefixes].filter((word) => /^[a-z0-9]+$/.test(word) && !TOO_GENERIC.has(word));
+}
+
+/**
  * @typedef {object} Credentials
  * @property {AiProvider} provider
  * @property {string} apiKey

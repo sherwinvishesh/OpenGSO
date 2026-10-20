@@ -45,6 +45,10 @@ Nothing here needs an API key. Generate's free tier, every structural test, and 
 and when you set one it lives in `.env`, on your machine, and is only ever sent to the AI provider
 you picked. There is no telemetry and no cloud sync.
 
+The key goes in `.env` under the name your provider documents, such as `ANTHROPIC_API_KEY`. If
+the line is there under a name of your own, like `claude_api`, OpenGEO does not guess: it names the
+line and tells you what to rename it to.
+
 ## Testing in two passes
 
 ```bash
@@ -66,6 +70,32 @@ definition, keywords, specificity, answerability, and structure and length. The 
 separate sections and the second is **never** folded into the number. The exit code always comes
 from the checks, so a model's opinion cannot fail your build. Without a key the default run does the
 structural half and says in one line what it skipped.
+
+## A folder of HTML files? Point it at the folder
+
+If your site is plain HTML files, hand-written, exported by a static site generator or handed to you
+by an AI tool, generate reads them straight off disk. No server to run and no crawl.
+
+```bash
+npx opengeo generate site --origin https://your-site.com   # every page in site/
+npx opengeo generate site/pricing.html                      # one page, after you edit it
+npx opengeo generate --check                                # which pages changed since their twins
+```
+
+Each twin is written beside its page, so any static host serves it with no middleware:
+`pricing.html` gets `pricing.html.md`, `index.html` gets `index.md` and `about/index.html` gets
+`about.md`. `--origin` is the address the site is published at, used for every link in the twins,
+`sitemap.xml`, `robots.txt` and `llms.txt`, and it is remembered after the first run.
+
+Each twin records the file it was made from and when, so OpenGEO knows when they drift apart. Edit
+`pricing.html` after generating and `opengeo generate --check` names it and exits 1, the home screen
+says "1 out of date", and the dashboard shows it in a banner. A page with no twin yet and a twin
+whose page was deleted are caught the same way. `--check` writes nothing, so it fits a pre-commit
+hook.
+
+Two things to know. GitHub Pages runs Jekyll unless the folder holds an empty `.nojekyll` file, and
+Jekyll turns the twins into HTML pages; generate says so when the folder looks like a GitHub Pages
+site. A site served from a sub-path, such as `user.github.io/repo/`, is not supported yet.
 
 ## Bring any AI provider
 

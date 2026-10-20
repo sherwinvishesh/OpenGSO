@@ -244,15 +244,50 @@ function wrapList(items, width) {
 export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** @param {string} command */
   missingUrl: (command) =>
-    [
-      `\`opengeo ${command}\` needs a URL.`,
+    command === 'generate'
+      ? [
+          `\`opengeo generate\` needs a URL or a folder.`,
+          ``,
+          `Give it the address of a running site to crawl it, or the folder your HTML files are in to`,
+          `read them straight off disk:`,
+          ``,
+          `  opengeo generate http://localhost:3000`,
+          `  opengeo generate https://your-site.com`,
+          `  opengeo generate site`,
+        ].join('\n')
+      : [
+          `\`opengeo ${command}\` needs a URL.`,
+          ``,
+          `OpenGEO always works against a URL, never a source directory - it has to see what your site`,
+          `actually serves over HTTP: real headers, real response, real rendering result.`,
+          ``,
+          `  opengeo ${command} http://localhost:3000`,
+          `  opengeo ${command} https://your-site.com`,
+        ].join('\n'),
+
+  /**
+   * A generate argument that is neither a URL nor anything on disk.
+   *
+   * @param {string} value
+   */
+  notUrlOrFolder: (value) => {
+    const local = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])(:\d+)?(\/.*)?$/i.test(value);
+    const domainish = /^[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?(\/.*)?$/i.test(value);
+    return [
+      `"${value}" is not a URL, and there is no folder or .html file by that name here.`,
       ``,
-      `OpenGEO always works against a URL, never a source directory - it has to see what your site`,
-      `actually serves over HTTP: real headers, real response, real rendering result.`,
-      ``,
-      `  opengeo ${command} http://localhost:3000`,
-      `  opengeo ${command} https://your-site.com`,
-    ].join('\n'),
+      local
+        ? `If it is your dev server, add the scheme: opengeo generate http://${value}`
+        : domainish
+          ? `If it is a site, add the scheme: opengeo generate https://${value}`
+          : `A site's address needs the scheme, e.g. https://your-site.com.`,
+      `If it is your site's folder, check the path: it is read from ${process.cwd()}.`,
+    ].join('\n');
+  },
+
+  /** @param {string} value */
+  notAPageFile: (value) =>
+    `${value} is a file, but not an .html page. Give generate the folder your site's pages are in, one .html page inside it, or a URL.`,
 
   /** @param {string} value */
   invalidUrl: (value) =>
@@ -398,10 +433,24 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   crawlDepthCap: (maxDepth) =>
     `Stopped following links at depth ${maxDepth}. Raise crawl.maxDepth in opengeo.config.json, or list the deeper routes in extraRoutes.`,
 
-  /** @param {string} feature */
-  noApiKey: (feature) =>
+  /**
+   * @param {string} feature
+   * @param {readonly { name: string; provider: string }[]} [lookalikes] `.env` lines that look like
+   *   a key under a name OpenGEO does not read. Named first, because "none is configured" is not
+   *   what the person who wrote `claude_api=sk-ant-...` believes, and they are right.
+   */
+  noApiKey: (feature, lookalikes = []) =>
     [
       `${feature} needs an AI provider, and none is configured.`,
+      ...lookalikes.slice(0, 3).flatMap(({ name, provider }) => {
+        const info = providerInfo(/** @type {import('./providers.js').AiProvider} */ (provider));
+        return [
+          ``,
+          `.env has ${name}, which looks like ${/^[aeiou]/i.test(info.label) ? 'an' : 'a'} ${info.label} key, but OpenGEO only reads`,
+          `the names providers document, so it was not used. Rename that line to:`,
+          `  ${info.envVars[0]}=<the same key>`,
+        ];
+      }),
       ``,
       `OpenGEO is bring-your-own-key, and it does not care whose. Set one up with:`,
       `  opengeo settings`,
@@ -733,6 +782,225 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {number} maxBytes */
   pageTooLarge: (maxBytes) => `Larger than ${Math.round(maxBytes / (1024 * 1024))} MB - skipped.`,
+
+  // -- generating from files ----------------------------------------------------------------------
+
+  /**
+   * @param {string} folder As the user would type it.
+   * @param {string} name The folder's own name, for the `cd ..` suggestion.
+   */
+  filesAtProjectRoot: (folder, name) =>
+    [
+      `${folder} is the project root, and OpenGEO will not use the project root as the web root.`,
+      ``,
+      `Generate writes the twins, robots.txt, llms.txt and sitemap.xml into the folder it reads, and`,
+      `everything in that folder gets published. The project root is also where .env (your AI key) and`,
+      `OpenGEO's own .opengeo/ folder live, so publishing it would publish them.`,
+      ``,
+      `Move the site's pages, styles and scripts into a folder of their own and point generate at it:`,
+      ``,
+      `  opengeo generate site`,
+      ``,
+      `GitHub Pages can publish from a docs/ folder; Netlify, Vercel and Cloudflare Pages take any folder`,
+      `as the publish directory.`,
+      ``,
+      `If ${folder} already is the site's own folder and holds nothing else, run generate from the folder`,
+      `above it instead, which makes that one the project:`,
+      ``,
+      `  cd .. && opengeo generate ${name}`,
+    ].join('\n'),
+
+  /**
+   * @param {string} folder
+   * @param {string} root
+   */
+  filesOutsideProject: (folder, root) =>
+    `${folder} is outside this project (${root}), and generate only writes inside the project it runs in. Run it from the folder that holds ${folder}, or pass --project.`,
+
+  /** @param {string} page */
+  filesSingleNeedsSite: (page) =>
+    `${page} is one page of a site generate has not read yet, so it does not know which folder is the web root. Generate the whole folder once, e.g. \`opengeo generate site\`; after that, \`opengeo generate site/about.html\` regenerates a single page.`,
+
+  /** @param {string} folder */
+  filesSingleNeedsPage: (folder) =>
+    `--single regenerates one page, and ${folder} is a folder. Name the page instead: opengeo generate ${folder.replace(/\/+$/, '')}/about.html`,
+
+  /**
+   * @param {string} folder The folder that was asked for, relative to the project.
+   * @param {string} publicDir What the config says.
+   */
+  filesWebRootMismatch: (folder, publicDir) =>
+    [
+      `opengeo.config.json says the web root is ${publicDir}/, but generate was pointed at ${folder}/.`,
+      ``,
+      `  opengeo generate ${publicDir}        read the configured folder`,
+      ``,
+      `Or, if ${folder}/ is where the site really lives, set "publicDir": "${folder}" in opengeo.config.json`,
+      `(\`opengeo settings\` asks for it) and run this again.`,
+    ].join('\n'),
+
+  /** @param {string} folder */
+  filesWebRootMissing: (folder) =>
+    `The web root ${folder}/ does not exist. Generate reads the HTML files in it, so point it at the folder your site is published from, e.g. opengeo generate site.`,
+
+  /**
+   * A warning, not a failure: a short page is allowed to be short. The part worth saying is the
+   * case where the words exist but only appear once a script runs, because then they never will.
+   *
+   * @param {number} words
+   * @param {number} threshold
+   */
+  thinContent: (words, threshold) =>
+    `Only ${words} words of content (the warning starts below ${threshold}). If the page fills in its text with JavaScript, OpenGEO cannot see that text: it reads the HTML without running scripts, the way most AI crawlers do. If the page really is that short, lower generate.minWords.`,
+
+  /** @param {string} folder */
+  noHtmlFiles: (folder) =>
+    `There are no .html pages in ${folder}/ to read. Point generate at the folder your site is published from (the one with index.html in it), or at a running site's URL.`,
+
+  /**
+   * @param {string} file
+   * @param {string} folder
+   */
+  htmlFileOutsideWebRoot: (file, folder) =>
+    `${file} is not inside the web root ${folder}/. Generate only reads pages from the web root, because that is where it writes their twins.`,
+
+  /** @param {string} file */
+  htmlFileNotAPage: (file) =>
+    `${file} is not a page generate reads: it is excluded by crawl.exclude, sits in a folder that starts with "." or "_", or is an error page.`,
+
+  /** @param {string} value */
+  badOrigin: (value) => {
+    const path = URL.canParse(value) && new URL(value).pathname !== '/';
+    return path
+      ? `--origin takes the site's address with nothing after the domain, and "${value}" has a path. OpenGEO does not support a site served from a sub-path yet, such as a GitHub Pages project site at user.github.io/repo/; give the site its own domain or subdomain.`
+      : `--origin needs the address the site is published at, e.g. --origin https://example.com, not "${value}".`;
+  },
+
+  /** @param {string} origin */
+  filesOriginUnknown: (origin) =>
+    `No public address is known for this site, so sitemap.xml, llms.txt and every twin point at ${origin}, which only this machine can reach. Run generate again with --origin https://your-domain.com and OpenGEO will remember it.`,
+
+  /**
+   * @param {string} origin
+   * @param {string} file
+   */
+  originFromCanonical: (origin, file) =>
+    `Using ${origin} as the site's public address, from the canonical link in ${file}. Pass --origin to use a different one.`,
+
+  /**
+   * @param {string} given
+   * @param {string} configured
+   */
+  originDiffersFromConfig: (given, configured) =>
+    `This run used --origin ${given}, but opengeo.config.json says "publicOrigin": "${configured}". The next run without --origin goes back to ${configured}; change it there to make ${given} stick.`,
+
+  /**
+   * Pages whose canonical link names some other page, or one address shared by several of them.
+   * Usually a template that hard-codes the home page's canonical into every page.
+   *
+   * @param {string} url
+   * @param {string[]} files
+   * @param {string} [owner] The page that address belongs to, when there is one.
+   */
+  canonicalNotOwn: (url, files, owner) => {
+    const many = files.length > 1;
+    const shown = files.length > 4 ? [...files.slice(0, 3), `${files.length - 3} more`] : files;
+    const list = shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}` : shown[0];
+    return (
+      `${list} ${many ? 'all declare' : 'declares'} ${url}${owner ? `, the address of ${owner},` : ''} as ${many ? 'their' : 'its'} canonical URL, ` +
+      `which tells search engines and agents ${many ? 'they are copies' : 'it is a copy'} of that page. Unless that is true, each page should name its own address in <link rel="canonical">. ` +
+      `${many ? 'Their twins use their' : 'Its twin uses its'} own address.`
+    );
+  },
+
+  /** @param {number} max */
+  filesCapped: (max) =>
+    `The folder holds more than ${max} pages, so only the first ${max} were read (the home page first, then in path order). Raise crawl.maxPages in opengeo.config.json, or pass --max-pages, to read them all.`,
+
+  /** @param {string} folder */
+  jekyllWillConvertTwins: (folder) =>
+    `If GitHub Pages publishes ${folder}/, add an empty file named .nojekyll to it. Without one GitHub Pages runs Jekyll, which turns every .md file with frontmatter into an HTML page, so the twins would not be served as markdown and index.md would be built over index.html.`,
+
+  /**
+   * @param {string} file
+   * @param {string} winner
+   * @param {string} route
+   */
+  sameUrlFiles: (file, winner, route) =>
+    `${file} and ${winner} are both served at ${route}. The twin was made from ${winner}; rename or delete the other one.`,
+
+  /**
+   * @param {string} file
+   * @param {string} why
+   */
+  sourceUnreadable: (file, why) => `${file} could not be read (${why}), so its twin was left as it was.`,
+
+  /** @param {string} configPath */
+  filesConfigCreated: (configPath) =>
+    `Saved ${configPath} with this folder as the web root, so \`opengeo generate\`, the dashboard and \`opengeo-prod\` all find it from now on.`,
+
+  /** @param {string} origin */
+  filesOriginSaved: (origin) => `Saved "publicOrigin": "${origin}" to opengeo.config.json, so the next run uses it without --origin.`,
+
+  filesSourceTip:
+    'To make a bare `opengeo generate` and the dashboard read these files too, set "generate": { "source": "files" } in opengeo.config.json.',
+
+  /** @param {string} folder */
+  checkBeforeGenerate: (folder) =>
+    `Nothing has been generated from ${folder}/ yet, so there is no twin to compare. Run \`opengeo generate ${folder}\` first.`,
+
+  fileNeedsFilesSource: 'A single file can only be regenerated in a project that reads its HTML files ("generate": { "source": "files" }).',
+
+  checkNeedsFiles:
+    '--check compares each twin with the HTML file it was made from, and a crawled site has no file to compare with. `opengeo test <url>` checks a crawled site\'s twins against its live pages instead (check B14). To check a folder, run `opengeo generate <folder> --check`.',
+
+  // -- freshness ----------------------------------------------------------------------------------
+
+  /**
+   * @param {string} file
+   * @param {string} twin
+   * @param {string} modified
+   * @param {string} written
+   * @param {boolean} after Whether the file's date is later than the twin's. A file copied with its
+   *   old date kept can differ from the twin's source and still be dated earlier.
+   */
+  staleChanged: (file, twin, modified, written, after) =>
+    after
+      ? `${file} was modified ${modified}, after its twin ${twin} was written ${written}.`
+      : `${file} is not the file its twin ${twin} was made from (the file is dated ${modified}, the twin ${written}).`,
+
+  /**
+   * @param {string} file
+   * @param {string} twin
+   * @param {string} modified
+   * @param {string} saved
+   */
+  staleManual: (file, twin, modified, saved) =>
+    `${file} was modified ${modified}, after your hand-written twin ${twin} was last saved ${saved}. OpenGEO never rewrites it, so update it yourself or remove generated_by: manual to let generate take it over.`,
+
+  /**
+   * @param {string} file
+   * @param {string} twin
+   */
+  staleMissing: (file, twin) => `${file} no longer exists, but its twin ${twin} is still listed and served.`,
+
+  /** @param {string} file */
+  staleNew: (file) => `${file} has no twin yet.`,
+
+  /**
+   * One line for after the list, saying what fixes each kind that is in it.
+   *
+   * @param {{ changed: number; manual: number; missing: number; new: number }} counts
+   * @param {string} command The generate command that reads this project's files.
+   */
+  staleRemedy: (counts, command) => {
+    /** @type {string[]} */
+    const parts = [];
+    if (counts.changed + counts.new + counts.missing > 0) parts.push(`Run \`${command}\` to bring the twins up to date`);
+    if (counts.missing > 0) parts.push('add --prune to delete the twins of pages that are gone');
+    if (counts.manual > 0) parts.push('hand-written twins are yours to update');
+    return parts.length === 0 ? '' : `${parts.join('; ')}.`;
+  },
 
   /**
    * Takes the place of "Nothing was written." when setup or settings stops after it already had.

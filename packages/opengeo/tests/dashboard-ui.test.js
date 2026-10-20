@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { stalenessOf } from '../web/components/staleness.js';
-import { ago, banner, button, el, field, safeUrl, setAttr, setBusy, setLabel, useDocument } from '../web/ui.js';
+import { ago, banner, button, el, field, projectPath, safeUrl, setAttr, setBusy, setLabel, useDocument } from '../web/ui.js';
 
 /** @import { StateResponse } from '../../core/src/shared/api-types.js' */
 
@@ -158,6 +158,16 @@ describe('primitives', () => {
     expect(ago('2025-10-31T12:00:00Z', now)).toBe('3 months ago');
     expect(ago('not a date', now)).toBe('unknown');
   });
+
+  it('shows a path from the project folder, and only when it is inside it', () => {
+    expect(projectPath('/work/site/public/robots.txt', '/work/site')).toBe('public/robots.txt');
+    expect(projectPath('/work/site/public', '/work/site/')).toBe('public');
+    expect(projectPath('C:\\work\\site\\public\\llms.txt', 'C:\\work\\site')).toBe('public\\llms.txt');
+    // A sibling whose name starts the same is not inside it.
+    expect(projectPath('/work/site-old/robots.txt', '/work/site')).toBe('/work/site-old/robots.txt');
+    expect(projectPath('/elsewhere/robots.txt', '/work/site')).toBe('/elsewhere/robots.txt');
+    expect(projectPath('/work/site', '/work/site')).toBe('/work/site');
+  });
 });
 
 describe('stalenessOf', () => {
@@ -185,5 +195,52 @@ describe('stalenessOf', () => {
 
   it('confirms a passing drift check without offering to regenerate', () => {
     expect(stalenessOf(stateWith('2026-01-25T12:00:00Z'), drift('pass'), now)).toMatchObject({ tone: 'ok', actionable: false });
+  });
+
+  describe('for a project generated from its files', () => {
+    /** @param {Array<{ kind: 'changed' | 'new' | 'missing' | 'manual'; sourceFile: string }>} stale */
+    const filesState = (stale) =>
+      /** @type {StateResponse} */ (
+        /** @type {unknown} */ ({
+          manifest: { generatedAt: '2025-01-01T00:00:00Z', pages: [{}] },
+          freshness: { checked: 3, stale: stale.map((twin) => ({ ...twin, message: `${twin.sourceFile} is ${twin.kind}.` })) },
+        })
+      );
+
+    it('names the kind of change when there is one page', () => {
+      expect(stalenessOf(filesState([{ kind: 'changed', sourceFile: 'a.html' }]), undefined, now)).toMatchObject({
+        title: 'A page changed after its twin was written',
+        message: 'Agents are reading the old version. a.html is changed.',
+        actionable: true,
+      });
+      expect(stalenessOf(filesState([{ kind: 'new', sourceFile: 'b.html' }]), undefined, now)).toMatchObject({
+        title: 'A page has no twin yet',
+        message: 'b.html is new.',
+      });
+      expect(stalenessOf(filesState([{ kind: 'missing', sourceFile: 'c.html' }]), undefined, now)?.title).toBe(
+        'A twin is left over from a deleted page',
+      );
+    });
+
+    it('counts a mix without claiming every page changed', () => {
+      const verdict = stalenessOf(
+        filesState([
+          { kind: 'new', sourceFile: 'careers.html' },
+          { kind: 'changed', sourceFile: 'pricing.html' },
+        ]),
+        undefined,
+        now,
+      );
+      expect(verdict?.title).toBe('2 pages are out of date');
+      expect(verdict?.message).toBe('Agents are reading the old version. careers.html is new. pricing.html is changed.');
+    });
+
+    it('offers no Generate button when only hand-written twins are behind', () => {
+      expect(stalenessOf(filesState([{ kind: 'manual', sourceFile: 'a.html' }]), undefined, now)?.actionable).toBe(false);
+    });
+
+    it('trusts the files over the clock: an old generate with nothing stale says nothing', () => {
+      expect(stalenessOf(filesState([]), undefined, now)).toBeUndefined();
+    });
   });
 });

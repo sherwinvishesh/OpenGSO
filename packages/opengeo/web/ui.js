@@ -285,6 +285,21 @@ export function empty(title, ...children) {
 }
 
 /**
+ * A path the server sent, shown from the project folder when it is inside it. The sidebar already
+ * names the project, so repeating its absolute path on every row only pushes the part that differs
+ * off the end. Either separator ends the root, because the server may be on Windows.
+ *
+ * @param {string} path
+ * @param {string} root
+ * @returns {string}
+ */
+export function projectPath(path, root) {
+  const base = root.replace(/[\\/]+$/, '');
+  const next = path.charAt(base.length);
+  return base && path.startsWith(base) && (next === '/' || next === '\\') ? path.slice(base.length + 1) : path;
+}
+
+/**
  * Relative time, in the tense the reader is actually thinking in.
  *
  * @param {string} iso

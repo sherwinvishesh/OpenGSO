@@ -57,6 +57,8 @@ function quoted(text) {
  * @property {string} [command] The command the user ran, echoed so they can re-run it after the fix.
  * @property {string} [twinDir] Where generate writes the twins in this project, e.g. `public/md/`. Read from the config by
  *   the caller; without it the prompt describes the folder rather than guessing a path.
+ * @property {string} [folder] The web root, when the project's twins are generated from its HTML files
+ *   rather than by crawling, so the prompt names the command that actually regenerates them.
  */
 
 /**
@@ -214,8 +216,16 @@ export function buildFixPrompt(result, options = {}) {
     '  twin at the same URL as a rewrite rather than a redirect, and sets every response header the',
     '  failed B checks above are asking for. It needs no API key and does no work per request beyond',
     '  a map lookup.',
-    `- \`opengeo generate <url>\` produces the twins under ${twinDirFor(options)}, plus robots.txt, llms.txt and`,
-    '  sitemap.xml. It runs on a developer machine, never in CI and never per request.',
+    ...(options.folder
+      ? [
+          `- \`opengeo generate ${options.folder}\` reads the HTML files in ${options.folder}/ and writes each twin beside its`,
+          '  page (about.html gets about.html.md), plus robots.txt, llms.txt and sitemap.xml. It runs on a',
+          '  developer machine, never in CI and never per request.',
+        ]
+      : [
+          `- \`opengeo generate <url>\` produces the twins under ${twinDirFor(options)}, plus robots.txt, llms.txt and`,
+          '  sitemap.xml. It runs on a developer machine, never in CI and never per request.',
+        ]),
     '- `opengeo test <url>` re-runs exactly this audit, so you can verify each change.',
   );
   lines.push('');

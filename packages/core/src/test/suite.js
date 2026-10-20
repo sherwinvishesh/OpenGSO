@@ -7,6 +7,7 @@ import { failsBuild } from './score.js';
 
 /**
  * @import { AiBot } from '../shared/bots.js'
+ * @import { LookalikeKey } from '../shared/env.js'
  * @import { AiProvider, ProviderOverrides } from '../shared/providers.js'
  * @import { ProviderFn } from '../shared/provider-call.js'
  * @import { DiscoveryResult } from './discover.js'
@@ -69,6 +70,8 @@ export function isTestMode(value) {
  * @property {readonly AiBot[]} [bots] Built-ins plus the project's own crawlers, so A1 judges robots.txt against both.
  * @property {readonly string[]} [markdownRouting] The project's `bots.markdownRouting`, so B10 probes a crawler it routes.
  * @property {SuiteAi} [ai] Absent means the content pass reports "no key" instead of running.
+ * @property {readonly LookalikeKey[]} [lookalikeKeys] `.env` lines that look like a key under a name
+ *   OpenGEO does not read, named in the "no key" message.
  * @property {boolean} [requireContent] The caller asked for the content pass by name (`-q`, or the dashboard's own toggle). Turns a
  *   missing key from a note into a refusal, because silently doing less than was asked for is the
  *   one outcome nobody can debug.
@@ -120,7 +123,7 @@ export async function runTestSuite(target, options) {
   // In `full` mode a missing key is expected and must not read as an error. In `content` mode the
   // user asked for exactly this one thing, so refusing loudly is the honest answer.
   if (!options.ai) {
-    const message = ERRORS.noApiKey(options.mode === 'content' ? 'test --content' : 'the content review');
+    const message = ERRORS.noApiKey(options.mode === 'content' ? 'test --content' : 'the content review', options.lookalikeKeys);
     if (options.mode === 'content' || options.requireContent) result.contentError = message;
     else result.contentSkipped = message;
     return result;

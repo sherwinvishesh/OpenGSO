@@ -52,15 +52,54 @@ export function routeToMdRelPath(route) {
 }
 
 /**
+ * Where a twin goes on disk.
+ *
+ * `md` is the layout prod serves from: every twin under `md/`, kept apart from the site so prod can
+ * answer `/about.md` with the right headers. `beside` puts `about.md` next to `about.html`, for a
+ * site generated from its files and served by a static host, which answers `/about.md` only if a
+ * file sits at exactly that path. Prod reads the path from the manifest, so it serves either.
+ *
+ * In the `beside` layout the name is decoded, because a static host decodes the URL before it looks
+ * on disk: the twin of `/my%20page` is `my page.md`.
+ *
+ * @param {string} route
+ * @param {TwinLayout} [layout]
+ * @returns {string}
+ */
+export function routeToTwinRelPath(route, layout = 'md') {
+  if (layout === 'md') return routeToMdRelPath(route);
+  const r = normalizeRoute(route);
+  if (r === '/') return 'index.md';
+  const slug = r
+    .slice(1)
+    .split('/')
+    .map((segment) => {
+      // A segment that would decode into a separator stays encoded: `%2F` is part of one name, not a
+      // way into another folder.
+      try {
+        const decoded = decodeURIComponent(segment);
+        return /[\\/]/.test(decoded) ? segment : decoded;
+      } catch {
+        return segment;
+      }
+    })
+    .join('/');
+  return `${slug}.md`;
+}
+
+/** @typedef {'md' | 'beside'} TwinLayout */
+
+/**
  * Two routes with the same key would write the same twin file: `/` and `/index` always, and
  * `/About` and `/about` on a case-insensitive filesystem. Case is folded everywhere, not only on the
  * machine that generates, because `public/` is committed and checked out on macOS and Windows too.
  *
  * @param {string} route
+ * @param {TwinLayout} [layout]
  * @returns {string}
  */
-export function twinFileKey(route) {
-  return routeToMdRelPath(route).toLowerCase();
+export function twinFileKey(route, layout = 'md') {
+  return routeToTwinRelPath(route, layout).toLowerCase();
 }
 
 /**

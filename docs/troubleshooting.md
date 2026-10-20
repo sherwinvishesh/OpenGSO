@@ -42,8 +42,8 @@ and won't run in CI."
 `<name>.opengeo-proposed`; merge what you want. `--force` overwrites. For a twin, add
 `generated_by: manual` to its frontmatter to serve your own.
 
-**"Only N words extracted (threshold 40)."** The page probably renders its content with JavaScript
-in the browser. OpenGEO reads the server's HTML and has no headless browser, so it cannot see that
+**"Only N words of content (the warning starts below 40)."** The page probably renders its content
+with JavaScript in the browser. OpenGEO reads the server's HTML and has no headless browser, so it cannot see that
 content. Server-render the page, or lower `generate.minWords` if the page really is that short.
 
 **"... point at http://localhost:3000, which only this machine can reach."** Set `publicOrigin` in

@@ -43,8 +43,10 @@ export function samePages(a, b) {
  *
  * A candidate comes from the previous manifest, either as a page or as an orphan it already listed,
  * so a file no manifest ever vouched for is never considered. It must still be on disk inside the
- * twin directory, not be the file of a page this run kept, and still carry OpenGEO's frontmatter: a
- * twin the user has since taken over, with generated_by: manual or by rewriting it, is theirs.
+ * twin directory, be a `.md` file, not be the file of a page this run kept, and still carry OpenGEO's
+ * frontmatter: a twin the user has since taken over, with generated_by: manual or by rewriting it, is
+ * theirs. A page this run kept whose twin moved, as it does when a project switches from crawling to
+ * reading its files, leaves its old file behind as an orphan.
  *
  * @param {Manifest} previous
  * @param {Manifest} manifest
@@ -73,9 +75,9 @@ export function settleOrphans(previous, manifest, publicDir, twinDir, prune, war
   const pruned = [];
   for (const route of dedupeRoutes([...candidates.keys()])) {
     const orphan = candidates.get(route);
-    if (!orphan || manifest.pages[route] || live.has(orphan.file)) continue;
+    if (!orphan || manifest.pages[route]?.file === orphan.file || live.has(orphan.file)) continue;
     const absPath = resolve(publicDir, orphan.file);
-    if (!absPath.startsWith(twinDir + sep) || !existsSync(absPath)) continue;
+    if (!absPath.startsWith(twinDir + sep) || !absPath.endsWith('.md') || !existsSync(absPath)) continue;
     /** @type {string} */
     let contents;
     try {

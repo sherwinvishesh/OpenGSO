@@ -23,7 +23,8 @@ export function resolveProject(args) {
 
 /**
  * The URL to work against: the positional argument if given, otherwise `site` from the config.
- * Never a source directory (§1) - OpenGEO always looks at what the site actually serves.
+ * Never a source directory (§1): test and prod judge what the site actually serves. Generate is the
+ * one command that also reads a folder of HTML files, and it decides that before calling this.
  *
  * @param {Args} args
  * @param {LoadedConfig} loaded

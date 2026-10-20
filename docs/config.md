@@ -29,13 +29,14 @@ uses the defaults below.
 | --- | --- | --- |
 | `site` | `"http://localhost:3000"` | The URL the project is generated and tested against. Also what a bare `opengeo test` scores. |
 | `publicOrigin` | unset | Where the site is deployed: an `http(s)` origin with no path, such as `"https://example.com"`. Every absolute URL generate writes (sitemap, `robots.txt`, `llms.txt`, twin frontmatter and links) uses it instead of the crawled origin. Unset, they name the crawled origin, and generate warns when that is a loopback address. |
-| `publicDir` | `"public"` | The web root. Twins go in `md/` under it, beside `robots.txt`, `llms.txt` and `sitemap.xml`. |
+| `publicDir` | `"public"` | The web root. Twins go in `md/` under it, beside `robots.txt`, `llms.txt` and `sitemap.xml`. In a project that generates from files, it is also the folder the pages are read from, and each twin goes beside its page instead. |
 | `internalDir` | `".opengeo"` | Bookkeeping that must not be web-served: `manifest.json` and the run history. |
 | `extraRoutes` | `[]` | Paths the link crawl cannot reach, such as `"/pricing"`. An entry with a `.` or `..` segment is skipped with a warning. |
 | `crawl.maxPages` | `200` | The most requests one crawl makes, a 404 or an off-site redirect included. A whole number from 1 to 100000. |
 | `crawl.maxDepth` | `4` | How many links deep the crawl follows from the start URL. A whole number from 0 to 100. |
 | `crawl.exclude` | `[]` | Path prefixes the crawl skips, on top of assets, anchors and framework internals. |
 | `generate.tier` | `"free"` | `"free"` is algorithmic and needs no key. `"ai"` rewrites each page with your AI provider, checks the numbers survived, and runs only on your machine, never in CI. |
+| `generate.source` | unset (`"url"`) | Where generate reads the pages from. `"url"` crawls `site`. `"files"` reads every `.html` file in `publicDir` and writes each twin beside its page (`about.html` gets `about.html.md`), for a site that is a folder of files rather than a running server. `opengeo generate <folder>` sets it the first time it runs. |
 | `generate.minWords` | `40` | A page that extracts to fewer words gets a low-content warning, usually a sign it renders with JavaScript. A whole number from 0 to 100000. |
 | `bots.markdownRouting` | every routable crawler that does not build a search index | Lever 1: which AI agents receive the markdown twin at the page's own URL. It chooses a format and never blocks. A crawler not on it gets the normal HTML page. |
 | `bots.blocked` | `[]` | Lever 2: crawlers asked not to crawl, expressed only as `Disallow` rules in the `robots.txt` generate writes. Opt-in, and never applied to a crawler OpenGEO does not know. |

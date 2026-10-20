@@ -165,6 +165,8 @@ async function composeArgs(screen, keys, action, status, version) {
       hints: [['up/down', 'move'], ['enter', 'select'], ['esc', 'back']],
     });
     if (!tier) return undefined;
+    // A folder project has nothing to ask: no positional reads the folder its config names.
+    if (status.folder) return tier === 'ai' ? ['--tier', 'ai'] : [];
     const url = await askUrl(screen, keys, header, site, 'Which site should I crawl?');
     if (!url) return undefined;
     return tier === 'ai' ? [url, '--tier', 'ai'] : [url];

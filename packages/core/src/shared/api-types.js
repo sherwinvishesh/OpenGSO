@@ -40,7 +40,7 @@ export {};
  *   absolute URL generate writes (sitemap, robots.txt, llms.txt, twin frontmatter and links) uses
  *   it instead of the origin that was crawled, which is usually a dev server.
  * @property {string} publicDir Web root, relative to the project. Everything generate writes lands
- *   here (twins in `md/`).
+ *   here: twins in `md/` for a crawled site, beside each page for one generated from its files.
  * @property {string} internalDir Bookkeeping that must NOT be web-served: the manifest and the
  *   content-hash cache.
  * @property {string[]} extraRoutes Routes the `<a href>` crawl can't reach. The escape hatch for
@@ -55,6 +55,9 @@ export {};
  *   local-machine-only.
  * @property {number} generate.minWords Below this word count an extracted page gets a low-content
  *   warning (§17 CSR ceiling).
+ * @property {'url' | 'files'} [generate.source] Where generate reads the pages from. `url` (the
+ *   default) crawls `site`. `files` reads the HTML files in `publicDir` instead, for a site that is a
+ *   folder of pages rather than a running server, and writes each twin beside its page.
  * @property {object} bots
  * @property {string[]} bots.markdownRouting Lever 1 (§7): which AI agents receive the markdown
  *   twin. Never blocks anyone - an unlisted bot simply sees the normal site.
@@ -265,10 +268,44 @@ export {};
  * @property {string} [description]
  * @property {GenerationTier} [tier]
  * @property {string} [file]
+ * @property {string} [sourceFile] The HTML file the page was read from, relative to the web root.
+ *   Only on a run that read the site's files.
  * @property {number} [tokens]
  * @property {number} [wordCount]
  * @property {string[]} warnings
  * @property {string} [reason]
+ */
+
+/**
+ * Why a twin no longer matches the HTML file it was made from.
+ *
+ * - `changed`: the file is different from the one the twin was made from.
+ * - `manual`: the file was modified after a hand-written twin was last saved, so the twin may be
+ *   behind. OpenGEO never rewrites a hand-written twin, so only its author can bring it up to date.
+ * - `missing`: the file is gone, so the twin describes a page that no longer exists.
+ * - `new`: a page with no twin at all.
+ *
+ * @typedef {'changed' | 'manual' | 'missing' | 'new'} StaleKind
+ */
+
+/**
+ * @typedef {object} StaleTwin
+ * @property {StaleKind} kind
+ * @property {string} sourceFile The HTML file, relative to the web root.
+ * @property {string} [route]
+ * @property {string} [twin] The twin, relative to the web root. Absent for a `new` page.
+ * @property {string} [sourceModified] When the HTML file was last modified, as it is on disk now.
+ * @property {string} [twinWritten] When the twin was last written.
+ * @property {string} message One sentence for a person, naming both files and both times.
+ */
+
+/**
+ * Whether the twins still match the HTML files they were made from. Only a project that generates
+ * from its files has an answer; a crawled one is checked by test's drift check (B14) instead.
+ *
+ * @typedef {object} FreshnessReport
+ * @property {number} checked How many twins were compared with their file.
+ * @property {StaleTwin[]} stale
  */
 
 /** @typedef {'robots.txt' | 'llms.txt' | 'sitemap.xml'} SiteFileName */
@@ -290,7 +327,10 @@ export {};
  * @property {GeneratePageResult[]} pages
  * @property {SiteFileResult[]} files
  * @property {string[]} warnings
+ * @property {string[]} [notes] Worth knowing and not a problem, such as where the public address came
+ *   from. Only a run from files has any.
  * @property {string} publicDir
+ * @property {'url' | 'files'} source
  */
 
 // -- prod ----------------------------------------------------------------------------------------
@@ -406,10 +446,13 @@ export {};
  * @property {{
  *   generatedAt: string;
  *   site: string;
- *   pages: Array<{ route: string; title: string; tokens: number; lastUpdated: string; tier: string }>;
+ *   source: 'url' | 'files';
+ *   pages: Array<{ route: string; title: string; tokens: number; lastUpdated: string; tier: string; file: string; sourceFile?: string }>;
  * }} [manifest]
  * @property {string} publicDir
  * @property {string} internalDir
+ * @property {FreshnessReport} [freshness] Present when the twins were made from the project's own
+ *   HTML files, which is the only case where "this page changed after its twin" can be read off disk.
  * @property {number} checkCount How many structural checks a run makes. Sent rather than retyped,
  *   so the dashboard's copy cannot fall behind the suite.
  * @property {{ structural: BandThresholds; content: BandThresholds }} bands The same thresholds the

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
-import { loadConfig, publicDirPath } from '../shared/config.js';
+import { readManifest } from '../generate/manifest.js';
+import { internalDirPath, loadConfig, publicDirPath } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { ok, bad } from './api-shared.js';
 
@@ -39,20 +40,32 @@ const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.open
  * `startsWith`.
  *
  * Staying inside is necessary and not enough. A web root holds whatever the project put there, so
- * on top of it the name has to be one generate writes: a twin under `md/`, or one of the three site
- * files and its proposed copy. No dotfile anywhere in the path, whatever directory it is in.
+ * on top of it the name has to be one generate writes: a twin under `md/`, one of the three site
+ * files and its proposed copy, or a twin the manifest lists beside its page. The last is a lookup
+ * rather than a pattern, since `README.md` in the same folder is somebody's own file. No dotfile
+ * anywhere in the path, whatever directory it is in.
  *
  * @param {string} root
  * @param {string} relativePath
  * @returns {string | undefined}
  */
 export function readGeneratedFile(root, relativePath) {
-  if (!GENERATED_FILE.test(relativePath) || relativePath.split('/').some((part) => part.startsWith('.'))) {
-    return undefined;
-  }
+  if (relativePath.split('/').some((part) => part.startsWith('.'))) return undefined;
   const loaded = loadConfig(root);
+  if (!GENERATED_FILE.test(relativePath) && !isListedTwin(loaded, relativePath)) return undefined;
   const base = publicDirPath(loaded);
   const path = resolve(base, relativePath);
   if (path !== base && !path.startsWith(base + sep)) return undefined;
   return existsSync(path) && statSync(path).isFile() ? readFileSync(path, 'utf8') : undefined;
+}
+
+/**
+ * @param {import('../shared/config.js').LoadedConfig} loaded
+ * @param {string} relativePath
+ * @returns {boolean}
+ */
+function isListedTwin(loaded, relativePath) {
+  if (!relativePath.endsWith('.md')) return false;
+  const manifest = readManifest(internalDirPath(loaded));
+  return Object.values(manifest.pages).some((entry) => entry.file === relativePath);
 }

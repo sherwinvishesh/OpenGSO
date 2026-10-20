@@ -69,5 +69,7 @@ export async function runFlatHome(options, root) {
 function flatArgs(action, status) {
   if (action === 'settings' || action === 'setup') return [];
   if (action === 'dashboard') return status.configured ? ['--no-setup'] : [];
+  // The site of a folder project is its public address, and generate would crawl that instead.
+  if (action === 'generate' && status.folder) return [];
   return status.site ? [status.site] : [];
 }

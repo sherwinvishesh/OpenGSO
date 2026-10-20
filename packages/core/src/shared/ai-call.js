@@ -1,11 +1,11 @@
 import { providerOverridesOf } from './config.js';
-import { readCredentials, readNativeKey, unknownEnvProvider } from './env.js';
+import { lookalikeKeyVars, readCredentials, readNativeKey, unknownEnvProvider } from './env.js';
 import { ERRORS } from './errors.js';
 import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './providers.js';
 
 /**
  * @import { OpenGeoConfig } from './config.js'
- * @import { Credentials } from './env.js'
+ * @import { Credentials, LookalikeKey } from './env.js'
  * @import { AiProvider, ProviderOverrides } from './providers.js'
  */
 
@@ -35,7 +35,10 @@ import { AI_PROVIDERS, DEFAULT_MODELS, isAiProvider, providerInfo } from './prov
  *
  * `usage` marks the one error that is the command line's fault, a `--provider` that does not exist.
  *
- * @typedef {{ call: AiCall } | { missing: AiProvider } | { error: string; usage?: boolean }} AiResolution
+ * `lookalikes` are `.env` lines that look like a key under a name OpenGEO does not read, for the
+ * message to point at.
+ *
+ * @typedef {{ call: AiCall } | { missing: AiProvider; lookalikes: LookalikeKey[] } | { error: string; usage?: boolean }} AiResolution
  */
 
 /**
@@ -66,7 +69,7 @@ export function resolveAiCall(root, config, flags = {}) {
     if (credentials && !fromEnv && !credentials.keyless) {
       return { error: ERRORS.keyForOtherProvider(provider, credentials.provider) };
     }
-    return { missing: provider };
+    return { missing: provider, lookalikes: lookalikeKeyVars(root) };
   }
 
   /** @type {ProviderOverrides} */

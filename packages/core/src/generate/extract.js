@@ -1,4 +1,5 @@
 import { JSDOM } from 'jsdom';
+import { ERRORS } from '../shared/errors.js';
 import { countWords } from '../shared/tokens.js';
 
 /**
@@ -142,9 +143,7 @@ export function extractPage(html, options) {
   const wordCount = countWords(markdown);
   const minWords = options.minWords ?? 40;
   if (wordCount < minWords) {
-    warnings.push(
-      `Only ${wordCount} words extracted (threshold ${minWords}). If this page renders its content with JavaScript, OpenGEO cannot see it yet - see TODO-csr-jsdom.md.`,
-    );
+    warnings.push(ERRORS.thinContent(wordCount, minWords));
   }
 
   dom.window.close();

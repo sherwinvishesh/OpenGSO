@@ -1,6 +1,7 @@
-import { basename } from 'node:path';
+import { basename, relative } from 'node:path';
+import { checkFreshness } from '../generate/freshness.js';
 import { readManifest } from '../generate/manifest.js';
-import { CONFIG_FILENAME, internalDirPath, loadConfig } from '../shared/config.js';
+import { CONFIG_FILENAME, internalDirPath, isLoopbackUrl, loadConfig, publicDirPath } from '../shared/config.js';
 import { readCredentials } from '../shared/env.js';
 import { deltaFor, lastScored, readHistory, scoreTrend } from '../shared/history.js';
 
@@ -21,6 +22,10 @@ import { deltaFor, lastScored, readHistory, scoreTrend } from '../shared/history
  * @property {{ id: string; source: string; keyless?: boolean }} [provider]
  * @property {number} twins
  * @property {string} [generatedAt]
+ * @property {string} [folder] Set when the project generates from its own HTML files: the folder
+ *   they are read from, relative to the project.
+ * @property {number} [stale] How many of those files changed after their twins were written, or have
+ *   none. Only a project that generates from files can know.
  */
 
 /**
@@ -44,6 +49,17 @@ export function readHomeStatus(root) {
   // that on an unconfigured directory would be the home screen inventing a project.
   status.site = configured ? loaded.config.site || undefined : undefined;
   const internalDir = internalDirPath(loaded);
+
+  if (configured && loaded.config.generate.source === 'files') {
+    status.folder = relative(root, publicDirPath(loaded)) || '.';
+    // A folder of pages has no server, so the site is the public address if there is one. The
+    // localhost default would be a URL nothing answers at.
+    const origin = loaded.config.publicOrigin ?? loaded.config.site;
+    status.site = origin && !safely(() => isLoopbackUrl(origin)) ? origin : undefined;
+    // Hashes only the files whose dates moved, so it is cheap enough for every repaint.
+    const freshness = safely(() => checkFreshness(loaded));
+    if (freshness) status.stale = freshness.stale.length;
+  }
 
   const manifest = safely(() => readManifest(internalDir, loaded.config.site));
   if (manifest) {

@@ -73,7 +73,7 @@ export function resolveCredentials(root, config, feature) {
   if (isCI()) return { error: ERRORS.ciBlocked(feature) };
   const resolved = resolveAiCall(root, config);
   if ('error' in resolved) return resolved;
-  if ('missing' in resolved) return { error: ERRORS.noApiKey(feature) };
+  if ('missing' in resolved) return { error: ERRORS.noApiKey(feature, resolved.lookalikes) };
   const { keySource: _source, ...ai } = resolved.call;
   return ai;
 }

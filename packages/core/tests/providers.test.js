@@ -357,6 +357,33 @@ describe('resolveAiCall', () => {
     return result.call;
   };
 
+  it('points at a key saved under a name OpenGEO does not read, and never uses it', () => {
+    env([
+      'claude_api=sk-ant-not-a-real-key',
+      'OPENAI_KEY=sk-not-real',
+      'OPENAI_API_BASE=https://gateway.example',
+      'GOOGLE_MAPS_API_KEY=maps',
+      'X_API_KEY=twitter',
+      'STRIPE_SECRET_KEY=sk_live_x',
+      'kwen-token=q',
+    ]);
+    const result = resolveAiCall(root, config());
+    expect(result).toEqual({
+      missing: 'anthropic',
+      lookalikes: [
+        { name: 'claude_api', provider: 'anthropic' },
+        { name: 'OPENAI_KEY', provider: 'openai' },
+        { name: 'kwen-token', provider: 'qwen' },
+      ],
+    });
+    const message = ERRORS.noApiKey("generate's AI tier", 'lookalikes' in result ? result.lookalikes : []);
+    expect(message).toContain('.env has claude_api, which looks like an Anthropic Claude key');
+    expect(message).toContain('ANTHROPIC_API_KEY=<the same key>');
+    expect(message).toContain('DASHSCOPE_API_KEY=<the same key>');
+    expect(message).not.toContain('sk-ant-not-a-real-key');
+    expect(ERRORS.noApiKey('x')).not.toContain('.env has');
+  });
+
   it('refuses to send one provider\'s key to another one named by a flag', () => {
     env(['OPENAI_API_KEY=sk-openai-only']);
     const result = resolveAiCall(root, config(), { provider: 'anthropic' });
@@ -429,8 +456,8 @@ describe('resolveAiCall', () => {
   });
 
   it('says a key is missing, rather than erroring, when there is none at all', () => {
-    expect(resolveAiCall(root, config())).toEqual({ missing: 'anthropic' });
-    expect(resolveAiCall(root, config(), { provider: 'openai' })).toEqual({ missing: 'openai' });
+    expect(resolveAiCall(root, config())).toEqual({ missing: 'anthropic', lookalikes: [] });
+    expect(resolveAiCall(root, config(), { provider: 'openai' })).toEqual({ missing: 'openai', lookalikes: [] });
   });
 
   it('lets the configured provider win over a key some other tool exported', () => {

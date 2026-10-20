@@ -4,7 +4,7 @@ import { internalDirPath, publicDirPath, publicOriginOf } from '../shared/config
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
-import { hasDotSegment, MD_DIR, routeToMdRelPath, routeToTwinUrlPath, twinFileKey } from '../shared/routes.js';
+import { hasDotSegment, MD_DIR, routeToTwinRelPath, routeToTwinUrlPath, twinFileKey } from '../shared/routes.js';
 import { countWords, estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
@@ -14,6 +14,7 @@ import { dedupeRoutes, isOpenGeoTwin, manualEntry, samePages, settleOrphans, tie
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
+ * @import { TwinLayout } from '../shared/routes.js'
  * @import { GenerationTier, Manifest, ManifestEntry, OrphanTwin } from './manifest.js'
  */
 
@@ -70,6 +71,18 @@ export { dedupeRoutes } from './reconcile.js';
  * @property {(input: EnhanceInput) => Promise<EnhanceOutput>} [enhance] Optional AI enhancer.
  *   Injected rather than imported so the free tier never reaches provider code, and so tests can
  *   drive the fidelity guard with a fake provider.
+ * @property {TwinLayout} [layout] Where the twins go on disk. `md` unless the pages came from files.
+ * @property {ReadonlyMap<string, SourceStamp>} [sourceFiles] The HTML file each route was read from,
+ *   for a run over the site's own files. Recorded in the manifest so the freshness check can tell
+ *   when a page is edited after its twin was written. Its presence marks the manifest as made from
+ *   files.
+ */
+
+/**
+ * @typedef {object} SourceStamp
+ * @property {string} file Relative to the web root, forward slashes.
+ * @property {string} modified The file's modification time, ISO.
+ * @property {string} hash `contentHash` of the file's text.
  */
 
 /**
@@ -124,20 +137,24 @@ export async function generatePages(options) {
 
   const { manifest: previous, problem } = readManifestChecked(internalDir, site);
   const manifest = emptyManifest(site);
+  if (options.sourceFiles) manifest.source = 'files';
   if (options.merge) manifest.pages = { ...previous.pages };
+  const layout = options.layout ?? 'md';
   /** @type {GeneratePageResult[]} */
   const pages = [];
 
   const unique = dedupeRoutes(routes);
   let index = 0;
 
-  const twinDir = resolve(publicDir, MD_DIR);
+  // Every twin this run writes must land in here. A twin written beside its page can be anywhere in
+  // the web root, so for that layout the web root itself is the boundary.
+  const twinDir = layout === 'md' ? resolve(publicDir, MD_DIR) : resolve(publicDir);
 
   // Which route owns each twin file. Seeded from the entries a merge keeps, so a single-page run
   // cannot overwrite a twin some other route is being served from.
   /** @type {Map<string, string>} */
   const claimed = new Map();
-  for (const route of Object.keys(manifest.pages)) claimed.set(twinFileKey(route), route);
+  for (const entry of Object.values(manifest.pages)) claimed.set(entry.file.toLowerCase(), entry.route);
 
   let manifestPath = '';
   /** @type {string[]} */
@@ -162,12 +179,12 @@ export async function generatePages(options) {
           pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.unsafeRoute });
           continue;
         }
-        const owner = claimed.get(twinFileKey(route));
+        const owner = claimed.get(twinFileKey(route, layout));
         if (owner !== undefined && owner !== route) {
-          pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.twinFileCollision(routeToMdRelPath(route), owner) });
+          pages.push({ route, url, status: 'failed', warnings: [], reason: ERRORS.twinFileCollision(routeToTwinRelPath(route, layout), owner) });
           continue;
         }
-        claimed.set(twinFileKey(route), route);
+        claimed.set(twinFileKey(route, layout), route);
         let html = options.sources?.get(route);
 
         if (html === undefined) {
@@ -194,7 +211,8 @@ export async function generatePages(options) {
           html = response.body;
         }
 
-        const relPath = routeToMdRelPath(route);
+        const relPath = routeToTwinRelPath(route, layout);
+        const stamp = options.sourceFiles?.get(route);
         const absPath = resolve(publicDir, relPath);
         // The last line of defence, whatever a future route source lets through.
         if (!absPath.startsWith(twinDir + sep)) {
@@ -222,7 +240,11 @@ export async function generatePages(options) {
               warnings: [],
               reason: 'Frontmatter says generated_by: manual - left untouched. Use --force to regenerate.',
             });
-            manifest.pages[route] = manualEntry(route, url, relPath, parsed.data, existing);
+            // The file is recorded and its stamp is not. A stamp says "the twin matches this file", which
+            // only the author of a hand-written twin can say; the freshness check compares the two
+            // files' dates instead.
+            const entry = manualEntry(route, url, relPath, parsed.data, existing);
+            manifest.pages[route] = stamp ? { ...entry, sourceFile: stamp.file } : entry;
             continue;
           }
         }
@@ -245,7 +267,7 @@ export async function generatePages(options) {
           prior.description === extracted.description &&
           prior.canonical === extracted.canonical &&
           prior.url === url;
-        if (existing && owned && !force && prior && sameHead && prior.sourceHash === sourceHash && tierSatisfied(prior, tier)) {
+        if (existing && owned && !force && prior && prior.file === relPath && sameHead && prior.sourceHash === sourceHash && tierSatisfied(prior, tier)) {
           pages.push({
             route,
             url,
@@ -262,7 +284,10 @@ export async function generatePages(options) {
           // A declared date that moved on its own is not a reason to rewrite the twin or pay for an AI
           // call, but the sitemap reads it from here, so it is kept current.
           const { lastModified: _stale, ...rest } = prior;
-          manifest.pages[route] = extracted.lastModified ? { ...rest, lastModified: extracted.lastModified } : rest;
+          // The file may have changed in a way the reader never sees, a class name or a script tag.
+          // The twin is still right, so it now matches the new file, and saying so is what clears the
+          // freshness warning.
+          manifest.pages[route] = stamped(extracted.lastModified ? { ...rest, lastModified: extracted.lastModified } : rest, stamp);
           continue;
         }
 
@@ -336,6 +361,7 @@ export async function generatePages(options) {
           ...(extracted.canonical ? { canonical: extracted.canonical } : {}),
           ...(extracted.lastModified ? { lastModified: extracted.lastModified } : {}),
         };
+        manifest.pages[route] = stamped(manifest.pages[route], stamp);
         pages.push({
           route,
           url,
@@ -363,7 +389,9 @@ export async function generatePages(options) {
       const entry = previous.pages[route];
       if (entry && !manifest.pages[route]) manifest.pages[route] = entry;
     }
-    settled = settleOrphans(previous, manifest, publicDir, twinDir, options.prune === true, warnings);
+    // The whole web root rather than this run's twin directory, so a project that changed layout
+    // still hears about the twins the other layout left behind.
+    settled = settleOrphans(previous, manifest, publicDir, resolve(publicDir), options.prune === true, warnings);
     if (settled.orphans.length > 0) manifest.orphans = settled.orphans;
     // The manifest is often committed. A run that changed no entry keeps the previous timestamp, so
     // a fully cached rerun leaves the file byte-identical instead of producing a one-line diff.
@@ -378,6 +406,12 @@ export async function generatePages(options) {
     }
     manifestPath = writeManifest(internalDir, manifest);
   }
+  if (options.sourceFiles) {
+    for (const page of pages) {
+      const stamp = options.sourceFiles.get(page.route);
+      if (stamp) page.sourceFile = stamp.file;
+    }
+  }
   return {
     site,
     pages,
@@ -389,6 +423,22 @@ export async function generatePages(options) {
     pruned: settled.pruned,
     durationMs: Date.now() - started,
   };
+}
+
+/**
+ * An entry that records which file it was made from, and when that file last changed.
+ *
+ * The previous time is kept when the file's text is the same, which happens on every fresh clone
+ * and every `touch`. Taking the new one would rewrite a committed manifest for nothing.
+ *
+ * @param {ManifestEntry} entry
+ * @param {SourceStamp | undefined} stamp
+ * @returns {ManifestEntry}
+ */
+function stamped(entry, stamp) {
+  if (!stamp) return entry;
+  const same = entry.sourceFile === stamp.file && entry.sourceFileHash === stamp.hash && typeof entry.sourceModified === 'string';
+  return { ...entry, sourceFile: stamp.file, sourceModified: same ? /** @type {string} */ (entry.sourceModified) : stamp.modified, sourceFileHash: stamp.hash };
 }
 
 /**

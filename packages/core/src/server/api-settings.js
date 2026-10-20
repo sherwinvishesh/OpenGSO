@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { checkFreshness } from '../generate/freshness.js';
 import { readManifest } from '../generate/manifest.js';
 import { DEFAULT_BOT } from '../prod/verify.js';
 import { CONTENT_BANDS, STRUCTURAL_BANDS } from '../shared/render/theme.js';
@@ -34,9 +35,9 @@ import { ok, bad } from './api-shared.js';
 
 /**
  * @import { CustomBotInput } from '../shared/bots.js'
- * @import { OpenGeoConfig } from '../shared/config.js'
+ * @import { LoadedConfig, OpenGeoConfig } from '../shared/config.js'
  * @import { ProviderApi, ProviderAuth } from '../shared/providers.js'
- * @import { StateResponse } from '../shared/api-types.js'
+ * @import { FreshnessReport, StateResponse } from '../shared/api-types.js'
  * @import { ApiOptions, ApiResponse } from './api-shared.js'
  */
 
@@ -82,22 +83,43 @@ export function readState(options) {
       ? {
           generatedAt: manifest.generatedAt,
           site: manifest.site,
+          source: manifest.source ?? 'url',
           pages: Object.values(manifest.pages).map((page) => ({
             route: page.route,
             title: page.title,
             tokens: page.tokens,
             lastUpdated: page.lastUpdated,
             tier: page.tier,
+            file: page.file,
+            ...(page.sourceFile ? { sourceFile: page.sourceFile } : {}),
           })),
         }
       : undefined,
     publicDir: publicDirPath(loaded),
     internalDir: internalDirPath(loaded),
+    ...freshnessOf(loaded),
     webRoot: detectWebRoot(loaded.root),
     checkCount: CHECKS.length,
     bands: { structural: { ...STRUCTURAL_BANDS }, content: { ...CONTENT_BANDS } },
     defaultBot: DEFAULT_BOT,
   };
+}
+
+/**
+ * The freshness report, as a spread, so a project that crawls carries no key at all. A folder that
+ * cannot be read right now is the generate page's to report, not a reason for the whole dashboard
+ * to fail to load.
+ *
+ * @param {LoadedConfig} loaded
+ * @returns {{ freshness?: FreshnessReport }}
+ */
+function freshnessOf(loaded) {
+  try {
+    const freshness = checkFreshness(loaded);
+    return freshness ? { freshness } : {};
+  } catch {
+    return {};
+  }
 }
 
 // -- config --------------------------------------------------------------------------------------

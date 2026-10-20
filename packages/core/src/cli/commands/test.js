@@ -28,6 +28,7 @@ import { resolveProject, resolveTarget } from '../project.js';
 /**
  * @import { History, SuiteAi, SuiteProgress, SuiteResult, TestMode } from '../../test/index.js'
  * @import { CommandContext } from '../index.js'
+ * @import { LookalikeKey } from '../../shared/env.js'
  */
 
 /**
@@ -79,7 +80,9 @@ export async function testCommand(ctx) {
     const result = await testUrl(target.toString(), { timeoutMs, bots, markdownRouting });
     const prompt = buildFixPrompt(result, {
       command: `opengeo test ${target.toString()}`,
-      twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/${MD_DIR}/`,
+      ...(loaded.config.generate.source === 'files'
+        ? { twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/`, folder: loaded.config.publicDir.replace(/\/+$/, '') }
+        : { twinDir: `${loaded.config.publicDir.replace(/\/+$/, '')}/${MD_DIR}/` }),
     });
     return writeOut(prompt, args.str('out'), failsBuild(result.checks, { strict }) ? 1 : 0);
   }
@@ -116,6 +119,7 @@ export async function testCommand(ctx) {
       bots,
       markdownRouting,
       ai: ai.ai,
+      lookalikeKeys: ai.lookalikes,
       // -q means "I want the review", so a missing key becomes a refusal instead of a footnote.
       requireContent: args.bool('quality'),
       maxDocs: args.num('max-docs'),
@@ -247,6 +251,8 @@ function writeContent(result, write) {
 /**
  * @typedef {object} AiChoice
  * @property {SuiteAi} [ai]
+ * @property {LookalikeKey[]} [lookalikes] Set when there is no key, for the message to point at a
+ *   `.env` line that looks like one under a name OpenGEO does not read.
  * @property {string} [error] A flag the user got wrong. Fatal, unlike a missing key, which the suite
  *   reports in context.
  * @property {boolean} [usage] The error is a `--provider` that does not exist.
@@ -272,7 +278,7 @@ function resolveAi(args, loaded) {
 
   const resolved = resolveAiCall(loaded.root, loaded.config, { provider: args.str('provider'), model: args.str('model') });
   if ('error' in resolved) return resolved;
-  if ('missing' in resolved) return {};
+  if ('missing' in resolved) return { lookalikes: resolved.lookalikes };
   const { keySource: _source, ...ai } = resolved.call;
   return { ai };
 }

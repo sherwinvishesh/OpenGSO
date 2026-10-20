@@ -177,6 +177,7 @@ const FIELD_RULES = [
   ['crawl', 'exclude', 'a list of path prefixes', isStringList],
   ['generate', 'tier', '"free" or "ai"', (value) => value === 'free' || value === 'ai'],
   ['generate', 'minWords', 'a whole number from 0 to 100000', whole(0, 100_000)],
+  ['generate', 'source', '"url" or "files"', (value) => value === 'url' || value === 'files'],
   ['bots', 'markdownRouting', 'a list of crawler names', isStringList],
   ['bots', 'blocked', 'a list of crawler names', isStringList],
   ['bots', 'custom', 'a list of crawlers', Array.isArray],

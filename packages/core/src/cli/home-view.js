@@ -31,7 +31,7 @@ export function homeHeader(status, version, width = terminalWidth()) {
   const inner = Math.max(24, Math.min(width, 96) - 4);
   /** @type {string[]} */
   const body = [];
-  body.push(`${c.bold(status.project)}  ${ink.faint(status.site ?? 'no site configured yet')}`);
+  body.push(`${c.bold(status.project)}  ${ink.faint(status.site ?? (status.folder ? 'no public address yet' : 'no site configured yet'))}`);
   body.push('');
   for (const row of statusRows(status, inner)) body.push(row);
   return box(body, { title: wordmark(), tag: version, width: Math.min(width, 96) });
@@ -78,11 +78,16 @@ export function statusRows(status, width) {
     rows.push(`${label('Score')}${ink.faint('never tested')}  ${ink.faint('press t')}`);
   }
 
-  rows.push(
-    status.twins > 0
-      ? `${label('Twins')}${status.twins} ${status.twins === 1 ? 'page' : 'pages'}  ${ink.faint(status.generatedAt ? `generated ${relativeAge(status.generatedAt)}` : '')}`
-      : `${label('Twins')}${ink.faint('none generated')}  ${ink.faint('press g')}`,
-  );
+  const from = status.folder ? ` from ${status.folder}/` : '';
+  if (status.twins === 0) {
+    rows.push(`${label('Twins')}${ink.faint(`none generated${from}`)}  ${ink.faint('press g')}`);
+  } else if (status.stale) {
+    // The one row that turns amber on its own, because it is the one thing that goes wrong silently.
+    rows.push(`${label('Twins')}${status.twins} ${status.twins === 1 ? 'page' : 'pages'}${from}  ${ink.warn(`${status.stale} out of date`)}  ${ink.faint('press g')}`);
+  } else {
+    const age = status.generatedAt ? `generated ${relativeAge(status.generatedAt)}` : '';
+    rows.push(`${label('Twins')}${status.twins} ${status.twins === 1 ? 'page' : 'pages'}${from}  ${ink.faint(status.stale === 0 ? `all up to date, ${age}` : age)}`);
+  }
 
   rows.push(
     status.provider
@@ -114,7 +119,12 @@ export function homeEntries(commands, status) {
     entries.push({ value: 'setup', label: 'Set up this project', note: 'four questions, then you are done' });
   }
   entries.push({ value: 'test', label: 'Test', note: 'score a live URL 0-100', disabled: !has('test') });
-  entries.push({ value: 'generate', label: 'Generate', note: 'write the markdown twins', disabled: !has('generate') });
+  entries.push({
+    value: 'generate',
+    label: 'Generate',
+    note: status.folder ? `write the markdown twins from ${status.folder}/` : 'write the markdown twins',
+    disabled: !has('generate'),
+  });
   entries.push({ value: 'prod', label: 'Prod check', note: 'probe the deployed middleware', disabled: !has('prod test') });
   entries.push({ value: 'dashboard', label: 'Dashboard', note: 'the same thing in a browser', disabled: !has('start') });
   entries.push({ value: 'settings', label: 'Settings', note: 'site, crawlers, AI key', disabled: !has('settings') });
@@ -134,7 +144,9 @@ export function plainStatus(status) {
   const rows = [
     status.score ? `  score    ${status.score.value}/100, ${relativeAge(status.score.at)}` : '  score    never tested',
     ideas && ideas.count > 0 ? `  ideas    ${ideas.adopted} of ${ideas.count} suggestions adopted` : '',
-    status.twins > 0 ? `  twins    ${status.twins} pages` : '  twins    none generated',
+    status.twins > 0
+      ? `  twins    ${status.twins} pages${status.folder ? ` from ${status.folder}/` : ''}${status.stale ? `, ${status.stale} out of date` : ''}`
+      : '  twins    none generated',
     status.provider ? `  ai key   ${status.provider.id}${status.provider.keyless ? ', no key needed' : ''}` : '  ai key   none',
   ];
   return rows.filter(Boolean);

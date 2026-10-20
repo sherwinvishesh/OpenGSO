@@ -63,7 +63,12 @@ import { generatePages } from './generate.js';
  * @property {GenerateResult} generate
  * @property {SiteFileResult[]} files
  * @property {string[]} warnings
+ * @property {string[]} [notes] Worth knowing and not a problem, such as where the public address came
+ *   from.
  * @property {number} durationMs
+ * @property {'url' | 'files'} source Whether the pages were crawled or read from the web root.
+ * @property {{ found: number; skipped: string[]; capped: boolean }} [scan] What reading the web root
+ *   found, on a run that read files.
  */
 
 /**
@@ -150,36 +155,7 @@ export async function generateSite(options) {
   let files = [];
   if (!options.skipSiteFiles) {
     options.onProgress?.({ phase: 'files' });
-    // Driven off the manifest rather than this run's page list, so a single-page rerun and a
-    // fully-cached rerun both still describe the whole site.
-    /** @type {SitePage[]} */
-    const pages = Object.values(generate.manifest.pages).map((entry) => ({
-      route: entry.route,
-      url: entry.url,
-      canonical: entry.canonical,
-      title: entry.title,
-      description: entry.description,
-      tokens: entry.tokens,
-      lastUpdated: entry.lastUpdated,
-      lastModified: entry.lastModified,
-    }));
-
-    files = writeSiteFiles({
-      site: origin,
-      publicDir: publicDirPath(options.loaded),
-      pages,
-      blocked: config.bots.blocked,
-      bots: resolveBots(config.bots.custom),
-      siteName: options.siteName ?? pages.find((p) => p.route === '/')?.title,
-      siteDescription: options.siteDescription ?? pages.find((p) => p.route === '/')?.description,
-      force: options.force,
-    });
-
-    for (const file of files) {
-      if (file.status === 'proposed' || file.status === 'failed') {
-        warnings.push(file.message ?? `${file.name}: ${file.status}`);
-      }
-    }
+    files = writeSiteFilesFor(options.loaded, origin, generate, options, warnings);
   }
 
   return {
@@ -191,5 +167,54 @@ export async function generateSite(options) {
     files,
     warnings: [...generate.warnings, ...warnings],
     durationMs: Date.now() - started,
+    source: 'url',
   };
+}
+
+/**
+ * robots.txt, llms.txt and sitemap.xml for what a run left in the manifest.
+ *
+ * Driven off the manifest rather than this run's page list, so a single-page rerun and a
+ * fully-cached rerun both still describe the whole site. A file OpenGEO could not write, or that is
+ * somebody else's, adds its message to `warnings`.
+ *
+ * @param {LoadedConfig} loaded
+ * @param {string} origin
+ * @param {GenerateResult} generate
+ * @param {{ siteName?: string; siteDescription?: string; force?: boolean }} options
+ * @param {string[]} warnings
+ * @returns {SiteFileResult[]}
+ */
+export function writeSiteFilesFor(loaded, origin, generate, options, warnings) {
+  const config = loaded.config;
+  /** @type {SitePage[]} */
+  const pages = Object.values(generate.manifest.pages).map((entry) => ({
+    route: entry.route,
+    url: entry.url,
+    canonical: entry.canonical,
+    title: entry.title,
+    description: entry.description,
+    tokens: entry.tokens,
+    lastUpdated: entry.lastUpdated,
+    lastModified: entry.lastModified,
+  }));
+
+  const files = writeSiteFiles({
+    site: origin,
+    publicDir: publicDirPath(loaded),
+    pages,
+    blocked: config.bots.blocked,
+    bots: resolveBots(config.bots.custom),
+    siteName: options.siteName ?? pages.find((p) => p.route === '/')?.title,
+    siteDescription: options.siteDescription ?? pages.find((p) => p.route === '/')?.description,
+    force: options.force,
+    negotiated: generate.manifest.source !== 'files',
+  });
+
+  for (const file of files) {
+    if (file.status === 'proposed' || file.status === 'failed') {
+      warnings.push(file.message ?? `${file.name}: ${file.status}`);
+    }
+  }
+  return files;
 }

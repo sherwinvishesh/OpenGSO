@@ -29,6 +29,7 @@ function makeState(over = {}) {
     config: { site: 'http://localhost:3000', generate: { tier: 'free' } },
     key: { present: false, path: '.env' },
     ci: false,
+    root: '/project',
     publicDir: '/project/public',
     defaultBot: 'ExampleBot',
     ...over,
@@ -111,6 +112,7 @@ function generated(pages) {
     durationMs: 1234,
     publicDir: '/project/public',
     warnings: [],
+    source: 'url',
     files: [{ name: 'robots.txt', path: '/project/public/robots.txt', status: 'written' }],
     pages: pages.map(([route, status]) => ({ route, url: `http://localhost:3000${route}`, status, warnings: [], wordCount: 10, tokens: 20 })),
   };
@@ -141,7 +143,8 @@ describe('the generate view', () => {
     const { ctx } = makeCtx();
     const view = createGenerateView(ctx);
     expect(view.node.firstElementChild?.querySelector('h1')?.textContent).toBe('Generate');
-    expect(view.node.textContent).toContain('Files land in /project/public.');
+    // Shown from the project folder the sidebar already names.
+    expect(view.node.textContent).toContain('Files land in public.');
     expect(/** @type {HTMLInputElement} */ (labelled(view.node, 'Site URL')).value).toBe('http://localhost:3000');
     expect(/** @type {HTMLSelectElement} */ (labelled(view.node, 'Tier')).value).toBe('free');
     expect(buttonNamed(view.node, 'Generate').disabled).toBe(false);
@@ -198,6 +201,9 @@ describe('the generate view', () => {
     expect(generate).toHaveBeenCalledWith({ url: 'http://localhost:3000', tier: 'free', single: false, force: false }, expect.any(Function), expect.anything());
     expect(reload).toHaveBeenCalledOnce();
     expect(view.node.textContent).toContain('1 written, 0 unchanged, 1 failed in 1.2s');
+    expect(view.node.textContent).toContain('public/robots.txt');
+    expect(view.node.textContent).not.toContain('/project/public/robots.txt');
+    expect(view.node.textContent).toContain('Written from the same crawl');
     expect(view.node.querySelectorAll('tbody tr')).toHaveLength(3);
     expect(visibleText(view.node)).not.toContain('Nothing generated in this session');
     const options = [...view.node.querySelectorAll('select[aria-label="Route to preview"] option')].map((node) => node.textContent);

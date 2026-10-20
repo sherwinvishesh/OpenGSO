@@ -71,6 +71,9 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @property {string} [siteDescription] One-line summary for the llms.txt blockquote.
  * @property {boolean} [force]
  * @property {readonly SiteFileName[]} [only] Skip one or more files entirely.
+ * @property {boolean} [negotiated] Whether llms.txt may say the page's own URL answers
+ *   `Accept: text/markdown`. Only opengeo-prod does that, and a folder of files is usually served by
+ *   a static host that does not, so a run from files says nothing it cannot keep. Defaults to true.
  */
 
 /**
@@ -226,7 +229,9 @@ export function renderLlmsTxt(options) {
   if (options.siteDescription) lines.push(`> ${options.siteDescription}`, ``);
   lines.push(
     `Every link below is a Markdown version of the corresponding page, generated from the page`,
-    `itself. The same content is available at the page's own URL with \`Accept: text/markdown\`.`,
+    ...(options.negotiated === false
+      ? [`itself.`]
+      : [`itself. The same content is available at the page's own URL with \`Accept: text/markdown\`.`]),
     ``,
     `## Pages`,
     ``,

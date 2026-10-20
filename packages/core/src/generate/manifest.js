@@ -55,6 +55,14 @@ export const MANIFEST_VERSION = 1;
  *   invented: absent when the page declares none.
  * @property {string} [canonical] The page's own `<link rel="canonical">`, which sitemap.xml lists in
  *   place of `url` when it is on the same site. Absent when the page declares none.
+ * @property {string} [sourceFile] The HTML file this twin was made from, relative to the web root.
+ *   Only a run that read the site's files sets it; a crawl never sees a file.
+ * @property {string} [sourceModified] That file's modification time when the twin last matched it.
+ *   The freshness check compares it with the file on disk, which is how an edited page whose twin
+ *   was never regenerated gets noticed.
+ * @property {string} [sourceFileHash] Hash of that file's text, whitespace runs folded, when the twin
+ *   last matched it. A modification time also moves on a checkout or a `touch`, and a page that was
+ *   only touched is not out of date; this is what tells the two apart.
  */
 
 /**
@@ -76,6 +84,8 @@ export const MANIFEST_VERSION = 1;
  * @property {string} generatedAt
  * @property {Record<string, ManifestEntry>} pages
  * @property {OrphanTwin[]} [orphans] Absent when there are none.
+ * @property {'files'} [source] Present when the twins were made from the HTML files in the web root
+ *   rather than by crawling `site`. Absent for a crawl, so a crawled project's manifest is unchanged.
  */
 
 /**

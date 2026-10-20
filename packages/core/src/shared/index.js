@@ -6,6 +6,7 @@ export * from './errors.js';
 export * from './fs.js';
 export * from './hash.js';
 export * from './http.js';
+export * from './local-pages.js';
 export * from './log.js';
 export * from './providers.js';
 export * from './routes.js';

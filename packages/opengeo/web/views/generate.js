@@ -1,16 +1,17 @@
 import { api, ApiError } from '../api.js';
 import { createProgress } from '../components/progress.js';
 import { isAbort, startRun } from '../runs.js';
-import { banner, button, card, cardHead, doc, el, empty, field, fill, pageHead, pill, setBusy, setLabel, setText } from '../ui.js';
+import { banner, button, card, cardHead, doc, el, empty, field, fill, pageHead, pill, projectPath, setBusy, setLabel, setText } from '../ui.js';
 
 /**
- * @import { GeneratePageResult, GenerateResponse, SiteFileResult, StateResponse } from '../../../core/src/shared/api-types.js'
+ * @import { GeneratePageResult, GenerateResponse, SiteFileResult, StaleKind, StateResponse } from '../../../core/src/shared/api-types.js'
  * @import { Ctx, View } from '../context.js'
  */
 
 /**
  * Generate: crawl the site once and write the markdown twins plus robots.txt, llms.txt and
- * sitemap.xml (§6, one crawl, three outputs).
+ * sitemap.xml (§6, one crawl, three outputs). A project whose pages are a folder of HTML files is
+ * read from that folder instead, and has no URL to type.
  *
  * The preview matters more than it looks. Everything else in this app describes the generated
  * files; this is the only place that shows the bytes an agent actually receives, read straight back
@@ -26,6 +27,17 @@ import { banner, button, card, cardHead, doc, el, empty, field, fill, pageHead, 
 export function mdRelPath(route) {
   const normalized = route.length > 1 && route.endsWith('/') ? route.slice(0, -1) : route;
   return `md/${normalized === '/' ? 'index' : normalized.replace(/^\//, '')}.md`;
+}
+
+/**
+ * The twin a page's preview reads. The page result names it, beside the page or under `md/`; a
+ * proposed page names the copy OpenGEO left, and what an agent is served is the file beside that.
+ *
+ * @param {GeneratePageResult} page
+ * @returns {string}
+ */
+export function twinPath(page) {
+  return page.file ? page.file.replace(/\.opengeo-proposed$/, '') : mdRelPath(page.route);
 }
 
 /**
@@ -60,6 +72,7 @@ export function createGenerateView(ctx) {
   let syncedUrl = '';
 
   const publicDir = doc().createTextNode('');
+  const lead = doc().createTextNode('');
 
   const urlInput = el('input', {
     attrs: { type: 'text', spellcheck: 'false', 'aria-label': 'Site URL to generate from' },
@@ -72,7 +85,11 @@ export function createGenerateView(ctx) {
     el('option', { attrs: { value: 'ai' }, text: 'ai (BYOK, fidelity-checked)' }),
   );
   let syncedTier = tierSelect.value;
+  const urlField = el('div', { className: 'grow' }, field('Site URL', urlInput));
+  const folderInput = el('input', { attrs: { type: 'text', readonly: 'readonly', 'aria-label': 'Folder the pages are read from' } });
+  const folderField = el('div', { className: 'grow', hidden: true }, field('Folder', folderInput, 'Every HTML file in it, with each twin written beside its page.'));
   const single = el('input', { attrs: { type: 'checkbox' } });
+  const singleLabel = el('label', { className: 'checkbox' }, single, 'This page only, do not crawl');
   const force = el('input', { attrs: { type: 'checkbox' } });
   const runButton = button({ label: 'Generate', primary: true, onClick: () => void run() });
 
@@ -89,6 +106,8 @@ export function createGenerateView(ctx) {
     text: 'CI is set in this environment, so the AI tier will refuse to run. That is deliberate: generation is a local-machine step, never a build step.',
   });
 
+  const freshnessSlot = el('div', { className: 'contents' });
+  let freshnessShown = '';
   const errorSlot = el('div', { className: 'contents' });
   const resultSlot = el('div', { className: 'contents' });
   const emptyText = el('p');
@@ -97,19 +116,15 @@ export function createGenerateView(ctx) {
   const node = el(
     'div',
     {},
-    pageHead(
-      'Generate',
-      'Crawl the site from this URL and write a markdown twin for every page it reaches, plus robots.txt, llms.txt and sitemap.xml. Files land in ',
-      publicDir,
-      '.',
-    ),
+    pageHead('Generate', lead, publicDir, '.'),
+    freshnessSlot,
     card(
       'card-pad',
-      el('div', { className: 'row row-end' }, el('div', { className: 'grow' }, field('Site URL', urlInput)), field('Tier', tierSelect), runButton),
+      el('div', { className: 'row row-end' }, urlField, folderField, field('Tier', tierSelect), runButton),
       el(
         'div',
         { className: 'row row-spaced' },
-        el('label', { className: 'checkbox' }, single, 'This page only, do not crawl'),
+        singleLabel,
         el('label', { className: 'checkbox' }, force, 'Rewrite unchanged pages and overwrite existing site files'),
       ),
       keyNote,
@@ -121,12 +136,14 @@ export function createGenerateView(ctx) {
     emptyCard,
   );
 
+  const fromFiles = () => ctx.state().config.generate.source === 'files';
+
   /** Everything that depends on the inputs and on `busy`, but not on server state. */
   function sync() {
     const state = ctx.state();
     keyNote.hidden = !(tierSelect.value === 'ai' && !state.key.present);
     setLabel(runButton, busy ? 'Generating' : 'Generate');
-    setBusy(runButton, busy, !urlInput.value.trim());
+    setBusy(runButton, busy, !fromFiles() && !urlInput.value.trim());
     progressWrap.hidden = !busy;
     emptyCard.hidden = Boolean(result) || busy;
   }
@@ -136,15 +153,13 @@ export function createGenerateView(ctx) {
     fill(errorSlot);
     progress.set(undefined);
     sync();
-    const input = {
-      url: urlInput.value,
-      tier: /** @type {'free' | 'ai'} */ (tierSelect.value),
-      single: single.checked,
-      force: force.checked,
-    };
+    const tier = /** @type {'free' | 'ai'} */ (tierSelect.value);
+    // A URL would make the server crawl it, so a folder project sends none. Unchanged files cost
+    // nothing to read again, which is why there is no single-file box to tick.
+    const input = fromFiles() ? { tier, force: force.checked } : { url: urlInput.value, tier, single: single.checked, force: force.checked };
     try {
       result = await startRun('generate', (signal) => api.generate(input, progress.set, signal));
-      fill(resultSlot, results(result));
+      fill(resultSlot, results(result, ctx.state().root));
       busy = false;
       sync();
       await ctx.reload();
@@ -170,7 +185,24 @@ export function createGenerateView(ctx) {
     const state = ctx.state();
     if (urlInput.value === syncedUrl) urlInput.value = syncedUrl = state.config.site;
     if (tierSelect.value === syncedTier) tierSelect.value = syncedTier = state.config.generate.tier;
-    setText(publicDir, state.publicDir);
+    const files = fromFiles();
+    urlField.hidden = files;
+    singleLabel.hidden = files;
+    folderField.hidden = !files;
+    folderInput.value = projectPath(state.publicDir, state.root);
+    setText(
+      lead,
+      files
+        ? 'Read every HTML file in this folder and write a markdown twin beside each one, plus robots.txt, llms.txt and sitemap.xml. Files land in '
+        : 'Crawl the site from this URL and write a markdown twin for every page it reaches, plus robots.txt, llms.txt and sitemap.xml. Files land in ',
+    );
+    setText(publicDir, projectPath(state.publicDir, state.root));
+    // Redrawn only when it changes, so a reload does not reset the reader's scroll through it.
+    const freshnessKey = JSON.stringify(state.freshness ?? null);
+    if (freshnessKey !== freshnessShown) {
+      fill(freshnessSlot, freshnessCard(state));
+      freshnessShown = freshnessKey;
+    }
     ciNote.hidden = !state.ci;
     setText(emptyText, lastRunText(state));
     sync();
@@ -180,18 +212,71 @@ export function createGenerateView(ctx) {
   return { node, update };
 }
 
+/** @type {Record<StaleKind, { label: string; tone: 'warn' | 'info' | 'mute' }>} */
+const STALE_KINDS = {
+  changed: { label: 'changed', tone: 'warn' },
+  missing: { label: 'deleted', tone: 'warn' },
+  new: { label: 'no twin', tone: 'info' },
+  manual: { label: 'hand-written', tone: 'mute' },
+};
+
+/**
+ * Which pages changed after their twins were written. The server compares the files every time the
+ * state is read, so this is as current as the last reload.
+ *
+ * @param {StateResponse} state
+ * @returns {HTMLElement | null}
+ */
+export function freshnessCard(state) {
+  const report = state.freshness;
+  if (!report || (report.checked === 0 && report.stale.length === 0)) return null;
+  if (report.stale.length === 0) {
+    const title = report.checked === 1 ? 'The twin matches its page' : `All ${report.checked} twins match their pages`;
+    return banner({ tone: 'ok', title }, 'Compared with the HTML files on disk when this page last loaded. Nothing to regenerate.');
+  }
+  const count = report.stale.length;
+  const fixable = report.stale.some((twin) => twin.kind !== 'manual');
+  return card(
+    '',
+    cardHead({
+      title: count === 1 ? '1 page is out of date' : `${count} pages are out of date`,
+      sub: fixable ? 'Agents are reading the old version until you press Generate.' : 'Hand-written twins are yours to update; generate leaves them alone.',
+    }),
+    el(
+      'table',
+      { className: 'table' },
+      el('thead', {}, el('tr', {}, el('th', { text: 'Page' }), el('th', { text: 'What happened' }), el('th', { text: 'Details' }))),
+      el(
+        'tbody',
+        {},
+        report.stale.map((twin) =>
+          el(
+            'tr',
+            {},
+            el('td', { className: 'mono', text: twin.sourceFile }),
+            el('td', {}, pill(STALE_KINDS[twin.kind].tone, STALE_KINDS[twin.kind].label)),
+            el('td', { className: 'muted', text: twin.message }),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 /**
  * The whole result is redrawn when a new one arrives. It is replaced wholesale, never edited, and
  * that is also what resets the preview to the new run's first page (WEB-4).
  *
  * @param {GenerateResponse} result
+ * @param {string} root
  */
-function results(result) {
+function results(result, root) {
   const warnings = result.warnings.length;
   return [
     warnings
       ? banner({ tone: 'warn', title: `${warnings} warning${warnings === 1 ? '' : 's'}` }, result.warnings.join(' '))
       : null,
+    result.notes?.length ? banner({ tone: 'info' }, result.notes.join(' ')) : null,
     card(
       '',
       cardHead({ title: 'Pages', sub: pagesSummary(result) }),
@@ -204,7 +289,7 @@ function results(result) {
           el(
             'tr',
             {},
-            el('th', { text: 'Route' }),
+            el('th', { text: result.source === 'files' ? 'Page' : 'Route' }),
             el('th', { text: 'Status' }),
             el('th', { className: 'num', text: 'Words' }),
             el('th', { className: 'num', text: 'Tokens' }),
@@ -216,12 +301,12 @@ function results(result) {
     ),
     card(
       '',
-      cardHead({ title: 'Site files', sub: 'Written from the same crawl, never overwritten without asking.' }),
+      cardHead({ title: 'Site files', sub: `Written from the same ${result.source === 'files' ? 'pages' : 'crawl'}, never overwritten without asking.` }),
       el(
         'table',
         { className: 'table' },
         el('thead', {}, el('tr', {}, el('th', { text: 'File' }), el('th', { text: 'Status' }), el('th', { text: 'Path' }))),
-        el('tbody', {}, result.files.map(fileRow)),
+        el('tbody', {}, result.files.map((file) => fileRow(file, root))),
       ),
     ),
     preview(result.pages),
@@ -235,7 +320,8 @@ function pageRow(page) {
   return el(
     'tr',
     {},
-    el('td', { className: 'mono', text: page.route }),
+    // A page read from a file is named by that file, which is what the person edits.
+    el('td', { className: 'mono' }, page.sourceFile ?? page.route, page.sourceFile ? el('div', { className: 'muted', text: page.route }) : null),
     el('td', {}, pill(tone, page.status)),
     el('td', { className: 'num', text: page.wordCount ? String(page.wordCount) : '' }),
     el('td', { className: 'num', text: page.tokens ? String(page.tokens) : '' }),
@@ -243,15 +329,18 @@ function pageRow(page) {
   );
 }
 
-/** @param {SiteFileResult} file */
-function fileRow(file) {
+/**
+ * @param {SiteFileResult} file
+ * @param {string} root
+ */
+function fileRow(file, root) {
   const tone = file.status === 'failed' ? 'fail' : file.status === 'proposed' ? 'warn' : file.status === 'written' ? 'ok' : 'mute';
   return el(
     'tr',
     {},
     el('td', { className: 'mono', text: file.name }),
     el('td', {}, pill(tone, file.status)),
-    el('td', { className: 'mono muted' }, file.path, file.message ? el('div', { text: file.message }) : null),
+    el('td', { className: 'mono muted' }, projectPath(file.path, root), file.message ? el('div', { text: file.message }) : null),
   );
 }
 
@@ -275,7 +364,7 @@ function preview(pages) {
   const select = el(
     'select',
     { attrs: { 'aria-label': 'Route to preview' }, on: { change: () => void load(select.value) } },
-    readable.map((page) => el('option', { attrs: { value: page.route }, text: page.route })),
+    readable.map((page) => el('option', { attrs: { value: page.route }, text: page.sourceFile ?? page.route })),
   );
   select.value = readable[0].route;
   const show = button({ label: 'Show', small: true, onClick: () => void load(select.value) });
@@ -292,7 +381,8 @@ function preview(pages) {
     fill(body, hint());
     setBusy(show, true);
     try {
-      const file = await api.readFile(mdRelPath(route));
+      const page = readable.find((candidate) => candidate.route === route);
+      const file = await api.readFile(page ? twinPath(page) : mdRelPath(route));
       if (mine !== loads) return;
       fill(body, file.content ? el('pre', { className: 'pre', style: { whiteSpace: 'pre-wrap' }, text: file.content }) : hint());
     } catch (thrown) {
