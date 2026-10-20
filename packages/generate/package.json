@@ -1,6 +1,6 @@
 {
   "name": "opengso-generate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Generate markdown twins, robots.txt, llms.txt and sitemap.xml for AI agents. The generate pillar of OpenGSO.",
   "license": "Apache-2.0",
   "type": "module",

@@ -140,13 +140,13 @@ or a self-hosted server. Adding one is three lines of config, not a fork:
 Install the narrowest one that does what you need. They all expose the same `opengso` command, and
 if you ask one for something it does not ship, it tells you which package to install instead.
 
-| Package | Ships | Install it when |
-| --- | --- | --- |
-| [`opengso`](packages/opengso/README.md) | everything, plus the local dashboard | you want the whole thing, or you want a UI |
-| [`opengso-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `prod data`, `settings` | you want the whole toolchain, terminal only |
-| [`opengso-testing`](packages/testing/README.md) | `test` | you only want to score a site |
-| [`opengso-generate`](packages/generate/README.md) | `generate` | you only want the markdown twins and root files |
-| [`opengso-prod`](packages/prod/README.md) | the middleware, plus `prod test` and `prod data` | this is the one that runs on your server |
+| Package | Ships | Install it when | npm |
+| --- | --- | --- | --- |
+| [`opengso`](packages/opengso/README.md) | everything, plus the local dashboard | you want the whole thing, or you want a UI | [npmjs.com/package/opengso](https://www.npmjs.com/package/opengso) |
+| [`opengso-cli`](packages/cli/README.md) | `test`, `generate`, `prod test`, `prod data`, `settings` | you want the whole toolchain, terminal only | [npmjs.com/package/opengso-cli](https://www.npmjs.com/package/opengso-cli) |
+| [`opengso-testing`](packages/testing/README.md) | `test` | you only want to score a site | [npmjs.com/package/opengso-testing](https://www.npmjs.com/package/opengso-testing) |
+| [`opengso-generate`](packages/generate/README.md) | `generate` | you only want the markdown twins and root files | [npmjs.com/package/opengso-generate](https://www.npmjs.com/package/opengso-generate) |
+| [`opengso-prod`](packages/prod/README.md) | the middleware, plus `prod test` and `prod data` | this is the one that runs on your server | [npmjs.com/package/opengso-prod](https://www.npmjs.com/package/opengso-prod) |
 
 `opengso-prod` is the package that ends up in a production dependency, so it has **zero
 dependencies** and its library, the part your server imports, has no jsdom and no AI provider code.
