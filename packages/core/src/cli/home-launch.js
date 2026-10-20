@@ -65,7 +65,7 @@ export async function runInScrollback(options, action, argv, output) {
   const handler = options.commands[name];
   if (!handler) return undefined;
   const shown = [name, ...argv].join(' ');
-  output.write(`\n${ink.faint(`$ omnigeo ${shown}`)}\n`);
+  output.write(`\n${ink.faint(`$ opengso ${shown}`)}\n`);
   /** @type {FixPromptOffer | undefined} */
   let offer;
   try {

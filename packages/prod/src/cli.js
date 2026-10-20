@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { main } from '@omnigeo/core/cli';
-import { prodDataCommand } from '@omnigeo/core/cli/commands/prod-data';
-import { prodTestCommand } from '@omnigeo/core/cli/commands/prod-test';
+import { main } from '@opengso/core/cli';
+import { prodDataCommand } from '@opengso/core/cli/commands/prod-data';
+import { prodTestCommand } from '@opengso/core/cli/commands/prod-test';
 
 /**
- * omnigeo-prod ships the runtime middleware and the two commands that go with it: the verifier, and
+ * opengso-prod ships the runtime middleware and the two commands that go with it: the verifier, and
  * the edge data writer.
- * There is no generate here and no key, so `omnigeo generate` produces the §13 message naming the
+ * There is no generate here and no key, so `opengso generate` produces the §13 message naming the
  * package to install rather than an "unknown command".
  */
 // Read at run time rather than stamped in at build time. The bundle sits in dist/ and the source in

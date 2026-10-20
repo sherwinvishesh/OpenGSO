@@ -24,14 +24,14 @@ import { homeEntries, plainStatus } from './home-view.js';
 export async function runFlatHome(options, root) {
   const output = options.output ?? process.stdout;
   const input = options.input ?? process.stdin;
-  // Nobody is there to answer, or nobody is there to read the question (`omnigeo | head`). A menu
+  // Nobody is there to answer, or nobody is there to read the question (`opengso | head`). A menu
   // would either hang or silently pick its own default, and both are worse than the help page the
   // old bare invocation printed.
   if (!input.isTTY || !output.isTTY) return -1;
 
   for (;;) {
     const status = readHomeStatus(root);
-    output.write(`\n${c.bold('OmniGEO')} ${c.gray(`${options.packageName} ${options.version}`)}\n`);
+    output.write(`\n${c.bold('OpenGSO')} ${c.gray(`${options.packageName} ${options.version}`)}\n`);
     output.write(`${status.project}  ${c.gray(status.site ?? 'no site configured yet')}\n`);
     for (const row of plainStatus(status)) output.write(`${row}\n`);
     output.write('\n');

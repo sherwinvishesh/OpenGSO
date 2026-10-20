@@ -165,7 +165,7 @@ function isPlainObject(value) {
 }
 
 /**
- * The only network call in OmniGEO that carries the user's API key.
+ * The only network call in OpenGSO that carries the user's API key.
  *
  * Dispatch is on the *wire format*, not on the vendor. Most of the industry ships an
  * OpenAI-compatible endpoint, so one caller plus a base URL covers Grok, Qwen, Kimi, DeepSeek,

@@ -53,7 +53,7 @@ export function createFsStore(options) {
 
 /**
  * What `createFsStore` loads, as data: the same manifest checks and the same refusal of a twin
- * outside publicDir. `omnigeo prod data` writes this for the edge, so a Worker and a Node server
+ * outside publicDir. `opengso prod data` writes this for the edge, so a Worker and a Node server
  * built from one project serve exactly the same twins.
  *
  * @param {FsStoreOptions} options
@@ -62,7 +62,7 @@ export function createFsStore(options) {
 export function readTwins(options) {
   const root = resolve(options.root);
   const publicDir = resolve(root, options.publicDir ?? 'public');
-  const internalDir = resolve(root, options.internalDir ?? '.omnigeo');
+  const internalDir = resolve(root, options.internalDir ?? '.opengso');
   const manifestFile = join(internalDir, 'manifest.json');
 
   // The manifest is listed even when it is missing, so a development server started before the

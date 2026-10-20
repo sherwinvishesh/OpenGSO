@@ -3,11 +3,11 @@ import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultConfig } from '@omnigeo/core/shared';
-import { crawlSite, generatePages, generateSite } from '@omnigeo/core/generate';
+import { defaultConfig } from '@opengso/core/shared';
+import { crawlSite, generatePages, generateSite } from '@opengso/core/generate';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { LoadedConfig } from '@omnigeo/core/shared' */
+/** @import { LoadedConfig } from '@opengso/core/shared' */
 
 /**
  * Two real servers: the site, and somebody else's. The site redirects some routes to the other
@@ -72,7 +72,7 @@ afterAll(async () => {
 
 /** @returns {LoadedConfig} */
 function project() {
-  const root = mkdtempSync(join(tmpdir(), 'omnigeo-redirect-'));
+  const root = mkdtempSync(join(tmpdir(), 'opengso-redirect-'));
   return { config: defaultConfig(siteUrl), root, exists: true };
 }
 

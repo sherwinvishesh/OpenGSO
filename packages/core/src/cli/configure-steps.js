@@ -22,7 +22,7 @@ import { previewLines } from './setup-preview.js';
 
 /**
  * @import { CustomBotInput } from '../shared/bots.js'
- * @import { OmniGeoConfig } from '../shared/config.js'
+ * @import { OpenGsoConfig } from '../shared/config.js'
  * @import { AiProvider, ProviderApi } from '../shared/providers.js'
  * @import { GitignoreResult } from '../shared/env.js'
  * @import { Prompter } from './prompt.js'
@@ -79,7 +79,7 @@ export function abortAfterWrites(error, written) {
  * @typedef {object} SetupResult
  * @property {string} root
  * @property {string} configPath
- * @property {OmniGeoConfig} config
+ * @property {OpenGsoConfig} config
  * @property {boolean} createdConfig
  * @property {CustomBotInput[]} addedBots Crawlers the user defined during this run, already merged into
  *   `config.bots.custom`.
@@ -127,7 +127,7 @@ export async function askSiteUrl(ctx, current) {
 /**
  * What is actually at that URL, said out loud before the next question.
  *
- * Never a gate. A site that is not running yet is a completely normal thing to be setting OmniGEO up
+ * Never a gate. A site that is not running yet is a completely normal thing to be setting OpenGSO up
  * against, and refusing the URL over it would be wrong. The probe is here so that a typo, a wrong
  * port or a client-rendered page is visible now rather than three commands later.
  *
@@ -146,7 +146,7 @@ async function reportSite(ctx, url) {
  * The one question setup can usually answer for itself.
  *
  * A configured project's own value always wins: the detector is a guess about a convention, and the
- * answer already in `omnigeo.config.json` is a decision somebody made. On a fresh directory the
+ * answer already in `opengso.config.json` is a decision somebody made. On a fresh directory the
  * guess becomes the default, and the reason is printed beside it so it can be overruled on sight
  * rather than accepted because it was there.
  *
@@ -156,7 +156,7 @@ async function reportSite(ctx, url) {
  */
 export async function askWebRoot(ctx, current) {
   // `current` on a project with no config of its own is `defaultConfig().publicDir`, which nobody
-  // typed, so the detector is free to replace it. Once omnigeo.config.json exists the same string
+  // typed, so the detector is free to replace it. Once opengso.config.json exists the same string
   // is an answer somebody gave, and a guess about a convention does not get to overrule that.
   const configured = ctx.hasConfig ? current : '';
   /** @type {WebRootGuess} */
@@ -189,7 +189,7 @@ function webRootProblem(root, publicDir) {
 
 /**
  * @param {StepContext} ctx
- * @param {OmniGeoConfig} config
+ * @param {OpenGsoConfig} config
  * @returns {Promise<RoutingAnswer>}
  */
 export async function askRouting(ctx, config) {
@@ -217,7 +217,7 @@ export async function askRouting(ctx, config) {
       {
         value: 'custom',
         label: 'let me pick, one by one',
-        note: 'Shows every crawler to tick off by name, and lets you add one OmniGEO has never heard of.',
+        note: 'Shows every crawler to tick off by name, and lets you add one OpenGSO has never heard of.',
       },
     ],
     currentRoutingChoice(config.bots.markdownRouting, agents, assistants, ctx.settings),
@@ -247,7 +247,7 @@ export async function askRouting(ctx, config) {
  * straight over anything written at the end of a question.
  *
  * @param {(text: string) => void} write
- * @param {Pick<OmniGeoConfig['bots'], 'markdownRouting' | 'custom'>} bots
+ * @param {Pick<OpenGsoConfig['bots'], 'markdownRouting' | 'custom'>} bots
  * @returns {void}
  */
 export function writeSearchCrawlerWarning(write, bots) {
@@ -258,7 +258,7 @@ export function writeSearchCrawlerWarning(write, bots) {
 
 /**
  * @param {StepContext} ctx
- * @param {OmniGeoConfig} config
+ * @param {OpenGsoConfig} config
  * @returns {Promise<string[]>}
  */
 export async function askBlocked(ctx, config) {
@@ -271,13 +271,13 @@ export async function askBlocked(ctx, config) {
     routableOnly: false,
     allowAdd: false,
   });
-  ctx.write(`\n  ${c.gray('Takes effect the next time `omnigeo generate` rewrites robots.txt.')}\n`);
+  ctx.write(`\n  ${c.gray('Takes effect the next time `opengso generate` rewrites robots.txt.')}\n`);
   return picked.selected;
 }
 
 /**
  * @typedef {object} ProviderAnswer
- * @property {OmniGeoConfig['ai']} ai
+ * @property {OpenGsoConfig['ai']} ai
  * @property {SetupResult['keyWritten']} [keyWritten]
  */
 
@@ -289,7 +289,7 @@ export async function askBlocked(ctx, config) {
  * is already configured.
  *
  * @param {StepContext} ctx
- * @param {OmniGeoConfig} config
+ * @param {OpenGsoConfig} config
  * @returns {Promise<ProviderAnswer | undefined>}
  */
 export async function askProvider(ctx, config) {
@@ -309,7 +309,7 @@ export async function askProvider(ctx, config) {
       {
         value: 'skip',
         label: found ? (found.keyless ? 'keep what I have' : 'keep the key I already have') : 'skip for now',
-        note: 'You can run `omnigeo settings` again at any time.',
+        note: 'You can run `opengso settings` again at any time.',
       },
       ...PROVIDERS.map((provider) => ({
         value: provider.id,
@@ -342,7 +342,7 @@ export async function askProvider(ctx, config) {
   );
 
   // A model server on this machine has no key. Asking for one and accepting the empty answer
-  // would work, but it would also teach people that OmniGEO wants a secret it cannot use.
+  // would work, but it would also teach people that OpenGSO wants a secret it cannot use.
   const key = endpoint.keyless
     ? ''
     : await prompter.secret(`  ${info.label} API key ${c.gray(`(hidden as you type${info.keysUrl ? `, get one at ${info.keysUrl}` : ''})`)}:`);
@@ -367,7 +367,7 @@ export async function askProvider(ctx, config) {
 
   // The endpoint is an address, not a secret, so it also goes in the committed config where the
   // rest of the team can see which gateway this project talks to.
-  /** @type {OmniGeoConfig['ai']} */
+  /** @type {OpenGsoConfig['ai']} */
   const ai = { provider: providerChoice, model };
   if (endpoint.baseUrl) ai.baseUrl = endpoint.baseUrl;
   if (endpoint.api) ai.api = endpoint.api;
@@ -383,7 +383,7 @@ export async function askProvider(ctx, config) {
  * a key, and the closing note should not send anybody looking for one.
  *
  * @param {string} root
- * @param {OmniGeoConfig['ai']} ai
+ * @param {OpenGsoConfig['ai']} ai
  * @returns {'key' | 'keyless' | 'none'}
  */
 export function keyHeld(root, ai) {
@@ -401,7 +401,7 @@ export function writeKeyLocation(write, root, held) {
   const note = held === 'none' ? '  (nothing there yet)' : held === 'keyless' ? '  (no key: this provider runs without one)' : '';
   write(`\n${c.bold('Where your key lives')}\n`);
   write(`  ${c.gray(join(root, ENV_FILENAME))}${c.gray(note)}\n`);
-  write(`  ${c.gray('It is read from that file and sent to the provider you chose, and nowhere else. OmniGEO')}\n`);
+  write(`  ${c.gray('It is read from that file and sent to the provider you chose, and nowhere else. OpenGSO')}\n`);
   write(`  ${c.gray('has no telemetry, no analytics and no cloud sync, so there is nothing else to audit.')}\n`);
 }
 
@@ -443,7 +443,7 @@ function providerNote(id) {
  */
 
 /**
- * The sub-flow for a provider OmniGEO does not ship with, and the escape hatch for one it does.
+ * The sub-flow for a provider OpenGSO does not ship with, and the escape hatch for one it does.
  *
  * A built-in provider answers this in zero questions. `custom` needs three, and they are asked in
  * the order somebody reading their gateway's docs would find them: the URL, the wire format, then
@@ -453,14 +453,14 @@ function providerNote(id) {
  * @param {Prompter} prompter
  * @param {(text: string) => void} write
  * @param {AiProvider} provider
- * @param {OmniGeoConfig} base
+ * @param {OpenGsoConfig} base
  * @returns {Promise<EndpointAnswer | undefined>}
  */
 async function askEndpoint(prompter, write, provider, base) {
   const info = providerInfo(provider);
   if (!info.userDefined) return { keyless: Boolean(info.keyless) };
 
-  write(`\n  ${c.gray('OmniGEO talks to any endpoint speaking one of three API shapes. Point it at yours.')}\n\n`);
+  write(`\n  ${c.gray('OpenGSO talks to any endpoint speaking one of three API shapes. Point it at yours.')}\n\n`);
   const baseUrl = (await prompter.ask('  Base URL (no trailing slash)', base.ai.baseUrl ?? '')).trim();
   if (!baseUrl) return undefined;
   if (!parseUrl(baseUrl)) {
@@ -487,7 +487,7 @@ async function askEndpoint(prompter, write, provider, base) {
 /**
  * Which of the four answers describes the routing a project already has.
  *
- * On a first run the answer is always `all`, because that is OmniGEO's recommendation rather than a
+ * On a first run the answer is always `all`, because that is OpenGSO's recommendation rather than a
  * report of anything. In settings mode the default has to be whatever is currently true, or pressing
  * Enter through the flow would quietly widen a list the user had deliberately narrowed. A list that
  * includes a search crawler is never one of the canned answers, so it lands on `custom`, where the

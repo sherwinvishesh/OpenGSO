@@ -3,12 +3,12 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultConfig } from '@omnigeo/core/shared';
-import { callProvider, createAiEnhancer, generatePages, TruncatedOutputError } from '@omnigeo/core/generate';
+import { defaultConfig } from '@opengso/core/shared';
+import { callProvider, createAiEnhancer, generatePages, TruncatedOutputError } from '@opengso/core/generate';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { LoadedConfig, ProviderApi } from '@omnigeo/core/shared' */
-/** @import { EnhanceInput, EnhanceOutput, ProviderCall } from '@omnigeo/core/generate' */
+/** @import { LoadedConfig, ProviderApi } from '@opengso/core/shared' */
+/** @import { EnhanceInput, EnhanceOutput, ProviderCall } from '@opengso/core/generate' */
 
 /**
  * Every AI call costs the user money, so a call whose answer cannot be used must not be repeated
@@ -36,7 +36,7 @@ afterAll(async () => {
 
 /** @returns {LoadedConfig} */
 function project() {
-  return { config: defaultConfig(siteUrl), root: mkdtempSync(join(tmpdir(), 'omnigeo-cost-')), exists: true };
+  return { config: defaultConfig(siteUrl), root: mkdtempSync(join(tmpdir(), 'opengso-cost-')), exists: true };
 }
 
 /**

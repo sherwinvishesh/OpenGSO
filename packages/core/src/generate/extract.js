@@ -6,7 +6,7 @@ import { countWords } from '../shared/tokens.js';
  * HTML -> Markdown extraction, the free/algorithmic tier (§6).
  *
  * Hand-written rather than pulled from a converter library for two reasons: it keeps core
- * dependency-light (only jsdom), and the conversion needs OmniGEO-specific behaviour a general
+ * dependency-light (only jsdom), and the conversion needs OpenGSO-specific behaviour a general
  * converter won't give us - main-content selection, noise stripping, absolute link resolution, and
  * a word count the low-content warning depends on.
  *

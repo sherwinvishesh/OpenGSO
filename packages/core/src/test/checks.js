@@ -2,7 +2,7 @@
  * The check catalogue (§5).
  *
  * Category A asks "can AI find and understand this site at all". Category B asks "is the markdown
- * twin actually being served correctly" - it is the same contract omnigeo-prod implements in §7,
+ * twin actually being served correctly" - it is the same contract opengso-prod implements in §7,
  * which is why both sides share the header constants in shared/version.js.
  *
  * Every check runs and every check is reported, but only seven of them are **scored**: A1, A3, A5,
@@ -21,7 +21,7 @@
  *    that still works for humans. Only a scored check that fails or half-passes moves it below.
  * 2. **The conventions are where a site sets itself apart, and the report says so.** The suggestion
  *    count ("3 of 15 adopted") is the second number on every report, and serving a twin with
- *    `omnigeo generate` and `omnigeo prod` is what takes it to 15.
+ *    `opengso generate` and `opengso prod` is what takes it to 15.
  * 3. **B1 is still the only double-digit weight.** Among suggestions the weight only orders them,
  *    so the markdown twin, the one that unlocks twelve more, always leads the list.
  *
@@ -62,7 +62,7 @@
  * @typedef {object} CheckDefinition
  * @property {string} id
  * @property {CheckCategory} category
- * @property {CheckImportance} importance OmniGEO's original label, kept for reference and for the docs. `scored`
+ * @property {CheckImportance} importance OpenGSO's original label, kept for reference and for the docs. `scored`
  *   is what decides whether the check counts toward the 0-100.
  * @property {boolean} scored Whether the check is part of the score. The scored seven are what an agent needs from a page
  *   today; the rest are suggestions, conventions the best-read sites have not adopted either. A suggestion is run and

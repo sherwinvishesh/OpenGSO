@@ -75,7 +75,7 @@ export function checkRobots(e) {
       undefined,
       folder
         ? `Crawlers read robots.txt only at the root of the host, and this site lives in ${folder}, so it has to be published from that root (+9).${pages} Allow the AI agents you want reading the site, and add a Sitemap line for ${folder}sitemap.xml.`
-        : 'Serve a robots.txt that allows the AI agents you want reading the site (+9). `omnigeo generate` writes one.',
+        : 'Serve a robots.txt that allows the AI agents you want reading the site (+9). `opengso generate` writes one.',
     );
   }
   if (!servesFile(e.robots)) {
@@ -83,7 +83,7 @@ export function checkRobots(e) {
       'A1',
       `${e.robots.url} answered with an HTML page, not a robots.txt. A catch-all route is handling it, so AI crawlers get no robots rules at all.`,
       undefined,
-      'Serve a real robots.txt ahead of the catch-all route (+9). `omnigeo generate` writes one.',
+      'Serve a real robots.txt ahead of the catch-all route (+9). `opengso generate` writes one.',
     );
   }
   const groups = parseRobots(e.robots.body);
@@ -141,7 +141,7 @@ export function checkLlmsTxt(e) {
       'A2',
       `No llms.txt at ${e.llms.url}${e.folder ? ` or ${e.folder}llms.txt` : ''} (HTTP ${e.llms.status || 'unreachable'}).`,
       undefined,
-      'Serve /llms.txt with a title and your key pages as markdown links (+3). `omnigeo generate` writes it.',
+      'Serve /llms.txt with a title and your key pages as markdown links (+3). `opengso generate` writes it.',
     );
   }
   if (!servesFile(e.llms)) {
@@ -149,7 +149,7 @@ export function checkLlmsTxt(e) {
       'A2',
       `${e.llms.url} answered with an HTML page, not an llms.txt. A catch-all route is handling it.`,
       undefined,
-      'Serve a real /llms.txt ahead of the catch-all route (+3). `omnigeo generate` writes it.',
+      'Serve a real /llms.txt ahead of the catch-all route (+3). `opengso generate` writes it.',
     );
   }
   const body = e.llms.body.trim();
@@ -158,7 +158,7 @@ export function checkLlmsTxt(e) {
 
   if (!body) {
     return partial('A2', 1, 'llms.txt exists but is empty. The file is being served, which is most of the plumbing.', {
-      fix: 'Add a `# Title` line and a list of your key pages as markdown links (+2). `omnigeo generate` writes it for you.',
+      fix: 'Add a `# Title` line and a list of your key pages as markdown links (+2). `opengso generate` writes it for you.',
     });
   }
   if (links === 0) {
@@ -184,14 +184,14 @@ export function checkSitemap(e) {
       'A3',
       `No sitemap.xml at ${e.sitemap.url}${e.folder ? ` or ${e.folder}sitemap.xml` : ''} (HTTP ${e.sitemap.status || 'unreachable'}).`,
       undefined,
-      'Serve a /sitemap.xml listing every page (+9). `omnigeo generate` builds one from a crawl.',
+      'Serve a /sitemap.xml listing every page (+9). `opengso generate` builds one from a crawl.',
     );
   }
   const body = e.sitemap.body;
   if (!/<(urlset|sitemapindex)[\s>]/i.test(body)) {
     return partial('A3', 3, 'Something answers at /sitemap.xml, but it has no <urlset> or <sitemapindex> root element, so no crawler will read it as a sitemap.', {
       detail: `First 80 characters: ${JSON.stringify(body.slice(0, 80))}`,
-      fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `omnigeo generate` writes one from the crawl.',
+      fix: 'Serve a real sitemap: `<urlset>` with one `<url><loc>` per page (+6). `opengso generate` writes one from the crawl.',
     });
   }
   if (isSitemapIndex(body)) return checkSitemapIndex(e);
@@ -212,7 +212,7 @@ export function checkSitemap(e) {
   const listsTarget = listed.some((loc) => locPath(loc, e.target) === locPath(e.target.pathname, e.target));
   if (!listsTarget) {
     return partial('A3', 6, `sitemap.xml is valid and lists ${locs} URL${locs === 1 ? '' : 's'}, but ${e.target.pathname} is not one of them, so at least one real page is missing from it.`, {
-      fix: `Add ${e.target.pathname} and any other pages the sitemap is missing (+3). \`omnigeo generate\` rebuilds it from a crawl.`,
+      fix: `Add ${e.target.pathname} and any other pages the sitemap is missing (+3). \`opengso generate\` rebuilds it from a crawl.`,
     });
   }
   return pass('A3', `sitemap.xml is present and valid, listing ${locs} URL${locs === 1 ? '' : 's'}.`);
@@ -252,7 +252,7 @@ function checkSitemapIndex(e) {
     );
   }
   return partial('A3', 6, `sitemap.xml is a sitemap index, and none of the ${read} include ${e.target.pathname}, so at least one real page is missing from them.`, {
-    fix: `Add ${e.target.pathname} and any other missing pages to one of the sitemaps the index lists (+3). \`omnigeo generate\` writes a single sitemap from a crawl.`,
+    fix: `Add ${e.target.pathname} and any other missing pages to one of the sitemaps the index lists (+3). \`opengso generate\` writes a single sitemap from a crawl.`,
   });
 }
 

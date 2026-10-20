@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { main } from '@omnigeo/core/cli';
-import { generateCommand } from '@omnigeo/core/cli/commands/generate';
+import { main } from '@opengso/core/cli';
+import { generateCommand } from '@opengso/core/cli/commands/generate';
 
 // Read at run time rather than stamped in at build time. The bundle sits in dist/ and the source in
 // src/, both one level below package.json, so the same path works from either.

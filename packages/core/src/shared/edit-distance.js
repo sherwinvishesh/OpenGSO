@@ -1,6 +1,6 @@
 /**
  * How many single-character edits turn `a` into `b`. What "did you mean" suggestions are measured
- * with, for a provider name and for a key in omnigeo.config.json alike.
+ * with, for a provider name and for a key in opengso.config.json alike.
  *
  * @param {string} a
  * @param {string} b

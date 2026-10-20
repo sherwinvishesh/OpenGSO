@@ -3,11 +3,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultConfig } from '@omnigeo/core/shared';
-import { generatePages, parseFrontmatter, readManifest, withFrontmatter } from '@omnigeo/core/generate';
+import { defaultConfig } from '@opengso/core/shared';
+import { generatePages, parseFrontmatter, readManifest, withFrontmatter } from '@opengso/core/generate';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { LoadedConfig } from '@omnigeo/core/shared' */
+/** @import { LoadedConfig } from '@opengso/core/shared' */
 
 /**
  * Generate is exercised against a real HTTP server rather than a stubbed fetch: it is a
@@ -16,7 +16,7 @@ import { generatePages, parseFrontmatter, readManifest, withFrontmatter } from '
 
 /** @type {Record<string, string>} */
 const PAGES = {
-  '/': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><p>A small site used by the OmniGEO test suite. It links to the other two pages so the crawl has something real to follow.</p><a href="/about">About</a><a href="/resume">Resume</a></main></body></html>',
+  '/': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><p>A small site used by the OpenGSO test suite. It links to the other two pages so the crawl has something real to follow.</p><a href="/about">About</a><a href="/resume">Resume</a></main></body></html>',
   '/about': '<!doctype html><html><head><title>About</title></head><body><main><h1>About</h1><p>Founded in 2019, three people, one office, and a stubbornly small dependency list that has stayed under ten packages for six years.</p></main></body></html>',
   '/resume': '<!doctype html><html><head><title>Resume</title></head><body><main><h1>Resume</h1><p>Shipped 4 projects in 2024. Contract signed 3 March 2024 for $12,500. Response times improved 42% year over year.</p></main></body></html>',
   // Not linked from the home page, so a crawl never reaches it; only a single-page run does.
@@ -72,7 +72,7 @@ afterAll(async () => {
  * @returns {LoadedConfig}
  */
 function project() {
-  const root = mkdtempSync(join(tmpdir(), 'omnigeo-gen-'));
+  const root = mkdtempSync(join(tmpdir(), 'opengso-gen-'));
   return { config: defaultConfig(site), root, exists: true };
 }
 
@@ -87,7 +87,7 @@ describe('generatePages', () => {
 
     const parsed = parseFrontmatter(readFileSync(file, 'utf8'));
     expect(parsed.data.title).toBe('Resume');
-    expect(parsed.data.generated_by).toBe('omnigeo-free');
+    expect(parsed.data.generated_by).toBe('opengso-free');
     expect(parsed.data.url).toBe(`${site}/resume`);
     expect(typeof parsed.data.tokens).toBe('number');
     expect(/** @type {number} */ (parsed.data.tokens)).toBeGreaterThan(0);
@@ -98,10 +98,10 @@ describe('generatePages', () => {
   it('puts the manifest in the internal directory, never in the web root', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/resume'], loaded });
-    expect(existsSync(join(loaded.root, '.omnigeo', 'manifest.json'))).toBe(true);
+    expect(existsSync(join(loaded.root, '.opengso', 'manifest.json'))).toBe(true);
     expect(existsSync(join(loaded.root, 'public', 'manifest.json'))).toBe(false);
 
-    const manifest = readManifest(join(loaded.root, '.omnigeo'));
+    const manifest = readManifest(join(loaded.root, '.opengso'));
     expect(manifest.pages['/resume']?.file).toBe('md/resume.md');
     expect(manifest.pages['/resume']?.tier).toBe('free');
   });
@@ -117,7 +117,7 @@ describe('generatePages', () => {
   it('leaves the manifest byte-identical when nothing changed', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/', '/about'], loaded });
-    const path = join(loaded.root, '.omnigeo', 'manifest.json');
+    const path = join(loaded.root, '.opengso', 'manifest.json');
     const stamped = readFileSync(path, 'utf8').replace(/"generatedAt": "[^"]+"/, '"generatedAt": "2020-01-01T00:00:00.000Z"');
     writeFileSync(path, stamped, 'utf8');
 
@@ -150,27 +150,27 @@ describe('generatePages', () => {
     expect(forced.pages[0]?.status).toBe('written');
   });
 
-  it('never overwrites a file in public/md/ that OmniGEO did not write', async () => {
+  it('never overwrites a file in public/md/ that OpenGSO did not write', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/about', '/resume'], loaded });
     const file = join(loaded.root, 'public', 'md', 'about.md');
-    writeFileSync(file, '# My notes\n\nNo frontmatter, so nothing says OmniGEO owns this.\n', 'utf8');
+    writeFileSync(file, '# My notes\n\nNo frontmatter, so nothing says OpenGSO owns this.\n', 'utf8');
 
     const second = await generatePages({ site, routes: ['/about', '/resume'], loaded });
     const about = second.pages.find((page) => page.route === '/about');
     expect(about?.status).toBe('proposed');
     expect(about?.reason).toContain('md/about.md');
     expect(readFileSync(file, 'utf8')).toContain('# My notes');
-    expect(parseFrontmatter(readFileSync(`${file}.omnigeo-proposed`, 'utf8')).data.generated_by).toBe('omnigeo-free');
-    // The manifest is what prod serves from, and it must not vouch for a file OmniGEO did not write.
-    expect(Object.keys(readManifest(join(loaded.root, '.omnigeo'), site).pages).sort()).toEqual(['/resume']);
+    expect(parseFrontmatter(readFileSync(`${file}.opengso-proposed`, 'utf8')).data.generated_by).toBe('opengso-free');
+    // The manifest is what prod serves from, and it must not vouch for a file OpenGSO did not write.
+    expect(Object.keys(readManifest(join(loaded.root, '.opengso'), site).pages).sort()).toEqual(['/resume']);
 
     const forced = await generatePages({ site, routes: ['/about'], loaded, force: true });
     expect(forced.pages[0]?.status).toBe('written');
     expect(readFileSync(file, 'utf8')).not.toContain('# My notes');
   });
 
-  it('treats frontmatter from another tool as not OmniGEO\'s either', async () => {
+  it('treats frontmatter from another tool as not OpenGSO\'s either', async () => {
     const loaded = project();
     const file = join(loaded.root, 'public', 'md', 'resume.md');
     mkdirSync(dirname(file), { recursive: true });
@@ -219,7 +219,7 @@ describe('generatePages', () => {
     });
     expect(result.pages[0]?.tier).toBe('ai');
     const parsed = parseFrontmatter(readFileSync(join(loaded.root, 'public', 'md', 'resume.md'), 'utf8'));
-    expect(parsed.data.generated_by).toBe('omnigeo-ai');
+    expect(parsed.data.generated_by).toBe('opengso-ai');
     expect(parsed.body).toContain('Polished.');
   });
 
@@ -254,7 +254,7 @@ describe('one bad page cannot take the run down with it', () => {
     const status = Object.fromEntries(result.pages.map((page) => [page.route, page.status]));
     expect(status).toEqual({ '/about': 'written', [longRoute]: 'failed', '/resume': 'written' });
     expect(result.pages.find((page) => page.route === longRoute)?.reason).toBeTruthy();
-    expect(Object.keys(readManifest(join(loaded.root, '.omnigeo'), site).pages).sort()).toEqual(['/about', '/resume']);
+    expect(Object.keys(readManifest(join(loaded.root, '.opengso'), site).pages).sort()).toEqual(['/about', '/resume']);
   });
 
   it('fails a page the extractor cannot handle and finishes the rest', async () => {
@@ -264,7 +264,7 @@ describe('one bad page cannot take the run down with it', () => {
     const sources = new Map([['/deep', deep], ['/resume', PAGES['/resume']]]);
     const result = await generatePages({ loaded, site, routes: ['/deep', '/resume'], sources });
     expect(result.pages.find((page) => page.route === '/resume')?.status).toBe('written');
-    expect(readManifest(join(loaded.root, '.omnigeo'), site).pages['/resume']).toBeDefined();
+    expect(readManifest(join(loaded.root, '.opengso'), site).pages['/resume']).toBeDefined();
   }, 30_000);
 
   it('keeps going when the AI step throws instead of returning', async () => {
@@ -281,25 +281,25 @@ describe('one bad page cannot take the run down with it', () => {
     });
     expect(result.pages.map((page) => page.status)).toEqual(['failed', 'written']);
     expect(result.pages[0]?.reason).toContain('socket hang up');
-    expect(readManifest(join(loaded.root, '.omnigeo'), site).pages['/resume']).toBeDefined();
+    expect(readManifest(join(loaded.root, '.opengso'), site).pages['/resume']).toBeDefined();
   });
 });
 
 describe('a manifest that cannot be read', () => {
   it('is reported, not silently treated as a first run', async () => {
     const loaded = project();
-    mkdirSync(join(loaded.root, '.omnigeo'), { recursive: true });
-    writeFileSync(join(loaded.root, '.omnigeo', 'manifest.json'), '{"version":1,"pages":{"/about":');
-    const { generateSite } = await import('@omnigeo/core/generate');
+    mkdirSync(join(loaded.root, '.opengso'), { recursive: true });
+    writeFileSync(join(loaded.root, '.opengso', 'manifest.json'), '{"version":1,"pages":{"/about":');
+    const { generateSite } = await import('@opengso/core/generate');
     const result = await generateSite({ target: site, loaded });
     expect(result.warnings.some((warning) => warning.includes('manifest.json') && /could not be read/i.test(warning))).toBe(true);
-    expect(Object.keys(readManifest(join(loaded.root, '.omnigeo'), site).pages)).toHaveLength(3);
+    expect(Object.keys(readManifest(join(loaded.root, '.opengso'), site).pages)).toHaveLength(3);
   });
 });
 
 describe('generateSite', () => {
   it('crawls, writes a twin per page, and writes the three site files from the same crawl', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     const result = await generateSite({ target: site, loaded });
 
@@ -314,7 +314,7 @@ describe('generateSite', () => {
   });
 
   it('does not fetch a page twice: the crawl HTML is reused by the generator', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     /** @type {string[]} */
     const phases = [];
@@ -329,7 +329,7 @@ describe('generateSite', () => {
   });
 
   it('reports every page as cached on an unchanged second run', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     await generateSite({ target: site, loaded });
     const second = await generateSite({ target: site, loaded });
@@ -338,7 +338,7 @@ describe('generateSite', () => {
   });
 
   it('still describes the whole site when only one page is regenerated', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     await generateSite({ target: site, loaded });
     const single = await generateSite({ target: `${site}/resume`, loaded, single: true, force: true });
@@ -351,7 +351,7 @@ describe('generateSite', () => {
   });
 
   it('surfaces a crawl failure as a warning rather than failing the run', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     loaded.config.extraRoutes = ['/nope'];
     const result = await generateSite({ target: site, loaded });
@@ -360,7 +360,7 @@ describe('generateSite', () => {
   });
 
   it('never writes outside the twin directory for a route with dot segments', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     // Fetched as /resume, because the URL parser resolves the dots. The route kept them, and the
     // twin was written to <root>/resume.md, outside public/.
@@ -382,7 +382,7 @@ describe('generateSite', () => {
   });
 
   it('keeps a page it could not fetch this time in the manifest and the sitemap', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     await generateSite({ target: site, loaded });
     down.add('/about');
@@ -397,7 +397,7 @@ describe('generateSite', () => {
   });
 
   it('keeps the whole manifest when the site cannot be reached at all', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     await generateSite({ target: site, loaded });
     down.add('*');
@@ -405,7 +405,7 @@ describe('generateSite', () => {
       const second = await generateSite({ target: site, loaded });
       // prod serves from the manifest, so shrinking it here would un-serve every twin.
       expect(Object.keys(second.generate.manifest.pages).sort()).toEqual(['/', '/about', '/resume']);
-      expect(readManifest(join(loaded.root, '.omnigeo'), site).pages['/resume']).toBeDefined();
+      expect(readManifest(join(loaded.root, '.opengso'), site).pages['/resume']).toBeDefined();
       expect(second.warnings.join(' ')).toMatch(/kept/i);
     } finally {
       down.clear();
@@ -413,7 +413,7 @@ describe('generateSite', () => {
   });
 
   it('writes nothing at all on a first run that cannot reach the site', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     down.add('*');
     try {
@@ -424,14 +424,14 @@ describe('generateSite', () => {
       // An empty llms.txt and sitemap.xml, or a manifest with no page in it, would say the site was
       // generated when all the run learned is that its server is down.
       expect(existsSync(join(loaded.root, 'public'))).toBe(false);
-      expect(existsSync(join(loaded.root, '.omnigeo', 'manifest.json'))).toBe(false);
+      expect(existsSync(join(loaded.root, '.opengso', 'manifest.json'))).toBe(false);
     } finally {
       down.clear();
     }
   });
 
   it('stops part way when abandoned, and keeps every twin the manifest already vouched for', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     await generateSite({ target: site, loaded, force: true });
     const controller = new AbortController();
@@ -451,11 +451,11 @@ describe('generateSite', () => {
     await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
     expect(written).toHaveLength(1);
     // prod serves from the manifest, so a run nobody is watching any more must not shrink it.
-    expect(Object.keys(readManifest(join(loaded.root, '.omnigeo'), site).pages).sort()).toEqual(['/', '/about', '/resume']);
+    expect(Object.keys(readManifest(join(loaded.root, '.opengso'), site).pages).sort()).toEqual(['/', '/about', '/resume']);
   });
 
   it('writes nothing when abandoned during the crawl', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     const controller = new AbortController();
     const run = generateSite({
@@ -467,12 +467,12 @@ describe('generateSite', () => {
       },
     });
     await expect(run).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
-    expect(existsSync(join(loaded.root, '.omnigeo', 'manifest.json'))).toBe(false);
+    expect(existsSync(join(loaded.root, '.opengso', 'manifest.json'))).toBe(false);
     expect(existsSync(join(loaded.root, 'public'))).toBe(false);
   });
 
   it('lists the canonical URL a page declares in sitemap.xml', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     const result = await generateSite({ target: `${site}/blog`, loaded, single: true });
     expect(result.generate.manifest.pages['/blog']?.canonical).toBe(`${site}/blog/`);
@@ -488,14 +488,14 @@ describe('generateSite', () => {
     expect(result.manifest.pages['/about']?.lastModified).toBe('2023-09-10');
     expect(result.manifest.pages['/resume']?.lastModified).toBeUndefined();
 
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     await generateSite({ target: `${site}/resume`, loaded, single: true });
     const xml = readFileSync(join(loaded.root, 'public', 'sitemap.xml'), 'utf8');
     expect(xml.match(/<lastmod>[^<]*<\/lastmod>/g)).toEqual(['<lastmod>2023-09-10</lastmod>']);
   });
 
   it('leaves the site files alone when asked for twins only', async () => {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     const result = await generateSite({ target: site, loaded, skipSiteFiles: true });
     expect(result.files).toEqual([]);
@@ -509,7 +509,7 @@ describe('twins whose page the crawl no longer reaches', () => {
    * the same thing a page deleted from the site, or unlinked from it, looks like to generate.
    */
   async function orphanBlog() {
-    const { generateSite } = await import('@omnigeo/core/generate');
+    const { generateSite } = await import('@opengso/core/generate');
     const loaded = project();
     loaded.config.extraRoutes = ['/blog'];
     await generateSite({ target: site, loaded });
@@ -530,7 +530,7 @@ describe('twins whose page the crawl no longer reaches', () => {
     expect(third.generate.orphans.map((o) => o.route)).toEqual(['/blog']);
   });
 
-  it('deletes only orphaned files OmniGEO wrote when asked to prune', async () => {
+  it('deletes only orphaned files OpenGSO wrote when asked to prune', async () => {
     const { generateSite, loaded, blog } = await orphanBlog();
     const handWritten = join(loaded.root, 'public', 'md', 'notes.md');
     writeFileSync(handWritten, '# Notes\n\nWritten by hand, listed nowhere.\n');
@@ -541,7 +541,7 @@ describe('twins whose page the crawl no longer reaches', () => {
     expect(existsSync(blog)).toBe(false);
     expect(existsSync(handWritten)).toBe(true);
     expect(existsSync(join(loaded.root, 'public', 'md', 'about.md'))).toBe(true);
-    expect(readManifest(join(loaded.root, '.omnigeo'), site).orphans).toBeUndefined();
+    expect(readManifest(join(loaded.root, '.opengso'), site).orphans).toBeUndefined();
   });
 
   it('never prunes a twin someone has since made their own', async () => {

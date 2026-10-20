@@ -39,7 +39,7 @@ import { canUseTui } from './tui/screen.js';
  * @property {SetupMode} mode
  * @property {boolean} [autoAccept] `--yes`. Takes every default without asking, so it also skips the
  *   probe and the closing test.
- * @property {string} [tag] What the frame's top-right corner says, e.g. `omnigeo 0.4.0`.
+ * @property {string} [tag] What the frame's top-right corner says, e.g. `opengso 0.4.0`.
  * @property {NodeJS.ReadStream} [input]
  * @property {NodeJS.WriteStream} [output]
  */
@@ -74,7 +74,7 @@ export async function runOnboarding(options) {
   } finally {
     prompter.close();
     // After the frame is gone, so the report lands in scrollback where it can be scrolled and
-    // copied, exactly like the report a `omnigeo test` prints.
+    // copied, exactly like the report a `opengso test` prints.
     stepper?.close();
   }
 }
@@ -84,7 +84,7 @@ export async function runOnboarding(options) {
  *
  * Deliberately structural only. A content review costs money and needs a key that most people will
  * not have just added, and a setup flow whose final step spends money is a setup flow people learn
- * to interrupt. The number this prints is the same number `omnigeo test` would print one second
+ * to interrupt. The number this prints is the same number `opengso test` would print one second
  * later, which is the point: nothing here is a preview or an estimate.
  *
  * A failed run is not an error. The site may not be running yet - the probe two steps earlier will
@@ -114,10 +114,10 @@ async function scoreOnFinish(result, write, framed) {
     // Inside the frame the buffer is 12 lines, and the report is longer than that; the stepper
     // flushes whatever is left to scrollback on close, so this is written once and read there.
     write(renderSetupScore(suite.structure, { width: framed ? 80 : undefined }));
-    write(`${c.gray(`Re-run it any time with \`omnigeo test ${config.site}\`, or just \`omnigeo\`.\n`)}`);
+    write(`${c.gray(`Re-run it any time with \`opengso test ${config.site}\`, or just \`opengso\`.\n`)}`);
   } catch (error) {
     write(`  ${c.yellow(ERRORS.setupScoreFailed(error instanceof Error ? error.message : String(error)))}\n`);
-    write(`  ${c.gray(`Setup is finished regardless. Run \`omnigeo test ${config.site}\` once the site is up.`)}\n`);
+    write(`  ${c.gray(`Setup is finished regardless. Run \`opengso test ${config.site}\` once the site is up.`)}\n`);
   }
 }
 

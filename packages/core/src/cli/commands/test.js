@@ -35,7 +35,7 @@ import { resolveProject, resolveTarget } from '../project.js';
  */
 
 /**
- * `omnigeo test` in three shapes (§5).
+ * `opengso test` in three shapes (§5).
  *
  * The default run does the structural audit and then, only if a key is already configured, the AI
  * content review of every Markdown document the site serves. Without a key it prints the structural
@@ -346,7 +346,7 @@ function writeContent(result, write) {
  * @typedef {object} AiChoice
  * @property {SuiteAi} [ai]
  * @property {LookalikeKey[]} [lookalikes] Set when there is no key, for the message to point at a
- *   `.env` line that looks like one under a name OmniGEO does not read.
+ *   `.env` line that looks like one under a name OpenGSO does not read.
  * @property {string} [error] A flag the user got wrong. Fatal, unlike a missing key, which the suite
  *   reports in context.
  * @property {boolean} [usage] The error is a `--provider` that does not exist.

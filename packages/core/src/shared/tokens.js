@@ -16,7 +16,7 @@ export function estimateTokens(text) {
 }
 
 /**
- * Whitespace-delimited words. The one definition every count in OmniGEO uses (the extractor's
+ * Whitespace-delimited words. The one definition every count in OpenGSO uses (the extractor's
  * threshold, B3's twin-versus-page comparison, the fidelity ratio, the manifest's wordCount), so
  * two counts that get compared were always made the same way.
  *

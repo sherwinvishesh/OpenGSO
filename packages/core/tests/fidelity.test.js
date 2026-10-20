@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ERRORS } from '@omnigeo/core/shared';
-import { canonicalize, extractFacts, verifyFidelity } from '@omnigeo/core/generate';
-import { createAiEnhancer, stripCodeFence } from '@omnigeo/core/generate';
-/** @import { ProviderCall } from '@omnigeo/core/generate' */
+import { ERRORS } from '@opengso/core/shared';
+import { canonicalize, extractFacts, verifyFidelity } from '@opengso/core/generate';
+import { createAiEnhancer, stripCodeFence } from '@opengso/core/generate';
+/** @import { ProviderCall } from '@opengso/core/generate' */
 
 /**
  * The fidelity guard is the only thing standing between "the prompt says not to change facts" and
@@ -132,7 +132,7 @@ describe('stripCodeFence', () => {
   });
 
   it('leaves a document that opens and closes with its own code blocks alone', () => {
-    const doc = '```\nnpm install omnigeo\n```\n\nThen run it.\n\n```\nomnigeo test\n```';
+    const doc = '```\nnpm install opengso\n```\n\nThen run it.\n\n```\nopengso test\n```';
     expect(stripCodeFence(doc)).toBe(doc);
   });
 
@@ -206,7 +206,7 @@ describe('createAiEnhancer', () => {
     expect(second.fellBack).toBe(true);
     expect(second.markdown).toBe(SOURCE);
     expect(second.warnings.join(' ')).toContain('answered 401 on an earlier page');
-    expect(second.warnings.join(' ')).toContain('omnigeo settings');
+    expect(second.warnings.join(' ')).toContain('opengso settings');
   });
 
   it('stops sending pages once the provider says the model does not exist', async () => {

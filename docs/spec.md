@@ -1,4 +1,4 @@
-# The OmniGEO wire spec, version `omnigeo/1.0`
+# The OpenGSO wire spec, version `opengso/1.0`
 
 This is the contract between a site and an AI agent: which URL holds the markdown, which headers say
 so, and what happens when an agent asks for a format the server cannot produce.
@@ -7,16 +7,16 @@ It is deliberately small. Everything here is plain HTTP that a CDN, a proxy and 
 already understand. There is no new protocol, no manifest an agent has to fetch first, and no
 client library.
 
-`omnigeo-prod` implements this spec. `omnigeo test` audits it. Both import the same header
+`opengso-prod` implements this spec. `opengso test` audits it. Both import the same header
 constants from the same module, so the two can never drift apart on a spelling.
 
 ## Version string
 
 ```
-X-AEO-Version: omnigeo/1.0
+X-AEO-Version: opengso/1.0
 ```
 
-This names **OmniGEO's own published behaviour**, not a third party's standard. If OmniGEO changes
+This names **OpenGSO's own published behaviour**, not a third party's standard. If OpenGSO changes
 what it serves in a way an agent could notice, this string changes. An agent that does not recognise
 the value should ignore it and fall back to plain content negotiation, which works regardless.
 
@@ -64,7 +64,7 @@ Returns markdown at the original URL, without an Accept header, for agents on th
 `bots.markdownRouting` list. This is a courtesy for agents that do not send an Accept header, not a
 replacement for negotiation.
 
-OmniGEO's default list is every crawler it can recognise by User-Agent **except** the ones whose
+OpenGSO's default list is every crawler it can recognise by User-Agent **except** the ones whose
 job is a search index (Bingbot, Applebot, OAI-SearchBot, Claude-SearchBot, PerplexityBot and the
 others marked `search` in the bot list). A markdown response carries `X-Robots-Tag: noindex`, and at
 the canonical URL that would tell a search engine to drop the page itself. Those crawlers get the
@@ -86,7 +86,7 @@ next section is not optional.
 |---|---|---|
 | `Content-Type` | `text/markdown; charset=utf-8` | yes |
 | `Vary` | includes `Accept` | yes |
-| `X-AEO-Version` | `omnigeo/1.0` | yes |
+| `X-AEO-Version` | `opengso/1.0` | yes |
 | `X-Robots-Tag` | `noindex` | yes |
 | `X-Content-Type-Options` | `nosniff` | yes |
 | `X-Markdown-Tokens` | positive integer | recommended |
@@ -102,8 +102,8 @@ every page on the site, offered to search engines as a separate document.
 estimate is `ceil(words x 1.3)`, minimum 1. It is an estimate and is documented as one; no
 tokenizer is shipped and none is implied.
 
-`X-Markdown-Source-Hash` and `Last-Modified` are OmniGEO's additions beyond the required set. They
-exist so an auditor can detect drift without trusting the body: `omnigeo test`'s B14 check compares
+`X-Markdown-Source-Hash` and `Last-Modified` are OpenGSO's additions beyond the required set. They
+exist so an auditor can detect drift without trusting the body: `opengso test`'s B14 check compares
 the hash of a freshly extracted page against the hash the server claims. They are omitted rather
 than faked when the manifest has nothing to report, because a wrong `Last-Modified` is worse than
 none.
@@ -125,7 +125,7 @@ site's to answer.
 | Header | Value | Required |
 |---|---|---|
 | `Vary` | includes `Accept` | yes |
-| `X-AEO-Version` | `omnigeo/1.0` | yes |
+| `X-AEO-Version` | `opengso/1.0` | yes |
 | `Link` | `</resume.md>; rel="alternate"; type="text/markdown"` | recommended, when a twin exists |
 
 `Link` is omitted for routes with no generated twin, rather than advertising a URL that 404s.
@@ -150,7 +150,7 @@ carry `Cache-Control: private`. Adding `User-Agent` to `Vary` instead would spli
 entry per browser build for every visitor, to fix a problem only crawlers have.
 
 **Known limitation.** The Next.js App Router appends its own values to `Vary` on HTML responses and
-offers no supported way to stop it. OmniGEO scores this as a partial (check B7 earns 2 of its 4)
+offers no supported way to stop it. OpenGSO scores this as a partial (check B7 earns 2 of its 4)
 rather than special-casing it, and the markdown responses carry a clean `Vary: Accept`. Behaviour behind a
 cross-host CDN is documented as untested, not claimed.
 
@@ -162,7 +162,7 @@ When the Accept header excludes both HTML and markdown on a route that has a twi
 HTTP/1.1 406 Not Acceptable
 Content-Type: text/plain; charset=utf-8
 Vary: Accept
-X-AEO-Version: omnigeo/1.0
+X-AEO-Version: opengso/1.0
 
 406 Not Acceptable
 
@@ -185,24 +185,24 @@ This is the part implementations most often get wrong, so it is spelled out.
 
 **Lever 1, `bots.markdownRouting`, chooses a format.** An agent on this list gets markdown. An agent
 not on it gets the normal HTML page, exactly like a human. This lever **never** blocks anybody, and
-an agent OmniGEO has never heard of is never blocked by it. Unknown means unknown, not hostile.
+an agent OpenGSO has never heard of is never blocked by it. Unknown means unknown, not hostile.
 
 **Lever 2, `bots.blocked`, requests no access.** It is opt-in, empty by default, and expressed only
-through the `robots.txt` that `omnigeo generate` writes. It is advisory, as robots.txt always is.
+through the `robots.txt` that `opengso generate` writes. It is advisory, as robots.txt always is.
 A name whose robots token is not a plain token (letters, digits, `_`, `-` and `.`) is left out and
 named in a comment in the file, so no entry can add directives of its own.
 
-`omnigeo-prod` has **no blocking code path at all**. It cannot block a bot, because there is nothing
+`opengso-prod` has **no blocking code path at all**. It cannot block a bot, because there is nothing
 in it that could. Blocking lives in a static file that a crawler chooses to honour, which is where
 it belongs and where a site owner can read it. A runtime that silently 403s on a User-Agent match is
 a different product with different failure modes.
 
-`omnigeo prod test` reports the two levers in separate sections and calls out disagreements between
+`opengso prod test` reports the two levers in separate sections and calls out disagreements between
 them, for example a bot you route markdown to that your own robots.txt also disallows.
 
 ### `bots.custom` is not a third lever
 
-A site can name agents OmniGEO does not ship with, under `bots.custom`. Each entry needs a `name`;
+A site can name agents OpenGSO does not ship with, under `bots.custom`. Each entry needs a `name`;
 `vendor`, `uaPatterns`, `robotsToken` and `kind` are filled in from it when absent.
 
 ```jsonc
@@ -217,7 +217,7 @@ else the runtime reads.
 
 ## Generated files
 
-`omnigeo generate` writes four things from one crawl:
+`opengso generate` writes four things from one crawl:
 
 | File | Purpose |
 |---|---|
@@ -226,9 +226,9 @@ else the runtime reads.
 | `public/llms.txt` | the table of contents an agent reads first |
 | `public/sitemap.xml` | a real `<urlset>` |
 
-It never overwrites a file it did not write. A `robots.txt` that exists without OmniGEO's
+It never overwrites a file it did not write. A `robots.txt` that exists without OpenGSO's
 generated-by marker is left exactly as it is, and the proposed version is written beside it as
-`robots.txt.omnigeo-proposed` with a warning. `--force` overrides this.
+`robots.txt.opengso-proposed` with a warning. `--force` overrides this.
 
 ### Frontmatter
 
@@ -239,17 +239,17 @@ url: "https://example.com/resume"
 last_updated: "2026-09-05T02:01:33.445Z"
 tokens: 314
 source_hash: "0cdc3ec67ce75fa0"
-generated_by: "omnigeo-free"
+generated_by: "opengso-free"
 description: "A dated record of engagements, budgets, and outcomes."
 ---
 ```
 
-`omnigeo-prod` strips the frontmatter before serving the body, and moves the same facts into
+`opengso-prod` strips the frontmatter before serving the body, and moves the same facts into
 response headers. The frontmatter is for the file on disk; the headers are for the wire.
 
-`generated_by` records which tier produced the file: `omnigeo-free` for the algorithmic extraction,
-`omnigeo-ai` for the AI-assisted one. Setting it to `manual` by hand marks the file as yours, and
-`omnigeo generate` will leave it alone from then on unless you pass `--force`.
+`generated_by` records which tier produced the file: `opengso-free` for the algorithmic extraction,
+`opengso-ai` for the AI-assisted one. Setting it to `manual` by hand marks the file as yours, and
+`opengso generate` will leave it alone from then on unless you pass `--force`.
 
 `source_hash` is taken over the **extracted markdown**, not the raw HTML. Hashing raw HTML would
 change on every framework rebuild and every hydration marker, and a staleness check that fires
@@ -257,7 +257,7 @@ constantly is a staleness check nobody reads.
 
 ## Bookkeeping that is not part of the spec
 
-`.omnigeo/manifest.json` records route, file, token count, hash and timestamp for every generated
+`.opengso/manifest.json` records route, file, token count, hash and timestamp for every generated
 page. It lives outside the web root so it is never served, and it is what lets the runtime satisfy
 "pure lookup, no parsing at request time": it is read once at startup, and every request after that
 is a map lookup.
@@ -265,14 +265,14 @@ is a map lookup.
 It is an implementation detail of this toolchain. An agent never sees it, and a different
 implementation of this spec does not need one.
 
-## Implementing this without OmniGEO
+## Implementing this without OpenGSO
 
-Nothing here requires OmniGEO. The spec is four ideas:
+Nothing here requires OpenGSO. The spec is four ideas:
 
 1. Serve the same content as markdown when asked, at the same URL.
 2. Say so with `Vary: Accept` and a `Link: rel="alternate"`.
 3. Do not index the twin.
 4. Return 406 instead of guessing.
 
-`omnigeo test` will audit any implementation of them, including one you wrote yourself. It probes
+`opengso test` will audit any implementation of them, including one you wrote yourself. It probes
 over HTTP and has no idea what is on the other end.

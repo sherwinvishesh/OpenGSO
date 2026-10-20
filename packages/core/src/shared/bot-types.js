@@ -6,7 +6,7 @@
 
 /**
  * @typedef {object} AiBot
- * @property {string} name Canonical name, and the identifier a user writes in omnigeo.config.json.
+ * @property {string} name Canonical name, and the identifier a user writes in opengso.config.json.
  * @property {string} vendor
  * @property {string[]} uaPatterns Case-insensitive User-Agent substrings. Empty means robots.txt-only
  *   (no crawler to match).
@@ -18,7 +18,7 @@
  */
 
 /**
- * A crawler the user added themselves, as it appears in `bots.custom` in omnigeo.config.json.
+ * A crawler the user added themselves, as it appears in `bots.custom` in opengso.config.json.
  *
  * The shipped list is updated by pull request, which is the right cadence for a shared list and
  * the wrong one for the person whose in-house agent started crawling yesterday. Everything except

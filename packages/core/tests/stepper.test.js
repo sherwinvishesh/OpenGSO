@@ -39,7 +39,7 @@ describe('stepRail', () => {
  *
  * `openStepper` returning undefined is what `runOnboarding` reads to decide between a full-screen
  * frame and the readline prompter that has always been there. If this ever starts returning a
- * stepper for a pipe, `omnigeo settings < answers.txt` hangs on a screen nobody can see.
+ * stepper for a pipe, `opengso settings < answers.txt` hangs on a screen nobody can see.
  */
 describe('openStepper', () => {
   /** @param {boolean} isTTY */

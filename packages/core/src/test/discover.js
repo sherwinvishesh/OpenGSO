@@ -10,7 +10,7 @@ import { countWords } from '../shared/tokens.js';
 /**
  * Finding every Markdown document a site actually serves (§5).
  *
- * The content review needs documents, and the only honest way to get them from a site OmniGEO did
+ * The content review needs documents, and the only honest way to get them from a site OpenGSO did
  * not generate is to ask the site. Three sources, in descending order of how deliberate they are:
  *
  * 1. The twin of the URL the user named. Always reviewed, even when nothing else is found.

@@ -38,9 +38,9 @@ export function previewLines(preview) {
   }
 
   if (preview.twin?.served) {
-    lines.push(`${ink.ok('A markdown twin is already being served')} ${c.gray(`at ${preview.twin.url}, by omnigeo-prod.`)}`);
+    lines.push(`${ink.ok('A markdown twin is already being served')} ${c.gray(`at ${preview.twin.url}, by opengso-prod.`)}`);
   } else if (preview.twin?.ok) {
-    lines.push(`${ink.ok('Something already answers')} ${c.gray(`at ${preview.twin.url}, without OmniGEO's headers.`)}`);
+    lines.push(`${ink.ok('Something already answers')} ${c.gray(`at ${preview.twin.url}, without OpenGSO's headers.`)}`);
   } else {
     lines.push(c.gray(`No twin at ${preview.twin?.url ?? twinUrl(preview.url)} yet. That is what generate and prod are for.`));
   }

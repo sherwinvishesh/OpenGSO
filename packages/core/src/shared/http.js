@@ -1,5 +1,5 @@
 /**
- * A single fetch wrapper for every HTTP call OmniGEO makes.
+ * A single fetch wrapper for every HTTP call OpenGSO makes.
  *
  * It records TTFB because `test` scores it (§5A), and it never throws on a non-2xx: check code
  * wants the failing status and headers, not an exception.
@@ -35,7 +35,7 @@
  */
 
 /**
- * The most of any one response OmniGEO will hold in memory.
+ * The most of any one response OpenGSO will hold in memory.
  *
  * A tested page is somebody else's server, and it can send a body that never ends. Real pages are
  * a few hundred kilobytes; this is far past any of them and far short of hurting the process.
@@ -48,11 +48,11 @@ export const BROWSER_UA =
 /** What a browser sends for a page load, so a probe meant to look like a person looks like one. */
 export const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
-export const OMNIGEO_UA = 'OmniGEO/1.0 (+https://github.com/sherwinvishesh/OmniGEO)';
+export const OPENGSO_UA = 'OpenGSO/1.0 (+https://github.com/sherwinvishesh/OpenGSO)';
 
 /**
  * Accepts neither HTML nor markdown, which is the only case §7 answers with a 406. Shared so that
- * `omnigeo test` (B11) and `omnigeo prod test` ask the site the same question.
+ * `opengso test` (B11) and `opengso prod test` ask the site the same question.
  */
 export const HOSTILE_ACCEPT = 'application/pdf';
 
@@ -67,7 +67,7 @@ export async function probe(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   /** @type {RequestInit} */
-  const init = { method, redirect, headers: { 'User-Agent': OMNIGEO_UA, ...headers }, signal: controller.signal };
+  const init = { method, redirect, headers: { 'User-Agent': OPENGSO_UA, ...headers }, signal: controller.signal };
 
   try {
     /** @type {Response} */

@@ -30,7 +30,7 @@ export function readFileRoute(body, options) {
   return ok({ path: relative, content });
 }
 
-const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.omnigeo-proposed)?)$/;
+const GENERATED_FILE = /^(md\/.+\.md|(robots\.txt|llms\.txt|sitemap\.xml)(\.opengso-proposed)?)$/;
 
 /**
  * Read a generated file so the dashboard can show what is actually on disk.

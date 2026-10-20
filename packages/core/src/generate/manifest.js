@@ -11,7 +11,7 @@ import { AEO_SPEC_VERSION } from '../shared/version.js';
  */
 
 /**
- * `.omnigeo/manifest.json` - the one record of what generate produced.
+ * `.opengso/manifest.json` - the one record of what generate produced.
  *
  * It lives in the internal directory rather than `public/` on purpose: it is bookkeeping, not
  * content, and there is no reason for it to be web-served.
@@ -66,9 +66,9 @@ export const MANIFEST_VERSION = 1;
  */
 
 /**
- * A twin OmniGEO wrote for a page that a later run no longer found. It stays on disk until the user
+ * A twin OpenGSO wrote for a page that a later run no longer found. It stays on disk until the user
  * passes --prune, and is listed here so the next run can still report it and still prove the file
- * is one OmniGEO wrote. prod reads `pages` only, so nothing listed here is served.
+ * is one OpenGSO wrote. prod reads `pages` only, so nothing listed here is served.
  *
  * @typedef {object} OrphanTwin
  * @property {string} route

@@ -4,8 +4,8 @@ url: "http://localhost:3000/"
 last_updated: "2026-09-05T02:01:33.416Z"
 tokens: 188
 source_hash: "13b1ef2062093e30"
-generated_by: "omnigeo-free"
-description: "A small demo site used to exercise the OmniGEO loop end to end."
+generated_by: "opengso-free"
+description: "A small demo site used to exercise the OpenGSO loop end to end."
 ---
 
 # Aurora Fieldwork

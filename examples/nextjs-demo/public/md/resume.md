@@ -1,16 +1,16 @@
 ---
 title: "Engagement record"
 url: "http://localhost:3000/resume"
-last_updated: "2026-10-20T20:20:42.363Z"
+last_updated: "2026-10-20T21:18:08.389Z"
 tokens: 314
-source_hash: "46d0a003f821b8c5"
-generated_by: "omnigeo-free"
+source_hash: "0c8032f66d648aca"
+generated_by: "opengso-free"
 description: "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
 ---
 
 # Engagement record
 
-This page exists so the OmniGEO fidelity checks have something concrete to hold onto: real dates, real prices, real percentages. Anything that rewrites this page and changes a number has failed.
+This page exists so the OpenGSO fidelity checks have something concrete to hold onto: real dates, real prices, real percentages. Anything that rewrites this page and changes a number has failed.
 
 ## Svalbard permafrost array
 

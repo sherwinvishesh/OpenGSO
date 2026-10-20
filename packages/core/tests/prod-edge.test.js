@@ -27,7 +27,7 @@ describe('the edge entry', () => {
   it('bundles for a runtime with no Node builtins', async () => {
     const result = await build({
       stdin: {
-        contents: `export * from '@omnigeo/core/prod/edge';`,
+        contents: `export * from '@opengso/core/prod/edge';`,
         resolveDir: repo,
         loader: 'js',
       },
@@ -42,7 +42,7 @@ describe('the edge entry', () => {
   });
 
   it('leaves out everything that reads the disk', async () => {
-    const entry = Object.keys(await import('@omnigeo/core/prod/edge'));
+    const entry = Object.keys(await import('@opengso/core/prod/edge'));
     expect(entry).toEqual(
       expect.arrayContaining(['createManifestStore', 'createMemoryStore', 'handleRequest', 'createEdgeMiddleware', 'fetchMiddleware']),
     );
@@ -52,7 +52,7 @@ describe('the edge entry', () => {
   });
 
   it('serves a twin from an inlined manifest, as a generic fetch handler', async () => {
-    const { createManifestStore, createProdHandler, MARKDOWN_CONTENT_TYPE } = await import('@omnigeo/core/prod/edge');
+    const { createManifestStore, createProdHandler, MARKDOWN_CONTENT_TYPE } = await import('@opengso/core/prod/edge');
     const handle = createProdHandler({
       store: createManifestStore({
         manifest: { pages: { '/resume': { route: '/resume', file: 'md/resume.md', tokens: 3 } } },

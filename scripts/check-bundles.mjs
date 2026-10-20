@@ -2,13 +2,13 @@
 /**
  * Asserts the structural promises the built bundles make (§3).
  *
- * 1. `omnigeo-prod`'s importable library, and the copy of it `omnigeo` ships as `omnigeo/prod`,
+ * 1. `opengso-prod`'s importable library, and the copy of it `opengso` ships as `opengso/prod`,
  *    carry no jsdom, no AI provider code and no network call. That library runs on the user's
  *    server on every request, so its weight and its network surface are part of the product.
  * 2. The edge entries import no `node:` module at all, since edge bundlers reject one even when
  *    the code that uses it never runs.
  * 3. Every bundle, CLIs included, imports nothing but Node builtins and the dependencies its
- *    package declares, and jsdom is the only dependency any package may declare. `omnigeo-prod`
+ *    package declares, and jsdom is the only dependency any package may declare. `opengso-prod`
  *    may not declare even that.
  *
  * Run after `npm run build`. It reads what the build produced, never the source: the metafile
@@ -27,16 +27,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** @type {string[]} */
 const failures = [];
 
-const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'omnigeo'];
+const PACKAGES = ['testing', 'generate', 'prod', 'cli', 'opengso'];
 /** Library entries, by package directory. Each is checked as the runtime the middleware is. */
 const LIBRARIES = {
   prod: { runtime: ['index.js', 'next.js', 'edge.js', 'node.js', 'fetch.js', 'vite.js'], edge: ['edge.js'] },
-  omnigeo: {
+  opengso: {
     runtime: ['prod.js', 'prod-next.js', 'prod-edge.js', 'prod-node.js', 'prod-fetch.js', 'prod-vite.js'],
     edge: ['prod-edge.js'],
   },
 };
-const ALLOWED_DEPENDENCIES = { 'omnigeo-prod': [] };
+const ALLOWED_DEPENDENCIES = { 'opengso-prod': [] };
 
 /**
  * Modules whose presence in a runtime bundle means AI or jsdom code came along. Matched against

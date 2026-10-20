@@ -208,7 +208,7 @@ export async function confirm(screen, keys, options) {
  * Hold the frame until it has been read.
  *
  * Not every step of a flow is a question. Setup's third one states a policy - blocking is a separate
- * lever and OmniGEO leaves it empty - and in scrollback that prints and the flow moves on, which is
+ * lever and OpenGSO leaves it empty - and in scrollback that prints and the flow moves on, which is
  * right, because the words stay where they were printed. On a screen that repaints, "prints and
  * moves on" means the next question wipes them before anybody has read a word of it.
  *

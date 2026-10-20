@@ -17,7 +17,7 @@ export const BUNDLE_META_DIR = '.bundle-meta';
  */
 export function recordBundle(name) {
   return {
-    name: 'omnigeo-record-bundle',
+    name: 'opengso-record-bundle',
     setup(build) {
       build.initialOptions.metafile = true;
       build.onEnd((result) => {

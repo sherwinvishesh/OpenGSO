@@ -200,16 +200,16 @@ export function identifyBot(userAgent, bots = AI_BOTS) {
  * @returns {string}
  */
 export function botUserAgent(bot, bots = AI_BOTS) {
-  const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OmniGEO)`;
+  const ua = `Mozilla/5.0 (compatible; ${bot.name}/1.0; +https://github.com/sherwinvishesh/OpenGSO)`;
   if (identifyBot(ua, bots)?.name === bot.name) return ua;
   // Defensive: a bot whose UA token is not its own name. None today, but this file is the
   // community-contribution surface, and a probe that silently fails to impersonate anyone would
   // report a routing failure that does not exist.
-  return `Mozilla/5.0 (compatible; ${bot.uaPatterns[0]}/1.0; +https://github.com/sherwinvishesh/OmniGEO)`;
+  return `Mozilla/5.0 (compatible; ${bot.uaPatterns[0]}/1.0; +https://github.com/sherwinvishesh/OpenGSO)`;
 }
 
 /**
- * The crawler `omnigeo test` impersonates for B10: GPTBot, unless the project routes a list that
+ * The crawler `opengso test` impersonates for B10: GPTBot, unless the project routes a list that
  * leaves it out, in which case the first routable crawler on that list. Probing a bot the project
  * chose not to route would report a failure the site does not have.
  *

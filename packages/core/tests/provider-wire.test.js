@@ -1,11 +1,11 @@
 import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { callProvider, createAiEnhancer, DEFAULT_MAX_TOKENS } from '@omnigeo/core/generate';
+import { callProvider, createAiEnhancer, DEFAULT_MAX_TOKENS } from '@opengso/core/generate';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
-/** @import { ProviderCall } from '@omnigeo/core/generate' */
+/** @import { ProviderCall } from '@opengso/core/generate' */
 
 /**
- * The one request in OmniGEO that carries the user's key, over a real socket.
+ * The one request in OpenGSO that carries the user's key, over a real socket.
  *
  * A loopback server stands in for each provider by being named as `baseUrl`, which the catalogue
  * honours for every row. It records what arrived and answers with whatever the test hands it, so

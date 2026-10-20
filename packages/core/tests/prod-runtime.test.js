@@ -7,8 +7,8 @@ import {
   MARKDOWN_CONTENT_TYPE,
   createMemoryStore,
   handleRequest,
-} from '@omnigeo/core/prod';
-import { defaultConfig } from '@omnigeo/core/shared';
+} from '@opengso/core/prod';
+import { defaultConfig } from '@opengso/core/shared';
 /** @import { Server, IncomingMessage, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 
@@ -198,7 +198,7 @@ describe('a route with a twin is a page, whatever its last segment looks like', 
 
 describe('the runtime entry', () => {
   it('carries the middleware and not the deployment checker or test hooks', async () => {
-    const entry = Object.keys(await import('@omnigeo/core/prod'));
+    const entry = Object.keys(await import('@opengso/core/prod'));
     expect(entry).toEqual(expect.arrayContaining(['handleRequest', 'createProdHandler', 'logStartupStatus']));
     for (const name of [
       'verifyProd',

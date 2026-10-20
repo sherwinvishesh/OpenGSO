@@ -10,6 +10,6 @@
     "node_modules",
     "**/dist/**",
     "examples/**",
-    "packages/omnigeo/web/**"
+    "packages/opengso/web/**"
   ]
 }

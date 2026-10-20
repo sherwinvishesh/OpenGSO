@@ -15,7 +15,7 @@ import { editDistance } from './edit-distance.js';
 /**
  * Defined in `api-types.js` with every other shape the dashboard reads, and re-exported here.
  *
- * @typedef {import('./api-types.js').OmniGeoConfig} OmniGeoConfig
+ * @typedef {import('./api-types.js').OpenGsoConfig} OpenGsoConfig
  */
 
 // Types only, and deliberately: `prod` loads the config on every boot, and a value import from the
@@ -23,17 +23,17 @@ import { editDistance } from './edit-distance.js';
 // whole promise is that it contains no AI code. `check:bundles` fails the build if that happens
 // again. Callers that need PROVIDERS, providerInfo or DEFAULT_MODELS import './providers.js'.
 
-export const CONFIG_FILENAME = 'omnigeo.config.json';
+export const CONFIG_FILENAME = 'opengso.config.json';
 
 /**
  * @param {string} [site]
- * @returns {OmniGeoConfig}
+ * @returns {OpenGsoConfig}
  */
 export function defaultConfig(site = 'http://localhost:3000') {
   return {
     site,
     publicDir: 'public',
-    internalDir: '.omnigeo',
+    internalDir: '.opengso',
     extraRoutes: [],
     crawl: { maxPages: 200, maxDepth: 4, exclude: [] },
     generate: { tier: 'free', minWords: 40 },
@@ -46,20 +46,20 @@ export function defaultConfig(site = 'http://localhost:3000') {
 
 /**
  * @typedef {object} LoadedConfig
- * @property {OmniGeoConfig} config
+ * @property {OpenGsoConfig} config
  * @property {string} root Absolute path of the project root (the directory holding
- *   omnigeo.config.json, or cwd).
+ *   opengso.config.json, or cwd).
  * @property {string} [path] Absolute path of the config file, if one was found on disk.
  * @property {boolean} exists
  * @property {string} [webRootWhy] Set when there is no config file and `publicDir` came from the
  *   framework in package.json rather than the default, saying why, for the one line that tells the
  *   user where their files went.
- * @property {Array<{ key: string; suggestion?: string }>} [unknownKeys] Keys in the file OmniGEO does
+ * @property {Array<{ key: string; suggestion?: string }>} [unknownKeys] Keys in the file OpenGSO does
  *   not read, from `unknownConfigKeys`. Absent when there are none.
  */
 
 /**
- * Walk up from `startDir` looking for omnigeo.config.json, but never past the project.
+ * Walk up from `startDir` looking for opengso.config.json, but never past the project.
  *
  * The project ends at the repository root (the nearest directory holding `.git`), so a workspace
  * package in a monorepo still finds the config beside the root `package.json`. Outside a repository,
@@ -95,7 +95,7 @@ function findUp(start, name) {
 }
 
 /**
- * A config file or patch OmniGEO will not use. The message is written for the person who has to fix
+ * A config file or patch OpenGSO will not use. The message is written for the person who has to fix
  * it, so unlike an arbitrary exception it is safe to hand to the dashboard as it is.
  */
 export class ConfigError extends Error {
@@ -110,7 +110,7 @@ export class ConfigError extends Error {
 export function loadConfig(startDir = process.cwd()) {
   const path = findConfigFile(startDir);
   if (!path) {
-    // No config file: the framework's own web root, so that a first `omnigeo generate` on a
+    // No config file: the framework's own web root, so that a first `opengso generate` on a
     // SvelteKit app writes to static/ rather than a public/ nothing serves, and test and prod, which
     // load the same way, look for the twins where generate put them.
     const root = resolve(startDir);
@@ -177,10 +177,10 @@ export const RESERVED_AI_PARAMS = /** @type {const} */ (['model', 'messages', 's
 /**
  * Every field a patch may set, with what it has to be. The bounds are wide on purpose: they are there
  * to catch a typo like a `maxPages` of 1e12, which removes the cap on a large site, and nothing more.
- * `omnigeo-prod` loads this file on boot and never crawls, so a tight bound here would be a way to
+ * `opengso-prod` loads this file on boot and never crawls, so a tight bound here would be a way to
  * take a site down over a setting prod does not even read. `ai.provider`
  * is only checked for being a string here, because naming the providers would mean importing the
- * catalogue into a module `omnigeo-prod` loads; the catalogue refuses an unknown one when it is used.
+ * catalogue into a module `opengso-prod` loads; the catalogue refuses an unknown one when it is used.
  *
  * @type {Array<[section: string | undefined, key: string, expected: string, ok: (value: unknown) => boolean]>}
  */
@@ -209,7 +209,7 @@ const FIELD_RULES = [
 ];
 
 /**
- * Why a config file or an API patch is not one OmniGEO can use, or nothing if it is. Only the fields
+ * Why a config file or an API patch is not one OpenGSO can use, or nothing if it is. Only the fields
  * present are checked, so a patch of one field is fine; unknown fields are left alone, so a config
  * written by a newer version still loads. Directory confinement is `projectDirProblem`'s job.
  *
@@ -238,7 +238,7 @@ const UNCHECKED_KEYS = ['$schema'];
 const squash = (name) => name.toLowerCase().replace(/[-_]/g, '');
 
 /**
- * The keys of a config that OmniGEO does not read, each with the key it was probably meant to be.
+ * The keys of a config that OpenGSO does not read, each with the key it was probably meant to be.
  *
  * `configPatchProblem` leaves these alone so that a config written by a newer version still loads,
  * which also means a `publicdir` or a `crawl.maxpages` is ignored without a word and the run
@@ -275,14 +275,14 @@ export function unknownConfigKeys(raw) {
 }
 
 /**
- * Why `publicDir` or `internalDir` would put OmniGEO outside the project, or nothing if both are fine.
+ * Why `publicDir` or `internalDir` would put OpenGSO outside the project, or nothing if both are fine.
  *
  * Generate writes into both, the dashboard reads out of the first, and the project root holds `.env`.
  * A web root of `.` once let the dashboard hand the API key to anybody who asked for `.env`, and
  * `/etc` let it read the host's files. Strictly inside, never equal: the root is where the key lives.
  *
  * @param {string} root
- * @param {Pick<OmniGeoConfig, 'publicDir' | 'internalDir'>} config
+ * @param {Pick<OpenGsoConfig, 'publicDir' | 'internalDir'>} config
  * @returns {string | undefined}
  */
 export function projectDirProblem(root, config) {
@@ -298,7 +298,7 @@ export function projectDirProblem(root, config) {
 
 /**
  * @param {string} root
- * @param {OmniGeoConfig} config
+ * @param {OpenGsoConfig} config
  * @returns {string}
  */
 export function saveConfig(root, config) {
@@ -312,24 +312,24 @@ export function saveConfig(root, config) {
 /**
  * What a caller may hand to `mergeConfig`: any subset, down to a single field of a single section.
  *
- * `Partial<OmniGeoConfig>` was the old signature and it lied. It made every section all-or-nothing
+ * `Partial<OpenGsoConfig>` was the old signature and it lied. It made every section all-or-nothing
  * while the merge below has always accepted a fragment of one, so the honest types had to be
  * written out by hand for a config file, an API patch and a settings screen to say the same thing.
  *
- * @typedef {Partial<Omit<OmniGeoConfig, 'crawl' | 'generate' | 'bots' | 'ai'>> & {
- *   crawl?: Partial<OmniGeoConfig['crawl']>;
- *   generate?: Partial<OmniGeoConfig['generate']>;
- *   bots?: Partial<OmniGeoConfig['bots']>;
- *   ai?: Partial<OmniGeoConfig['ai']>;
+ * @typedef {Partial<Omit<OpenGsoConfig, 'crawl' | 'generate' | 'bots' | 'ai'>> & {
+ *   crawl?: Partial<OpenGsoConfig['crawl']>;
+ *   generate?: Partial<OpenGsoConfig['generate']>;
+ *   bots?: Partial<OpenGsoConfig['bots']>;
+ *   ai?: Partial<OpenGsoConfig['ai']>;
  * }} ConfigPatch
  */
 
 /**
  * Shallow-per-section merge, so a partial config file only overrides what it actually names.
  *
- * @param {OmniGeoConfig} base
+ * @param {OpenGsoConfig} base
  * @param {ConfigPatch} patch
- * @returns {OmniGeoConfig}
+ * @returns {OpenGsoConfig}
  */
 export function mergeConfig(base, patch) {
   return {
@@ -351,13 +351,13 @@ export function mergeConfig(base, patch) {
  * flags to another that refuses them. Changing the provider therefore clears them unless the same
  * patch restates them.
  *
- * @param {OmniGeoConfig['ai']} base
- * @param {Partial<OmniGeoConfig['ai']> | undefined} patch
- * @returns {OmniGeoConfig['ai']}
+ * @param {OpenGsoConfig['ai']} base
+ * @param {Partial<OpenGsoConfig['ai']> | undefined} patch
+ * @returns {OpenGsoConfig['ai']}
  */
 function mergeAi(base, patch) {
   if (!patch) return { ...base };
-  /** @type {OmniGeoConfig['ai']} */
+  /** @type {OpenGsoConfig['ai']} */
   const merged = { ...base, ...patch };
   if (patch.provider && patch.provider !== base.provider) {
     // The old provider's model id means nothing to the new one. Blank reads as "the provider's own
@@ -375,7 +375,7 @@ function mergeAi(base, patch) {
 /**
  * The endpoint overrides a project's config carries, in the shape the provider catalogue wants.
  *
- * @param {Pick<OmniGeoConfig, 'ai'>} config
+ * @param {Pick<OpenGsoConfig, 'ai'>} config
  * @returns {ProviderOverrides}
  */
 export function providerOverridesOf(config) {
@@ -386,7 +386,7 @@ export function providerOverridesOf(config) {
  * The address generated URLs are built on: `publicOrigin` when the project sets one, with the folder
  * it may name (`https://user.github.io/repo`), otherwise the origin that was crawled.
  *
- * @param {Pick<OmniGeoConfig, 'publicOrigin'>} config
+ * @param {Pick<OpenGsoConfig, 'publicOrigin'>} config
  * @param {string} crawled
  * @returns {string}
  */

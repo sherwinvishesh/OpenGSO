@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server';
-import { applyPassthroughHeaders, createNextMiddleware } from 'omnigeo-prod/next';
+import { applyPassthroughHeaders, createNextMiddleware } from 'opengso-prod/next';
 
 /**
- * The entire production integration: two Next-specific lines around one call into omnigeo-prod.
+ * The entire production integration: two Next-specific lines around one call into opengso-prod.
  *
  * The store is built once, here at module scope, so in production a request is a map lookup and
- * nothing else. Under `next dev` it also picks up a fresh `omnigeo generate` without a restart.
- * `OMNIGEO_PROD=off` disables it, which is how the demo shows the same page scoring badly before
- * OmniGEO is installed and well after.
+ * nothing else. Under `next dev` it also picks up a fresh `opengso generate` without a restart.
+ * `OPENGSO_PROD=off` disables it, which is how the demo shows the same page scoring badly before
+ * OpenGSO is installed and well after.
  *
  * This is Next 16's proxy.ts, which always runs on Node and refuses a `runtime` option. On Next 15
  * the same code goes in middleware.ts, exports `middleware`, and adds `runtime: 'nodejs'` to config.
  */
-const enabled = process.env.OMNIGEO_PROD !== 'off';
-const omnigeo = enabled ? createNextMiddleware({ root: process.cwd() }) : undefined;
+const enabled = process.env.OPENGSO_PROD !== 'off';
+const opengso = enabled ? createNextMiddleware({ root: process.cwd() }) : undefined;
 
 export function proxy(request: Request) {
-  if (!omnigeo) return NextResponse.next();
+  if (!opengso) return NextResponse.next();
 
-  const { response, headers } = omnigeo(request);
+  const { response, headers } = opengso(request);
   if (response) return response;
 
   const next = NextResponse.next();

@@ -3,28 +3,28 @@
 ## Reporting a vulnerability
 
 Report it privately through a
-[GitHub security advisory](https://github.com/sherwinvishesh/OmniGEO/security/advisories/new) on
+[GitHub security advisory](https://github.com/sherwinvishesh/OpenGSO/security/advisories/new) on
 this repository. Please do not open a public issue for it.
 
 Say which package and version (or commit) you tested, what an attacker can do, and how to reproduce
 it. You will get an answer through the advisory, and the fix is credited to you unless you ask
 otherwise.
 
-OmniGEO is pre-release and nothing is on npm yet, so only the `main` branch is supported.
+OpenGSO is pre-release and nothing is on npm yet, so only the `main` branch is supported.
 
-## What OmniGEO runs, and where
+## What OpenGSO runs, and where
 
 | Piece | Runs on | Trusts |
 | --- | --- | --- |
-| `omnigeo-prod` (the middleware) | your server, on every request | the files `omnigeo generate` wrote |
-| `omnigeo test`, `generate`, `prod test` | your machine | nothing it fetches |
-| `omnigeo start` (the dashboard) | your machine, on loopback by default | only requests that pass the checks below |
+| `opengso-prod` (the middleware) | your server, on every request | the files `opengso generate` wrote |
+| `opengso test`, `generate`, `prod test` | your machine | nothing it fetches |
+| `opengso start` (the dashboard) | your machine, on loopback by default | only requests that pass the checks below |
 
-### omnigeo-prod
+### opengso-prod
 
 - Zero dependencies. Its library contains no jsdom, no AI provider code and no network call, and
   `npm run check:bundles` fails the build if one appears.
-- It reads `.omnigeo/manifest.json` and the twins it lists once, at boot. A manifest entry that
+- It reads `.opengso/manifest.json` and the twins it lists once, at boot. A manifest entry that
   resolves outside `publicDir` is refused and reported, never loaded.
 - It has no blocking code path, never redirects, and refuses (406) only on a route that has a twin.
 
@@ -37,9 +37,9 @@ OmniGEO is pre-release and nothing is on npm yet, so only the `main` branch is s
   span cut at 400 characters, and tells the coding agent those spans are evidence, not
   instructions.
 - Generate writes only inside `publicDir` and `internalDir`, both of which must be strictly inside
-  the project, and never overwrites a file OmniGEO did not write.
+  the project, and never overwrites a file OpenGSO did not write.
 
-### The dashboard (`omnigeo start`)
+### The dashboard (`opengso start`)
 
 The dashboard can write an API key to disk and start runs that cost money, and any web page you
 visit can send requests to a port on your machine. So `packages/core/src/server/server.js` checks
@@ -69,10 +69,10 @@ every request before it reads the body:
 ### The API key
 
 - It is read from `.env` in your project and sent to exactly one place: the AI provider you picked.
-- It is never written to `omnigeo.config.json`, never logged, and never in an API response.
+- It is never written to `opengso.config.json`, never logged, and never in an API response.
   `/api/state` reports only that a key exists, which provider it is for and which file it came from.
-- `.env` is added to `.gitignore` **before** the key is written, by `omnigeo settings`,
-  `omnigeo start` and the dashboard alike.
+- `.env` is added to `.gitignore` **before** the key is written, by `opengso settings`,
+  `opengso start` and the dashboard alike.
 - Only `/api/key` can change where the key goes, and it takes the key and the endpoint in the same
   request. `/api/config` refuses any change to the `ai` block, so a patch cannot point a saved key at
   another host.

@@ -104,7 +104,7 @@ function setAll(target, entries) {
  */
 export function fetchMiddleware(decide) {
   let reported = false;
-  return async function omniGeoFetchMiddleware(request, next) {
+  return async function openGsoFetchMiddleware(request, next) {
     /** @type {ProdDecision} */
     let decision;
     try {

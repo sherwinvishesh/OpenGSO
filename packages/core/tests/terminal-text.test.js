@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { terminalSafe, terminalText } from '@omnigeo/core/shared';
-import { renderContentReport } from '@omnigeo/core/test';
-/** @import { ContentReview } from '@omnigeo/core/test' */
+import { terminalSafe, terminalText } from '@opengso/core/shared';
+import { renderContentReport } from '@opengso/core/test';
+/** @import { ContentReview } from '@opengso/core/test' */
 
 /**
  * Remote text on the terminal.

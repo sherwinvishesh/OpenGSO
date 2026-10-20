@@ -21,43 +21,43 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@omnigeo/core": [
+      "@opengso/core": [
         "./packages/core/src/index.js"
       ],
-      "@omnigeo/core/shared": [
+      "@opengso/core/shared": [
         "./packages/core/src/shared/index.js"
       ],
-      "@omnigeo/core/generate": [
+      "@opengso/core/generate": [
         "./packages/core/src/generate/index.js"
       ],
-      "@omnigeo/core/test": [
+      "@opengso/core/test": [
         "./packages/core/src/test/index.js"
       ],
-      "@omnigeo/core/prod": [
+      "@opengso/core/prod": [
         "./packages/core/src/prod/index.js"
       ],
-      "@omnigeo/core/prod/next": [
+      "@opengso/core/prod/next": [
         "./packages/core/src/prod/adapters/next.js"
       ],
-      "@omnigeo/core/prod/edge": [
+      "@opengso/core/prod/edge": [
         "./packages/core/src/prod/edge.js"
       ],
-      "@omnigeo/core/prod/node": [
+      "@opengso/core/prod/node": [
         "./packages/core/src/prod/adapters/node.js"
       ],
-      "@omnigeo/core/prod/fetch": [
+      "@opengso/core/prod/fetch": [
         "./packages/core/src/prod/adapters/fetch.js"
       ],
-      "@omnigeo/core/prod/vite": [
+      "@opengso/core/prod/vite": [
         "./packages/core/src/prod/adapters/vite.js"
       ],
-      "@omnigeo/core/server": [
+      "@opengso/core/server": [
         "./packages/core/src/server/index.js"
       ],
-      "@omnigeo/core/cli": [
+      "@opengso/core/cli": [
         "./packages/core/src/cli/index.js"
       ],
-      "@omnigeo/core/cli/commands/*": [
+      "@opengso/core/cli/commands/*": [
         "./packages/core/src/cli/commands/*.js"
       ]
     },

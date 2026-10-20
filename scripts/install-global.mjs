@@ -1,5 +1,5 @@
 /**
- * Builds `omnigeo` and installs it globally, so `omnigeo <command>` works in any directory.
+ * Builds `opengso` and installs it globally, so `opengso <command>` works in any directory.
  *
  * A tarball install rather than `npm link`, because it exercises the exact artifact a user would
  * get from the registry: the `files` list, the `bin` entry, the real dependency tree, and the
@@ -22,9 +22,9 @@ const run = (args) => execFileSync('npm', args, { cwd: root, stdio: 'inherit' })
 const skipBuild = process.argv.includes('--no-build');
 if (!skipBuild) run(['run', 'build']);
 
-const dir = mkdtempSync(join(tmpdir(), 'omnigeo-pack-'));
+const dir = mkdtempSync(join(tmpdir(), 'opengso-pack-'));
 try {
-  run(['pack', '--workspace', 'packages/omnigeo', '--pack-destination', dir, '--silent']);
+  run(['pack', '--workspace', 'packages/opengso', '--pack-destination', dir, '--silent']);
   const tarball = readdirSync(dir).find((name) => name.endsWith('.tgz'));
   if (!tarball) throw new Error(`npm pack wrote nothing to ${dir}`);
   run(['install', '-g', join(dir, tarball)]);
@@ -35,7 +35,7 @@ try {
 // Resolved from the npm prefix rather than `which`, because npm puts the workspace's own
 // node_modules/.bin at the front of PATH for scripts, and that is not the copy just installed.
 const prefix = execFileSync('npm', ['prefix', '-g']).toString().trim();
-const where = join(prefix, 'bin', 'omnigeo');
+const where = join(prefix, 'bin', 'opengso');
 const version = execFileSync(where, ['--version']).toString().trim();
 console.log(`\n  ${version} installed at ${where}`);
-console.log(`  Try: omnigeo --help\n`);
+console.log(`  Try: opengso --help\n`);

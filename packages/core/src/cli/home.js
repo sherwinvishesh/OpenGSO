@@ -19,7 +19,7 @@ import { homeEntries, homeHeader } from './home-view.js';
 /** @typedef {import('./home-status.js').HomeStatus} HomeStatus */
 
 /**
- * `omnigeo` on its own: the application, rather than a wall of flags.
+ * `opengso` on its own: the application, rather than a wall of flags.
  *
  * The first thing anyone types after installing something is its name, and until now that answered
  * with either a help page or a browser window. Neither is what the question meant. This is a home
@@ -53,7 +53,7 @@ const SHORTCUTS = {
  *
  * Returns a process exit code, which is always 0 for a normal quit: the home screen is a launcher,
  * and the exit code of the last thing launched is not the exit code of the launcher. A test that
- * scored 40 should not make `omnigeo` itself look like it crashed.
+ * scored 40 should not make `opengso` itself look like it crashed.
  *
  * @param {HomeOptions} options
  * @returns {Promise<number>}

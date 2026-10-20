@@ -37,14 +37,14 @@ export function checkTwinReachable(e) {
       'B1',
       `Could not reach the markdown twin at ${e.twinUrl}: ${e.twin.error}`,
       undefined,
-      `Serve a markdown twin at ${e.twinUrl} (+10). \`omnigeo generate\` writes it and the prod middleware serves it.`,
+      `Serve a markdown twin at ${e.twinUrl} (+10). \`opengso generate\` writes it and the prod middleware serves it.`,
     );
   if (!e.twin.ok) {
     return fail(
       'B1',
       `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}. Agents that follow the .md convention get nothing.`,
       undefined,
-      `Serve a markdown twin at ${e.twinUrl} (+10). \`omnigeo generate\` writes it and the prod middleware serves it.`,
+      `Serve a markdown twin at ${e.twinUrl} (+10). \`opengso generate\` writes it and the prod middleware serves it.`,
     );
   }
   if (!servesFile(e.twin)) {
@@ -52,7 +52,7 @@ export function checkTwinReachable(e) {
       'B1',
       `The markdown twin URL ${e.twinUrl} answered HTTP ${e.twin.status} with an HTML page, not markdown. A catch-all route or the page renderer is handling the .md URL.`,
       undefined,
-      `Route ${e.twinUrl} to the markdown twin, ahead of the page renderer (+10). \`omnigeo generate\` writes it and the prod middleware serves it.`,
+      `Route ${e.twinUrl} to the markdown twin, ahead of the page renderer (+10). \`opengso generate\` writes it and the prod middleware serves it.`,
     );
   }
   return pass('B1', `The markdown twin at ${e.twinUrl} returned HTTP ${e.twin.status}.`);
@@ -250,7 +250,7 @@ export function checkLinkAlternate(e) {
     return pass('B8', `The HTML response advertises its markdown twin: Link rel="alternate" -> ${e.advertisedTwinUrl}`);
   }
   if (e.foreignTwinUrl) {
-    return partial('B8', 1, `The HTML response advertises a markdown twin at ${e.foreignTwinUrl}, which is not on this site's origin, so OmniGEO did not fetch it and checked ${e.twinUrl} instead.`, {
+    return partial('B8', 1, `The HTML response advertises a markdown twin at ${e.foreignTwinUrl}, which is not on this site's origin, so OpenGSO did not fetch it and checked ${e.twinUrl} instead.`, {
       fix: `Point the Link header at the twin on this origin: \`<${e.twinUrl}>; rel="alternate"; type="text/markdown"\` (+2).`,
     });
   }

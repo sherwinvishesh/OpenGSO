@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ERRORS, defaultConfig, fileToRoute, listLocalPages, loadConfig, mergeConfig, routeToTwinRelPath } from '@omnigeo/core/shared';
+import { ERRORS, defaultConfig, fileToRoute, listLocalPages, loadConfig, mergeConfig, routeToTwinRelPath } from '@opengso/core/shared';
 import {
   SourceFilesError,
   canonicalOf,
@@ -13,7 +13,7 @@ import {
   readManifest,
   resolveRoutes,
   staleCounts,
-} from '@omnigeo/core/generate';
+} from '@opengso/core/generate';
 import { generateCommand } from '../src/cli/commands/generate.js';
 import { runCli } from '../src/cli/index.js';
 import { readHomeStatus, plainStatus, statusRows } from '../src/cli/home.js';
@@ -21,12 +21,12 @@ import { readGeneratedFile } from '../src/server/api-files.js';
 import { shownPath } from '../src/shared/local-pages.js';
 import { runGenerate } from '../src/server/api-generate.js';
 import { readState } from '../src/server/api-settings.js';
-/** @import { LoadedConfig } from '@omnigeo/core/shared' */
+/** @import { LoadedConfig } from '@opengso/core/shared' */
 /** @import { LocalPage } from '../src/shared/local-pages.js' */
 /** @import { FreshnessReport } from '../src/shared/api-types.js' */
 
 /**
- * A site that is a folder of HTML files, read without a server: `omnigeo generate site/`.
+ * A site that is a folder of HTML files, read without a server: `opengso generate site/`.
  *
  * Everything here runs against real files in a temporary directory, because the parts that go wrong
  * are the parts a stub would hide: how a folder is walked, which file a host serves at a URL, where
@@ -37,7 +37,7 @@ import { readState } from '../src/server/api-settings.js';
 let root;
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'omnigeo-files-'));
+  root = mkdtempSync(join(tmpdir(), 'opengso-files-'));
 });
 
 afterEach(() => {
@@ -70,7 +70,7 @@ function writeSite(files, dir = 'site') {
 }
 
 /**
- * @param {Partial<import('@omnigeo/core/shared').OmniGeoConfig>} [patch]
+ * @param {Partial<import('@opengso/core/shared').OpenGsoConfig>} [patch]
  * @returns {LoadedConfig}
  */
 function loaded(patch = {}) {
@@ -301,7 +301,7 @@ describe('generateFromFiles', () => {
     expect(twin.body).toContain('$12 a month');
     expect(existsSync(join(root, 'site', 'md'))).toBe(false);
 
-    const manifest = readManifest(join(root, '.omnigeo'));
+    const manifest = readManifest(join(root, '.opengso'));
     expect(manifest.source).toBe('files');
     const entry = manifest.pages['/about.html'];
     expect(entry?.sourceFile).toBe('about.html');
@@ -320,13 +320,13 @@ describe('generateFromFiles', () => {
     writeSite(SITE);
     await generateFromFiles({ loaded: loaded() });
     const twin = readFileSync(join(root, 'site', 'about.html.md'), 'utf8');
-    const before = readManifest(join(root, '.omnigeo')).pages['/about.html'];
+    const before = readManifest(join(root, '.opengso')).pages['/about.html'];
 
     later(join(root, 'site', 'about.html'), 60);
     const again = await generateFromFiles({ loaded: loaded() });
     expect(again.generate.pages.every((p) => p.status === 'cached')).toBe(true);
     expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toBe(twin);
-    expect(readManifest(join(root, '.omnigeo')).pages['/about.html']?.sourceModified).toBe(before?.sourceModified);
+    expect(readManifest(join(root, '.opengso')).pages['/about.html']?.sourceModified).toBe(before?.sourceModified);
   });
 
   it('regenerates one file and keeps every other page in the manifest', async () => {
@@ -337,7 +337,7 @@ describe('generateFromFiles', () => {
     const one = await generateFromFiles({ loaded: loaded(), file: 'about.html' });
     expect(one.single).toBe(true);
     expect(one.generate.pages.map((p) => [p.sourceFile, p.status])).toEqual([['about.html', 'written']]);
-    expect(Object.keys(readManifest(join(root, '.omnigeo')).pages).sort()).toEqual(['/', '/about.html', '/pricing.html']);
+    expect(Object.keys(readManifest(join(root, '.opengso')).pages).sort()).toEqual(['/', '/about.html', '/pricing.html']);
     expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toContain('Now four people.');
   });
 
@@ -354,7 +354,7 @@ describe('generateFromFiles', () => {
     const result = await generateFromFiles({ loaded: loaded() });
     expect(result.generate.pages.find((p) => p.sourceFile === 'about.html')?.status).toBe('proposed');
     expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toBe('# My own notes about this page\n');
-    expect(existsSync(join(root, 'site', 'about.html.md.omnigeo-proposed'))).toBe(true);
+    expect(existsSync(join(root, 'site', 'about.html.md.opengso-proposed'))).toBe(true);
   });
 
   it('writes .nojekyll into a folder GitHub Pages publishes, once, and says so', async () => {
@@ -457,7 +457,7 @@ describe('checkFreshness', () => {
   it('gives both times their seconds when the page changed in the same minute its twin was written', async () => {
     writeSite(SITE);
     await generateFromFiles({ loaded: loaded() });
-    const written = Date.parse(readManifest(join(root, '.omnigeo')).pages['/about.html']?.lastUpdated ?? '');
+    const written = Date.parse(readManifest(join(root, '.opengso')).pages['/about.html']?.lastUpdated ?? '');
     writeFileSync(join(root, 'site', 'about.html'), page('About', `${WORDS}<p>Moved offices.</p>`));
     // The same minute as the twin, two seconds after it, or the next minute when that would cross.
     const when = new Date(new Date(written).getSeconds() < 57 ? written + 2000 : written + 61_000);
@@ -470,7 +470,7 @@ describe('checkFreshness', () => {
   it('does not trust a manifest that points outside the web root', async () => {
     writeSite(SITE);
     await generateFromFiles({ loaded: loaded() });
-    const path = join(root, '.omnigeo', 'manifest.json');
+    const path = join(root, '.opengso', 'manifest.json');
     const manifest = JSON.parse(readFileSync(path, 'utf8'));
     manifest.pages['/about.html'].sourceFile = '../../etc/passwd';
     writeFileSync(path, JSON.stringify(manifest));
@@ -496,7 +496,7 @@ async function cli(argv) {
     return true;
   });
   try {
-    const code = await runCli({ packageName: 'omnigeo', version: '0.0.0-test', commands: { generate: generateCommand }, argv: ['generate', ...argv] });
+    const code = await runCli({ packageName: 'opengso', version: '0.0.0-test', commands: { generate: generateCommand }, argv: ['generate', ...argv] });
     // eslint-disable-next-line no-control-regex
     const plain = (/** @type {string} */ text) => text.replace(/\x1b\[[0-9;]*m/g, '');
     return { code, stdout: plain(stdout), stderr: plain(stderr) };
@@ -505,7 +505,7 @@ async function cli(argv) {
   }
 }
 
-describe('omnigeo generate <folder>', () => {
+describe('opengso generate <folder>', () => {
   it('reads the folder, writes the twins beside the pages, and creates the config that remembers it', async () => {
     writeSite(SITE);
     const { code, stdout } = await cli([join(root, 'site'), '--project', root]);
@@ -535,11 +535,11 @@ describe('omnigeo generate <folder>', () => {
     writeSite(SITE, '.');
     const { code, stderr } = await cli([root, '--project', root]);
     expect(code).toBe(2);
-    expect(stderr).toContain('cd .. && omnigeo generate');
+    expect(stderr).toContain('cd .. && opengso generate');
   });
 
   it('refuses a folder outside the project, and one that is not the configured web root', async () => {
-    const elsewhere = mkdtempSync(join(tmpdir(), 'omnigeo-elsewhere-'));
+    const elsewhere = mkdtempSync(join(tmpdir(), 'opengso-elsewhere-'));
     try {
       expect((await cli([elsewhere, '--project', root])).stderr).toContain(ERRORS.filesOutsideProject(elsewhere, root));
     } finally {
@@ -548,7 +548,7 @@ describe('omnigeo generate <folder>', () => {
 
     writeSite(SITE);
     writeSite(SITE, 'public');
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ site: 'https://acme.example', publicDir: 'public' }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site: 'https://acme.example', publicDir: 'public' }));
     const mismatch = await cli([join(root, 'site'), '--project', root]);
     expect(mismatch.code).toBe(2);
     expect(mismatch.stderr).toContain(ERRORS.filesWebRootMismatch(join(root, 'site'), join(root, 'public')));
@@ -605,7 +605,7 @@ describe('omnigeo generate <folder>', () => {
 
     // The same folder with and without its slash is the same site, so nothing to warn about.
     const again = await cli(['--project', root, '--origin', 'https://user.github.io/repo/']);
-    expect(again.stdout).not.toContain('omnigeo.config.json says');
+    expect(again.stdout).not.toContain('opengso.config.json says');
 
     const crawl = await cli(['http://localhost:9/', '--project', join(root, 'elsewhere'), '--origin', 'https://user.github.io/repo']);
     expect(crawl.code).toBe(2);
@@ -613,7 +613,7 @@ describe('omnigeo generate <folder>', () => {
   });
 });
 
-describe('omnigeo generate --check', () => {
+describe('opengso generate --check', () => {
   it('exits 0 when every twin matches, 1 when one does not, and 2 for a crawled site', async () => {
     writeSite(SITE);
     await cli([join(root, 'site'), '--project', root]);
@@ -651,11 +651,11 @@ describe('omnigeo generate --check', () => {
 // -- the dashboard and the home screen -----------------------------------------------------------
 
 describe('the dashboard on a folder project', () => {
-  const options = () => ({ root, version: '0.0.0-test', packageName: 'omnigeo' });
+  const options = () => ({ root, version: '0.0.0-test', packageName: 'opengso' });
 
   it('generates from the folder, not the configured URL, and reports the freshness in the state', async () => {
     writeSite(SITE);
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ site: 'http://localhost:9', publicDir: 'site', generate: { source: 'files' } }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site: 'http://localhost:9', publicDir: 'site', generate: { source: 'files' } }));
 
     const response = await runGenerate({}, options());
     expect(response.status).toBe(200);
@@ -671,42 +671,42 @@ describe('the dashboard on a folder project', () => {
   });
 
   it('turns a folder problem into a 400 with the message, and refuses a file on a crawled project', async () => {
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ site: 'http://localhost:9', publicDir: 'site', generate: { source: 'files' } }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site: 'http://localhost:9', publicDir: 'site', generate: { source: 'files' } }));
     mkdirSync(join(root, 'site'));
     const empty = await runGenerate({}, options());
     expect(empty.status).toBe(400);
     expect(JSON.stringify(empty.body)).toContain('site');
 
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ site: 'http://localhost:9' }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site: 'http://localhost:9' }));
     expect((await runGenerate({ file: 'about.html' }, options())).status).toBe(400);
   });
 
   it('reads back a twin the manifest lists beside its page, and never somebody else\'s markdown', async () => {
     writeSite({ ...SITE, 'README.md': '# private notes' });
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
     await runGenerate({}, options());
 
     expect(readGeneratedFile(root, 'about.html.md')).toContain('About');
     expect(readGeneratedFile(root, 'README.md')).toBeUndefined();
-    expect(readGeneratedFile(root, '../omnigeo.config.json')).toBeUndefined();
+    expect(readGeneratedFile(root, '../opengso.config.json')).toBeUndefined();
   });
 
   it('reads back the file an agent is served where generate proposed a twin instead of overwriting', async () => {
     writeSite({ ...SITE, 'about.html.md': '# About, written by hand' });
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
     const run = await runGenerate({}, options());
     const pages = /** @type {{ pages: { status: string; file?: string }[] }} */ (run.body).pages;
-    expect(pages.find((page) => page.status === 'proposed')?.file).toBe('about.html.md.omnigeo-proposed');
+    expect(pages.find((page) => page.status === 'proposed')?.file).toBe('about.html.md.opengso-proposed');
 
     expect(readGeneratedFile(root, 'about.html.md')).toBe('# About, written by hand');
-    expect(readGeneratedFile(root, 'about.html.md.omnigeo-proposed')).toBeUndefined();
+    expect(readGeneratedFile(root, 'about.html.md.opengso-proposed')).toBeUndefined();
   });
 });
 
 describe('the home screen on a folder project', () => {
   it('names the folder, counts what is out of date, and launches generate with no URL', async () => {
     writeSite(SITE);
-    writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ publicDir: 'site', generate: { source: 'files' } }));
     await generateFromFiles({ loaded: loadConfig(root) });
 
     const fresh = readHomeStatus(root);

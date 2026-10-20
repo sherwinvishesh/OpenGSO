@@ -14,7 +14,7 @@ import {
 } from '../src/test/runner.js';
 import { QUALITY_AREAS, QUALITY_TOTAL_WEIGHT } from '../src/test/quality.js';
 import { GPTBOT_UA, PROBE_HEADERS } from '../src/test/evidence.js';
-import { BROWSER_UA, HOSTILE_ACCEPT, OMNIGEO_UA } from '../src/shared/http.js';
+import { BROWSER_UA, HOSTILE_ACCEPT, OPENGSO_UA } from '../src/shared/http.js';
 import { AI_BOTS } from '../src/shared/bots.js';
 import { PROVIDERS } from '../src/shared/providers.js';
 import { AEO_SPEC_VERSION, HEADERS, MARKDOWN_CONTENT_TYPE } from '../src/shared/version.js';
@@ -132,7 +132,7 @@ describe('docs/checks.md', () => {
   it('describes the requests B9, B10 and B11 actually send', () => {
     // How each User-Agent the probes can send is described in prose.
     /** @type {Record<string, string>} */
-    const described = { [OMNIGEO_UA]: "OmniGEO's own User-Agent", [BROWSER_UA]: 'a browser User-Agent', [GPTBOT_UA]: 'a GPTBot User-Agent' };
+    const described = { [OPENGSO_UA]: "OpenGSO's own User-Agent", [BROWSER_UA]: 'a browser User-Agent', [GPTBOT_UA]: 'a GPTBot User-Agent' };
     /** @type {Array<[string, Record<string, string>]>} */
     const probes = [
       ['B9', PROBE_HEADERS.acceptMarkdown],
@@ -262,7 +262,7 @@ describe('docs/config.md', () => {
 describe('docs/prod-api.md', () => {
   const doc = read('docs/prod-api.md');
 
-  it('documents every export of the six omnigeo-prod entries, and nothing else', async () => {
+  it('documents every export of the six opengso-prod entries, and nothing else', async () => {
     const exported = new Set([
       ...Object.keys(await import('../src/prod/index.js')),
       ...Object.keys(await import('../src/prod/adapters/next.js')),
@@ -288,7 +288,7 @@ describe('docs/versioning.md', () => {
   it('names the real spec version and the real package version', () => {
     expect(doc).toContain(`\`${AEO_SPEC_VERSION}\``);
     const versions = new Set(
-      ['testing', 'generate', 'prod', 'cli', 'omnigeo'].map((dir) => JSON.parse(read(`packages/${dir}/package.json`)).version),
+      ['testing', 'generate', 'prod', 'cli', 'opengso'].map((dir) => JSON.parse(read(`packages/${dir}/package.json`)).version),
     );
     // The doc says all five share one version today; when they diverge, so must the sentence.
     expect(versions.size).toBe(1);
@@ -314,7 +314,7 @@ describe('docs/providers.md', () => {
     }
   });
 
-  it('names every provider-native environment variable OmniGEO accepts', () => {
+  it('names every provider-native environment variable OpenGSO accepts', () => {
     for (const provider of PROVIDERS) {
       for (const variable of provider.envVars) {
         expect(doc, `${variable} is undocumented`).toContain(variable);
@@ -339,7 +339,7 @@ describe('docs/providers.md', () => {
     expect(read('README.md')).toContain(`${capitalized(spelled)} of them out of the box`);
     expect(read('packages/cli/README.md')).toContain(`${capitalized(spelled)} of them`);
     expect(read('packages/generate/README.md')).toContain(`Any of ${spelled} providers`);
-    expect(read('packages/omnigeo/README.md')).toContain(`any of the ${spelled} providers`);
+    expect(read('packages/opengso/README.md')).toContain(`any of the ${spelled} providers`);
     const readme = read('README.md');
     for (const provider of PROVIDERS) expect(readme, `README.md never names ${provider.id}`).toMatch(new RegExp(`\\b${provider.id}\\b`));
   });
@@ -360,7 +360,7 @@ const COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seve
 /** @param {string} word */
 const capitalized = (word) => `${word[0].toUpperCase()}${word.slice(1)}`;
 
-describe('`omnigeo prod test`', () => {
+describe('`opengso prod test`', () => {
   const verify = read('packages/core/src/prod/verify.js');
   const probes = new Set([...verify.matchAll(/^\s+id: '([a-z-]+)',$/gm)].map(([, id]) => id));
 
@@ -368,11 +368,11 @@ describe('`omnigeo prod test`', () => {
     // The help lives in the CLI source and is not exported, so it is read as text.
     expect(probes.size).toBeGreaterThan(3);
     expect(read('packages/core/src/cli/index.js')).toContain(
-      `Probes a deployed omnigeo-prod middleware ${COUNT_WORDS[probes.size]} ways`,
+      `Probes a deployed opengso-prod middleware ${COUNT_WORDS[probes.size]} ways`,
     );
   });
 
-  it('says the same in the omnigeo-prod README', () => {
+  it('says the same in the opengso-prod README', () => {
     expect(read('packages/prod/README.md')).toContain(`${capitalized(COUNT_WORDS[probes.size])} probes,`);
   });
 });
@@ -382,7 +382,7 @@ describe('`omnigeo prod test`', () => {
  * exists because the fact it checks once drifted.
  */
 describe('the READMEs', () => {
-  const READMES = ['README.md', ...['testing', 'generate', 'prod', 'cli', 'omnigeo'].map((dir) => `packages/${dir}/README.md`)];
+  const READMES = ['README.md', ...['testing', 'generate', 'prod', 'cli', 'opengso'].map((dir) => `packages/${dir}/README.md`)];
   const docFiles = readdirSync(join(repoRoot, 'docs')).filter((file) => file.endsWith('.md'));
   const proseFiles = [...READMES, 'CONTRIBUTING.md', 'examples/nextjs-demo/README.md', ...docFiles.map((file) => `docs/${file}`)];
 
@@ -396,7 +396,7 @@ describe('the READMEs', () => {
   });
 
   it('state the Node version each engines field requires', () => {
-    for (const dir of ['testing', 'generate', 'prod', 'cli', 'omnigeo']) {
+    for (const dir of ['testing', 'generate', 'prod', 'cli', 'opengso']) {
       const engines = JSON.parse(read(`packages/${dir}/package.json`)).engines?.node ?? '';
       const major = engines.match(/^>=(\d+)$/)?.[1];
       expect(major, `packages/${dir} engines.node`).toBeDefined();
@@ -405,7 +405,7 @@ describe('the READMEs', () => {
     }
   });
 
-  it('state the category weight totals of omnigeo-testing correctly', () => {
+  it('state the category weight totals of opengso-testing correctly', () => {
     /** @param {string} category */
     const total = (category) => CHECKS.filter((c) => c.category === category).reduce((sum, c) => sum + c.weight, 0);
     const doc = read('packages/testing/README.md');
@@ -456,27 +456,27 @@ describe('the READMEs', () => {
 
   it('only import names the prod entries really export', async () => {
     const modules = {
-      'omnigeo-prod': await import('../src/prod/index.js'),
-      'omnigeo-prod/next': await import('../src/prod/adapters/next.js'),
-      'omnigeo-prod/edge': await import('../src/prod/edge.js'),
-      'omnigeo-prod/node': await import('../src/prod/adapters/node.js'),
-      'omnigeo-prod/fetch': await import('../src/prod/adapters/fetch.js'),
-      'omnigeo-prod/vite': await import('../src/prod/adapters/vite.js'),
+      'opengso-prod': await import('../src/prod/index.js'),
+      'opengso-prod/next': await import('../src/prod/adapters/next.js'),
+      'opengso-prod/edge': await import('../src/prod/edge.js'),
+      'opengso-prod/node': await import('../src/prod/adapters/node.js'),
+      'opengso-prod/fetch': await import('../src/prod/adapters/fetch.js'),
+      'opengso-prod/vite': await import('../src/prod/adapters/vite.js'),
     };
     /** @type {Record<string, keyof typeof modules>} */
     const sameAs = {
-      'omnigeo-prod': 'omnigeo-prod',
-      'omnigeo-prod/next': 'omnigeo-prod/next',
-      'omnigeo-prod/edge': 'omnigeo-prod/edge',
-      'omnigeo-prod/node': 'omnigeo-prod/node',
-      'omnigeo-prod/fetch': 'omnigeo-prod/fetch',
-      'omnigeo-prod/vite': 'omnigeo-prod/vite',
-      'omnigeo/prod': 'omnigeo-prod',
-      'omnigeo/prod/next': 'omnigeo-prod/next',
-      'omnigeo/prod/edge': 'omnigeo-prod/edge',
-      'omnigeo/prod/node': 'omnigeo-prod/node',
-      'omnigeo/prod/fetch': 'omnigeo-prod/fetch',
-      'omnigeo/prod/vite': 'omnigeo-prod/vite',
+      'opengso-prod': 'opengso-prod',
+      'opengso-prod/next': 'opengso-prod/next',
+      'opengso-prod/edge': 'opengso-prod/edge',
+      'opengso-prod/node': 'opengso-prod/node',
+      'opengso-prod/fetch': 'opengso-prod/fetch',
+      'opengso-prod/vite': 'opengso-prod/vite',
+      'opengso/prod': 'opengso-prod',
+      'opengso/prod/next': 'opengso-prod/next',
+      'opengso/prod/edge': 'opengso-prod/edge',
+      'opengso/prod/node': 'opengso-prod/node',
+      'opengso/prod/fetch': 'opengso-prod/fetch',
+      'opengso/prod/vite': 'opengso-prod/vite',
     };
     let seen = 0;
     for (const file of proseFiles) {
@@ -492,8 +492,8 @@ describe('the READMEs', () => {
     expect(seen).toBeGreaterThan(5);
   });
 
-  it('name every entry omnigeo-prod and omnigeo publish', () => {
-    for (const dir of ['prod', 'omnigeo']) {
+  it('name every entry opengso-prod and opengso publish', () => {
+    for (const dir of ['prod', 'opengso']) {
       const pkg = JSON.parse(read(`packages/${dir}/package.json`));
       const doc = read(`packages/${dir}/README.md`);
       for (const subpath of Object.keys(pkg.exports)) {
@@ -503,9 +503,9 @@ describe('the READMEs', () => {
     }
   });
 
-  it('do not claim the omnigeo-prod tarball has no AI provider code at all', () => {
+  it('do not claim the opengso-prod tarball has no AI provider code at all', () => {
     // True of the library a server imports, which check:bundles enforces. The tarball's CLI carries
-    // the provider catalogue so `omnigeo help providers` can print it.
+    // the provider catalogue so `opengso help providers` can print it.
     for (const file of proseFiles) expect(read(file)).not.toContain('no AI provider code at all');
   });
 
@@ -520,7 +520,7 @@ describe('CONTRIBUTING.md', () => {
   const doc = read('CONTRIBUTING.md');
 
   it('lists the commands each package ships in its layout table', () => {
-    for (const [, name, ships] of doc.matchAll(/^packages\/\w+\s+(omnigeo-\w+)\s+(.+)$/gm)) {
+    for (const [, name, ships] of doc.matchAll(/^packages\/\w+\s+(opengso-\w+)\s+(.+)$/gm)) {
       const commands = Object.entries(COMMAND_PACKAGES)
         .filter(([, packages]) => packages.includes(name))
         .map(([command]) => command);
@@ -543,6 +543,6 @@ describe('the verify steps', () => {
   });
 
   it('typecheck covers the dashboard, so neither guide needs a second tsc line', () => {
-    expect(scripts.typecheck).toContain('packages/omnigeo/web/tsconfig.json');
+    expect(scripts.typecheck).toContain('packages/opengso/web/tsconfig.json');
   });
 });

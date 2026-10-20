@@ -11,7 +11,7 @@ import { extractPage } from './extract.js';
 import { PROPOSED_SUFFIX, writeOrPropose } from './files.js';
 import { parseFrontmatter, withFrontmatter } from './frontmatter.js';
 import { emptyManifest, manifestPath as manifestFile, readManifestChecked, writeManifest } from './manifest.js';
-import { dedupeRoutes, isOmniGeoTwin, manualEntry, samePages, settleOrphans, tierSatisfied } from './reconcile.js';
+import { dedupeRoutes, isOpenGsoTwin, manualEntry, samePages, settleOrphans, tierSatisfied } from './reconcile.js';
 
 /**
  * @import { LoadedConfig } from '../shared/config.js'
@@ -26,7 +26,7 @@ import { dedupeRoutes, isOmniGeoTwin, manualEntry, samePages, settleOrphans, tie
  * @typedef {import('../shared/api-types.js').GeneratePageResult} GeneratePageResult
  */
 
-// Re-exported so `@omnigeo/core/generate` keeps offering it.
+// Re-exported so `@opengso/core/generate` keeps offering it.
 export { dedupeRoutes } from './reconcile.js';
 
 /**
@@ -60,7 +60,7 @@ export { dedupeRoutes } from './reconcile.js';
  *   is still on disk and still correct. `'all'` keeps every previous entry not regenerated here,
  *   for a run that reached nothing and so learned nothing about which pages still exist.
  * @property {boolean} [prune] Delete orphaned twins instead of only reporting them. Only a file the
- *   manifest lists and whose frontmatter says OmniGEO generated it is ever deleted. The caller decides
+ *   manifest lists and whose frontmatter says OpenGSO generated it is ever deleted. The caller decides
  *   whether this run learned enough to say a page is gone; see generateSite.
  * @property {(event: GenerateProgress) => void} [onProgress]
  * @property {AbortSignal} [signal] Checked before each route. An abandoned run throws, after keeping
@@ -223,12 +223,12 @@ export async function generatePages(options) {
           continue;
         }
         const existing = existsSync(absPath) ? readFileSync(absPath, 'utf8') : undefined;
-        // A twin is ours when its frontmatter says OmniGEO generated it. A file with no frontmatter,
+        // A twin is ours when its frontmatter says OpenGSO generated it. A file with no frontmatter,
         // or with another tool's, is somebody's own work that happens to sit where the twin goes.
-        const owned = existing === undefined || isOmniGeoTwin(parseFrontmatter(existing).data);
+        const owned = existing === undefined || isOpenGsoTwin(parseFrontmatter(existing).data);
 
         // A manual twin is checked before anything else, because the whole point of the marker is that
-        // OmniGEO does no work on that page at all.
+        // OpenGSO does no work on that page at all.
         if (existing && !force) {
           const parsed = parseFrontmatter(existing);
           if (parsed.data.generated_by === 'manual') {
@@ -327,7 +327,7 @@ export async function generatePages(options) {
             last_updated: lastUpdated,
             tokens,
             source_hash: sourceHash,
-            generated_by: appliedTier === 'ai' ? 'omnigeo-ai' : 'omnigeo-free',
+            generated_by: appliedTier === 'ai' ? 'opengso-ai' : 'opengso-free',
             ...(extracted.description ? { description: extracted.description } : {}),
           },
           markdown,
@@ -336,7 +336,7 @@ export async function generatePages(options) {
         const written = writeOrPropose(absPath, contents, owned, force);
         if (written.proposed) {
           // Not recorded in the manifest: prod serves what the manifest lists, and the manifest must
-          // not vouch for a file OmniGEO did not write.
+          // not vouch for a file OpenGSO did not write.
           pages.push({
             route,
             url,

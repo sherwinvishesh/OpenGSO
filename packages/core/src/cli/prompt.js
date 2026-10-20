@@ -5,10 +5,10 @@ import { c } from '../shared/log.js';
 /** @import { Interface } from 'node:readline' */
 
 /**
- * The prompts `omnigeo start` and `omnigeo settings` need, and nothing else.
+ * The prompts `opengso start` and `opengso settings` need, and nothing else.
  *
  * `node:readline` is in the standard library, so an interactive setup costs no dependency.
- * The API key prompt masks its input: it is the one value in OmniGEO that must never end up in a
+ * The API key prompt masks its input: it is the one value in OpenGSO that must never end up in a
  * scrollback buffer or a screen recording (§11).
  *
  * This uses the callback flavour rather than `node:readline/promises` for one specific reason:
@@ -49,7 +49,7 @@ export const DEFAULT_LABEL = 'default: ';
  * @property {() => Promise<void>} [pause] Nothing to answer here, but something to read.
  *
  *   Step 3 of setup asks no question: it explains that blocking is a lever separate from routing and
- *   that OmniGEO leaves it empty (§7). In scrollback that prints and the flow moves on, which is
+ *   that OpenGSO leaves it empty (§7). In scrollback that prints and the flow moves on, which is
  *   right, because the words stay on the screen. On a display that repaints, "prints and moves on"
  *   means the next question wipes them before anybody has read one, so a prompter that draws frames
  *   holds here for a keypress instead.

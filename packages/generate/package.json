@@ -1,30 +1,31 @@
 {
-  "name": "omnigeo-generate",
+  "name": "opengso-generate",
   "version": "0.1.0",
-  "description": "Generate markdown twins, robots.txt, llms.txt and sitemap.xml for AI agents. The generate pillar of OmniGEO.",
+  "description": "Generate markdown twins, robots.txt, llms.txt and sitemap.xml for AI agents. The generate pillar of OpenGSO.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
+    "gso",
     "geo",
     "aeo",
     "llms-txt",
     "markdown",
     "sitemap"
   ],
-  "homepage": "https://github.com/sherwinvishesh/OmniGEO",
+  "homepage": "https://github.com/sherwinvishesh/OpenGSO",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sherwinvishesh/OmniGEO.git",
+    "url": "git+https://github.com/sherwinvishesh/OpenGSO.git",
     "directory": "packages/generate"
   },
   "bugs": {
-    "url": "https://github.com/sherwinvishesh/OmniGEO/issues"
+    "url": "https://github.com/sherwinvishesh/OpenGSO/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "omnigeo": "./dist/cli.js"
+    "opengso": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -41,7 +42,7 @@
     "jsdom": "^26.1.0"
   },
   "devDependencies": {
-    "@omnigeo/core": "*",
+    "@opengso/core": "*",
     "tsup": "^9.0.0",
     "typescript": "^5.8.3"
   }

@@ -19,12 +19,12 @@ import {
   scoreChecks,
   scoreTrend,
   writeHistory,
-} from '@omnigeo/core/test';
+} from '@opengso/core/test';
 
 // Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
 const posixModes = process.platform !== 'win32';
 
-/** @import { CheckResult, ContentReview, Evidence, History, HistoryEntry, SuiteResult, TestMode, TestResult } from '@omnigeo/core/test' */
+/** @import { CheckResult, ContentReview, Evidence, History, HistoryEntry, SuiteResult, TestMode, TestResult } from '@opengso/core/test' */
 
 /**
  * The run history, which is a cache and must behave like one.
@@ -45,7 +45,7 @@ afterEach(() => {
 
 /** @returns {string} */
 function scratch() {
-  return mkdtempSync(join(tmpdir(), 'omnigeo-history-'));
+  return mkdtempSync(join(tmpdir(), 'opengso-history-'));
 }
 
 /** History never reads evidence, so an empty stand-in keeps these fixtures about scores. */
@@ -134,7 +134,7 @@ describe('folding a run into an entry', () => {
 
 describe('reading and writing', () => {
   it('reads an empty history from a directory that does not exist yet', () => {
-    expect(readHistory(join(scratch(), 'nope', '.omnigeo'))).toEqual(emptyHistory());
+    expect(readHistory(join(scratch(), 'nope', '.opengso'))).toEqual(emptyHistory());
   });
 
   it('round-trips through the file it says it writes', () => {
@@ -155,7 +155,7 @@ describe('reading and writing', () => {
   });
 
   it('creates the internal directory on the way', () => {
-    const dir = join(scratch(), 'nested', '.omnigeo');
+    const dir = join(scratch(), 'nested', '.opengso');
     writeHistory(dir, { version: 1, entries: [entry()] });
 
     expect(readHistory(dir).entries).toHaveLength(1);
@@ -272,7 +272,7 @@ describe('recording a run', () => {
     chmodSync(blocked, 0o500);
     cleanups.push(() => chmodSync(blocked, 0o700));
 
-    expect(recordRun(join(blocked, '.omnigeo'), suite())).toBeUndefined();
+    expect(recordRun(join(blocked, '.opengso'), suite())).toBeUndefined();
   });
 });
 

@@ -1,10 +1,11 @@
 {
-  "name": "omnigeo-testing",
+  "name": "opengso-testing",
   "version": "0.1.0",
-  "description": "Score any live URL 0-100 for AI-readiness. The test pillar of OmniGEO.",
+  "description": "Score any live URL 0-100 for AI-readiness. The test pillar of OpenGSO.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
+    "gso",
     "geo",
     "aeo",
     "llm",
@@ -12,20 +13,20 @@
     "ai-crawler",
     "markdown"
   ],
-  "homepage": "https://github.com/sherwinvishesh/OmniGEO",
+  "homepage": "https://github.com/sherwinvishesh/OpenGSO",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sherwinvishesh/OmniGEO.git",
+    "url": "git+https://github.com/sherwinvishesh/OpenGSO.git",
     "directory": "packages/testing"
   },
   "bugs": {
-    "url": "https://github.com/sherwinvishesh/OmniGEO/issues"
+    "url": "https://github.com/sherwinvishesh/OpenGSO/issues"
   },
   "engines": {
     "node": ">=22"
   },
   "bin": {
-    "omnigeo": "./dist/cli.js"
+    "opengso": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -42,7 +43,7 @@
     "jsdom": "^26.1.0"
   },
   "devDependencies": {
-    "@omnigeo/core": "*",
+    "@opengso/core": "*",
     "tsup": "^9.0.0",
     "typescript": "^5.8.3"
   }

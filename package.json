@@ -1,9 +1,9 @@
 {
-  "name": "omnigeo-monorepo",
+  "name": "opengso-monorepo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "OmniGEO monorepo root. Never published.",
+  "description": "OpenGSO monorepo root. Never published.",
   "license": "Apache-2.0",
   "engines": {
     "node": ">=22"
@@ -13,13 +13,13 @@
     "examples/*"
   ],
   "scripts": {
-    "omnigeo": "node packages/omnigeo/src/cli.js",
-    "build": "npm run build -w packages/testing -w packages/generate -w packages/prod -w packages/cli -w packages/omnigeo",
+    "opengso": "node packages/opengso/src/cli.js",
+    "build": "npm run build -w packages/testing -w packages/generate -w packages/prod -w packages/cli -w packages/opengso",
     "check:bundles": "node scripts/check-bundles.mjs",
     "check:packages": "node scripts/check-packages.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/omnigeo/web/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/opengso/web/tsconfig.json",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "node scripts/check-release-versions.mjs && changeset publish",

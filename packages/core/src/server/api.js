@@ -21,7 +21,7 @@ import { readFileRoute } from './api-files.js';
  */
 
 /**
- * The local JSON API behind `omnigeo start` (§8).
+ * The local JSON API behind `opengso start` (§8).
  *
  * Every endpoint is a thin wrapper over the exact function the CLI calls. That is the whole design
  * constraint: the dashboard must never become a second implementation of the pipeline, because two

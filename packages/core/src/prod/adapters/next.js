@@ -10,7 +10,7 @@ import { createProjectHandler } from './project.js';
  * Next.js adapter (§19: one thin adapter per hosting target).
  *
  * Deliberately does not import anything from `next`. The user's own proxy.ts owns the two
- * Next-specific lines; keeping `next` out of omnigeo-prod's dependency graph is what lets the same
+ * Next-specific lines; keeping `next` out of opengso-prod's dependency graph is what lets the same
  * package sit in a Netlify function or a plain Node server without dragging a framework along.
  *
  * Requires the Node.js runtime, because it reads the generated files from disk. Next 16's proxy.ts
@@ -42,7 +42,7 @@ import { createProjectHandler } from './project.js';
 /**
  * @param {NextAdapterOptions} [options]
  * @returns {(request: RequestLike) => NextMiddlewareResult} Declared rather than inferred, so
- *   `response` stays in the published types and `const { response } = omnigeo(request)` checks.
+ *   `response` stays in the published types and `const { response } = opengso(request)` checks.
  */
 export function createNextMiddleware(options = {}) {
   const decide = createProjectHandler(options);
@@ -51,7 +51,7 @@ export function createNextMiddleware(options = {}) {
    * @param {RequestLike} request
    * @returns {NextMiddlewareResult}
    */
-  return function omniGeoNextMiddleware(request) {
+  return function openGsoNextMiddleware(request) {
     const decision = decide(request);
     if (decision.type === 'passthrough') return { headers: decision.headers, decision };
     return { response: decision.response, headers: {}, decision };

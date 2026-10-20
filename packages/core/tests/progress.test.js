@@ -50,7 +50,7 @@ const ENV = { ...process.env };
 
 beforeEach(() => {
   for (const name of CI_VARIABLES) delete process.env[name];
-  delete process.env.OMNIGEO_NO_TUI;
+  delete process.env.OPENGSO_NO_TUI;
   delete process.env.NO_COLOR;
   process.env.FORCE_COLOR = '3';
   process.env.LANG = 'en_US.UTF-8';
@@ -58,7 +58,7 @@ beforeEach(() => {
   delete process.env.LC_CTYPE;
   // Windows decides by terminal rather than by locale.
   process.env.WT_SESSION = 'test';
-  delete process.env.OMNIGEO_ASCII;
+  delete process.env.OPENGSO_ASCII;
 });
 
 afterEach(() => {
@@ -93,8 +93,8 @@ describe('choosing a mode', () => {
     expect(canRedraw(fakeStream(true))).toBe(false);
   });
 
-  it('takes OMNIGEO_NO_TUI as the escape hatch', () => {
-    process.env.OMNIGEO_NO_TUI = '1';
+  it('takes OPENGSO_NO_TUI as the escape hatch', () => {
+    process.env.OPENGSO_NO_TUI = '1';
     expect(canRedraw(fakeStream(true))).toBe(false);
   });
 });

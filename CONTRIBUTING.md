@@ -1,14 +1,14 @@
-# Contributing to OmniGEO
+# Contributing to OpenGSO
 
 ## Layout
 
 ```
-packages/core        @omnigeo/core, private, never published. Every pillar lives here.
-packages/testing     omnigeo-testing    test
-packages/generate    omnigeo-generate   generate
-packages/prod        omnigeo-prod       middleware + prod test + prod data
-packages/cli         omnigeo-cli        test + generate + prod test + prod data + settings
-packages/omnigeo     omnigeo            all of the above + the dashboard
+packages/core        @opengso/core, private, never published. Every pillar lives here.
+packages/testing     opengso-testing    test
+packages/generate    opengso-generate   generate
+packages/prod        opengso-prod       middleware + prod test + prod data
+packages/cli         opengso-cli        test + generate + prod test + prod data + settings
+packages/opengso     opengso            all of the above + the dashboard
 examples/nextjs-demo the app the whole pipeline is exercised against
 docs/                the user and contributor docs, listed in the README
 ```
@@ -19,25 +19,25 @@ You do not need it: the decisions those sections drove are all described where t
 the documents in `docs/` cover the parts a contributor actually has to match.
 [docs/architecture.md](docs/architecture.md) is the map of how the code fits together.
 
-`@omnigeo/core` is private and its `exports` map points at its source files. Each published package
-bundles core with tsup (`noExternal: [/@omnigeo\/core/]`), so core is never an install-time
+`@opengso/core` is private and its `exports` map points at its source files. Each published package
+bundles core with tsup (`noExternal: [/@opengso\/core/]`), so core is never an install-time
 dependency of anything. Write the code once, in core. A published package should be a thin
 entry point and nothing else.
 
 **Plain JavaScript, typed with JSDoc.** Every package's source, tests and config is JavaScript that
 Node runs exactly as written, so there is no compile step between editing a file and running it.
-The dashboard in `packages/omnigeo/web` is the same: plain HTML, CSS and JavaScript that the browser
+The dashboard in `packages/opengso/web` is the same: plain HTML, CSS and JavaScript that the browser
 loads as it is, and the files in the repo are the files that ship. Types are
 JSDoc comments (`@param`, `@returns`, `@typedef`, `@import`), and `npm run typecheck` checks them
 with `tsc` under `strict` and `checkJs`. TypeScript is a dev dependency and a checker, nothing more.
 `packages/core/tests/plain-js.test.js` fails if a `.ts` file comes back, and runs every CLI entry
 with plain `node` to prove the source works unbundled. `examples/nextjs-demo` stays TypeScript on
-purpose: it shows a TypeScript user what wiring OmniGEO in looks like.
+purpose: it shows a TypeScript user what wiring OpenGSO in looks like.
 
 Adding an export to core takes three places: `packages/core/package.json` `exports`, the matching
 `paths` entry in `tsconfig.base.json`, and the consuming package's entry file. `tsc` resolves core
 through the workspace without `paths`, but tsup's declaration build does not: without it,
-`omnigeo-prod`'s types would point at `@omnigeo/core`, which is never published.
+`opengso-prod`'s types would point at `@opengso/core`, which is never published.
 
 ## The loop
 
@@ -51,9 +51,9 @@ npm run check:packages
 ```
 
 `npm run build` is packaging only. Nothing needs it to run, test or change the code: after
-`npm install`, `npm run omnigeo -- <command>` runs the CLI straight from `src/`, and
-`npm run example:dev` builds the one thing the demo needs (`omnigeo-prod`) before starting it.
-`omnigeo start` serves the dashboard straight from `packages/omnigeo/web`, so a change there shows
+`npm install`, `npm run opengso -- <command>` runs the CLI straight from `src/`, and
+`npm run example:dev` builds the one thing the demo needs (`opengso-prod`) before starting it.
+`opengso start` serves the dashboard straight from `packages/opengso/web`, so a change there shows
 on the next reload.
 
 `npm run typecheck` checks two projects: the Node code, and the dashboard against the browser's
@@ -62,7 +62,7 @@ Dashboard modules import only from inside `web/`, because nothing bundles them: 
 an import that reaches into core.
 
 `check:bundles` reads what the build produced and asserts the structural promises from §3. The
-runtime library (`omnigeo-prod`, and the copy `omnigeo` ships as `omnigeo/prod`) carries no jsdom,
+runtime library (`opengso-prod`, and the copy `opengso` ships as `opengso/prod`) carries no jsdom,
 no AI provider code and no network call. The edge entries import no `node:` module. Every bundle,
 CLIs included, imports only Node builtins and dependencies its package declares, and jsdom is the
 only dependency any package may declare. It follows the import graph through the metafile each
@@ -72,29 +72,29 @@ never instead of it.
 `check:packages` checks what a user installs: every package's bin answers `--version`, every entry
 in its `exports` imports by name and also resolves for a resolver that does not ask for `import`
 (which is what each subpath's `default` condition is for; there is no CommonJS build), and `npm pack --dry-run` lists every file the manifest points at
-(and the dashboard, for `omnigeo`) and nothing from `src/` or `tests/`. CI also builds the
-Next.js example, which is the integration test for `omnigeo-prod/next`.
+(and the dashboard, for `opengso`) and nothing from `src/` or `tests/`. CI also builds the
+Next.js example, which is the integration test for `opengso-prod/next`.
 
 To exercise the whole thing against a real site, put the CLI on your PATH first. This builds
-everything, packs `omnigeo`, and installs that tarball globally, so you are driving the same
+everything, packs `opengso`, and installs that tarball globally, so you are driving the same
 artifact a user installs from npm rather than a symlink into the workspace:
 
 ```bash
 npm run install:global        # rebuild and reinstall; :fast skips the build
-omnigeo --version
+opengso --version
 ```
 
 ```bash
 npm run example:dev                                   # terminal A, serves localhost:3000
 cd examples/nextjs-demo                               # terminal B
-omnigeo generate http://localhost:3000
-omnigeo test http://localhost:3000/resume
-omnigeo prod test http://localhost:3000
-omnigeo start -p 4321                                 # the dashboard
+opengso generate http://localhost:3000
+opengso test http://localhost:3000/resume
+opengso prod test http://localhost:3000
+opengso start -p 4321                                 # the dashboard
 ```
 
 The global copy is a snapshot, so re-run `install:global` after changing anything the CLI or the
-dashboard ships. `npm uninstall -g omnigeo` removes it.
+dashboard ships. `npm uninstall -g opengso` removes it.
 
 ## Tests
 
@@ -103,7 +103,7 @@ once. `packages/core/tests/docs.test.js` asserts that every factual table in `do
 the code, so a check whose weight changes fails the docs test until the doc is updated too.
 
 Tests import core two ways and both are wanted. Relative imports (`../src/...`) reach internals that
-no published package exposes. Entry-point imports (`@omnigeo/core/shared`, `@omnigeo/core/generate`,
+no published package exposes. Entry-point imports (`@opengso/core/shared`, `@opengso/core/generate`,
 and so on) go through the `exports` map, so a map that breaks fails the suite here instead of failing
 consumers after a release.
 
@@ -137,13 +137,13 @@ bot means one entry in `AI_BOTS`: its `name`, `vendor`, `uaPatterns`, `robotsTok
 Two things about it are deliberate and should not be changed casually:
 
 - The derived list a new bot joins is the routing one, which decides *which format* it gets. There is
-  no default block list to join. OmniGEO blocks nobody by default, and unknown bots are never blocked
+  no default block list to join. OpenGSO blocks nobody by default, and unknown bots are never blocked
   at all (§7, §16).
 - A bot that only exists as a robots.txt opt-out token, such as `Google-Extended`, has an empty
   `uaPatterns` array. It cannot be routed, because it never appears in a User-Agent.
 
-`AI_BOTS` is for crawlers every OmniGEO user should know about. A crawler only one site cares about,
-such as an in-house agent, belongs in that project's `bots.custom` instead: `omnigeo settings` and
+`AI_BOTS` is for crawlers every OpenGSO user should know about. A crawler only one site cares about,
+such as an in-house agent, belongs in that project's `bots.custom` instead: `opengso settings` and
 the dashboard's Bot settings tab both write it, and `resolveBots(config.bots.custom)` merges the two
 lists wherever a catalogue is needed. Do not send a pull request adding a private agent to
 `AI_BOTS`.
@@ -153,6 +153,6 @@ lists wherever a catalogue is needed. Do not send a pull request adding a privat
 - Comments explain why, not what. A comment restating the line above it is noise.
 - Every user-facing error string belongs in `packages/core/src/shared/errors.js` (§13), so the
   wording changes in one place and a limited install can name the package that would help.
-- No new runtime dependencies. jsdom is the only one, and `omnigeo-prod` may not have even that.
+- No new runtime dependencies. jsdom is the only one, and `opengso-prod` may not have even that.
 - Non-goals in §16 are constraints, not suggestions. No headless browser, no per-framework
   router adapters, no CI-triggered generate, no blocking unknown bots by default.

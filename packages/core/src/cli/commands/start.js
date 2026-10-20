@@ -20,12 +20,12 @@ const SPEC = /** @type {const} */ ({
 });
 
 /**
- * `omnigeo start` - set the project up, then open the local dashboard (§8, §11).
+ * `opengso start` - set the project up, then open the local dashboard (§8, §11).
  *
- * One command for the whole first five minutes. A directory with no `omnigeo.config.json` gets the
+ * One command for the whole first five minutes. A directory with no `opengso.config.json` gets the
  * four setup questions in the terminal and then the dashboard; a directory that already has one
  * goes straight to the dashboard, because asking a configured project to re-answer its own settings
- * every morning would be the wrong kind of thorough. `omnigeo settings` is the way back to those
+ * every morning would be the wrong kind of thorough. `opengso settings` is the way back to those
  * questions, and start says so on the way past. `--setup` forces them, and on a configured project
  * they arrive as settings rather than as onboarding.
  *
@@ -90,14 +90,14 @@ export async function startCommand(ctx) {
     throw error;
   }
 
-  process.stdout.write(`\n${c.bold('OmniGEO')} ${c.gray('dashboard')}\n`);
+  process.stdout.write(`\n${c.bold('OpenGSO')} ${c.gray('dashboard')}\n`);
   process.stdout.write(`  ${c.green(running.url)}\n`);
   process.stdout.write(`  ${c.gray(`project: ${root}`)}\n`);
   process.stdout.write(
     `  ${c.gray(existsSync(join(root, CONFIG_FILENAME)) ? `config:  ${CONFIG_FILENAME}` : `config:  none yet, the dashboard will offer to create one`)}\n`,
   );
   if (!wantsSetup) {
-    process.stdout.write(`  ${c.gray('settings: `omnigeo settings`, or the Settings tab in the dashboard')}\n`);
+    process.stdout.write(`  ${c.gray('settings: `opengso settings`, or the Settings tab in the dashboard')}\n`);
   }
   if (running.token === undefined) {
     process.stdout.write(`\n  ${c.gray('Runs on your machine only. Nothing is uploaded and no key ever leaves this computer')}\n`);
@@ -143,8 +143,8 @@ function findWebRoot() {
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
     join(here, '..', 'web'),
-    // From source (vitest or plain node): packages/core/src/cli/commands -> packages/omnigeo/web
-    join(here, '..', '..', '..', '..', 'omnigeo', 'web'),
+    // From source (vitest or plain node): packages/core/src/cli/commands -> packages/opengso/web
+    join(here, '..', '..', '..', '..', 'opengso', 'web'),
   ];
   return candidates.find((candidate) => existsSync(join(candidate, 'index.html'))) ?? candidates[0];
 }

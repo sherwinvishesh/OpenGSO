@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractPage } from '@omnigeo/core/generate';
+import { extractPage } from '@opengso/core/generate';
 
 /**
  * @param {string} body

@@ -166,7 +166,7 @@ export function keyHints(pairs) {
  * @returns {string}
  */
 export function wordmark() {
-  return gradient('OmniGEO', PALETTE.ok, PALETTE.okBright);
+  return gradient('OpenGSO', PALETTE.ok, PALETTE.okBright);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { botUserAgent, routingProbeBot } from '../shared/bots.js';
-import { BROWSER_ACCEPT, BROWSER_UA, HOSTILE_ACCEPT, OMNIGEO_UA, probe } from '../shared/http.js';
+import { BROWSER_ACCEPT, BROWSER_UA, HOSTILE_ACCEPT, OPENGSO_UA, probe } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { parseLinkAlternate } from '../prod/headers.js';
 import { servesFile } from './checks-site.js';
@@ -25,8 +25,8 @@ export const GPTBOT_UA = 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); co
  * answer. docs/checks.md quotes these, and docs.test.js holds it to that.
  */
 export const PROBE_HEADERS = {
-  // B9. OmniGEO's own User-Agent is on no bot list, so only the Accept header can route it.
-  acceptMarkdown: { 'User-Agent': OMNIGEO_UA, Accept: 'text/markdown' },
+  // B9. OpenGSO's own User-Agent is on no bot list, so only the Accept header can route it.
+  acceptMarkdown: { 'User-Agent': OPENGSO_UA, Accept: 'text/markdown' },
   // B10. Any type, which is what most crawlers send, and expresses no preference for markdown.
   botUa: { 'User-Agent': GPTBOT_UA, Accept: '*/*' },
   // B11. Neither HTML nor markdown.
@@ -50,7 +50,7 @@ export const PROBE_HEADERS = {
  * @property {string} [advertisedTwinUrl]
  * @property {string} [foreignTwinUrl] A twin the HTML advertised on another origin, or with a scheme other than http(s). It is
  *   reported and never fetched: the audit is of this site, and a Link header is not permission to
- *   make OmniGEO request a third party's URL or read a `data:` body as if the site had served it.
+ *   make OpenGSO request a third party's URL or read a `data:` body as if the site had served it.
  * @property {ProbeResult} acceptMarkdown Same page URL, asking for markdown by content negotiation.
  * @property {ProbeResult} botUa Same page URL, as a known AI bot, with no markdown preference expressed.
  * @property {string} [botName] The crawler `botUa` impersonated. Absent means GPTBot.

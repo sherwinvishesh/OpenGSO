@@ -35,7 +35,7 @@ import { ok, bad } from './api-shared.js';
 
 /**
  * @import { CustomBotInput } from '../shared/bots.js'
- * @import { LoadedConfig, OmniGeoConfig } from '../shared/config.js'
+ * @import { LoadedConfig, OpenGsoConfig } from '../shared/config.js'
  * @import { ProviderApi, ProviderAuth } from '../shared/providers.js'
  * @import { FreshnessReport, StateResponse } from '../shared/api-types.js'
  * @import { ApiOptions, ApiResponse } from './api-shared.js'
@@ -132,7 +132,7 @@ function freshnessOf(loaded) {
 export function saveConfigPatch(body, options) {
   const shape = configPatchProblem(body);
   if (shape) return bad(shape);
-  let patch = /** @type {Partial<OmniGeoConfig>} */ (body);
+  let patch = /** @type {Partial<OpenGsoConfig>} */ (body);
 
   // The key is in .env and goes wherever `ai` says. Only /api/key may move it, because it checks
   // the endpoint and takes the key in the same request; the dashboard never sends `ai` here.
@@ -174,7 +174,7 @@ function normalizeCustomList(input) {
     const bot = normalizeCustomBot(/** @type {CustomBotInput} */ (entry));
     if (!bot) return 'Every custom crawler needs a name.';
     const key = bot.name.toLowerCase();
-    if (builtIn.has(key)) return `${bot.name} is already one of the crawlers OmniGEO ships with.`;
+    if (builtIn.has(key)) return `${bot.name} is already one of the crawlers OpenGSO ships with.`;
     if (seen.has(key)) return `${bot.name} is listed twice.`;
     seen.add(key);
     cleaned.push({
@@ -197,7 +197,7 @@ function normalizeCustomList(input) {
  * the response says where it went without ever echoing it back.
  *
  * The endpoint fields go to two different places on purpose. `baseUrl` is an address, not a secret,
- * so it is saved in `omnigeo.config.json` where it can be committed and shared with the team; the
+ * so it is saved in `opengso.config.json` where it can be committed and shared with the team; the
  * key stays in `.env`. A provider marked keyless (a model server on this machine) is allowed to save
  * with no key at all, because demanding a placeholder would be theatre.
  *
@@ -269,11 +269,11 @@ export function saveKey(body, options) {
   const envPath = writeEnvVars(options.root, vars);
 
   const loaded = loadConfig(options.root);
-  /** @type {Partial<OmniGeoConfig['ai']>} */
+  /** @type {Partial<OpenGsoConfig['ai']>} */
   const ai = { provider, model, baseUrl: baseUrl || undefined };
   if (api) ai.api = api;
   if (auth) ai.auth = auth;
-  saveConfig(options.root, mergeConfig(loaded.config, { ai: /** @type {OmniGeoConfig['ai']} */ (ai) }));
+  saveConfig(options.root, mergeConfig(loaded.config, { ai: /** @type {OpenGsoConfig['ai']} */ (ai) }));
 
   return ok({
     provider,

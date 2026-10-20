@@ -85,7 +85,7 @@ export function readHomeStatus(root) {
   }
 
   // Never the key itself, and never its length. Which provider and where it lives is the whole of
-  // what a status line needs, and it is the one value in OmniGEO that must not reach a screen.
+  // what a status line needs, and it is the one value in OpenGSO that must not reach a screen.
   const credentials = safely(() => readCredentials(root, loaded.config.ai));
   if (credentials) {
     const source = { 'env-file': '.env', 'process-env': 'environment', config: CONFIG_FILENAME }[credentials.source];

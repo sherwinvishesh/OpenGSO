@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { main } from '@omnigeo/core/cli';
-import { testCommand } from '@omnigeo/core/cli/commands/test';
+import { main } from '@opengso/core/cli';
+import { testCommand } from '@opengso/core/cli/commands/test';
 
 // Read at run time rather than stamped in at build time. The bundle sits in dist/ and the source in
 // src/, both one level below package.json, so the same path works from either.
@@ -9,7 +9,7 @@ const pkg = /** @type {{ name: string; version: string }} */ (
 );
 
 /**
- * omnigeo-testing ships one pillar. Asking it for `generate` produces the §13 message naming the
+ * opengso-testing ships one pillar. Asking it for `generate` produces the §13 message naming the
  * package to install, not an "unknown command".
  */
 await main({

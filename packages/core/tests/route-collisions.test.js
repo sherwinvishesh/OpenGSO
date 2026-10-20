@@ -3,11 +3,11 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { defaultConfig } from '@omnigeo/core/shared';
-import { generatePages } from '@omnigeo/core/generate';
+import { defaultConfig } from '@opengso/core/shared';
+import { generatePages } from '@opengso/core/generate';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { LoadedConfig } from '@omnigeo/core/shared' */
+/** @import { LoadedConfig } from '@opengso/core/shared' */
 
 /**
  * Two routes, one twin file: `/` and `/index` both become md/index.md, and on a case-insensitive
@@ -48,7 +48,7 @@ afterAll(async () => {
 
 /** @returns {LoadedConfig} */
 function project() {
-  return { config: defaultConfig(site), root: mkdtempSync(join(tmpdir(), 'omnigeo-collide-')), exists: true };
+  return { config: defaultConfig(site), root: mkdtempSync(join(tmpdir(), 'opengso-collide-')), exists: true };
 }
 
 describe('two routes that would share a twin file', () => {

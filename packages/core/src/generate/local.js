@@ -19,13 +19,13 @@ import { SourceFilesError, writeSiteFilesFor } from './site.js';
  */
 
 /**
- * `omnigeo generate site/`: the same pipeline as a crawl, fed from the HTML files in the web root
+ * `opengso generate site/`: the same pipeline as a crawl, fed from the HTML files in the web root
  * instead of from a running server.
  *
  * A site that is a folder of pages, hand-written or built by a static site generator, has no server
  * to crawl until it is deployed, and the people who make one are the least likely to run a local
  * one. Reading the files also gives generate something a crawl never has, the file each page came
- * from, which is what lets OmniGEO say a twin is older than its page.
+ * from, which is what lets OpenGSO say a twin is older than its page.
  *
  * Each twin is written beside its page, because the static host that serves the folder answers
  * `/about.md` only if a file sits at exactly that path.

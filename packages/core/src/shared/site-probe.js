@@ -51,7 +51,7 @@ export async function previewSite(url, options = {}) {
   const fetchPage = options.fetchPage ?? probe;
   const timeoutMs = options.timeoutMs ?? 6_000;
   // As a browser, because the answer wanted here is "what does this site serve people", and a site
-  // that already routes markdown to OmniGEO's own agent would otherwise report itself as markdown.
+  // that already routes markdown to OpenGSO's own agent would otherwise report itself as markdown.
   const page = await fetchPage(url, { timeoutMs, headers: { 'User-Agent': BROWSER_UA } });
 
   /** @type {SitePreview} */

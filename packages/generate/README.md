@@ -1,4 +1,4 @@
-# omnigeo-generate
+# opengso-generate
 
 > **Pre-release.** Nothing is published to npm yet, and the APIs may change before 1.0.
 
@@ -12,16 +12,16 @@ Turns a live site into the files AI agents actually want: a clean Markdown twin 
   instead.
 - Never overwrites a file it did not write.
 
-Part of [OmniGEO](https://github.com/sherwinvishesh/OmniGEO). This is the *authoring* half; the
+Part of [OpenGSO](https://github.com/sherwinvishesh/OpenGSO). This is the *authoring* half; the
 files it writes are served by
-[`omnigeo-prod`](https://github.com/sherwinvishesh/OmniGEO/blob/main/packages/prod/README.md).
+[`opengso-prod`](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/prod/README.md).
 
 ## Install
 
 Needs Node.js 22 or later.
 
 ```bash
-npm install --save-dev omnigeo-generate
+npm install --save-dev opengso-generate
 ```
 
 Generation is a local, deliberate act. It is a devDependency because it never runs in production,
@@ -30,13 +30,13 @@ and by design it never runs in CI either.
 ## Use
 
 ```bash
-npx omnigeo generate http://localhost:3000
+npx opengso generate http://localhost:3000
 ```
 
 ```
-Usage: omnigeo generate <url> [options]
-       omnigeo generate <folder> [options]
-       omnigeo generate <folder>/<page>.html [options]
+Usage: opengso generate <url> [options]
+       opengso generate <folder> [options]
+       opengso generate <folder>/<page>.html [options]
 
 Options
   --tier <free|ai>   free is algorithmic and needs no key; ai is bring-your-own-key
@@ -46,20 +46,20 @@ Options
                      host, e.g. https://user.github.io/repo.
   --check            only report the twins that are older than their page, and exit 1 if
                      any are. Writes nothing. For a folder of files; a crawled site is
-                     checked by `omnigeo test` instead.
+                     checked by `opengso test` instead.
   --single           only the URL given, leaving every other page in the manifest alone
   --max-pages <n>    override crawl.maxPages
   --depth <n>        override crawl.maxDepth (crawling only)
   --timeout <secs>   how long to wait for each page while crawling (default: 20)
   --force            overwrite hand-written robots/llms/sitemap and .md files
   --skip-files       twins only, leave robots.txt / llms.txt / sitemap.xml alone
-  --prune            delete orphaned twins: ones OmniGEO wrote for pages this run no longer
-                     found. Without it they are only reported. Never deletes a file OmniGEO
+  --prune            delete orphaned twins: ones OpenGSO wrote for pages this run no longer
+                     found. Without it they are only reported. Never deletes a file OpenGSO
                      did not write, and refuses on a run that hit a page cap or reached no page.
-  --provider <name>  which AI tool to use. `omnigeo help providers` lists them all.
+  --provider <name>  which AI tool to use. `opengso help providers` lists them all.
   --model <name>     model id for the AI tier
   --json             machine-readable output
-  --project <dir>    project directory holding omnigeo.config.json (default: cwd)
+  --project <dir>    project directory holding opengso.config.json (default: cwd)
 ```
 
 ## What it writes
@@ -73,28 +73,28 @@ public/
   robots.txt
   llms.txt
   sitemap.xml
-.omnigeo/
+.opengso/
   manifest.json        <- bookkeeping, outside the web root, never served
 ```
 
 Everything an agent reads lives under `public/`, so it deploys with your site and needs no build
-step. Set `publicOrigin` in `omnigeo.config.json` to the deployed address (`https://example.com`)
+step. Set `publicOrigin` in `opengso.config.json` to the deployed address (`https://example.com`)
 and every absolute URL in those files names it rather than the dev server that was crawled. Without
-it, a run against `localhost` or `127.0.0.1` warns that the sitemap and twins point at this machine. `.omnigeo/manifest.json` holds the route table, token counts, content hashes and timestamps.
-`omnigeo-prod` loads it once at startup, which is how a request becomes a map lookup.
+it, a run against `localhost` or `127.0.0.1` warns that the sitemap and twins point at this machine. `.opengso/manifest.json` holds the route table, token counts, content hashes and timestamps.
+`opengso-prod` loads it once at startup, which is how a request becomes a map lookup.
 
 A page that fails to fetch keeps the entry it had, so a 503 during a run never stops a twin being
 served. If no page can be fetched at all, say because the dev server is not running, the whole
-manifest is kept as it was and the run says so. Every file OmniGEO writes is written whole or not
+manifest is kept as it was and the run says so. Every file OpenGSO writes is written whole or not
 at all, so a run stopped part way never leaves half a manifest behind, and a manifest that cannot
 be read is reported rather than quietly treated as a first run.
 
 A page the crawl no longer finds, because it was deleted or unlinked, leaves its manifest entry,
-so llms.txt, sitemap.xml and `omnigeo-prod` stop listing it. Its twin is not deleted. Generate
+so llms.txt, sitemap.xml and `opengso-prod` stop listing it. Its twin is not deleted. Generate
 reports it under "Orphaned twins" (and as `orphans` in `--json`) on every run until you act, and
 the manifest keeps the list so the next run still knows which files are its own. Run generate again
 with `--prune` to delete them. Pruning only ever deletes a file the manifest listed and whose
-frontmatter still says OmniGEO generated it, so a twin you have marked `generated_by: manual` or
+frontmatter still says OpenGSO generated it, so a twin you have marked `generated_by: manual` or
 rewritten stays. It is refused on a run that stopped at `crawl.maxPages` or `crawl.maxDepth`, or
 reached no page at all, because such a run cannot tell a deleted page from one it did not get to.
 
@@ -107,12 +107,12 @@ url: "https://example.com/resume"
 last_updated: "2026-09-05T02:01:33.445Z"
 tokens: 314
 source_hash: "0cdc3ec67ce75fa0"
-generated_by: "omnigeo-free"
+generated_by: "opengso-free"
 description: "A dated record of engagements, budgets, and outcomes."
 ---
 ```
 
-`omnigeo-prod` strips this before serving and moves the same facts into response headers.
+`opengso-prod` strips this before serving and moves the same facts into response headers.
 
 Set `generated_by: manual` by hand to claim a file as yours. Generate will leave it alone from then
 on unless you pass `--force`.
@@ -131,15 +131,15 @@ address to run against instead. Two routes that would share a twin file, `/` and
 other is reported, never written over it.
 
 It is not a router adapter and never will be. Reading a framework's route manifest means one
-integration per framework, forever, and OmniGEO is framework-agnostic on purpose. If a page is
+integration per framework, forever, and OpenGSO is framework-agnostic on purpose. If a page is
 reachable by a link, the crawl finds it; if it is not, list it in `extraRoutes`.
 
 ## From a folder of HTML files
 
 ```bash
-npx omnigeo generate dist --origin https://example.com   # every page in dist/
-npx omnigeo generate dist/pricing.html                   # one page, after you edit it
-npx omnigeo generate --check                             # which pages changed since their twins
+npx opengso generate dist --origin https://example.com   # every page in dist/
+npx opengso generate dist/pricing.html                   # one page, after you edit it
+npx opengso generate --check                             # which pages changed since their twins
 ```
 
 No server and no crawl: generate reads every `.html` file in the folder and writes each twin beside
@@ -157,7 +157,7 @@ link naming it, gives `pricing.html` the clean URL, and a page nothing links to 
 the site. `--origin` is the published address, used for every link in the twins, `sitemap.xml`,
 `robots.txt` and `llms.txt`. Without it generate uses `publicOrigin` from the config, then the home
 page's canonical link, and warns when it has nothing better than localhost. The first run writes
-`omnigeo.config.json` with `"generate": { "source": "files" }`, so a bare `omnigeo generate` and the
+`opengso.config.json` with `"generate": { "source": "files" }`, so a bare `opengso generate` and the
 dashboard read the same folder after that.
 
 Each twin records the file it came from, its hash and its date. `--check` compares them with the
@@ -173,14 +173,14 @@ empties the folder, so run generate again after building and before you deploy.
 ### A site in a folder of its host
 
 ```bash
-npx omnigeo generate dist --origin https://user.github.io/repo
+npx opengso generate dist --origin https://user.github.io/repo
 ```
 
 A GitHub Pages project site lives at `user.github.io/repo/`, and every URL generate writes then
 carries the folder: `https://user.github.io/repo/about` in the sitemap, `.../repo/about.md` in
 `llms.txt`. `robots.txt` is not written, because crawlers read it only at the root of the host,
 which belongs to somebody else's site or to none; generate says what to add there if you publish
-that root too. `omnigeo test https://user.github.io/repo/` looks for `llms.txt`, `sitemap.xml` and the
+that root too. `opengso test https://user.github.io/repo/` looks for `llms.txt`, `sitemap.xml` and the
 home page's twin inside the folder when the root of the host has none.
 
 Generating from a folder is the only way to do this. A crawl's routes are paths on the server it
@@ -198,22 +198,22 @@ generate writes nothing there and says to build the site and generate from `_sit
 
 ## Never overwriting your files
 
-If `robots.txt`, `llms.txt` or `sitemap.xml` already exists **without** OmniGEO's generated-by
-marker, it is left exactly as it is. The marker counts only as the comment line OmniGEO writes
-(`# Generated by OmniGEO (...)`, or `<!-- Generated by OmniGEO (...)` in the other two), so a file
+If `robots.txt`, `llms.txt` or `sitemap.xml` already exists **without** OpenGSO's generated-by
+marker, it is left exactly as it is. The marker counts only as the comment line OpenGSO writes
+(`# Generated by OpenGSO (...)`, or `<!-- Generated by OpenGSO (...)` in the other two), so a file
 that merely mentions the phrase is still yours. The proposed version is written beside it:
 
 ```
 public/robots.txt                     <- yours, untouched
-public/robots.txt.omnigeo-proposed    <- diff this, merge what you want
+public/robots.txt.opengso-proposed    <- diff this, merge what you want
 ```
 
 with a warning naming both paths. `--force` overwrites instead.
 
-Twins follow the same rule. A file in `public/md/` is OmniGEO's only when its frontmatter says
-`generated_by: omnigeo-free` or `omnigeo-ai`. One with no frontmatter, or another tool's, is left
-alone, the new twin goes to `<name>.md.omnigeo-proposed`, and the page stays out of the manifest so
-prod never serves a file OmniGEO cannot vouch for. Mark it `generated_by: manual` to have yours
+Twins follow the same rule. A file in `public/md/` is OpenGSO's only when its frontmatter says
+`generated_by: opengso-free` or `opengso-ai`. One with no frontmatter, or another tool's, is left
+alone, the new twin goes to `<name>.md.opengso-proposed`, and the page stays out of the manifest so
+prod never serves a file OpenGSO cannot vouch for. Mark it `generated_by: manual` to have yours
 served, or pass `--force` to replace it.
 
 A tool that silently rewrites `robots.txt` is a tool that eventually takes a site off the internet.
@@ -232,7 +232,7 @@ extraction means the hash changes exactly when the page's content changes.
 ## The AI tier
 
 ```bash
-omnigeo generate https://example.com --tier ai
+opengso generate https://example.com --tier ai
 ```
 
 The prompt is fidelity-locked: reproduce the structure and text faithfully, never summarise, never
@@ -263,38 +263,38 @@ Kimi, GLM, Mistral, Perplexity, Groq, Cerebras, OpenRouter, Hugging Face, Ollama
 your own machine, and any endpoint you can name:
 
 ```bash
-omnigeo help providers                                        # the whole catalogue
-omnigeo generate https://example.com --tier ai --provider xai
-omnigeo generate https://example.com --tier ai --provider ollama   # local, no key, no network
+opengso help providers                                        # the whole catalogue
+opengso generate https://example.com --tier ai --provider xai
+opengso generate https://example.com --tier ai --provider ollama   # local, no key, no network
 ```
 
-Adding one OmniGEO does not ship with is three lines of config:
-[docs/providers.md](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/providers.md).
+Adding one OpenGSO does not ship with is three lines of config:
+[docs/providers.md](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md).
 
 The fidelity check runs on all of them. A cheaper model is a safe experiment here precisely because
 a model that mangles or invents a price gets its output thrown away rather than written to disk.
 
 ### The key
 
-Read from `.env` in your project, and nowhere else. Run `omnigeo settings` to write it, which also
+Read from `.env` in your project, and nowhere else. Run `opengso settings` to write it, which also
 adds
 `.env` to `.gitignore` **before** it asks for the key.
 
 It is sent to the provider you chose and to nobody else. There is no telemetry, no analytics and no
-cloud sync in OmniGEO, so there is nothing else that could transmit it.
+cloud sync in OpenGSO, so there is nothing else that could transmit it.
 
 The AI tier refuses to run when it detects CI. Anything AI-touched is local-machine-only, on purpose:
 regenerating on every push is how a site quietly diverges from what it says it is.
 
 ## Staleness
 
-A markdown twin is a cache, and OmniGEO deliberately does not regenerate on a schedule or in CI. The
-safety net is `last_updated` plus `omnigeo test`'s B14 check, which re-extracts the live page and
-compares it against what is being served. Run `omnigeo test` after you deploy content changes, and
+A markdown twin is a cache, and OpenGSO deliberately does not regenerate on a schedule or in CI. The
+safety net is `last_updated` plus `opengso test`'s B14 check, which re-extracts the live page and
+compares it against what is being served. Run `opengso test` after you deploy content changes, and
 re-run generate when it tells you to.
 
 ## Reference
 
-- [The wire spec](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/spec.md)
-- [The check catalogue](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/checks.md)
-- [AI providers, and adding your own](https://github.com/sherwinvishesh/OmniGEO/blob/main/docs/providers.md)
+- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md)
+- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md)
+- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md)

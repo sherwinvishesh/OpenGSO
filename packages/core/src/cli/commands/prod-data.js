@@ -14,7 +14,7 @@ const SPEC = /** @type {const} */ ({
 });
 
 /**
- * `omnigeo prod data`: the twins as a module an edge function imports.
+ * `opengso prod data`: the twins as a module an edge function imports.
  *
  * An edge runtime has no disk, so the Node adapters' way of loading twins does not exist there.
  * This reads them the way those adapters do and writes the result as data, to be run after
@@ -68,9 +68,9 @@ export async function prodDataCommand(ctx) {
       c.gray('Use it in your edge function (the import path is from the project root):'),
       `  import data from '${from}';`,
       `  import { createEdgeMiddleware } from '${result.importFrom}';`,
-      `  const omnigeo = createEdgeMiddleware({ data });`,
+      `  const opengso = createEdgeMiddleware({ data });`,
       '',
-      c.gray('Run it again after every `omnigeo generate`, or first in your build script, so the edge never serves old twins.'),
+      c.gray('Run it again after every `opengso generate`, or first in your build script, so the edge never serves old twins.'),
     );
   }
   lines.push('');

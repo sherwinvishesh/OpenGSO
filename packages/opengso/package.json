@@ -1,0 +1,84 @@
+{
+  "name": "opengso",
+  "version": "0.1.0",
+  "description": "The full OpenGSO toolkit: test, generate, prod and the local dashboard.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "keywords": [
+    "gso",
+    "geo",
+    "aeo",
+    "llm",
+    "seo",
+    "markdown",
+    "dashboard"
+  ],
+  "homepage": "https://github.com/sherwinvishesh/OpenGSO",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sherwinvishesh/OpenGSO.git",
+    "directory": "packages/opengso"
+  },
+  "bugs": {
+    "url": "https://github.com/sherwinvishesh/OpenGSO/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "opengso": "./dist/cli.js"
+  },
+  "exports": {
+    "./prod": {
+      "types": "./dist/prod.d.ts",
+      "import": "./dist/prod.js",
+      "default": "./dist/prod.js"
+    },
+    "./prod/next": {
+      "types": "./dist/prod-next.d.ts",
+      "import": "./dist/prod-next.js",
+      "default": "./dist/prod-next.js"
+    },
+    "./prod/edge": {
+      "types": "./dist/prod-edge.d.ts",
+      "import": "./dist/prod-edge.js",
+      "default": "./dist/prod-edge.js"
+    },
+    "./prod/node": {
+      "types": "./dist/prod-node.d.ts",
+      "import": "./dist/prod-node.js",
+      "default": "./dist/prod-node.js"
+    },
+    "./prod/fetch": {
+      "types": "./dist/prod-fetch.d.ts",
+      "import": "./dist/prod-fetch.js",
+      "default": "./dist/prod-fetch.js"
+    },
+    "./prod/vite": {
+      "types": "./dist/prod-vite.d.ts",
+      "import": "./dist/prod-vite.js",
+      "default": "./dist/prod-vite.js"
+    }
+  },
+  "files": [
+    "dist",
+    "web",
+    "!web/tsconfig.json",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\""
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0"
+  },
+  "devDependencies": {
+    "@opengso/core": "*",
+    "tsup": "^9.0.0",
+    "typescript": "^5.8.3"
+  }
+}

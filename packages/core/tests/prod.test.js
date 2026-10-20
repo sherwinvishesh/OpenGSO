@@ -17,7 +17,7 @@ import {
   parseLinkAlternate,
   resolveBots,
   summarizeAccept,
-} from '@omnigeo/core/prod';
+} from '@opengso/core/prod';
 
 const BROWSER_ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8';
 const GPTBOT = 'Mozilla/5.0 AppleWebKit/537.36 (compatible; GPTBot/1.2; +https://openai.com/gptbot)';

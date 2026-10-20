@@ -25,7 +25,7 @@ import { callProvider, failsEveryCall, stripCodeFence } from '../shared/provider
 /**
  * The optional AI content review (§5), and its own 0-100 score.
  *
- * There are two numbers in OmniGEO and they are never added together. The structural score says
+ * There are two numbers in OpenGSO and they are never added together. The structural score says
  * whether the Markdown is *served* correctly: reachable, right content type, right headers. This
  * one says whether the Markdown is *worth reading* once it arrives. A site can serve a perfect
  * twin of a page that says nothing, and score 100 on the first and 40 on the second, and both
@@ -126,7 +126,7 @@ const PRIORITIES = ['high', 'medium', 'low'];
  * @property {string} [model]
  * @property {ProviderFn} [call] Injectable so tests never touch the network.
  * @property {number} [timeoutMs]
- * @property {ProviderOverrides} [overrides] Endpoint overrides, for a gateway or a provider OmniGEO does not ship with.
+ * @property {ProviderOverrides} [overrides] Endpoint overrides, for a gateway or a provider OpenGSO does not ship with.
  * @property {Record<string, string | undefined>} [env] Overridable only so the CI guard itself is testable.
  */
 
@@ -201,7 +201,7 @@ export function areaWeight(area) {
  * Only the areas the model actually scored count, and the weights are renormalised over those. It
  * is the same rule the structural score uses for `n/a` checks: an unanswered question leaves the
  * denominator rather than scoring zero, because a model that returned four findings instead of five
- * has told you nothing about the fifth. An area OmniGEO does not know about is ignored in the
+ * has told you nothing about the fifth. An area OpenGSO does not know about is ignored in the
  * arithmetic and still printed, on the same principle.
  *
  * @param {readonly QualityFinding[]} findings
@@ -517,7 +517,7 @@ function toFindings(value) {
 /**
  * Recommendations, from either the structured shape or a bare list of strings.
  *
- * A string carries no area and no priority, so it is filed under the area OmniGEO cannot name and
+ * A string carries no area and no priority, so it is filed under the area OpenGSO cannot name and
  * at medium. Inventing a priority for it would put a guess in the same column as the model's own
  * judgement, which is worse than admitting the reply was thinner than asked for.
  *

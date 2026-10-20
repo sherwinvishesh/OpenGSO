@@ -2,10 +2,10 @@ import { createServer } from 'node:http';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { parseRobots, robotsAllows } from '../src/shared/robots.js';
 import { summarizeRobots } from '../src/prod/startup.js';
-import { discoverTwins, renderReport, scoreChecks, scoreGain, sitemapTwins, testUrl } from '@omnigeo/core/test';
+import { discoverTwins, renderReport, scoreChecks, scoreGain, sitemapTwins, testUrl } from '@opengso/core/test';
 /** @import { IncomingMessage, Server, ServerResponse } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
-/** @import { TestResult } from '@omnigeo/core/test' */
+/** @import { TestResult } from '@opengso/core/test' */
 
 /**
  * Sites that answer in ways a well-behaved one would not, run through the real probe and the real

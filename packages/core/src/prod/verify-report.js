@@ -6,7 +6,7 @@ import { meter } from '../shared/render/meters.js';
 /** @import { ProdProbe, ProdVerification } from './verify.js' */
 
 /**
- * Terminal rendering for `omnigeo prod test`.
+ * Terminal rendering for `opengso prod test`.
  *
  * The section headings are the point of the output. A user who reads nothing else should come away
  * knowing that routing and blocking are two different things, and which one they are looking at.
@@ -30,14 +30,14 @@ export function renderProdVerification(result, options = {}) {
   const lines = [];
 
   lines.push('');
-  lines.push(`${c.bold('OmniGEO')} ${c.gray('prod test')}  ${result.target}`);
+  lines.push(`${c.bold('OpenGSO')} ${c.gray('prod test')}  ${result.target}`);
   lines.push('');
   lines.push(`  ${summaryLine(result)}`);
 
   if (!result.installed) {
     lines.push('');
     lines.push(`  ${ink.danger('No X-AEO-Version on any response.')}`);
-    lines.push(...indentWrapped('omnigeo-prod is not answering at this URL. Everything below follows from that.', width, c.gray));
+    lines.push(...indentWrapped('opengso-prod is not answering at this URL. Everything below follows from that.', width, c.gray));
   }
 
   const routing = result.probes.filter((p) => p.lever === 'routing');
@@ -68,7 +68,7 @@ export function renderProdVerification(result, options = {}) {
 
   lines.push('');
   if (result.counts.fail > 0) {
-    lines.push(c.gray(`Run \`omnigeo test ${result.target}\` for the full 0-100 audit of this page.`));
+    lines.push(c.gray(`Run \`opengso test ${result.target}\` for the full 0-100 audit of this page.`));
     lines.push('');
   }
   return lines.join('\n');

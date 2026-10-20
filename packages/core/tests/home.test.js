@@ -7,8 +7,8 @@ import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRo
 import { createPrompter } from '../src/cli/prompt.js';
 import { CI_VARIABLES } from '../src/shared/ci.js';
 import { glyphs, stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
-/** @import { CommandHandler } from '@omnigeo/core/cli' */
-/** @import { CommandName } from '@omnigeo/core/shared' */
+/** @import { CommandHandler } from '@opengso/core/cli' */
+/** @import { CommandName } from '@opengso/core/shared' */
 /** @import { HomeStatus } from '../src/cli/home.js' */
 
 /**
@@ -31,7 +31,7 @@ const roots = [];
  * @returns {string}
  */
 function project(files = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'omnigeo-home-'));
+  const root = mkdtempSync(join(tmpdir(), 'opengso-home-'));
   roots.push(root);
   for (const [path, content] of Object.entries(files)) {
     const full = join(root, path);
@@ -107,9 +107,9 @@ describe('reading a project', () => {
 
   it('picks up the site, the twins and the last score', () => {
     const root = project({
-      'omnigeo.config.json': CONFIG,
-      '.omnigeo/manifest.json': manifest(4, HOUR_AGO),
-      '.omnigeo/history.json': history([
+      'opengso.config.json': CONFIG,
+      '.opengso/manifest.json': manifest(4, HOUR_AGO),
+      '.opengso/history.json': history([
         { at: HOUR_AGO, url: 'https://example.com/', mode: 'structure', score: 61 },
         { at: NOW, url: 'https://example.com/', mode: 'structure', score: 84, suggestions: { adopted: 3, count: 15 } },
       ]),
@@ -127,8 +127,8 @@ describe('reading a project', () => {
 
   it('shows the URL the score was actually taken from, not the one in the config', () => {
     const root = project({
-      'omnigeo.config.json': CONFIG,
-      '.omnigeo/history.json': history([{ at: NOW, url: 'http://localhost:3000/', mode: 'structure', score: 40 }]),
+      'opengso.config.json': CONFIG,
+      '.opengso/history.json': history([{ at: NOW, url: 'http://localhost:3000/', mode: 'structure', score: 40 }]),
     });
 
     expect(readHomeStatus(root).site).toBe('http://localhost:3000/');
@@ -136,9 +136,9 @@ describe('reading a project', () => {
 
   it('survives a corrupt manifest and a corrupt history', () => {
     const root = project({
-      'omnigeo.config.json': CONFIG,
-      '.omnigeo/manifest.json': '{ broken',
-      '.omnigeo/history.json': 'also broken',
+      'opengso.config.json': CONFIG,
+      '.opengso/manifest.json': '{ broken',
+      '.opengso/history.json': 'also broken',
     });
     const status = readHomeStatus(root);
 
@@ -148,16 +148,16 @@ describe('reading a project', () => {
   });
 
   it('counts a model on this machine as ready, with no key to find', () => {
-    const root = project({ 'omnigeo.config.json': JSON.stringify({ site: 'https://example.com', ai: { provider: 'ollama', model: 'llama3.2' } }) });
+    const root = project({ 'opengso.config.json': JSON.stringify({ site: 'https://example.com', ai: { provider: 'ollama', model: 'llama3.2' } }) });
     const status = readHomeStatus(root);
 
-    expect(status.provider).toEqual({ id: 'ollama', source: 'omnigeo.config.json', keyless: true });
+    expect(status.provider).toEqual({ id: 'ollama', source: 'opengso.config.json', keyless: true });
     expect(text(statusRows(status, 80))).toContain('runs without a key');
     expect(plainStatus(status).join('\n')).toContain('ollama, no key needed');
   });
 
   it('counts no twins when generate has never run', () => {
-    const root = project({ 'omnigeo.config.json': CONFIG });
+    const root = project({ 'opengso.config.json': CONFIG });
     const status = readHomeStatus(root);
 
     expect(status.twins).toBe(0);
@@ -242,16 +242,16 @@ describe('the header box', () => {
   };
 
   it('names the project, the site and the version', () => {
-    const drawn = text(homeHeader(status, 'omnigeo 0.1.0', 80));
+    const drawn = text(homeHeader(status, 'opengso 0.1.0', 80));
 
     expect(drawn).toContain('nextjs-demo');
     expect(drawn).toContain('https://example.com/');
-    expect(drawn).toContain('omnigeo 0.1.0');
+    expect(drawn).toContain('opengso 0.1.0');
   });
 
   it('is a closed box at every width it will be drawn at', () => {
     for (const width of [40, 60, 80, 120, 200]) {
-      const lines = homeHeader(status, 'omnigeo 0.1.0', width).map(stripAnsi);
+      const lines = homeHeader(status, 'opengso 0.1.0', width).map(stripAnsi);
       const drawn = lines[0].length;
       expect(drawn).toBeLessThanOrEqual(Math.min(width, 96));
       for (const line of lines) expect(line.length).toBe(drawn);
@@ -259,7 +259,7 @@ describe('the header box', () => {
   });
 
   it('says so plainly when there is no site yet', () => {
-    expect(text(homeHeader({ ...status, configured: false, site: undefined }, 'omnigeo 0.1.0', 80))).toContain('no site configured yet');
+    expect(text(homeHeader({ ...status, configured: false, site: undefined }, 'opengso 0.1.0', 80))).toContain('no site configured yet');
   });
 });
 
@@ -389,7 +389,7 @@ describe('the flat menu hands stdin to the command it runs', () => {
       prompter.close();
       return 0;
     };
-    const done = runHome({ packageName: 'omnigeo', version: '0.0.0', commands: { settings }, root: project(), input: term.input, output: term.output });
+    const done = runHome({ packageName: 'opengso', version: '0.0.0', commands: { settings }, root: project(), input: term.input, output: term.output });
 
     await term.waitFor('choose a number');
     term.input.write(`${term.numberOf('Settings')}\n`);
@@ -422,7 +422,7 @@ describe('the flat menu and a pipe', () => {
       seen += chunk.toString();
     });
 
-    const code = await runHome({ packageName: 'omnigeo', version: '0.0.0', commands: ALL, root: project(), input, output });
+    const code = await runHome({ packageName: 'opengso', version: '0.0.0', commands: ALL, root: project(), input, output });
 
     expect(code).toBe(-1);
     expect(seen).toBe('');
@@ -435,10 +435,10 @@ describe('the full-screen menu after a command', () => {
   beforeEach(() => {
     saved = { ...process.env };
     process.env.FORCE_COLOR = '1';
-    // The gate closes on any CI variable or OMNIGEO_NO_TUI, and a runner sets several, so the suite
+    // The gate closes on any CI variable or OPENGSO_NO_TUI, and a runner sets several, so the suite
     // would test nothing there.
     for (const name of CI_VARIABLES) delete process.env[name];
-    delete process.env.OMNIGEO_NO_TUI;
+    delete process.env.OPENGSO_NO_TUI;
   });
   afterEach(() => {
     process.env = saved;
@@ -467,7 +467,7 @@ describe('the full-screen menu after a command', () => {
       return 0;
     };
 
-    const done = runHome({ packageName: 'omnigeo', version: '0.0.0', commands: { 'prod test': prod }, root: project({ 'omnigeo.config.json': CONFIG }), input, output });
+    const done = runHome({ packageName: 'opengso', version: '0.0.0', commands: { 'prod test': prod }, root: project({ 'opengso.config.json': CONFIG }), input, output });
     await waitFor('Prod check');
     input.write('p');
     await waitFor('URL');
@@ -504,10 +504,10 @@ describe('the full-screen menu after a command', () => {
     };
 
     const done = runHome({
-      packageName: 'omnigeo',
+      packageName: 'opengso',
       version: '0.0.0',
       commands: { test },
-      root: project({ 'omnigeo.config.json': CONFIG }),
+      root: project({ 'opengso.config.json': CONFIG }),
       input,
       output,
       // Pinned, or a Linux runner with no display has no tool to try and falls back to OSC 52.
@@ -560,7 +560,7 @@ describe('the full-screen menu after a command', () => {
       return visibleWidth(top ?? '');
     };
 
-    const done = runHome({ packageName: 'omnigeo', version: '0.0.0', commands: { test: async () => 0 }, root: project({ 'omnigeo.config.json': CONFIG }), input, output });
+    const done = runHome({ packageName: 'opengso', version: '0.0.0', commands: { test: async () => 0 }, root: project({ 'opengso.config.json': CONFIG }), input, output });
     await waitUntil((text) => stripAnsi(text).includes('Quit'));
     expect(boxWidth()).toBeGreaterThan(50);
 

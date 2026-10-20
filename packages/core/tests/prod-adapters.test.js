@@ -3,11 +3,11 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MARKDOWN_CONTENT_TYPE } from '@omnigeo/core/prod';
-import { createEdgeMiddleware, fetchMiddleware, mergeHeaderValue, withPassthroughHeaders } from '@omnigeo/core/prod/edge';
-import { createFetchMiddleware } from '@omnigeo/core/prod/fetch';
-import { createNodeMiddleware } from '@omnigeo/core/prod/node';
-import viteDefault, { omnigeo as vitePlugin } from '@omnigeo/core/prod/vite';
+import { MARKDOWN_CONTENT_TYPE } from '@opengso/core/prod';
+import { createEdgeMiddleware, fetchMiddleware, mergeHeaderValue, withPassthroughHeaders } from '@opengso/core/prod/edge';
+import { createFetchMiddleware } from '@opengso/core/prod/fetch';
+import { createNodeMiddleware } from '@opengso/core/prod/node';
+import viteDefault, { opengso as vitePlugin } from '@opengso/core/prod/vite';
 import { prodDataCommand } from '../src/cli/commands/prod-data.js';
 import { runCli } from '../src/cli/index.js';
 import { buildEdgeData, refreshEdgeData, renderEdgeDataModule, writeEdgeData } from '../src/prod/edge-data.js';
@@ -36,17 +36,17 @@ afterEach(async () => {
 });
 
 /**
- * A project with one twin, as `omnigeo generate` leaves it.
+ * A project with one twin, as `opengso generate` leaves it.
  *
- * @param {object} [config] Written as omnigeo.config.json when given.
+ * @param {object} [config] Written as opengso.config.json when given.
  */
 function project(config) {
-  const root = mkdtempSync(join(tmpdir(), 'omnigeo-adapters-'));
+  const root = mkdtempSync(join(tmpdir(), 'opengso-adapters-'));
   mkdirSync(join(root, 'public', 'md'), { recursive: true });
-  mkdirSync(join(root, '.omnigeo'), { recursive: true });
-  writeFileSync(join(root, 'public', 'md', 'resume.md'), '---\ntitle: "Resume"\ngenerated_by: omnigeo\n---\n# Resume\n\nTen years of fieldwork.\n');
+  mkdirSync(join(root, '.opengso'), { recursive: true });
+  writeFileSync(join(root, 'public', 'md', 'resume.md'), '---\ntitle: "Resume"\ngenerated_by: opengso\n---\n# Resume\n\nTen years of fieldwork.\n');
   writeFileSync(
-    join(root, '.omnigeo', 'manifest.json'),
+    join(root, '.opengso', 'manifest.json'),
     JSON.stringify({
       pages: {
         '/resume': {
@@ -62,7 +62,7 @@ function project(config) {
       },
     }),
   );
-  if (config) writeFileSync(join(root, 'omnigeo.config.json'), JSON.stringify(config));
+  if (config) writeFileSync(join(root, 'opengso.config.json'), JSON.stringify(config));
   return root;
 }
 
@@ -127,7 +127,7 @@ describe('mergeHeaderValue', () => {
   });
 
   it('replaces any other header, which is prod’s own', () => {
-    expect(mergeHeaderValue('X-AEO-Version', 'old', 'omnigeo/1.0')).toBe('omnigeo/1.0');
+    expect(mergeHeaderValue('X-AEO-Version', 'old', 'opengso/1.0')).toBe('opengso/1.0');
   });
 });
 
@@ -159,7 +159,7 @@ describe('fetchMiddleware', () => {
       expect(await response.text()).toBe('page');
     }
     expect(errors).toHaveBeenCalledTimes(1);
-    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[omnigeo-prod\] .*boom$/);
+    expect(String(errors.mock.calls[0]?.[0])).toMatch(/^\[opengso-prod\] .*boom$/);
   });
 
   it('calls next with no arguments', async () => {
@@ -258,7 +258,7 @@ describe('createNodeMiddleware, in front of a Connect-style app', () => {
   it('fails open on a broken config: one log line, every page served', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
     const root = project();
-    writeFileSync(join(root, 'omnigeo.config.json'), '{ "site": ');
+    writeFileSync(join(root, 'opengso.config.json'), '{ "site": ');
     const site = await listen(connectApp(createNodeMiddleware({ root })));
     const agent = await fetch(`${site}/resume`, { headers: { 'user-agent': CLAUDE } });
     expect(agent.headers.get('content-type')).toBe('text/html; charset=utf-8');
@@ -299,7 +299,7 @@ describe('createFetchMiddleware', () => {
   });
 });
 
-describe('createEdgeMiddleware, from the module `omnigeo prod data` writes', () => {
+describe('createEdgeMiddleware, from the module `opengso prod data` writes', () => {
   it('decides exactly what the Node adapter decides for the same project', async () => {
     const root = project({ bots: { markdownRouting: ['AcmeBot'], custom: [{ name: 'AcmeBot' }] } });
     const { data } = buildEdgeData(loadConfig(root));
@@ -334,7 +334,7 @@ describe('the Vite plugin', () => {
     const server = { config: { root }, middlewares: { use: (/** @type {unknown} */ fn) => used.push(fn) } };
     vi.spyOn(console, 'log').mockImplementation(() => {});
     const plugin = vitePlugin({ logStartup: false });
-    expect(plugin.name).toBe('omnigeo');
+    expect(plugin.name).toBe('opengso');
     plugin.configureServer(server);
     plugin.configurePreviewServer(server);
     expect(used).toHaveLength(2);
@@ -342,7 +342,7 @@ describe('the Vite plugin', () => {
   });
 });
 
-describe('omnigeo prod data', () => {
+describe('opengso prod data', () => {
   it('writes only what a store reads, with the routing and custom crawlers', () => {
     const root = project({ bots: { markdownRouting: ['AcmeBot'], custom: [{ name: 'AcmeBot' }] } });
     const { data, problems } = buildEdgeData(loadConfig(root));
@@ -363,7 +363,7 @@ describe('omnigeo prod data', () => {
     const root = project({});
     writeFileSync(join(root, 'secret.md'), 'DATABASE_PASSWORD=hunter2\n');
     writeFileSync(
-      join(root, '.omnigeo', 'manifest.json'),
+      join(root, '.opengso', 'manifest.json'),
       JSON.stringify({
         pages: {
           '/resume': { route: '/resume', file: 'md/resume.md', tokens: 9 },
@@ -380,20 +380,20 @@ describe('omnigeo prod data', () => {
   it('writes the same bytes for the same twins, in JavaScript or TypeScript', () => {
     const root = project({});
     const { data } = buildEdgeData(loadConfig(root));
-    const js = renderEdgeDataModule(data, { typescript: false, importFrom: 'omnigeo-prod/edge' });
-    expect(js).toBe(renderEdgeDataModule(data, { typescript: false, importFrom: 'omnigeo-prod/edge' }));
-    expect(js.split('\n')[0]).toMatch(/^\/\/ Generated by OmniGEO \(omnigeo\/1\.0\)/);
-    expect(js).toContain("/** @type {import('omnigeo-prod/edge').EdgeData} */");
+    const js = renderEdgeDataModule(data, { typescript: false, importFrom: 'opengso-prod/edge' });
+    expect(js).toBe(renderEdgeDataModule(data, { typescript: false, importFrom: 'opengso-prod/edge' }));
+    expect(js.split('\n')[0]).toMatch(/^\/\/ Generated by OpenGSO \(opengso\/1\.0\)/);
+    expect(js).toContain("/** @type {import('opengso-prod/edge').EdgeData} */");
     expect(js.trimEnd().endsWith('export default data;')).toBe(true);
-    const ts = renderEdgeDataModule(data, { typescript: true, importFrom: 'omnigeo/prod/edge' });
-    expect(ts).toContain("import type { EdgeData } from 'omnigeo/prod/edge';");
+    const ts = renderEdgeDataModule(data, { typescript: true, importFrom: 'opengso/prod/edge' });
+    expect(ts).toContain("import type { EdgeData } from 'opengso/prod/edge';");
     expect(ts).toContain('const data: EdgeData = {');
   });
 
   it('imports into a working edge middleware', async () => {
     const root = project({});
     const result = writeEdgeData({ loaded: loadConfig(root) });
-    expect(result.path).toBe(join(root, 'omnigeo-edge-data.js'));
+    expect(result.path).toBe(join(root, 'opengso-edge-data.js'));
     const { default: data } = await import(result.path);
     const edge = createEdgeMiddleware({ data });
     const response = await edge(new Request('http://x/resume', { headers: { 'user-agent': CLAUDE } }), async () => new Response('page'));
@@ -403,23 +403,23 @@ describe('omnigeo prod data', () => {
   it('picks TypeScript in a TypeScript project, and names the package the project installed', () => {
     const root = project({});
     writeFileSync(join(root, 'tsconfig.json'), '{}');
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { omnigeo: '^0.1.0' } }));
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: { opengso: '^0.1.0' } }));
     const result = writeEdgeData({ loaded: loadConfig(root) });
-    expect(result.path).toBe(join(root, 'omnigeo-edge-data.ts'));
-    expect(result.importFrom).toBe('omnigeo/prod/edge');
-    expect(readFileSync(result.path, 'utf8')).toContain("from 'omnigeo/prod/edge'");
+    expect(result.path).toBe(join(root, 'opengso-edge-data.ts'));
+    expect(result.importFrom).toBe('opengso/prod/edge');
+    expect(readFileSync(result.path, 'utf8')).toContain("from 'opengso/prod/edge'");
   });
 
   it('never overwrites a file of the same name it did not write', () => {
     const root = project({});
-    writeFileSync(join(root, 'omnigeo-edge-data.js'), 'export default { mine: true };\n');
+    writeFileSync(join(root, 'opengso-edge-data.js'), 'export default { mine: true };\n');
     const result = writeEdgeData({ loaded: loadConfig(root) });
     expect(result.proposed).toBe(true);
-    expect(result.path).toBe(join(root, 'omnigeo-edge-data.js.omnigeo-proposed'));
-    expect(readFileSync(join(root, 'omnigeo-edge-data.js'), 'utf8')).toBe('export default { mine: true };\n');
+    expect(result.path).toBe(join(root, 'opengso-edge-data.js.opengso-proposed'));
+    expect(readFileSync(join(root, 'opengso-edge-data.js'), 'utf8')).toBe('export default { mine: true };\n');
     const forced = writeEdgeData({ loaded: loadConfig(root), force: true });
     expect(forced.proposed).toBe(false);
-    expect(readFileSync(join(root, 'omnigeo-edge-data.js'), 'utf8')).toContain('Generated by OmniGEO');
+    expect(readFileSync(join(root, 'opengso-edge-data.js'), 'utf8')).toContain('Generated by OpenGSO');
   });
 
   it('reports an unchanged module rather than rewriting it', () => {
@@ -431,43 +431,43 @@ describe('omnigeo prod data', () => {
   it('keeps the module it has when a later read finds no twins', () => {
     const root = project({});
     writeEdgeData({ loaded: loadConfig(root) });
-    const before = readFileSync(join(root, 'omnigeo-edge-data.js'), 'utf8');
-    writeFileSync(join(root, '.omnigeo', 'manifest.json'), JSON.stringify({ pages: {} }));
+    const before = readFileSync(join(root, 'opengso-edge-data.js'), 'utf8');
+    writeFileSync(join(root, '.opengso', 'manifest.json'), JSON.stringify({ pages: {} }));
     expect(writeEdgeData({ loaded: loadConfig(root) })).toMatchObject({ written: false, pages: 0 });
     expect(refreshEdgeData(loadConfig(root))).toEqual({ notes: [], warnings: [] });
-    expect(readFileSync(join(root, 'omnigeo-edge-data.js'), 'utf8')).toBe(before);
+    expect(readFileSync(join(root, 'opengso-edge-data.js'), 'utf8')).toBe(before);
   });
 
-  it('is refreshed after generate only when OmniGEO wrote it', () => {
+  it('is refreshed after generate only when OpenGSO wrote it', () => {
     const root = project({});
     expect(refreshEdgeData(loadConfig(root))).toEqual({ notes: [], warnings: [] });
-    expect(existsSync(join(root, 'omnigeo-edge-data.js'))).toBe(false);
+    expect(existsSync(join(root, 'opengso-edge-data.js'))).toBe(false);
 
     writeEdgeData({ loaded: loadConfig(root) });
     writeFileSync(join(root, 'public', 'md', 'resume.md'), '# Resume\n\nEleven years now.\n');
     const refreshed = refreshEdgeData(loadConfig(root));
-    expect(refreshed.notes).toEqual([expect.stringContaining('Refreshed omnigeo-edge-data.js with 1 twin')]);
-    expect(readFileSync(join(root, 'omnigeo-edge-data.js'), 'utf8')).toContain('Eleven years now.');
+    expect(refreshed.notes).toEqual([expect.stringContaining('Refreshed opengso-edge-data.js with 1 twin')]);
+    expect(readFileSync(join(root, 'opengso-edge-data.js'), 'utf8')).toContain('Eleven years now.');
 
-    writeFileSync(join(root, 'omnigeo-edge-data.ts'), 'export default {};\n');
+    writeFileSync(join(root, 'opengso-edge-data.ts'), 'export default {};\n');
     refreshEdgeData(loadConfig(root));
-    expect(readFileSync(join(root, 'omnigeo-edge-data.ts'), 'utf8')).toBe('export default {};\n');
+    expect(readFileSync(join(root, 'opengso-edge-data.ts'), 'utf8')).toBe('export default {};\n');
   });
 
   it('writes nothing and exits 1 when there are no twins', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'omnigeo-adapters-empty-'));
+    const root = mkdtempSync(join(tmpdir(), 'opengso-adapters-empty-'));
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    expect(await prodDataCommand({ argv: ['--project', root], packageName: 'omnigeo', version: '0.0.0' })).toBe(1);
-    expect(existsSync(join(root, 'omnigeo-edge-data.js'))).toBe(false);
-    expect(existsSync(join(root, 'omnigeo-edge-data.ts'))).toBe(false);
+    expect(await prodDataCommand({ argv: ['--project', root], packageName: 'opengso', version: '0.0.0' })).toBe(1);
+    expect(existsSync(join(root, 'opengso-edge-data.js'))).toBe(false);
+    expect(existsSync(join(root, 'opengso-edge-data.ts'))).toBe(false);
     expect(String(err.mock.calls.map((call) => call[0]).join(''))).toContain('No twins to bundle');
   });
 
-  it('runs as `omnigeo prod data`, prints the import, and exits 0', async () => {
+  it('runs as `opengso prod data`, prints the import, and exits 0', async () => {
     const root = project({});
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const code = await runCli({
-      packageName: 'omnigeo',
+      packageName: 'opengso',
       version: '0.0.0',
       commands: { 'prod data': prodDataCommand },
       argv: ['prod', 'data', '--project', root],
@@ -475,13 +475,13 @@ describe('omnigeo prod data', () => {
     expect(code).toBe(0);
     const printed = out.mock.calls.map((call) => String(call[0])).join('');
     expect(printed).toContain('1 twin');
-    expect(printed).toContain("import data from './omnigeo-edge-data';");
-    expect(printed).toContain("import { createEdgeMiddleware } from 'omnigeo-prod/edge';");
+    expect(printed).toContain("import data from './opengso-edge-data';");
+    expect(printed).toContain("import { createEdgeMiddleware } from 'opengso-prod/edge';");
   });
 
   it('takes no URL', async () => {
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
-    expect(await prodDataCommand({ argv: ['https://example.com'], packageName: 'omnigeo', version: '0.0.0' })).toBe(2);
+    expect(await prodDataCommand({ argv: ['https://example.com'], packageName: 'opengso', version: '0.0.0' })).toBe(2);
     expect(String(err.mock.calls[0]?.[0])).toContain('takes no URL');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArgs } from '@omnigeo/core/cli';
+import { parseArgs } from '@opengso/core/cli';
 
 const SPEC = /** @type {const} */ ({ booleans: ['json', 'force'], strings: ['project', 'tier'], alias: { p: 'project' } });
 

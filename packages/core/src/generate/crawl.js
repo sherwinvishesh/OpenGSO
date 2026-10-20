@@ -11,7 +11,7 @@ import { whyUnreachable } from '../shared/site-probe.js';
  * This is deliberately the dumbest thing that works everywhere: a same-origin breadth-first walk
  * over anchors that are actually in the served HTML. It is not a router adapter and never will be
  * (§16) - a route only a client-side router knows about is invisible here, and the honest answer to
- * that is `extraRoutes` in omnigeo.config.json, not a per-framework integration.
+ * that is `extraRoutes` in opengso.config.json, not a per-framework integration.
  *
  * One crawl feeds three outputs: the markdown twins, llms.txt, and sitemap.xml. Nothing here
  * fetches a page twice - the HTML comes back with the result so generate can reuse it.
@@ -38,7 +38,7 @@ const INTERNAL_PREFIXES = ['/_next/', '/_nuxt/', '/_astro/', '/_vercel/', '/cdn-
  *   hatch). Always fetched, never skipped.
  * @property {number} [maxPages]
  * @property {number} [maxDepth]
- * @property {readonly string[]} [exclude] Path prefixes to skip, from omnigeo.config.json.
+ * @property {readonly string[]} [exclude] Path prefixes to skip, from opengso.config.json.
  * @property {number} [timeoutMs]
  * @property {(event: CrawlProgress) => void} [onProgress]
  * @property {AbortSignal} [signal] Checked before each page. An abandoned crawl throws rather than

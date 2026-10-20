@@ -4,7 +4,7 @@ import { AI_BOTS, routedSearchCrawlers } from '../shared/bots.js';
 import { CONFIG_ERRORS } from '../shared/errors.js';
 import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
 
-// Still exported from here, as omnigeo-prod always has; the one implementation lives in shared/.
+// Still exported from here, as opengso-prod always has; the one implementation lives in shared/.
 export { parseRobots, robotsAllows, robotsRulesFor };
 
 /**
@@ -72,23 +72,23 @@ export function buildStartupStatus(options) {
   const twins = options.store?.size ?? 0;
   const problems = options.store?.problems ?? [];
   /** @type {string[]} */
-  const lines = [`[omnigeo-prod] ${options.heading ?? 'startup check'}`];
+  const lines = [`[opengso-prod] ${options.heading ?? 'startup check'}`];
 
   for (const file of files) {
     lines.push(
       file.found
-        ? `[omnigeo-prod]   ${file.name}: found${file.detail ? ` - ${file.detail}` : ''}`
-        : `[omnigeo-prod]   ${file.name}: not found - hand-write one, or install omnigeo-generate and run \`omnigeo generate <url>\``,
+        ? `[opengso-prod]   ${file.name}: found${file.detail ? ` - ${file.detail}` : ''}`
+        : `[opengso-prod]   ${file.name}: not found - hand-write one, or install opengso-generate and run \`opengso generate <url>\``,
     );
   }
 
-  lines.push(`[omnigeo-prod]   markdown twins loaded: ${twins}`);
-  for (const problem of problems) lines.push(`[omnigeo-prod]   ${problem}`);
+  lines.push(`[opengso-prod]   markdown twins loaded: ${twins}`);
+  for (const problem of problems) lines.push(`[opengso-prod]   ${problem}`);
   const search = routedSearchCrawlers(options.routing ?? [], options.bots);
-  if (search.length > 0) lines.push(`[omnigeo-prod]   ${CONFIG_ERRORS.searchCrawlersRouted(search)}`);
-  for (const { key, suggestion } of options.unknownKeys ?? []) lines.push(`[omnigeo-prod]   ${CONFIG_ERRORS.unknownConfigKey(key, suggestion)}`);
+  if (search.length > 0) lines.push(`[opengso-prod]   ${CONFIG_ERRORS.searchCrawlersRouted(search)}`);
+  for (const { key, suggestion } of options.unknownKeys ?? []) lines.push(`[opengso-prod]   ${CONFIG_ERRORS.unknownConfigKey(key, suggestion)}`);
   if (twins === 0) {
-    lines.push('[omnigeo-prod]   nothing to serve yet - every request will pass through to the normal site');
+    lines.push('[opengso-prod]   nothing to serve yet - every request will pass through to the normal site');
   }
 
   return { files, twins, problems, lines };

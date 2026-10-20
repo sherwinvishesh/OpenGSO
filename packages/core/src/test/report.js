@@ -6,7 +6,7 @@ import { deltaFor, relativeAge, scoreTrend } from '../shared/history.js';
 import { areaWeight, qualityBand } from './quality.js';
 import { fixSteps, isSuggestion, rankedSuggestions, scoreGain, twinFaults } from './score.js';
 
-// The JSON side lives in its own file; re-exported so `@omnigeo/core/test` offers the same names.
+// The JSON side lives in its own file; re-exported so `@opengso/core/test` offers the same names.
 export { suiteJson, testJson, toJson } from './report-json.js';
 
 /**
@@ -39,7 +39,7 @@ export { suiteJson, testJson, toJson } from './report-json.js';
  * @property {History} [history] Previous runs, for the delta and the sparkline.
  *
  *   Optional everywhere: the report has to render identically for a caller that has no project
- *   directory to read a history out of, which is every `omnigeo test <url>` against someone else's
+ *   directory to read a history out of, which is every `opengso test <url>` against someone else's
  *   site.
  * @property {number} [width] Overridden only by tests, which have no terminal to measure.
  * @property {boolean} [promptHint] The closing line on getting a fix prompt. Off when the caller is
@@ -61,7 +61,7 @@ export function renderReport(result, options = {}) {
   const width = options.width ?? terminalWidth();
 
   lines.push('');
-  lines.push(`${c.bold('OmniGEO')} ${c.gray('test')}  ${result.url}`);
+  lines.push(`${c.bold('OpenGSO')} ${c.gray('test')}  ${result.url}`);
   if (result.framework) lines.push(c.gray(`Detected: ${result.framework.name}`));
   lines.push(renderScore(result.url, score, options));
 
@@ -246,7 +246,7 @@ function renderLocked(blocked, score, width) {
   // One sentence naming the fix, taken from the check that is actually blocking, so this stays
   // correct if the cascade is ever keyed on something other than B1.
   if (score.locked.unlockedBy[0] === 'B1') {
-    lines.push(...indentWrapped('Serve a markdown twin at the .md URL and every one of these becomes measurable. `omnigeo generate` writes the files; `omnigeo prod` serves them.', width, c.gray));
+    lines.push(...indentWrapped('Serve a markdown twin at the .md URL and every one of these becomes measurable. `opengso generate` writes the files; `opengso prod` serves them.', width, c.gray));
   }
   lines.push('');
   // The ids and their weights on one line: enough to see the shape of what is waiting without
@@ -273,7 +273,7 @@ export function renderSetupScore(result, options = {}) {
   result = terminalSafe(result);
   const width = options.width ?? terminalWidth();
   const lines = [renderScore(result.url, result.score, options)];
-  lines.push(...renderNextSteps(result.checks, result.score, width, `Run omnigeo test ${result.url} --copy to copy a fix prompt for Claude Code.`));
+  lines.push(...renderNextSteps(result.checks, result.score, width, `Run opengso test ${result.url} --copy to copy a fix prompt for Claude Code.`));
   return `${lines.join('\n')}\n`;
 }
 
@@ -417,7 +417,7 @@ function indentHanging(marker, text, width, paint) {
  * @returns {string}
  */
 function glyphArrow() {
-  return process.env.OMNIGEO_ASCII ? '->' : '→';
+  return process.env.OPENGSO_ASCII ? '->' : '→';
 }
 
 /**
@@ -425,7 +425,7 @@ function glyphArrow() {
  * changed since last time.
  *
  * Two numbers, on purpose. The first is whether an agent can read the page today; the second is
- * how much of the agent-specific layer the site has adopted, which is what OmniGEO itself adds. A
+ * how much of the agent-specific layer the site has adopted, which is what OpenGSO itself adds. A
  * well-built site with no twin reads 100/100 and 2 of 15, and both halves of that are true.
  *
  * @param {string} url
@@ -586,7 +586,7 @@ function priorityTag(priority) {
 }
 
 /**
- * The multi-document content review, and the second of OmniGEO's two numbers.
+ * The multi-document content review, and the second of OpenGSO's two numbers.
  *
  * Score, then where the missing points are, then what to do about them, then the documents. A
  * review that says "8 documents, 62/100" and stops is a dashboard metric, not a tool: the thing

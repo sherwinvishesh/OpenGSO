@@ -41,7 +41,7 @@ beforeEach(() => {
   delete process.env.LC_ALL;
   delete process.env.LC_CTYPE;
   process.env.WT_SESSION = 'test';
-  delete process.env.OMNIGEO_ASCII;
+  delete process.env.OPENGSO_ASCII;
 });
 
 afterEach(() => {
@@ -57,12 +57,12 @@ describe('canUseTui and CI', () => {
 
   it('declines a full screen under CI', () => {
     process.env.CI = 'true';
-    delete process.env.OMNIGEO_NO_TUI;
+    delete process.env.OPENGSO_NO_TUI;
     expect(canUseTui({ input: tty, output: tty })).toBe(false);
   });
 
   it('reads CI=false and CI=0 as not CI', () => {
-    delete process.env.OMNIGEO_NO_TUI;
+    delete process.env.OPENGSO_NO_TUI;
     // A runner sets GITHUB_ACTIONS and friends as well, and any one of them closes the gate.
     for (const name of CI_VARIABLES) delete process.env[name];
     for (const value of ['false', '0', 'False']) {
@@ -137,8 +137,8 @@ describe('colour depth', () => {
 
   it('emits no escapes at all at depth 0, so piped output stays plain', () => {
     process.env.FORCE_COLOR = '0';
-    const painted = gradient('OmniGEO', PALETTE.ok, PALETTE.okBright);
-    expect(painted).toBe('OmniGEO');
+    const painted = gradient('OpenGSO', PALETTE.ok, PALETTE.okBright);
+    expect(painted).toBe('OpenGSO');
     expect(painted).not.toContain(ESC);
   });
 });
@@ -251,7 +251,7 @@ describe('sparkline', () => {
 
 describe('box', () => {
   it('draws every row at the same width, title and tag included', () => {
-    const drawn = box(['one', 'a much longer second line'], { title: 'OmniGEO', tag: 'v1.2.3', width: 40 });
+    const drawn = box(['one', 'a much longer second line'], { title: 'OpenGSO', tag: 'v1.2.3', width: 40 });
     for (const line of drawn) expect(visibleWidth(line)).toBe(40);
   });
 
@@ -442,7 +442,7 @@ describe('the terminal safety net', () => {
     });
     const stop = vi.fn();
     try {
-      // The home screen has been and gone by the time it launches `omnigeo start`.
+      // The home screen has been and gone by the time it launches `opengso start`.
       openScreen(fakeTerminal()).close();
       process.once('SIGINT', stop);
       process.emit('SIGINT');
