@@ -510,7 +510,9 @@ describe('the full-screen menu after a command', () => {
       root: project({ 'opengeo.config.json': CONFIG }),
       input,
       output,
+      // Pinned, or a Linux runner with no display has no tool to try and falls back to OSC 52.
       clipboard: {
+        platform: 'darwin',
         run: async (_command, _args, text) => {
           copied.push(text);
           return true;
