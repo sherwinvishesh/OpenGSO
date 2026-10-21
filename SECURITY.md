@@ -4,7 +4,9 @@
 
 Report it privately through a
 [GitHub security advisory](https://github.com/sherwinvishesh/OpenGSO/security/advisories/new) on
-this repository. Please do not open a public issue for it.
+this repository. Please do not open a public issue for it. If the advisory form is unavailable to
+you, open an issue that says only "security: please contact me" with no details, and the
+maintainer will reach you through GitHub.
 
 Say which package and version (or commit) you tested, what an attacker can do, and how to reproduce
 it. You will get an answer through the advisory, and the fix is credited to you unless you ask

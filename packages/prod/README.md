@@ -77,8 +77,9 @@ Next 16.3.4 and 16.3.8.
 
 ## Every other framework
 
-One adapter per kind of server, not per framework. Each reads the same `opengso.config.json`,
-`public/` and `.opengso/manifest.json`, so they all decide a request the same way.
+One adapter per kind of server, not per framework. Each reads the same `public/` and
+`.opengso/manifest.json`, and the same `opengso.config.json` when there is one, so they all decide a
+request the same way.
 
 | Entry | Your server | Shape |
 | --- | --- | --- |
@@ -141,7 +142,11 @@ import { createNodeMiddleware } from 'opengso-prod/node';
 export default fromNodeMiddleware(createNodeMiddleware());
 ```
 
-Verified on Nuxt 4.4 (h3 1.15) under `nuxt dev` and the built `.output/server`.
+Verified on Nuxt 4.6 (h3 1.15) under `nuxt dev` and the built `.output/server`. Two things to know
+about Nuxt in particular: `node .output/server/index.mjs` does not set `NODE_ENV`, so set
+`NODE_ENV=production` yourself or the server keeps watching the twins for changes; and the Nuxt
+starter ships a `public/robots.txt`, which `opengso generate` leaves alone, writing its own as
+`robots.txt.opengso-proposed` beside it for you to merge.
 
 ### Hono
 
@@ -396,10 +401,10 @@ On boot, once per process, `opengso-prod` reports what it found:
 
 ```
 [opengso-prod] startup check
-[opengso-prod] robots.txt: found - blocking no AI bots
-[opengso-prod] llms.txt: found
-[opengso-prod] sitemap.xml: found
-[opengso-prod] markdown twins loaded: 3
+[opengso-prod]   robots.txt: found - blocking no AI bots
+[opengso-prod]   llms.txt: found
+[opengso-prod]   sitemap.xml: found
+[opengso-prod]   markdown twins loaded: 3
 ```
 
 There is a module-scoped guard, so this happens at startup and never per request. When a file is

@@ -196,8 +196,9 @@ Adding one OpenGSO has never heard of is three lines of config, not a fork:
 
 ### Where your API key lives
 
-`.env` in your project, under `OPENGSO_API_KEY`, and nowhere else. It is sent to the AI provider you
-chose and to nobody else. OpenGSO has no telemetry, no analytics and no cloud sync, so there is
+`.env` in your project, and nowhere else: under `OPENGSO_API_KEY`, or under the name the provider
+documents (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` and so on), which you may
+already have. It is sent to the AI provider you chose and to nobody else. OpenGSO has no telemetry, no analytics and no cloud sync, so there is
 nothing else that could transmit it. `.env` is added to `.gitignore` before the key is written.
 
 Most of OpenGSO needs no key: the whole 0 to 100 structural test, the entire free generate tier, and

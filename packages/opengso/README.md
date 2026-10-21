@@ -112,8 +112,8 @@ Each entry is the same code as the matching `opengso-prod` one:
 | --- | --- | --- |
 | `opengso/prod` | `opengso-prod` | the handler, the stores, and the startup log |
 | `opengso/prod/next` | `opengso-prod/next` | the Next.js adapter, for `proxy.ts` (or Node `middleware.ts` on Next 15) |
-| `opengso/prod/node` | `opengso-prod/node` | `(req, res, next)` middleware: Express, Connect, Polka, Fastify, Koa, Nest, Nuxt and h3 |
-| `opengso/prod/fetch` | `opengso-prod/fetch` | `(request, next)` middleware: Hono, SvelteKit, Astro, React Router, Bun, Deno |
+| `opengso/prod/node` | `opengso-prod/node` | `(req, res, next)` middleware: Express, Connect, Polka, Fastify, Koa, Nest, Nuxt, h3, Angular SSR and Qwik City |
+| `opengso/prod/fetch` | `opengso-prod/fetch` | `(request, next)` middleware: Hono, SvelteKit, Astro, React Router, SolidStart, Bun, Deno |
 | `opengso/prod/vite` | `opengso-prod/vite` | the Vite plugin, for `vite` and `vite preview` |
 | `opengso/prod/edge` | `opengso-prod/edge` | the edge middleware, fed by `opengso prod data` instead of the disk |
 
@@ -145,7 +145,9 @@ for every other framework, from Express to a Cloudflare Worker, and the header c
 
 ## Where your API key lives
 
-`.env` in your project, under `OPENGSO_API_KEY`, and nowhere else.
+`.env` in your project, and nowhere else: under `OPENGSO_API_KEY`, or under the name the provider
+documents (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` and so on), which you may
+already have.
 
 The dashboard adds `.env` to `.gitignore` **before** it writes the key, every time. The key is never
 written to `opengso.config.json`, never included in an API response (`/api/state` reports only that
