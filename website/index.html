@@ -130,6 +130,7 @@
         <li><a href="docs/">Docs</a></li>
       </ul>
       <a class="nav-cta" href="https://github.com/sherwinvishesh/OpenGSO">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="nav-cta" href="https://www.npmjs.com/package/opengso">npm <span aria-hidden="true">↗</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="Menu">
         <span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span>
       </button>
@@ -149,6 +150,7 @@
       <li><a href="docs/">Docs</a></li>
     </ul>
     <a class="nav-mobile-git" href="https://github.com/sherwinvishesh/OpenGSO">GitHub ↗</a>
+    <a class="nav-mobile-git" href="https://www.npmjs.com/package/opengso">npm ↗</a>
   </div>
 </nav>
 
@@ -170,12 +172,12 @@
       </div>
 
       <ul class="lockup-rule" aria-label="At a glance">
-        <li>version <b>0.1.1</b></li>
+        <li>version <a href="https://www.npmjs.com/package/opengso?activeTab=versions"><b>0.1.1</b></a></li>
         <li>runtime <b>Node 22+</b></li>
         <li>license <b>Apache-2.0</b></li>
         <li>account <b>none</b></li>
         <li>telemetry <b>none</b></li>
-        <li>status <b class="ok">● on npm</b></li>
+        <li>status <a class="ok" href="https://www.npmjs.com/package/opengso">● on npm</a></li>
       </ul>
 
       <p class="hero-headline">AI agents read your HTML, not your app. <span class="em">OpenGSO shows you what they get, then fixes it.</span></p>
@@ -190,6 +192,7 @@
         <a class="btn btn-primary btn-glow" href="#start">Get started <span class="arrow" aria-hidden="true">→</span></a>
         <a class="btn" href="docs/">Read the docs</a>
         <a class="btn" href="https://github.com/sherwinvishesh/OpenGSO">GitHub <span aria-hidden="true">↗</span></a>
+        <a class="btn" href="https://www.npmjs.com/package/opengso">npm <span aria-hidden="true">↗</span></a>
       </div>
 
       <figure class="code-block term-fig hero-fig reveal">
@@ -373,7 +376,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
         <div class="step-text">
           <span class="step-num">Step 3</span>
           <h3>Serve</h3>
-          <p>Install the middleware and put it in front of your routes. A request from an agent gets the twin at the same URL. Everything else falls through to your app, untouched apart from three headers.</p>
+          <p>Install the middleware, <a href="https://www.npmjs.com/package/opengso-prod"><code>opengso-prod</code></a>, and put it in front of your routes. A request from an agent gets the twin at the same URL. Everything else falls through to your app, untouched apart from three headers.</p>
           <div class="code-block">
             <div class="code-header">terminal<button class="copy-btn" type="button" hidden>copy</button></div>
 <pre class="code-body"><span class="prompt">$ </span>npm install opengso-prod</pre>
@@ -441,6 +444,11 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
       <div class="callout reveal">
         <p class="callout-title">A static site needs no server at all</p>
         <p>Point generate at the build folder: <code class="long">npx opengso generate dist --origin https://example.com</code> writes each twin beside its page, plus the files around them, and <code>--check</code> later tells you which twins are older than their page. This site is published that way on GitHub Pages: its <a href="llms.txt">llms.txt</a>, its <a href="sitemap.xml">sitemap.xml</a>, and this page in markdown, <a href="index.md">index.md</a>, were written by generate.</p>
+      </div>
+
+      <div class="callout reveal">
+        <p class="callout-title">Five packages on npm</p>
+        <p><a href="https://www.npmjs.com/package/opengso"><code>opengso</code></a> is the whole toolkit plus the local dashboard, and it is what <code>npx opengso</code> runs. A project can install only the part it uses instead: <a href="https://www.npmjs.com/package/opengso-testing"><code>opengso-testing</code></a> to score, <a href="https://www.npmjs.com/package/opengso-generate"><code>opengso-generate</code></a> to write the twins, <a href="https://www.npmjs.com/package/opengso-prod"><code>opengso-prod</code></a> on the server, or <a href="https://www.npmjs.com/package/opengso-cli"><code>opengso-cli</code></a> for all three in the terminal, without the dashboard. All five share one version and the same <code>opengso</code> command, and <a href="docs/#install">the docs</a> compare them.</p>
       </div>
     </div>
   </section>

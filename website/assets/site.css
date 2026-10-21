@@ -157,6 +157,11 @@ main :is(p, td, dd, figcaption, .faq-item) a:not(.btn):hover,
 .prose li a:hover {
   text-decoration-color: var(--green);
 }
+/* A package name that links to npm has to look like a link, not like the code beside it. */
+main :is(p, td, dd, figcaption, .faq-item) a:not(.btn) code,
+.prose li a code {
+  color: inherit;
+}
 
 img,
 svg {
@@ -376,6 +381,10 @@ nav.top > .container {
   background: rgba(76, 195, 138, 0.06);
   color: var(--green);
 }
+/* GitHub and npm sit together, closer than the gap that separates them from the links. */
+.nav-cta + .nav-cta {
+  margin-left: -14px;
+}
 .nav-toggle {
   display: none;
   position: relative;
@@ -447,10 +456,14 @@ nav.top.is-open .nav-toggle-bar:nth-child(3) {
   font-size: 12px;
   color: var(--text);
 }
+.nav-mobile-git + .nav-mobile-git {
+  margin-left: 8px;
+}
 nav.top.is-open .nav-mobile-panel {
   display: block;
 }
-@media (max-width: 900px) {
+/* The full nav, GitHub and npm included, needs about 1000px; below that it folds into the menu. */
+@media (max-width: 1040px) {
   .nav-links,
   .nav-cta {
     display: none;
@@ -612,6 +625,15 @@ nav.top.is-open .nav-mobile-panel {
   color: var(--muted);
 }
 .lockup-rule .ok {
+  color: var(--green);
+}
+.lockup-rule a {
+  border-bottom: 1px dotted var(--border-strong);
+  transition: color 0.15s, border-color 0.15s;
+}
+.lockup-rule a:hover,
+.lockup-rule a:hover b {
+  border-color: var(--green);
   color: var(--green);
 }
 @media (max-width: 620px) {
@@ -854,6 +876,7 @@ pre.wrap {
 .grid-2 + .callout,
 .grid-3 + .callout,
 .table-wrap + .callout,
+.callout + .callout,
 .panel + .grid-3 {
   margin-top: 24px;
 }

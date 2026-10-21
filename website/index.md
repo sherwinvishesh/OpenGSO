@@ -1,9 +1,9 @@
 ---
 title: "OpenGSO"
 url: "https://sherwinvishesh.github.io/OpenGSO/"
-last_updated: "2026-10-21T00:03:07.527Z"
-tokens: 6374
-source_hash: "213fc60dd90a7e26"
+last_updated: "2026-10-21T00:53:56.094Z"
+tokens: 6465
+source_hash: "4a5973abf543e3a5"
 generated_by: "opengso-free"
 description: "OpenGSO is a free, open-source CLI and middleware that shows what AI agents actually receive from your site, writes a markdown version of every page, and serves it to them at the same URL. No account, no API key, no telemetry."
 ---
@@ -12,12 +12,12 @@ description: "OpenGSO is a free, open-source CLI and middleware that shows what 
 
 open generative search optimization
 
-- version **0.1.1**
+- version [**0.1.1**](https://www.npmjs.com/package/opengso?activeTab=versions)
 - runtime **Node 22+**
 - license **Apache-2.0**
 - account **none**
 - telemetry **none**
-- status **● on npm**
+- status [● on npm](https://www.npmjs.com/package/opengso)
 
 AI agents read your HTML, not your app. OpenGSO shows you what they get, then fixes it.
 
@@ -32,6 +32,7 @@ $ npx opengso test https://your-site.com
 Get started
 [Read the docs](https://sherwinvishesh.github.io/OpenGSO/docs/)
 [GitHub](https://github.com/sherwinvishesh/OpenGSO)
+[npm](https://www.npmjs.com/package/opengso)
 
 npx opengso test http://localhost:3000/resume the demo, before
 
@@ -214,7 +215,7 @@ Step 3
 
 ### Serve
 
-Install the middleware and put it in front of your routes. A request from an agent gets the twin at the same URL. Everything else falls through to your app, untouched apart from three headers.
+Install the middleware, [`opengso-prod`](https://www.npmjs.com/package/opengso-prod), and put it in front of your routes. A request from an agent gets the twin at the same URL. Everything else falls through to your app, untouched apart from three headers.
 
 terminal
 
@@ -287,6 +288,10 @@ Content negotiation
 A static site needs no server at all
 
 Point generate at the build folder: `npx opengso generate dist --origin https://example.com` writes each twin beside its page, plus the files around them, and `--check` later tells you which twins are older than their page. This site is published that way on GitHub Pages: its [llms.txt](https://sherwinvishesh.github.io/OpenGSO/llms.txt), its [sitemap.xml](https://sherwinvishesh.github.io/OpenGSO/sitemap.xml), and this page in markdown, [index.md](https://sherwinvishesh.github.io/OpenGSO/index.md), were written by generate.
+
+Five packages on npm
+
+[`opengso`](https://www.npmjs.com/package/opengso) is the whole toolkit plus the local dashboard, and it is what `npx opengso` runs. A project can install only the part it uses instead: [`opengso-testing`](https://www.npmjs.com/package/opengso-testing) to score, [`opengso-generate`](https://www.npmjs.com/package/opengso-generate) to write the twins, [`opengso-prod`](https://www.npmjs.com/package/opengso-prod) on the server, or [`opengso-cli`](https://www.npmjs.com/package/opengso-cli) for all three in the terminal, without the dashboard. All five share one version and the same `opengso` command, and [the docs](https://sherwinvishesh.github.io/OpenGSO/docs/#install) compare them.
 
 03 / Results
 
