@@ -2,7 +2,7 @@
   "version": 1,
   "specVersion": "opengso/1.0",
   "site": "http://localhost:3000",
-  "generatedAt": "2026-10-20T21:18:08.366Z",
+  "generatedAt": "2026-10-21T06:44:50.347Z",
   "pages": {
     "/": {
       "route": "/",
@@ -12,9 +12,9 @@
       "tokens": 188,
       "wordCount": 144,
       "sourceHash": "13b1ef2062093e30",
-      "lastUpdated": "2026-09-05T02:01:33.416Z",
+      "lastUpdated": "2026-10-21T06:44:50.356Z",
       "tier": "free",
-      "description": "A small demo site used to exercise the OpenGSO loop end to end."
+      "description": "Cold-weather environmental surveys from Tromso: glacier monitoring, permafrost instrumentation, and sensors that survive a polar winter."
     },
     "/about": {
       "route": "/about",
@@ -33,10 +33,10 @@
       "url": "http://localhost:3000/resume",
       "title": "Engagement record",
       "file": "md/resume.md",
-      "tokens": 314,
-      "wordCount": 241,
-      "sourceHash": "0c8032f66d648aca",
-      "lastUpdated": "2026-10-20T21:18:08.389Z",
+      "tokens": 432,
+      "wordCount": 332,
+      "sourceHash": "9e7819e716242848",
+      "lastUpdated": "2026-10-21T06:44:50.371Z",
       "tier": "free",
       "description": "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
     }

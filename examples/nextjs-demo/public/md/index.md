@@ -1,11 +1,11 @@
 ---
 title: "Aurora Fieldwork"
 url: "http://localhost:3000/"
-last_updated: "2026-09-05T02:01:33.416Z"
+last_updated: "2026-10-21T06:44:50.356Z"
 tokens: 188
 source_hash: "13b1ef2062093e30"
 generated_by: "opengso-free"
-description: "A small demo site used to exercise the OpenGSO loop end to end."
+description: "Cold-weather environmental surveys from Tromso: glacier monitoring, permafrost instrumentation, and sensors that survive a polar winter."
 ---
 
 # Aurora Fieldwork

@@ -8,9 +8,10 @@ export default function ResumePage() {
     <article>
       <h1>Engagement record</h1>
       <p>
-        This page exists so the OpenGSO fidelity checks have something concrete to hold onto: real
-        dates, real prices, real percentages. Anything that rewrites this page and changes a number
-        has failed.
+        Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee
+        and what came of it. The figures are the ones on the invoices, and the misses are listed
+        next to the hits: a prospective client should be able to read this page and know what a
+        season with us costs and what it returns.
       </p>
 
       <h2>Svalbard permafrost array</h2>
@@ -64,6 +65,14 @@ export default function ResumePage() {
           </tr>
         </tbody>
       </table>
+
+      <h3>How the fees work</h3>
+      <p>
+        Every fee is fixed before deployment and includes one retrieval trip the following season.
+        When data return falls more than 25% below the figure in the survey plan, part of the fee is
+        refunded without being asked for, which is what happened on Svalbard. Travel inside Norway is
+        included; flights to Iceland and Greenland are invoiced at cost.
+      </p>
 
       <h3>Contact</h3>
       <p>

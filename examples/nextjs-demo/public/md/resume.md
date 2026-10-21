@@ -1,16 +1,16 @@
 ---
 title: "Engagement record"
 url: "http://localhost:3000/resume"
-last_updated: "2026-10-20T21:18:08.389Z"
-tokens: 314
-source_hash: "0c8032f66d648aca"
+last_updated: "2026-10-21T06:44:50.371Z"
+tokens: 432
+source_hash: "9e7819e716242848"
 generated_by: "opengso-free"
 description: "A dated record of Aurora Fieldwork engagements, budgets, and outcomes."
 ---
 
 # Engagement record
 
-This page exists so the OpenGSO fidelity checks have something concrete to hold onto: real dates, real prices, real percentages. Anything that rewrites this page and changes a number has failed.
+Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee and what came of it. The figures are the ones on the invoices, and the misses are listed next to the hits: a prospective client should be able to read this page and know what a season with us costs and what it returns.
 
 ## Svalbard permafrost array
 
@@ -31,6 +31,10 @@ Awarded 17 September 2022, delivered 4 February 2023, invoiced at 38,900 USD. Th
 | Svalbard permafrost array | 3 March 2024 | $12,500 | 42% below data-return target |
 | Vatnajokull glacier survey | 11 June 2023 | 21,400 EUR | 9 of 9 stakes recovered |
 | Greenland coastal transect | 17 September 2022 | 38,900 USD | 74 km transect, 1.1 TB imagery |
+
+### How the fees work
+
+Every fee is fixed before deployment and includes one retrieval trip the following season. When data return falls more than 25% below the figure in the survey plan, part of the fee is refunded without being asked for, which is what happened on Svalbard. Travel inside Norway is included; flights to Iceland and Greenland are invoiced at cost.
 
 ### Contact
 

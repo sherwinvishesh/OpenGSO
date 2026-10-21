@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Aurora Fieldwork',
-  description: 'A small demo site used to exercise the OpenGSO loop end to end.',
+  description: 'Cold-weather environmental surveys from Tromso: glacier monitoring, permafrost instrumentation, and sensors that survive a polar winter.',
 };
 
 const organizationJsonLd = {
@@ -36,7 +36,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         }}
       >
         <header style={{ borderBottom: '1px solid #e6e6e2', padding: '16px 24px' }}>
-          <nav style={{ display: 'flex', gap: 20, maxWidth: 760, margin: '0 auto' }}>
+          <nav style={{ display: 'flex', gap: 20, maxWidth: 760, margin: '0 auto', alignItems: 'baseline' }}>
+            <Link href="/" style={{ marginRight: 'auto', fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
+              Aurora Fieldwork
+            </Link>
             <Link href="/">Home</Link>
             <Link href="/about">About</Link>
             <Link href="/resume">Resume</Link>

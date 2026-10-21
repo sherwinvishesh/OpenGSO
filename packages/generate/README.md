@@ -104,9 +104,9 @@ reached no page at all, because such a run cannot tell a deleted page from one i
 ---
 title: "Engagement record"
 url: "https://example.com/resume"
-last_updated: "2026-09-05T02:01:33.445Z"
-tokens: 314
-source_hash: "0cdc3ec67ce75fa0"
+last_updated: "2026-10-21T06:44:50.371Z"
+tokens: 432
+source_hash: "9e7819e716242848"
 generated_by: "opengso-free"
 description: "A dated record of engagements, budgets, and outcomes."
 ---
