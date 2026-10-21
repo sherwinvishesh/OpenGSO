@@ -1,9 +1,9 @@
 ---
 title: "OpenGSO"
 url: "https://sherwinvishesh.github.io/OpenGSO/"
-last_updated: "2026-10-21T00:53:56.094Z"
-tokens: 6465
-source_hash: "4a5973abf543e3a5"
+last_updated: "2026-10-21T10:48:01.529Z"
+tokens: 8619
+source_hash: "8ed5300726fa1958"
 generated_by: "opengso-free"
 description: "OpenGSO is a free, open-source CLI and middleware that shows what AI agents actually receive from your site, writes a markdown version of every page, and serves it to them at the same URL. No account, no API key, no telemetry."
 ---
@@ -15,13 +15,15 @@ open generative search optimization
 - version [**0.1.1**](https://www.npmjs.com/package/opengso?activeTab=versions)
 - runtime **Node 22+**
 - license **Apache-2.0**
+- checks **22**
+- adapters **5**
 - account **none**
 - telemetry **none**
 - status [● on npm](https://www.npmjs.com/package/opengso)
 
 AI agents read your HTML, not your app. OpenGSO shows you what they get, then fixes it.
 
-Abstract When ChatGPT, Claude or Perplexity look at a page for someone, a crawler fetches it, usually without running its JavaScript, and whatever markup comes back is either stripped or paid for in the model's context. OpenGSO is an open-source CLI and middleware for that reader. It **tests** any URL against 22 checks and tells you what to change. It **generates** a clean markdown copy of every page, with the robots.txt, llms.txt and sitemap.xml around it. And it **serves** that markdown to agents at the page's own URL, while browsers and search engines keep getting your HTML. On the Next.js demo in the repository, it took the score from 65 to 100, and what GPTBot downloads for one page from 12,237 bytes to 1,403.
+Abstract When ChatGPT, Claude or Perplexity look at a page for someone, a crawler fetches it, usually without running its JavaScript, and whatever markup comes back is either stripped or paid for in the model's context. OpenGSO is an open-source CLI and middleware for that reader. It **tests** any URL against 22 checks and tells you what to change. It **generates** a clean markdown copy of every page, with the robots.txt, llms.txt and sitemap.xml around it. And it **serves** that markdown to agents at the page's own URL, while browsers and search engines keep getting your HTML. On the Next.js demo in the repository, it took the score from 65 to 100, and what GPTBot downloads for one page from 13,671 bytes to 1,886.
 
 Try it on your site no install step, no account, no API key
 
@@ -33,6 +35,11 @@ Get started
 [Read the docs](https://sherwinvishesh.github.io/OpenGSO/docs/)
 [GitHub](https://github.com/sherwinvishesh/OpenGSO)
 [npm](https://www.npmjs.com/package/opengso)
+
+- **65100**the demo's score before and after, out of 100
+- **9.1×**fewer bytes for an agent to download, over the demo's three pages
+- **16**frameworks and servers run end to end against the published packages
+- **0**dependencies in opengso-prod, the package that runs on every request
 
 npx opengso test http://localhost:3000/resume the demo, before
 
@@ -71,7 +78,7 @@ Failed (2)
 
 A crawler working for an AI assistant reads the raw response to one request: no styles, usually no scripts, no second request for data. Figure 2 is that request, made to the demo's `/resume` page with GPTBot's User-Agent, before and after.
 
-Before text/html · 12,237 bytes
+Before text/html · 13,671 bytes
 
 ```
 <!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/>
@@ -83,7 +90,7 @@ Before text/html · 12,237 bytes
 <body style="font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;margin:0;line-height:1.6;color:#16181d;background:#fbfbfa">
 … the header and its navigation …
 <main style="max-width:760px;margin:0 auto;padding:32px 24px 64px"><article><h1>Engagement record</h1>
-… the article: all of <main> is 1,734 bytes …
+… the article: all of <main> is 2,225 bytes …
 </main>
 … the footer and two more script tags …
 <script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[22016,[\"/_next/static/chunks/1mpnoxox0-4cg.js\"],\"\"]\n3:I[39756,
@@ -91,31 +98,31 @@ Before text/html · 12,237 bytes
 [\"$\",\"h2\",null,{\"children\":\"Svalbard permafrost array\"}],[\"$\",\"p\",null,{\"children\":[\"Commissioned on \",
 ```
 
-After text/markdown · 1,403 bytes
+After text/markdown · 1,886 bytes
 
 ```
 HTTP/1.1 200 OK
 cache-control: private
 content-type: text/markdown; charset=utf-8
-etag: "c7c86be7fe8ef2f1"
-last-modified: Tue, 20 Oct 2026 23:24:43 GMT
+etag: "47787828c5fbd978"
+last-modified: Wed, 21 Oct 2026 06:44:50 GMT
 Vary: Accept, Accept-Encoding
 x-aeo-version: opengso/1.0
 x-content-type-options: nosniff
-x-markdown-source-hash: 0c8032f66d648aca
-x-markdown-tokens: 314
+x-markdown-source-hash: 9e7819e716242848
+x-markdown-tokens: 432
 x-robots-tag: noindex
 
 # Engagement record
 
-This page exists so the OpenGSO fidelity checks have something concrete to hold onto: real dates, real prices, real percentages. Anything that rewrites this page and changes a number has failed.
+Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee and what came of it. The figures are the ones on the invoices, and the misses are listed next to the hits: a prospective client should be able to read this page and know what a season with us costs and what it returns.
 
 ## Svalbard permafrost array
 
 Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreholes, instrumented to 6 metres, logging every 15 minutes. …
 ```
 
-**Fig. 2.** `GET /resume` with GPTBot's User-Agent, against a production build of the demo. Before: 9,520 of the 12,237 bytes are inside ten `<script>` tags, and the article is sent twice, once as HTML and once in the framework's payload. Line breaks are added and long runs cut where marked. After: the same URL, with no redirect, answers with the article and the headers an agent can use: its size in tokens, a hash of the page it was made from, and `noindex` so no search engine ever indexes it.
+**Fig. 2.** `GET /resume` with GPTBot's User-Agent, against a production build of the demo. Before: 10,333 of the 13,671 bytes are inside ten `<script>` tags, and the article is sent twice, once as HTML and once in the framework's payload. Line breaks are added and long runs cut where marked. After: the same URL, with no redirect, answers with the article and the headers an agent can use: its size in tokens, a hash of the page it was made from, and `noindex` so no search engine ever indexes it.
 
 Three ways a page goes missing from AI answers
 
@@ -175,7 +182,7 @@ terminal
 $ npx opengso generate http://localhost:3000
 ```
 
-output 3 pages in 121 ms
+output 3 pages in 130 ms
 
 ```
 OpenGSO generate  http://localhost:3000
@@ -189,7 +196,7 @@ Pages
 --------
   written /                        188 tokens  http://localhost:3000/index.md
   written /about                   205 tokens  http://localhost:3000/about.md
-  written /resume                  314 tokens  http://localhost:3000/resume.md
+  written /resume                  432 tokens  http://localhost:3000/resume.md
 
 Site files
 ----------
@@ -197,7 +204,7 @@ Site files
   written llms.txt                 public/llms.txt
   written sitemap.xml              public/sitemap.xml
 
-  3 written, 0 unchanged in 121ms
+  3 written, 0 unchanged in 130ms
   Output: public
 
 Notes
@@ -207,9 +214,14 @@ Notes
        this, they send crawlers and agents nowhere. Set "publicOrigin" in
        opengso.config.json to where the site is deployed, e.g.
        "https://example.com", and run generate again.
+
+  Next: agents still get HTML until your server serves these twins. Add
+  opengso-prod to it (its README has the few lines for Next.js, Express, Nuxt,
+  SvelteKit, Astro, React Router, Angular, Qwik, Vite and edge functions), then
+  run `opengso test http://localhost:3000` to check.
 ```
 
-**Fig. 3.** Generate against the running demo, with two progress lines and the closing hint cut. The warning is worth reading: generated against localhost, every URL in those files points at localhost, and generate says so before you deploy them.
+**Fig. 3.** Generate against the running demo, with two progress lines cut. The warning is worth reading: generated against localhost, every URL in those files points at localhost, and generate says so before you deploy them. The last paragraph is the order of the steps that follow.
 
 Step 3
 
@@ -223,7 +235,7 @@ terminal
 $ npm install opengso-prod
 ```
 
-proxy.ts Next.js 16 · other frameworks in 06
+proxy.ts Next.js 16 · other frameworks in 07
 
 ```
 import { NextResponse } from 'next/server';
@@ -269,7 +281,7 @@ OpenGSO prod test  http://localhost:3000/resume
 Lever 1 - markdown routing (bots.markdownRouting)
 -------------------------------------------------
   PASS routed-bot ClaudeBot receives the markdown twin  200
-      Content-Type text/markdown; charset=utf-8, 1403 bytes.
+      Content-Type text/markdown; charset=utf-8, 1886 bytes.
   PASS unknown-bot An unrecognised bot is served the normal site, never blocked  200
 
 Content negotiation
@@ -297,7 +309,7 @@ Five packages on npm
 
 ## The demo, before and after.
 
-Measured on a production build of `examples/nextjs-demo`, three pages, on one laptop on 20 October 2026. "Before" is the same build with the middleware switched off. Your numbers will be different; step 1 gets you yours in seconds.
+Measured on a production build of `examples/nextjs-demo`, three pages, on one laptop on 21 October 2026. "Before" is the same build with the middleware switched off. Your numbers will be different; step 1 gets you yours in seconds.
 
 | Measurement | Before | After |
 | --- | --- | --- |
@@ -306,15 +318,15 @@ Measured on a production build of `examples/nextjs-demo`, three pages, on one la
 | Suggestions adopted | 1 of 15 | 14 of 15 |
 | `opengso test` exit code | 1 | 0 |
 | robots.txt, sitemap.xml, llms.txt | none | all three |
-| What GPTBot downloads | 12,237 B | 1,403 B |
-| What a browser downloads | 12,237 B | 12,237 B |
+| What GPTBot downloads | 13,671 B | 1,886 B |
+| What a browser downloads | 13,671 B | 13,671 B |
 
 | Page | HTML | Markdown | Smaller by |
 | --- | --- | --- | --- |
-| / | 9,687 | 982 | 9.9× |
-| /about | 10,046 | 883 | 11.4× |
-| /resume | 12,237 | 1,403 | 8.7× |
-| all three | 31,970 | 3,268 | 9.8× |
+| / | 10,191 | 982 | 10.4× |
+| /about | 10,408 | 883 | 11.8× |
+| /resume | 13,671 | 1,886 | 7.2× |
+| all three | 34,270 | 3,751 | 9.1× |
 
 npx opengso test http://localhost:3000/resume the demo, after
 
@@ -399,7 +411,21 @@ For this framework, the middleware belongs in proxy.ts at the project root (or i
 
 **Fig. 6.** Parts of the prompt for the report in Fig. 1, which is 6,971 bytes in full. Paragraphs are joined onto one line each; nothing else is changed in the parts shown.
 
-05 / In CI
+05 / The dashboard
+
+## The same checks, in a browser on your machine.
+
+`npx opengso start` asks four questions the first time it runs in a project, then opens a local dashboard with five screens: Test, Generate, Prod, Bot settings and Settings. It runs the same code as the commands, so it never disagrees with the terminal about a score, a header or a file. It listens on 127.0.0.1, refuses a request from any other origin, and sends nothing anywhere.
+
+![The dashboard's Test screen in dark mode. A banner reads: the markdown matches the live page. A ring reads 100 beside http://localhost:3000/, with 6 of 6 scored passed, 14 of 15 suggestions adopted, 1 not applicable and Next.js detected. Below it, a card titled Fix it with Claude Code with a Copy fix prompt button, an empty Failed group, and one suggestion, B7, showing both Vary headers and the fix.](https://sherwinvishesh.github.io/OpenGSO/assets/dashboard-test.png)
+
+**Fig. 7.** The Test screen after the demo reached 100. The banner is check B14: the twin being served still matches the live page. The score, the fix prompt and the open suggestion are the same objects the terminal printed in Fig. 5, rendered instead of typeset.
+
+![The Bot settings screen. A summary reads: 18 receive markdown, 0 blocked, unlisted and unknown bots always see the ordinary site. Three presets, Every AI agent (18), Assistants only (7) and Nobody, then one row per bot with its vendor, a tag such as training, assistant or search, and two checkboxes, markdown and block. The search crawlers, OAI-SearchBot, Claude-SearchBot, PerplexityBot, Applebot and Bingbot, have markdown unticked.](https://sherwinvishesh.github.io/OpenGSO/assets/dashboard-bots.png)
+
+**Fig. 8.** The two bot levers, side by side and separate. The markdown column is the routing list and only ever chooses a format. The block column is written into robots.txt by generate, and is the only one that denies anyone anything. Every preset leaves the search crawlers on HTML, because a markdown response is noindex.
+
+06 / In CI
 
 ## Exit codes a build can rely on.
 
@@ -453,7 +479,7 @@ Adoption
 
 Only the seven scored checks fail a build by default, so adding OpenGSO to CI does not break it over conventions the site has not adopted yet. Add `--strict` once the markdown layer is live.
 
-06 / Your stack
+07 / Your stack
 
 ## Five adapters, one implementation.
 
@@ -521,7 +547,43 @@ export const handle = ({ event, resolve }) =>
 
 On **Next 15** the code from step 3 goes in `middleware.ts`, exporting `middleware`, with `runtime: 'nodejs'` in `config`. A Next 16 proxy file refuses a `runtime` field. Every adapter is in the [production docs](https://sherwinvishesh.github.io/OpenGSO/docs/#prod), and the edge has [its own section](https://sherwinvishesh.github.io/OpenGSO/docs/#edge).
 
-07 / Guarantees
+What was actually run
+
+| Framework | Version | Adapter | Ran as | Outcome |
+| --- | --- | --- | --- | --- |
+| Next.js | 16.3.8 | /next | proxy.ts on the production build: the demo above | 100/100, 14 of 15 suggestions, B7 at 2 of 4 |
+| Nuxt | 4.6.2 | /node | nuxt dev, and the built .output/server | 100/100, 14 of 15; keeps Vary: Accept on the HTML |
+| SvelteKit | 3.1.0 | /fetch | vite dev, and the adapter-node 6.0.0 build | every probe matched on both, prod test 5 of 5 |
+| Astro | 6.4.8 | /fetch | astro dev, and dist/server/entry.mjs with @astrojs/node 10.1.4 | every probe matched; a prerendered page carries no headers in production, its twin is still served |
+| React Router | 8.5.0 | /fetch | framework mode: react-router dev, and react-router-serve | every probe matched; 8.5 asks for Node 22.22, warns on 22.17, runs |
+| Angular | 20.3 | /node | ng serve, and the built server.mjs on Express 5.3 | every probe matched once allowedHosts named localhost; without it the built server sends the client-only shell and fails A5 |
+| Qwik City | 1.20.2 | /node | the Vite plugin in dev, the Express adapter built | every probe matched on both, prod test 5 of 5 |
+| Express | 5.3.0 | /node | app.use before the routes | every probe matched |
+| Hono | 4.13.13 | /fetch | @hono/node-server 2.1.5 | every probe matched |
+| Fastify | 5.12.7 | /node | through @fastify/middie 9.3.6 | every probe matched, prod test 5 of 5 |
+| Koa | 3.2.1 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
+| Polka | 0.5 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
+| Connect | 3.7.0 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
+| h3 | 1.15.11 | /node | fromNodeMiddleware, first | every probe matched, prod test 5 of 5 |
+| Vite | 8.3.4 | /vite | the dev server with the plugin, and vite preview | the twins served on both; the browser HTML gets Link and Vary: Origin, Accept |
+| VitePress | 1.6.4 | folder | generate on the build folder, then vitepress preview | the twins served as text/markdown; cleanUrls makes guide.md the twin of guide |
+
+Every row was a scratch app installed from the packed 0.1.1 tarballs, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, `Accept: text/markdown`, a browser, the `.md` URL, HEAD, an Accept header that rules out both formats, a route with no twin, and `If-None-Match` with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.
+
+**Not run:** Nest, SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module `opengso prod data` writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.
+
+What one request goes through
+
+1. **Not a page.** Framework build output (`/_next/`, `/_nuxt/`, `/_astro/`, `/@vite/`), a path with a file extension and no twin, or any method other than GET and HEAD, passes straight through, untouched.
+2. **Accept rules out both formats.** On a route that has a twin, an Accept header that excludes both text/html and text/markdown gets a 406 naming the two it can have. On any other route the application owns the answer, so an API asked for JSON never meets the middleware.
+3. **The .md URL itself.** The twin, when the Accept header admits markdown; a 406 when it does not.
+4. **Accept prefers text/markdown.** The twin, at the page's own URL.
+5. **The User-Agent is on the routing list.** GPTBot, ClaudeBot and the 16 others routed by default get the twin without sending an Accept header, which most of them never do.
+6. **Everyone else.** Your HTML, with `Vary: Accept`, `X-AEO-Version` and, when the page has a twin, a `Link rel="alternate"` pointing at it.
+
+A markdown answer carries an ETag and Last-Modified, and a request that sends the ETag back as `If-None-Match` gets a 304 with no body. A route with no twin is never answered with markdown: the request falls through to the page, so a missing twin is an ordinary page, never a broken one.
+
+08 / Guarantees
 
 ## What it will not do to your site.
 
@@ -538,36 +600,36 @@ Middleware that runs on every request has to earn its place. These are rules in 
 | Phones home | There is no telemetry. An API key, needed only for the optional AI review and AI generate tier, is read from `.env` and sent only to the provider you chose. |
 | Lets a model move the score | The 0-100 comes from deterministic checks. The optional AI review prints as a separate section and never changes the number or the exit code. |
 
-08 / The checks
+09 / The checks
 
 ## Twenty-two checks. Seven of them make the number.
 
 The **scored** seven are what every agent depends on today: permission, discovery, content in the HTML, speed, no silent opt-out, transport security, and HTML that still answers. The other fifteen are **suggestions**, the agent-specific layer most sites have not built. They are counted as "N of 15 adopted" and never move the score. Every check, and the reasoning behind its weight, is in [docs/checks.md](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md).
 
-| Id | Check | Weight | Kind |
-| --- | --- | --- | --- |
-| A1 | robots.txt exists and does not disallow known AI bots | 9 | scored |
-| A2 | llms.txt is present and valid | 3 | suggestion |
-| A3 | sitemap.xml is present and valid | 9 | scored |
-| A4 | Schema.org JSON-LD is present and parses | 2 | suggestion |
-| A5 | Real content is in the raw HTML, not only after JS runs | 9 | scored |
-| A6 | Time to first byte is fast enough for agent fetches | 8 | scored |
-| A7 | No noai / noimageai tag is silently blocking AI | 8 | scored |
-| A8 | Served over HTTPS with HSTS | 9 | scored |
-| B1 | Markdown twin URL is reachable and returns 2xx | 10 | suggestion |
-| B2 | Content-Type is exactly text/markdown; charset=utf-8 | 5 | suggestion |
-| B3 | Markdown response body is non-empty | 5 | suggestion |
-| B4 | X-Markdown-Tokens is present and a positive integer | 3 | suggestion |
-| B5 | X-Content-Type-Options: nosniff is present | 3 | suggestion |
-| B6 | X-Robots-Tag on the twin includes noindex | 3 | suggestion |
-| B7 | Vary includes Accept, so CDNs cache the two formats separately | 4 | suggestion |
-| B8 | HTML response advertises the twin via Link rel="alternate" | 3 | suggestion |
-| B9 | Accept: text/markdown receives markdown, not HTML | 6 | suggestion |
-| B10 | A known AI bot User-Agent receives markdown without an Accept header | 6 | suggestion |
-| B11 | An Accept header excluding HTML and markdown returns 406 | 2 | suggestion |
-| B12 | X-AEO-Version advertises the spec version implemented | 2 | suggestion |
-| B13 | The original HTML URL is still reachable and unaffected | 9 | scored |
-| B14 | The served markdown still matches the live page (no drift or staleness) | 4 | suggestion |
+| Id | Check | Weight | Kind |  |
+| --- | --- | --- | --- | --- |
+| A1 | robots.txt exists and does not disallow known AI bots | 9 | scored |  |
+| A2 | llms.txt is present and valid | 3 | suggestion |  |
+| A3 | sitemap.xml is present and valid | 9 | scored |  |
+| A4 | Schema.org JSON-LD is present and parses | 2 | suggestion |  |
+| A5 | Real content is in the raw HTML, not only after JS runs | 9 | scored |  |
+| A6 | Time to first byte is fast enough for agent fetches | 8 | scored |  |
+| A7 | No noai / noimageai tag is silently blocking AI | 8 | scored |  |
+| A8 | Served over HTTPS with HSTS | 9 | scored |  |
+| B1 | Markdown twin URL is reachable and returns 2xx | 10 | suggestion |  |
+| B2 | Content-Type is exactly text/markdown; charset=utf-8 | 5 | suggestion |  |
+| B3 | Markdown response body is non-empty | 5 | suggestion |  |
+| B4 | X-Markdown-Tokens is present and a positive integer | 3 | suggestion |  |
+| B5 | X-Content-Type-Options: nosniff is present | 3 | suggestion |  |
+| B6 | X-Robots-Tag on the twin includes noindex | 3 | suggestion |  |
+| B7 | Vary includes Accept, so CDNs cache the two formats separately | 4 | suggestion |  |
+| B8 | HTML response advertises the twin via Link rel="alternate" | 3 | suggestion |  |
+| B9 | Accept: text/markdown receives markdown, not HTML | 6 | suggestion |  |
+| B10 | A known AI bot User-Agent receives markdown without an Accept header | 6 | suggestion |  |
+| B11 | An Accept header excluding HTML and markdown returns 406 | 2 | suggestion |  |
+| B12 | X-AEO-Version advertises the spec version implemented | 2 | suggestion |  |
+| B13 | The original HTML URL is still reachable and unaffected | 9 | scored |  |
+| B14 | The served markdown still matches the live page (no drift or staleness) | 4 | suggestion |  |
 
 How the number is made
 
@@ -577,7 +639,7 @@ Locked is not failed
 
 With no twin, B1 fails and the twelve checks that read the twin have nothing to inspect. They are reported as one **locked** block behind B1, as in the report behind Fig. 1, rather than as twelve findings about one missing file. Every lockable check is a suggestion, so this never moves the score.
 
-09 / Limitations
+10 / Limitations
 
 ## What it does not do, and why.
 
@@ -593,7 +655,50 @@ Some of these are choices and some are facts about the platforms underneath. The
 | CDN behaviour is untested | Whether a given CDN honours `Vary: Accept` is not verified. | It differs by host and plan, and the docs say so rather than claim it works. |
 | A8 is n/a on localhost | Local runs are scored out of 52, not 61. | HTTPS and HSTS mean nothing on a loopback address. |
 
-10 / Questions
+npx opengso test https://sherwinvishesh.github.io/OpenGSO/ this site, 21 October 2026
+
+```
+OpenGSO test  https://sherwinvishesh.github.io/OpenGSO/
+
+   85/100  ████████████████████▍░░░  6 of 7 scored checks passed, 1 failed
+    ideas  ██████████░░░░░░░░░░░░░░  6 of 15 suggestions adopted
+
+Failed (1)
+----------
+  FAIL A1 robots.txt exists and does not disallow known AI bots  -15 pts
+      No robots.txt at https://sherwinvishesh.github.io/robots.txt (HTTP 404).
+      AI crawlers get no explicit signal about what they may read.
+      → Crawlers read robots.txt only at the root of the host, and this site
+        lives in https://sherwinvishesh.github.io/OpenGSO/, so it has to be
+        published from that root (+15). On GitHub Pages that is the
+        sherwinvishesh.github.io repository. Allow the AI agents you want
+        reading the site, and add a Sitemap line for
+        https://sherwinvishesh.github.io/OpenGSO/sitemap.xml.
+
+Suggestions (9)
+---------------
+      B4, B5, B6, B7, B8, B9, B10, B11 and B12 fail on the markdown twin this
+      page already serves, so agents are being sent something wrong. Like every
+      suggestion they are outside the score and the number above does not move,
+      but fix them first: --strict fails a build on them.
+
+  WARN B9 Accept: text/markdown receives markdown, not HTML
+      A request with Accept: text/markdown received "text/html; charset=utf-8"
+      instead of markdown. Content negotiation is not wired up.
+  [ B10, B7, B4, B5, B6, B8, B11 and B12, each with its fix, cut here ]
+
+Passed (6)
+----------
+  A3 A5 A6 A7 A8 B13
+
+Adopted (6)
+-----------
+  A2 A4 B1 B2 B3 B14
+```
+
+**Fig. 9.** OpenGSO run on this page, a GitHub Pages project site. A1 fails because crawlers read robots.txt from the root of sherwinvishesh.github.io, which this repository does not control, and the report says exactly that and where the fix goes. The nine open suggestions are the negotiation a static host cannot do. What it can serve, it serves: llms.txt, JSON-LD and a twin that is reachable, typed, non-empty and still current are the six adopted, and sitemap.xml is among the passed.
+
+11 / Questions
 
 ## Asked often enough to answer here.
 
@@ -633,7 +738,11 @@ Because the score and the suggestions answer different questions. The score says
 
 Yes. Anything your machine can reach can be tested. The HTTPS check is marked not applicable on localhost, so it leaves the score instead of dragging it down.
 
-11 / Cite
+### Does it work on GitHub Pages or another static host?
+
+Yes, for everything except the negotiation. Run generate on the build folder with `--origin` set to where the site is published: each twin is written beside its page, with llms.txt and sitemap.xml, and the host serves them as files. What a static host cannot do is answer one URL with two formats, so the header suggestions stay open. This site is published that way, and the report it gets is in section 10.
+
+12 / Cite
 
 ## Citing OpenGSO.
 

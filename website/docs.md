@@ -1,9 +1,9 @@
 ---
 title: "Everything OpenGSO does, and how."
 url: "https://sherwinvishesh.github.io/OpenGSO/docs"
-last_updated: "2026-10-21T00:03:07.587Z"
-tokens: 9314
-source_hash: "25b78f3ef78c231e"
+last_updated: "2026-10-21T10:48:01.588Z"
+tokens: 9503
+source_hash: "e4502916b6ef970e"
 generated_by: "opengso-free"
 description: "Install OpenGSO, score a URL, copy the fix prompt, generate markdown twins, serve them with the production middleware, and understand all 22 checks, the wire spec, the config file and the AI providers."
 ---
@@ -93,15 +93,22 @@ The structural pass is the score: 22 deterministic checks, no model involved, th
 
 Rows are grouped worst first: failed, partly there, suggestions, locked, passed, adopted, not applicable. Each row names the check, what it verifies and the specific reason it reached its verdict, with the header value or rule actually observed. A partial row shows a small meter and the split, `2 of 4`. A suggestion is marked `TIP` rather than with a cross, because it is not a failure.
 
+The Next.js demo in the repository, before anything had been generated for it:
+
 ```
-OpenGSO test  https://yourstartup.com/pricing
+OpenGSO test  http://localhost:3000/resume
 Detected: Next.js
 
-   85/100  ████████████████████▍░░░  5 of 6 scored checks passed, 1 failed, 1 n/a
-    ideas  ▒▒▒░░░░░░░░░░░░░░░░░░░░  2 of 15 suggestions adopted, 12 waiting on B1
+   65/100  ███████████████▋░░░░░░░░  4 of 6 scored checks passed, 2 failed, 1 n/a
+    ideas  ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░  1 of 15 suggestions adopted, 12 waiting on B1
 
-FAIL A1 robots.txt exists and does not disallow known AI bots  -15 pts
-     robots.txt disallows ChatGPT-User, PerplexityBot from /pricing.
+Failed (2)
+----------
+  FAIL A1 robots.txt exists and does not disallow known AI bots  -18 pts
+      No robots.txt at http://localhost:3000/robots.txt (HTTP 404). AI crawlers
+      get no explicit signal about what they may read.
+      → Serve a robots.txt that allows the AI agents you want reading the site
+        (+18). `opengso generate` writes one.
 ```
 
 The report ends with **Do this next**: every scored fix ranked by the points it recovers, so the top line is always the most valuable edit you can make. The suggestions follow under their own heading, heaviest first. Every price the report prints is in score points, how far that one fix would move the headline, and not the check's weight.
@@ -557,6 +564,10 @@ There are three ways in, and they run the same code, so they never disagree abou
 - **Commands**, for scripts and CI: `opengso test`, `generate`, `prod test`, `prod data`, `settings`, each with `--json`.
 - **The home screen**, a full-screen terminal app when you type `opengso` on its own. It is a launcher: picking Test runs the real command in normal scrollback, so the report can be scrolled and copied, then comes back. It needs a real terminal on both ends and turns itself off when `CI`, `NO_COLOR` or `OPENGSO_NO_TUI` is set or `TERM` is `dumb`, falling back to plain prompts.
 - **The dashboard**, with `opengso start`, in the `opengso` package. Five screens: Test, Generate, Prod, Bot settings and Settings. Generate can show you the exact bytes an agent would receive, read back off disk.
+
+![The dashboard's Test screen in dark mode. A banner reads: the markdown matches the live page. A ring reads 100 beside http://localhost:3000/, with 6 of 6 scored passed, 14 of 15 suggestions adopted, 1 not applicable and Next.js detected. Below it, a card titled Fix it with Claude Code with a Copy fix prompt button, an empty Failed group, and one suggestion, B7, showing both Vary headers and the fix.](https://sherwinvishesh.github.io/OpenGSO/assets/dashboard-test.png)
+
+The Test screen after a run against the demo: the B14 banner, the score, the fix prompt card and the one open suggestion, each the same object the terminal prints.
 
 ### Keyboard
 

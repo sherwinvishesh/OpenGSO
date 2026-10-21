@@ -1,7 +1,7 @@
 ---
 title: "Nothing is collected."
 url: "https://sherwinvishesh.github.io/OpenGSO/privacy"
-last_updated: "2026-10-21T00:03:07.596Z"
+last_updated: "2026-10-21T10:48:01.598Z"
 tokens: 605
 source_hash: "30eab229982ee666"
 generated_by: "opengso-free"

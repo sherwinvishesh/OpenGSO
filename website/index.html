@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="OpenGSO">
 <meta property="og:title" content="OpenGSO · See your site the way AI agents read it">
-<meta property="og:description" content="Score any URL on what AI agents can read, generate a markdown twin of every page, and serve it at the same URL. On the Next.js demo: 65/100 to 100/100, and 12,237 bytes down to 1,403.">
+<meta property="og:description" content="Score any URL on what AI agents can read, generate a markdown twin of every page, and serve it at the same URL. On the Next.js demo: 65/100 to 100/100, and 13,671 bytes down to 1,886.">
 <meta property="og:url" content="https://sherwinvishesh.github.io/OpenGSO/">
 <meta property="og:image" content="https://sherwinvishesh.github.io/OpenGSO/assets/og.png">
 <meta property="og:image:width" content="1200">
@@ -24,7 +24,7 @@
 <meta property="og:image:alt" content="The OpenGSO mark, a slanted hash with a green centre, beside the words OpenGSO and open generative search optimization.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="OpenGSO · See your site the way AI agents read it">
-<meta name="twitter:description" content="Score any URL on what AI agents can read, generate a markdown twin of every page, and serve it at the same URL. On the Next.js demo: 65/100 to 100/100, and 12,237 bytes down to 1,403.">
+<meta name="twitter:description" content="Score any URL on what AI agents can read, generate a markdown twin of every page, and serve it at the same URL. On the Next.js demo: 65/100 to 100/100, and 13,671 bytes down to 1,886.">
 <meta name="twitter:image" content="https://sherwinvishesh.github.io/OpenGSO/assets/og.png">
 <script type="application/ld+json">
 {
@@ -53,7 +53,7 @@
       "@id": "https://sherwinvishesh.github.io/OpenGSO/#site",
       "name": "OpenGSO",
       "url": "https://sherwinvishesh.github.io/OpenGSO/",
-      "dateModified": "2026-10-20"
+      "dateModified": "2026-10-21"
     },
     {
       "@type": "FAQPage",
@@ -102,6 +102,11 @@
           "@type": "Question",
           "name": "Can I test localhost or a staging site?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Anything your machine can reach can be tested. The HTTPS check is marked not applicable on localhost, so it leaves the score instead of dragging it down." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work on GitHub Pages or another static host?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, for everything except the negotiation. Run generate on the build folder with --origin set to where the site is published: each twin is written beside its page, with llms.txt and sitemap.xml, and the host serves them as files. What a static host cannot do is answer one URL with two formats, so the header suggestions stay open. This site is published that way, and the report it gets is in section 10." }
         }
       ]
     }
@@ -142,6 +147,7 @@
       <li><a href="#start">Get started</a></li>
       <li><a href="#results">Results</a></li>
       <li><a href="#prompt">Fix prompt</a></li>
+      <li><a href="#dashboard">Dashboard</a></li>
       <li><a href="#ci">In CI</a></li>
       <li><a href="#stack">Your stack</a></li>
       <li><a href="#guarantees">Guarantees</a></li>
@@ -175,13 +181,15 @@
         <li>version <a href="https://www.npmjs.com/package/opengso?activeTab=versions"><b>0.1.1</b></a></li>
         <li>runtime <b>Node 22+</b></li>
         <li>license <b>Apache-2.0</b></li>
+        <li>checks <b>22</b></li>
+        <li>adapters <b>5</b></li>
         <li>account <b>none</b></li>
         <li>telemetry <b>none</b></li>
         <li>status <a class="ok" href="https://www.npmjs.com/package/opengso">● on npm</a></li>
       </ul>
 
       <p class="hero-headline">AI agents read your HTML, not your app. <span class="em">OpenGSO shows you what they get, then fixes it.</span></p>
-      <p class="hero-sub"><span class="abstract">Abstract</span> When ChatGPT, Claude or Perplexity look at a page for someone, a crawler fetches it, usually without running its JavaScript, and whatever markup comes back is either stripped or paid for in the model's context. OpenGSO is an open-source CLI and middleware for that reader. It <b>tests</b> any URL against 22 checks and tells you what to change. It <b>generates</b> a clean markdown copy of every page, with the robots.txt, llms.txt and sitemap.xml around it. And it <b>serves</b> that markdown to agents at the page's own URL, while browsers and search engines keep getting your HTML. On the Next.js demo in the repository, it took the score from 65 to 100, and what GPTBot downloads for one page from 12,237 bytes to 1,403.</p>
+      <p class="hero-sub"><span class="abstract">Abstract</span> When ChatGPT, Claude or Perplexity look at a page for someone, a crawler fetches it, usually without running its JavaScript, and whatever markup comes back is either stripped or paid for in the model's context. OpenGSO is an open-source CLI and middleware for that reader. It <b>tests</b> any URL against 22 checks and tells you what to change. It <b>generates</b> a clean markdown copy of every page, with the robots.txt, llms.txt and sitemap.xml around it. And it <b>serves</b> that markdown to agents at the page's own URL, while browsers and search engines keep getting your HTML. On the Next.js demo in the repository, it took the score from 65 to 100, and what GPTBot downloads for one page from 13,671 bytes to 1,886.</p>
 
       <div class="code-block try reveal">
         <div class="code-header">Try it on your site <span class="tail">no install step, no account, no API key</span><button class="copy-btn" type="button" hidden>copy</button></div>
@@ -194,6 +202,13 @@
         <a class="btn" href="https://github.com/sherwinvishesh/OpenGSO">GitHub <span aria-hidden="true">↗</span></a>
         <a class="btn" href="https://www.npmjs.com/package/opengso">npm <span aria-hidden="true">↗</span></a>
       </div>
+
+      <ul class="hero-stats reveal" aria-label="Measured on the demo, 21 October 2026">
+        <li class="stat"><b class="stat-value">65<span class="arrow" aria-hidden="true">→</span><span class="sr-only">to </span>100</b><span class="stat-label">the demo's score before and after, out of 100</span></li>
+        <li class="stat"><b class="stat-value">9.1<span class="unit">×</span></b><span class="stat-label">fewer bytes for an agent to download, over the demo's three pages</span></li>
+        <li class="stat"><b class="stat-value">16</b><span class="stat-label">frameworks and servers run end to end against the published packages</span></li>
+        <li class="stat"><b class="stat-value">0</b><span class="stat-label">dependencies in opengso-prod, the package that runs on every request</span></li>
+      </ul>
 
       <figure class="code-block term-fig hero-fig reveal">
         <div class="code-header"><span class="lit">npx opengso test http://localhost:3000/resume</span> <span class="tail">the demo, before</span></div>
@@ -238,7 +253,7 @@
       <figure class="compare">
         <div class="grid-2">
           <div class="code-block reveal">
-            <div class="code-header">Before <span class="tail">text/html · 12,237 bytes</span></div>
+            <div class="code-header">Before <span class="tail">text/html · 13,671 bytes</span></div>
 <pre class="code-body wrap">&lt;!DOCTYPE html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;meta charSet="utf-8"/&gt;
 &lt;meta name="viewport" content="width=device-width, initial-scale=1"/&gt;
 &lt;link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/310vm2bl3xxpt.js"/&gt;
@@ -248,7 +263,7 @@
 &lt;body style="font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;margin:0;line-height:1.6;color:#16181d;background:#fbfbfa"&gt;
 <span class="c">… the header and its navigation …</span>
 &lt;main style="max-width:760px;margin:0 auto;padding:32px 24px 64px"&gt;&lt;article&gt;&lt;h1&gt;Engagement record&lt;/h1&gt;
-<span class="c">… the article: all of &lt;main&gt; is 1,734 bytes …</span>
+<span class="c">… the article: all of &lt;main&gt; is 2,225 bytes …</span>
 &lt;/main&gt;
 <span class="c">… the footer and two more script tags …</span>
 &lt;script&gt;self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[22016,[\"/_next/static/chunks/1mpnoxox0-4cg.js\"],\"\"]\n3:I[39756,
@@ -256,29 +271,29 @@
 [\"$\",\"h2\",null,{\"children\":\"Svalbard permafrost array\"}],[\"$\",\"p\",null,{\"children\":[\"Commissioned on \",</pre>
           </div>
           <div class="code-block reveal">
-            <div class="code-header">After <span class="tail">text/markdown · 1,403 bytes</span></div>
+            <div class="code-header">After <span class="tail">text/markdown · 1,886 bytes</span></div>
 <pre class="code-body wrap"><span class="v">HTTP/1.1 200 OK</span>
 <span class="p">cache-control:</span> private
 <span class="p">content-type:</span> text/markdown; charset=utf-8
-<span class="p">etag:</span> "c7c86be7fe8ef2f1"
-<span class="p">last-modified:</span> Tue, 20 Oct 2026 23:24:43 GMT
+<span class="p">etag:</span> "47787828c5fbd978"
+<span class="p">last-modified:</span> Wed, 21 Oct 2026 06:44:50 GMT
 <span class="p">Vary:</span> Accept, Accept-Encoding
 <span class="p">x-aeo-version:</span> opengso/1.0
 <span class="p">x-content-type-options:</span> nosniff
-<span class="p">x-markdown-source-hash:</span> 0c8032f66d648aca
-<span class="p">x-markdown-tokens:</span> 314
+<span class="p">x-markdown-source-hash:</span> 9e7819e716242848
+<span class="p">x-markdown-tokens:</span> 432
 <span class="p">x-robots-tag:</span> noindex
 
 <span class="k"># Engagement record</span>
 
-This page exists so the OpenGSO fidelity checks have something concrete to hold onto: real dates, real prices, real percentages. Anything that rewrites this page and changes a number has failed.
+Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee and what came of it. The figures are the ones on the invoices, and the misses are listed next to the hits: a prospective client should be able to read this page and know what a season with us costs and what it returns.
 
 <span class="k">## Svalbard permafrost array</span>
 
 Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreholes, instrumented to 6 metres, logging every 15 minutes. <span class="c">…</span></pre>
           </div>
         </div>
-        <figcaption><b>Fig. 2.</b> <code>GET /resume</code> with GPTBot's User-Agent, against a production build of the demo. Before: 9,520 of the 12,237 bytes are inside ten <code>&lt;script&gt;</code> tags, and the article is sent twice, once as HTML and once in the framework's payload. Line breaks are added and long runs cut where marked. After: the same URL, with no redirect, answers with the article and the headers an agent can use: its size in tokens, a hash of the page it was made from, and <code>noindex</code> so no search engine ever indexes it.</figcaption>
+        <figcaption><b>Fig. 2.</b> <code>GET /resume</code> with GPTBot's User-Agent, against a production build of the demo. Before: 10,333 of the 13,671 bytes are inside ten <code>&lt;script&gt;</code> tags, and the article is sent twice, once as HTML and once in the framework's payload. Line breaks are added and long runs cut where marked. After: the same URL, with no redirect, answers with the article and the headers an agent can use: its size in tokens, a hash of the page it was made from, and <code>noindex</code> so no search engine ever indexes it.</figcaption>
       </figure>
 
       <p class="subhead">Three ways a page goes missing from AI answers</p>
@@ -338,7 +353,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
           </div>
         </div>
         <figure class="code-block term-fig">
-          <div class="code-header">output <span class="tail">3 pages in 121 ms</span></div>
+          <div class="code-header">output <span class="tail">3 pages in 130 ms</span></div>
 <pre class="code-body term"><span class="b">OpenGSO generate</span>  http://localhost:3000
 
   <span class="d">Discovering routes by following links</span>
@@ -350,7 +365,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
 <span class="d">--------</span>
   <span class="green">written</span> /                        <span class="d">188 tokens</span>  http://localhost:3000/index.md
   <span class="green">written</span> /about                   <span class="d">205 tokens</span>  http://localhost:3000/about.md
-  <span class="green">written</span> /resume                  <span class="d">314 tokens</span>  http://localhost:3000/resume.md
+  <span class="green">written</span> /resume                  <span class="d">432 tokens</span>  http://localhost:3000/resume.md
 
 <span class="b">Site files</span>
 <span class="d">----------</span>
@@ -358,7 +373,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
   <span class="green">written</span> llms.txt                 public/llms.txt
   <span class="green">written</span> sitemap.xml              public/sitemap.xml
 
-  3 written, 0 unchanged in 121ms
+  3 written, 0 unchanged in 130ms
   <span class="d">Output: public</span>
 
 <span class="b">Notes</span>
@@ -367,8 +382,13 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
        http://localhost:3000, which only this machine can reach. Deployed like
        this, they send crawlers and agents nowhere. Set "publicOrigin" in
        opengso.config.json to where the site is deployed, e.g.
-       "https://example.com", and run generate again.</pre>
-          <figcaption><b>Fig. 3.</b> Generate against the running demo, with two progress lines and the closing hint cut. The warning is worth reading: generated against localhost, every URL in those files points at localhost, and generate says so before you deploy them.</figcaption>
+       "https://example.com", and run generate again.
+
+  Next: agents still get HTML until your server serves these twins. Add
+  opengso-prod to it (its README has the few lines for Next.js, Express, Nuxt,
+  SvelteKit, Astro, React Router, Angular, Qwik, Vite and edge functions), then
+  run `opengso test http://localhost:3000` to check.</pre>
+          <figcaption><b>Fig. 3.</b> Generate against the running demo, with two progress lines cut. The warning is worth reading: generated against localhost, every URL in those files points at localhost, and generate says so before you deploy them. The last paragraph is the order of the steps that follow.</figcaption>
         </figure>
       </div>
 
@@ -383,7 +403,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
           </div>
         </div>
         <div class="code-block">
-          <div class="code-header"><span class="lit">proxy.ts</span> <span class="tail">Next.js 16 · other frameworks in 06</span><button class="copy-btn" type="button" hidden>copy</button></div>
+          <div class="code-header"><span class="lit">proxy.ts</span> <span class="tail">Next.js 16 · other frameworks in 07</span><button class="copy-btn" type="button" hidden>copy</button></div>
 <pre class="code-body"><span class="k">import</span> { NextResponse } <span class="k">from</span> <span class="s">'next/server'</span>;
 <span class="k">import</span> { applyPassthroughHeaders, createNextMiddleware } <span class="k">from</span> <span class="s">'opengso-prod/next'</span>;
 
@@ -425,7 +445,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
 <span class="b">Lever 1 - markdown routing (bots.markdownRouting)</span>
 <span class="d">-------------------------------------------------</span>
   <span class="green">PASS</span> <span class="b">routed-bot</span> ClaudeBot receives the markdown twin  <span class="d">200</span>
-      Content-Type text/markdown; charset=utf-8, 1403 bytes.
+      Content-Type text/markdown; charset=utf-8, 1886 bytes.
   <span class="green">PASS</span> <span class="b">unknown-bot</span> An unrecognised bot is served the normal site, never blocked  <span class="d">200</span>
 
 <span class="b">Content negotiation</span>
@@ -458,7 +478,7 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
       <div class="section-head reveal">
         <p class="eyebrow">03 / Results</p>
         <h2 class="section-title">The demo, before and after.</h2>
-        <p class="section-lede">Measured on a production build of <code>examples/nextjs-demo</code>, three pages, on one laptop on 20 October 2026. "Before" is the same build with the middleware switched off. Your numbers will be different; step 1 gets you yours in seconds.</p>
+        <p class="section-lede">Measured on a production build of <code>examples/nextjs-demo</code>, three pages, on one laptop on 21 October 2026. "Before" is the same build with the middleware switched off. Your numbers will be different; step 1 gets you yours in seconds.</p>
       </div>
 
       <div class="grid-2 results">
@@ -472,8 +492,8 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
               <tr><td class="name">Suggestions adopted</td><td class="num">1 of 15</td><td class="num">14 of 15</td></tr>
               <tr><td class="name"><code>opengso test</code> exit code</td><td class="num">1</td><td class="num">0</td></tr>
               <tr><td class="name">robots.txt, sitemap.xml, llms.txt</td><td class="num">none</td><td class="num">all three</td></tr>
-              <tr><td class="name">What GPTBot downloads</td><td class="num" data-bytes="resume-html">12,237 B</td><td class="num" data-bytes="resume-md">1,403 B</td></tr>
-              <tr><td class="name">What a browser downloads</td><td class="num">12,237 B</td><td class="num">12,237 B</td></tr>
+              <tr><td class="name">What GPTBot downloads</td><td class="num" data-bytes="resume-html">13,671 B</td><td class="num" data-bytes="resume-md">1,886 B</td></tr>
+              <tr><td class="name">What a browser downloads</td><td class="num">13,671 B</td><td class="num">13,671 B</td></tr>
             </tbody>
           </table>
         </div>
@@ -482,10 +502,10 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
             <caption>Table 2. Bytes an agent downloads, per page.</caption>
             <thead><tr><th>Page</th><th class="num">HTML</th><th class="num">Markdown</th><th class="num">Smaller by</th></tr></thead>
             <tbody>
-              <tr><td class="id">/</td><td class="num">9,687</td><td class="num">982</td><td class="num">9.9×</td></tr>
-              <tr><td class="id">/about</td><td class="num">10,046</td><td class="num">883</td><td class="num">11.4×</td></tr>
-              <tr><td class="id">/resume</td><td class="num">12,237</td><td class="num">1,403</td><td class="num">8.7×</td></tr>
-              <tr class="is-key"><td class="id">all three</td><td class="num">31,970</td><td class="num">3,268</td><td class="num">9.8×</td></tr>
+              <tr><td class="id">/</td><td class="num">10,191</td><td class="num">982</td><td class="num">10.4×</td></tr>
+              <tr><td class="id">/about</td><td class="num">10,408</td><td class="num">883</td><td class="num">11.8×</td></tr>
+              <tr><td class="id">/resume</td><td class="num">13,671</td><td class="num">1,886</td><td class="num">7.2×</td></tr>
+              <tr class="is-key"><td class="id">all three</td><td class="num">34,270</td><td class="num">3,751</td><td class="num">9.1×</td></tr>
             </tbody>
           </table>
         </div>
@@ -579,10 +599,30 @@ For this framework, the middleware belongs in proxy.ts at the project root (or i
     </div>
   </section>
 
+  <section id="dashboard">
+    <div class="container">
+      <div class="section-head reveal">
+        <p class="eyebrow">05 / The dashboard</p>
+        <h2 class="section-title">The same checks, in a browser on your machine.</h2>
+        <p class="section-lede"><code>npx opengso start</code> asks four questions the first time it runs in a project, then opens a local dashboard with five screens: Test, Generate, Prod, Bot settings and Settings. It runs the same code as the commands, so it never disagrees with the terminal about a score, a header or a file. It listens on 127.0.0.1, refuses a request from any other origin, and sends nothing anywhere.</p>
+      </div>
+
+      <figure class="shot reveal">
+        <img src="assets/dashboard-test.png" width="1600" height="1550" loading="lazy" decoding="async" alt="The dashboard's Test screen in dark mode. A banner reads: the markdown matches the live page. A ring reads 100 beside http://localhost:3000/, with 6 of 6 scored passed, 14 of 15 suggestions adopted, 1 not applicable and Next.js detected. Below it, a card titled Fix it with Claude Code with a Copy fix prompt button, an empty Failed group, and one suggestion, B7, showing both Vary headers and the fix.">
+        <figcaption><b>Fig. 7.</b> The Test screen after the demo reached 100. The banner is check B14: the twin being served still matches the live page. The score, the fix prompt and the open suggestion are the same objects the terminal printed in Fig. 5, rendered instead of typeset.</figcaption>
+      </figure>
+
+      <figure class="shot reveal">
+        <img src="assets/dashboard-bots.png" width="1600" height="1550" loading="lazy" decoding="async" alt="The Bot settings screen. A summary reads: 18 receive markdown, 0 blocked, unlisted and unknown bots always see the ordinary site. Three presets, Every AI agent (18), Assistants only (7) and Nobody, then one row per bot with its vendor, a tag such as training, assistant or search, and two checkboxes, markdown and block. The search crawlers, OAI-SearchBot, Claude-SearchBot, PerplexityBot, Applebot and Bingbot, have markdown unticked.">
+        <figcaption><b>Fig. 8.</b> The two bot levers, side by side and separate. The markdown column is the routing list and only ever chooses a format. The block column is written into robots.txt by generate, and is the only one that denies anyone anything. Every preset leaves the search crawlers on HTML, because a markdown response is noindex.</figcaption>
+      </figure>
+    </div>
+  </section>
+
   <section id="ci">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">05 / In CI</p>
+        <p class="eyebrow">06 / In CI</p>
         <h2 class="section-title">Exit codes a build can rely on.</h2>
         <p class="section-lede">The score is computed from HTTP responses alone. No model is involved, so the same responses give the same number every time, and a build that passed yesterday does not fail today because something changed its mind.</p>
       </div>
@@ -646,7 +686,7 @@ For this framework, the middleware belongs in proxy.ts at the project root (or i
   <section id="stack">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">06 / Your stack</p>
+        <p class="eyebrow">07 / Your stack</p>
         <h2 class="section-title">Five adapters, one implementation.</h2>
         <p class="section-lede">Every adapter wraps the same negotiation and reads the same generated files. They differ only in the shape of request they are handed, so a fix in one is a fix in all of them.</p>
       </div>
@@ -680,20 +720,63 @@ app.use(createNodeMiddleware());</pre>
       <div class="callout reveal">
         <p>On <b>Next 15</b> the code from step 3 goes in <code>middleware.ts</code>, exporting <code>middleware</code>, with <code>runtime: 'nodejs'</code> in <code>config</code>. A Next 16 proxy file refuses a <code>runtime</code> field. Every adapter is in the <a href="docs/#prod">production docs</a>, and the edge has <a href="docs/#edge">its own section</a>.</p>
       </div>
+
+      <p class="subhead">What was actually run</p>
+      <div class="table-wrap reveal">
+        <table class="data matrix">
+          <caption>Table 4. Frameworks run against the published packages, 21 October 2026.</caption>
+          <thead><tr><th>Framework</th><th>Version</th><th>Adapter</th><th>Ran as</th><th>Outcome</th></tr></thead>
+          <tbody>
+            <tr class="is-key"><td class="name">Next.js</td><td class="id">16.3.8</td><td class="id">/next</td><td>proxy.ts on the production build: the demo above</td><td>100/100, 14 of 15 suggestions, B7 at 2 of 4</td></tr>
+            <tr><td class="name">Nuxt</td><td class="id">4.6.2</td><td class="id">/node</td><td>nuxt dev, and the built .output/server</td><td>100/100, 14 of 15; keeps Vary: Accept on the HTML</td></tr>
+            <tr><td class="name">SvelteKit</td><td class="id">3.1.0</td><td class="id">/fetch</td><td>vite dev, and the adapter-node 6.0.0 build</td><td>every probe matched on both, prod test 5 of 5</td></tr>
+            <tr><td class="name">Astro</td><td class="id">6.4.8</td><td class="id">/fetch</td><td>astro dev, and dist/server/entry.mjs with @astrojs/node 10.1.4</td><td>every probe matched; a prerendered page carries no headers in production, its twin is still served</td></tr>
+            <tr><td class="name">React Router</td><td class="id">8.5.0</td><td class="id">/fetch</td><td>framework mode: react-router dev, and react-router-serve</td><td>every probe matched; 8.5 asks for Node 22.22, warns on 22.17, runs</td></tr>
+            <tr><td class="name">Angular</td><td class="id">20.3</td><td class="id">/node</td><td>ng serve, and the built server.mjs on Express 5.3</td><td>every probe matched once allowedHosts named localhost; without it the built server sends the client-only shell and fails A5</td></tr>
+            <tr><td class="name">Qwik City</td><td class="id">1.20.2</td><td class="id">/node</td><td>the Vite plugin in dev, the Express adapter built</td><td>every probe matched on both, prod test 5 of 5</td></tr>
+            <tr><td class="name">Express</td><td class="id">5.3.0</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched</td></tr>
+            <tr><td class="name">Hono</td><td class="id">4.13.13</td><td class="id">/fetch</td><td>@hono/node-server 2.1.5</td><td>every probe matched</td></tr>
+            <tr><td class="name">Fastify</td><td class="id">5.12.7</td><td class="id">/node</td><td>through @fastify/middie 9.3.6</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">Koa</td><td class="id">3.2.1</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">Polka</td><td class="id">0.5</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">Connect</td><td class="id">3.7.0</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">h3</td><td class="id">1.15.11</td><td class="id">/node</td><td>fromNodeMiddleware, first</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">Vite</td><td class="id">8.3.4</td><td class="id">/vite</td><td>the dev server with the plugin, and vite preview</td><td>the twins served on both; the browser HTML gets Link and Vary: Origin, Accept</td></tr>
+            <tr><td class="name">VitePress</td><td class="id">1.6.4</td><td class="id">folder</td><td>generate on the build folder, then vitepress preview</td><td>the twins served as text/markdown; cleanUrls makes guide.md the twin of guide</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout reveal">
+        <p>Every row was a scratch app installed from the packed 0.1.1 tarballs, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, <code>Accept: text/markdown</code>, a browser, the <code>.md</code> URL, HEAD, an Accept header that rules out both formats, a route with no twin, and <code>If-None-Match</code> with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.</p>
+        <p><b>Not run:</b> Nest, SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module <code>opengso prod data</code> writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.</p>
+      </div>
+
+      <p class="subhead">What one request goes through</p>
+      <ol class="flow reveal">
+        <li><b>Not a page.</b> Framework build output (<code>/_next/</code>, <code>/_nuxt/</code>, <code>/_astro/</code>, <code>/@vite/</code>), a path with a file extension and no twin, or any method other than GET and HEAD, passes straight through, untouched.</li>
+        <li><b>Accept rules out both formats.</b> On a route that has a twin, an Accept header that excludes both text/html and text/markdown gets a 406 naming the two it can have. On any other route the application owns the answer, so an API asked for JSON never meets the middleware.</li>
+        <li><b>The .md URL itself.</b> The twin, when the Accept header admits markdown; a 406 when it does not.</li>
+        <li><b>Accept prefers text/markdown.</b> The twin, at the page's own URL.</li>
+        <li><b>The User-Agent is on the routing list.</b> GPTBot, ClaudeBot and the 16 others routed by default get the twin without sending an Accept header, which most of them never do.</li>
+        <li><b>Everyone else.</b> Your HTML, with <code>Vary: Accept</code>, <code>X-AEO-Version</code> and, when the page has a twin, a <code>Link rel="alternate"</code> pointing at it.</li>
+      </ol>
+      <div class="callout reveal">
+        <p>A markdown answer carries an ETag and Last-Modified, and a request that sends the ETag back as <code>If-None-Match</code> gets a 304 with no body. A route with no twin is never answered with markdown: the request falls through to the page, so a missing twin is an ordinary page, never a broken one.</p>
+      </div>
     </div>
   </section>
 
   <section id="guarantees">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">07 / Guarantees</p>
+        <p class="eyebrow">08 / Guarantees</p>
         <h2 class="section-title">What it will not do to your site.</h2>
         <p class="section-lede">Middleware that runs on every request has to earn its place. These are rules in the code, and most of them are checked on every test run.</p>
       </div>
 
       <div class="table-wrap reveal">
         <table class="data guarantees">
-          <caption>Table 4. What OpenGSO never does, and what holds it to that.</caption>
+          <caption>Table 5. What OpenGSO never does, and what holds it to that.</caption>
           <thead><tr><th>Never</th><th>How that is kept</th></tr></thead>
           <tbody>
             <tr><td class="name">Changes what browsers and search engines get</td><td>Only AI crawlers are routed to markdown: <b data-fact="bots-routed">18</b> by default, out of the <b data-fact="bots-known">28</b> it knows, and none of the <b data-fact="bots-search">8</b> search crawlers among them, since every markdown response is <code>noindex</code>. Check B13 fails the score if the HTML stops being served.</td></tr>
@@ -713,38 +796,38 @@ app.use(createNodeMiddleware());</pre>
   <section id="checks">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">08 / The checks</p>
+        <p class="eyebrow">09 / The checks</p>
         <h2 class="section-title">Twenty-two checks. Seven of them make the number.</h2>
         <p class="section-lede">The <b>scored</b> seven are what every agent depends on today: permission, discovery, content in the HTML, speed, no silent opt-out, transport security, and HTML that still answers. The other fifteen are <b>suggestions</b>, the agent-specific layer most sites have not built. They are counted as "N of 15 adopted" and never move the score. Every check, and the reasoning behind its weight, is in <a href="https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md">docs/checks.md</a>.</p>
       </div>
 
       <div class="table-wrap reveal">
         <table class="data">
-          <caption>Table 5. All 22 checks, with their weights. Scored rows are highlighted.</caption>
-          <thead><tr><th>Id</th><th>Check</th><th class="num">Weight</th><th>Kind</th></tr></thead>
+          <caption>Table 6. All 22 checks, with their weights. Scored rows are highlighted.</caption>
+          <thead><tr><th>Id</th><th>Check</th><th class="num">Weight</th><th>Kind</th><th class="wt"><span class="sr-only">Weight, as a bar out of 10</span></th></tr></thead>
           <tbody>
-            <tr class="is-key"><td class="id">A1</td><td>robots.txt exists and does not disallow known AI bots</td><td class="num">9</td><td><span class="pill scored">scored</span></td></tr>
-            <tr><td class="id">A2</td><td>llms.txt is present and valid</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr class="is-key"><td class="id">A3</td><td>sitemap.xml is present and valid</td><td class="num">9</td><td><span class="pill scored">scored</span></td></tr>
-            <tr><td class="id">A4</td><td>Schema.org JSON-LD is present and parses</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr class="is-key"><td class="id">A5</td><td>Real content is in the raw HTML, not only after JS runs</td><td class="num">9</td><td><span class="pill scored">scored</span></td></tr>
-            <tr class="is-key"><td class="id">A6</td><td>Time to first byte is fast enough for agent fetches</td><td class="num">8</td><td><span class="pill scored">scored</span></td></tr>
-            <tr class="is-key"><td class="id">A7</td><td>No noai / noimageai tag is silently blocking AI</td><td class="num">8</td><td><span class="pill scored">scored</span></td></tr>
-            <tr class="is-key"><td class="id">A8</td><td>Served over HTTPS with HSTS</td><td class="num">9</td><td><span class="pill scored">scored</span></td></tr>
-            <tr><td class="id">B1</td><td>Markdown twin URL is reachable and returns 2xx</td><td class="num">10</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B2</td><td>Content-Type is exactly text/markdown; charset=utf-8</td><td class="num">5</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B3</td><td>Markdown response body is non-empty</td><td class="num">5</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B4</td><td>X-Markdown-Tokens is present and a positive integer</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B5</td><td>X-Content-Type-Options: nosniff is present</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B6</td><td>X-Robots-Tag on the twin includes noindex</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B7</td><td>Vary includes Accept, so CDNs cache the two formats separately</td><td class="num">4</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B8</td><td>HTML response advertises the twin via Link rel="alternate"</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B9</td><td>Accept: text/markdown receives markdown, not HTML</td><td class="num">6</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B10</td><td>A known AI bot User-Agent receives markdown without an Accept header</td><td class="num">6</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B11</td><td>An Accept header excluding HTML and markdown returns 406</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr><td class="id">B12</td><td>X-AEO-Version advertises the spec version implemented</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td></tr>
-            <tr class="is-key"><td class="id">B13</td><td>The original HTML URL is still reachable and unaffected</td><td class="num">9</td><td><span class="pill scored">scored</span></td></tr>
-            <tr><td class="id">B14</td><td>The served markdown still matches the live page (no drift or staleness)</td><td class="num">4</td><td><span class="pill sugg">suggestion</span></td></tr>
+            <tr class="is-key"><td class="id">A1</td><td>robots.txt exists and does not disallow known AI bots</td><td class="num">9</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:90%"></i></span></td></tr>
+            <tr><td class="id">A2</td><td>llms.txt is present and valid</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:30%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">A3</td><td>sitemap.xml is present and valid</td><td class="num">9</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:90%"></i></span></td></tr>
+            <tr><td class="id">A4</td><td>Schema.org JSON-LD is present and parses</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:20%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">A5</td><td>Real content is in the raw HTML, not only after JS runs</td><td class="num">9</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:90%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">A6</td><td>Time to first byte is fast enough for agent fetches</td><td class="num">8</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:80%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">A7</td><td>No noai / noimageai tag is silently blocking AI</td><td class="num">8</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:80%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">A8</td><td>Served over HTTPS with HSTS</td><td class="num">9</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:90%"></i></span></td></tr>
+            <tr><td class="id">B1</td><td>Markdown twin URL is reachable and returns 2xx</td><td class="num">10</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:100%"></i></span></td></tr>
+            <tr><td class="id">B2</td><td>Content-Type is exactly text/markdown; charset=utf-8</td><td class="num">5</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:50%"></i></span></td></tr>
+            <tr><td class="id">B3</td><td>Markdown response body is non-empty</td><td class="num">5</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:50%"></i></span></td></tr>
+            <tr><td class="id">B4</td><td>X-Markdown-Tokens is present and a positive integer</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:30%"></i></span></td></tr>
+            <tr><td class="id">B5</td><td>X-Content-Type-Options: nosniff is present</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:30%"></i></span></td></tr>
+            <tr><td class="id">B6</td><td>X-Robots-Tag on the twin includes noindex</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:30%"></i></span></td></tr>
+            <tr><td class="id">B7</td><td>Vary includes Accept, so CDNs cache the two formats separately</td><td class="num">4</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:40%"></i></span></td></tr>
+            <tr><td class="id">B8</td><td>HTML response advertises the twin via Link rel="alternate"</td><td class="num">3</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:30%"></i></span></td></tr>
+            <tr><td class="id">B9</td><td>Accept: text/markdown receives markdown, not HTML</td><td class="num">6</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:60%"></i></span></td></tr>
+            <tr><td class="id">B10</td><td>A known AI bot User-Agent receives markdown without an Accept header</td><td class="num">6</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:60%"></i></span></td></tr>
+            <tr><td class="id">B11</td><td>An Accept header excluding HTML and markdown returns 406</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:20%"></i></span></td></tr>
+            <tr><td class="id">B12</td><td>X-AEO-Version advertises the spec version implemented</td><td class="num">2</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:20%"></i></span></td></tr>
+            <tr class="is-key"><td class="id">B13</td><td>The original HTML URL is still reachable and unaffected</td><td class="num">9</td><td><span class="pill scored">scored</span></td><td class="wt"><span class="wbar"><i style="width:90%"></i></span></td></tr>
+            <tr><td class="id">B14</td><td>The served markdown still matches the live page (no drift or staleness)</td><td class="num">4</td><td><span class="pill sugg">suggestion</span></td><td class="wt"><span class="wbar"><i style="width:40%"></i></span></td></tr>
           </tbody>
         </table>
       </div>
@@ -765,14 +848,14 @@ app.use(createNodeMiddleware());</pre>
   <section id="limits">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">09 / Limitations</p>
+        <p class="eyebrow">10 / Limitations</p>
         <h2 class="section-title">What it does not do, and why.</h2>
         <p class="section-lede">Some of these are choices and some are facts about the platforms underneath. They are written down rather than half-built.</p>
       </div>
 
       <div class="table-wrap reveal">
         <table class="data">
-          <caption>Table 6. Known limitations.</caption>
+          <caption>Table 7. Known limitations.</caption>
           <thead><tr><th>Limitation</th><th>Effect</th><th>Why</th></tr></thead>
           <tbody>
             <tr><td class="name">No headless browser</td><td>A page that renders only in JavaScript fails A5 and gets a thin twin.</td><td>An agent's fetcher does not run your scripts either. A5 measures what it actually receives.</td></tr>
@@ -785,13 +868,55 @@ app.use(createNodeMiddleware());</pre>
           </tbody>
         </table>
       </div>
+
+      <figure class="code-block term-fig results-fig reveal">
+        <div class="code-header"><span class="lit">npx opengso test https://sherwinvishesh.github.io/OpenGSO/</span> <span class="tail">this site, 21 October 2026</span></div>
+<pre class="code-body term"><span class="b">OpenGSO</span> <span class="d">test</span>  https://sherwinvishesh.github.io/OpenGSO/
+
+  <span class="green b"> 85/100</span>  <span class="green">████████████████████▍</span><span class="d">░░░</span>  <span class="d">6 of 7 scored checks passed, 1 failed</span>
+  <span class="d">  ideas</span>  <span class="blue">██████████</span><span class="d">░░░░░░░░░░░░░░</span>  <span class="d">6 of 15 suggestions adopted</span>
+
+
+<span class="b">Failed (1)</span>
+<span class="d">----------</span>
+  <span class="red">FAIL</span> <span class="b">A1</span> robots.txt exists and does not disallow known AI bots<span class="d">  -15 pts</span>
+      No robots.txt at https://sherwinvishesh.github.io/robots.txt (HTTP 404).
+      AI crawlers get no explicit signal about what they may read.
+      <span class="blue">→ Crawlers read robots.txt only at the root of the host, and this site</span>
+      <span class="blue">  lives in https://sherwinvishesh.github.io/OpenGSO/, so it has to be</span>
+      <span class="blue">  published from that root (+15). On GitHub Pages that is the</span>
+      <span class="blue">  sherwinvishesh.github.io repository. Allow the AI agents you want</span>
+      <span class="blue">  reading the site, and add a Sitemap line for</span>
+      <span class="blue">  https://sherwinvishesh.github.io/OpenGSO/sitemap.xml.</span>
+
+<span class="b">Suggestions (9)</span>
+<span class="d">---------------</span>
+      <span class="d">B4, B5, B6, B7, B8, B9, B10, B11 and B12 fail on the markdown twin this</span>
+      <span class="d">page already serves, so agents are being sent something wrong. Like every</span>
+      <span class="d">suggestion they are outside the score and the number above does not move,</span>
+      <span class="d">but fix them first: --strict fails a build on them.</span>
+
+  <span class="amber">WARN</span> <span class="b">B9</span> Accept: text/markdown receives markdown, not HTML
+      A request with Accept: text/markdown received "text/html; charset=utf-8"
+      instead of markdown. Content negotiation is not wired up.
+<span class="omit">  [ B10, B7, B4, B5, B6, B8, B11 and B12, each with its fix, cut here ]</span>
+
+<span class="b">Passed (6)</span>
+<span class="d">----------</span>
+  A3 A5 A6 A7 A8 B13
+
+<span class="b">Adopted (6)</span>
+<span class="d">-----------</span>
+  A2 A4 B1 B2 B3 B14</pre>
+        <figcaption><b>Fig. 9.</b> OpenGSO run on this page, a GitHub Pages project site. A1 fails because crawlers read robots.txt from the root of sherwinvishesh.github.io, which this repository does not control, and the report says exactly that and where the fix goes. The nine open suggestions are the negotiation a static host cannot do. What it can serve, it serves: llms.txt, JSON-LD and a twin that is reachable, typed, non-empty and still current are the six adopted, and sitemap.xml is among the passed.</figcaption>
+      </figure>
     </div>
   </section>
 
   <section id="faq">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">10 / Questions</p>
+        <p class="eyebrow">11 / Questions</p>
         <h2 class="section-title">Asked often enough to answer here.</h2>
       </div>
 
@@ -805,6 +930,7 @@ app.use(createNodeMiddleware());</pre>
         <div class="faq-item reveal"><h3>Does OpenGSO block AI bots?</h3><p>Only if you ask it to. Blocking is opt-in, it is written only into the robots.txt that generate produces, and unknown bots are never blocked. The production middleware has no blocking code path at all: it only decides which format to send.</p></div>
         <div class="faq-item reveal"><h3>Why can a site score 100/100 with suggestions still open?</h3><p>Because the score and the suggestions answer different questions. The score says whether an agent can read the page today. The fifteen suggestions are the agent-specific layer on top, such as llms.txt, JSON-LD and a negotiated markdown twin, which most sites have not built. They are counted separately, so adopting them is a choice and never a penalty.</p></div>
         <div class="faq-item reveal"><h3>Can I test localhost or a staging site?</h3><p>Yes. Anything your machine can reach can be tested. The HTTPS check is marked not applicable on localhost, so it leaves the score instead of dragging it down.</p></div>
+        <div class="faq-item reveal"><h3>Does it work on GitHub Pages or another static host?</h3><p>Yes, for everything except the negotiation. Run generate on the build folder with <code>--origin</code> set to where the site is published: each twin is written beside its page, with llms.txt and sitemap.xml, and the host serves them as files. What a static host cannot do is answer one URL with two formats, so the header suggestions stay open. This site is published that way, and the report it gets is in section 10.</p></div>
       </div>
     </div>
   </section>
@@ -812,7 +938,7 @@ app.use(createNodeMiddleware());</pre>
   <section id="cite">
     <div class="container">
       <div class="section-head reveal">
-        <p class="eyebrow">11 / Cite</p>
+        <p class="eyebrow">12 / Cite</p>
         <h2 class="section-title">Citing OpenGSO.</h2>
         <p class="section-lede">If OpenGSO is part of your work, a citation helps other people find it.</p>
       </div>
@@ -876,6 +1002,7 @@ app.use(createNodeMiddleware());</pre>
           <li><a href="#problem">The problem</a></li>
           <li><a href="#start">Get started</a></li>
           <li><a href="#results">Results</a></li>
+          <li><a href="#dashboard">Dashboard</a></li>
           <li><a href="#guarantees">Guarantees</a></li>
           <li><a href="#cite">Cite</a></li>
         </ul>

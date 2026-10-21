@@ -154,14 +154,21 @@ opengso test https://your-site.com -q            # the full run, with the review
         <p>The structural pass is the score: 22 deterministic checks, no model involved, the same responses always producing the same number. The content review is a second, optional pass that reads every markdown document the site serves and grades it out of 100 on its own. It needs a key, refuses to run in CI, and prints as its own section. The two numbers are never blended.</p>
         <h3>Reading the report</h3>
         <p>Rows are grouped worst first: failed, partly there, suggestions, locked, passed, adopted, not applicable. Each row names the check, what it verifies and the specific reason it reached its verdict, with the header value or rule actually observed. A partial row shows a small meter and the split, <code>2 of 4</code>. A suggestion is marked <code>TIP</code> rather than with a cross, because it is not a failure.</p>
-<pre><code>OpenGSO test  https://yourstartup.com/pricing
+<p>The Next.js demo in the repository, before anything had been generated for it:</p>
+<pre><code>OpenGSO test  http://localhost:3000/resume
 Detected: Next.js
 
-   85/100  ████████████████████▍░░░  5 of 6 scored checks passed, 1 failed, 1 n/a
-    ideas  ▒▒▒░░░░░░░░░░░░░░░░░░░░  2 of 15 suggestions adopted, 12 waiting on B1
+   65/100  ███████████████▋░░░░░░░░  4 of 6 scored checks passed, 2 failed, 1 n/a
+    ideas  ██▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░  1 of 15 suggestions adopted, 12 waiting on B1
 
-FAIL A1 robots.txt exists and does not disallow known AI bots  -15 pts
-     robots.txt disallows ChatGPT-User, PerplexityBot from /pricing.</code></pre>
+
+Failed (2)
+----------
+  FAIL A1 robots.txt exists and does not disallow known AI bots  -18 pts
+      No robots.txt at http://localhost:3000/robots.txt (HTTP 404). AI crawlers
+      get no explicit signal about what they may read.
+      → Serve a robots.txt that allows the AI agents you want reading the site
+        (+18). `opengso generate` writes one.</code></pre>
         <p>The report ends with <strong>Do this next</strong>: every scored fix ranked by the points it recovers, so the top line is always the most valuable edit you can make. The suggestions follow under their own heading, heaviest first. Every price the report prints is in score points, how far that one fix would move the headline, and not the check's weight.</p>
         <p>Test the same URL again and the headline says what moved since the last run, such as <code>+15 since 2h ago</code>, with a sparkline of the runs before it. The history is kept in <code>.opengso/history.json</code>, newest 20 runs per URL, and is never served.</p>
         <h3>Options</h3>
@@ -539,6 +546,10 @@ opengso help providers                            # the whole catalogue, from th
           <li><strong>The home screen</strong>, a full-screen terminal app when you type <code>opengso</code> on its own. It is a launcher: picking Test runs the real command in normal scrollback, so the report can be scrolled and copied, then comes back. It needs a real terminal on both ends and turns itself off when <code>CI</code>, <code>NO_COLOR</code> or <code>OPENGSO_NO_TUI</code> is set or <code>TERM</code> is <code>dumb</code>, falling back to plain prompts.</li>
           <li><strong>The dashboard</strong>, with <code>opengso start</code>, in the <code>opengso</code> package. Five screens: Test, Generate, Prod, Bot settings and Settings. Generate can show you the exact bytes an agent would receive, read back off disk.</li>
         </ul>
+        <figure class="shot">
+          <img src="../assets/dashboard-test.png" width="1600" height="1550" loading="lazy" decoding="async" alt="The dashboard's Test screen in dark mode. A banner reads: the markdown matches the live page. A ring reads 100 beside http://localhost:3000/, with 6 of 6 scored passed, 14 of 15 suggestions adopted, 1 not applicable and Next.js detected. Below it, a card titled Fix it with Claude Code with a Copy fix prompt button, an empty Failed group, and one suggestion, B7, showing both Vary headers and the fix.">
+          <figcaption>The Test screen after a run against the demo: the B14 banner, the score, the fix prompt card and the one open suggestion, each the same object the terminal prints.</figcaption>
+        </figure>
         <h3>Keyboard</h3>
         <div class="table-wrap">
         <table>
