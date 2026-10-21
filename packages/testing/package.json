@@ -1,17 +1,27 @@
 {
   "name": "opengso-testing",
   "version": "0.1.1",
-  "description": "Score any live URL 0-100 for AI-readiness. The test pillar of OpenGSO.",
+  "description": "Score any live URL 0-100 for AI-readiness: 22 checks, every reason shown, and a fix prompt for Claude Code. The test pillar of OpenGSO.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
     "gso",
     "geo",
     "aeo",
+    "generative-engine-optimization",
+    "ai-seo",
     "llm",
-    "seo",
+    "ai-agents",
     "ai-crawler",
-    "markdown"
+    "markdown",
+    "llms-txt",
+    "llms.txt",
+    "seo",
+    "audit",
+    "robots-txt",
+    "sitemap",
+    "gptbot",
+    "claudebot"
   ],
   "homepage": "https://github.com/sherwinvishesh/OpenGSO",
   "repository": {

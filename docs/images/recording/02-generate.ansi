@@ -1,0 +1,40 @@
+
+[1mOpenGSO[22m [90mgenerate[39m  http://localhost:3000
+
+  [90mDiscovering routes by following links[39m
+  [90m[1/1][39m /
+  [90m[2/3][39m /about
+  [90m[3/3][39m /resume
+
+  [90mConverting pages[39m
+
+  [90mWriting the site files[39m
+
+[1mPages[22m
+[90m--------[39m
+  [32mwritten[39m /                        [90m188 tokens  http://localhost:3000/index.md[39m
+  [32mwritten[39m /about                   [90m205 tokens  http://localhost:3000/about.md[39m
+  [32mwritten[39m /resume                  [90m432 tokens  http://localhost:3000/resume.md[39m
+
+[1mSite files[22m
+[90m----------[39m
+  [32mwritten[39m robots.txt               [90mpublic/robots.txt[39m
+  [32mwritten[39m llms.txt                 [90mpublic/llms.txt[39m
+  [32mwritten[39m sitemap.xml              [90mpublic/sitemap.xml[39m
+
+  3 written, 0 unchanged [90min 126ms[39m
+  [90mOutput: public[39m
+
+[1mNotes[22m
+[90m--------[39m
+  [33mwarn[39m sitemap.xml, robots.txt, llms.txt and every twin point at
+       http://localhost:3000, which only this machine can reach. Deployed like
+       this, they send crawlers and agents nowhere. Set "publicOrigin" in
+       opengso.config.json to where the site is deployed, e.g.
+       "https://example.com", and run generate again.
+
+  Next: agents still get HTML until your server serves these twins. Add
+  opengso-prod to it (its README has the few lines for Next.js, Express, Nuxt,
+  SvelteKit, Astro, React Router, Angular, Qwik, Vite and edge functions), then
+  run `opengso test http://localhost:3000` to check.
+

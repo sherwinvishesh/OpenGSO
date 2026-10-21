@@ -62,6 +62,68 @@ Options
   --project <dir>    project directory holding opengso.config.json (default: cwd)
 ```
 
+### What a run prints
+
+Against OpenGSO's bundled Next.js demo, three pages, nothing generated yet, with the colour
+stripped:
+
+```
+$ opengso generate http://localhost:3000
+OpenGSO generate  http://localhost:3000
+
+  Discovering routes by following links
+  [1/1] /
+  [2/3] /about
+  [3/3] /resume
+
+  Converting pages
+
+  Writing the site files
+
+Pages
+--------
+  written /                        188 tokens  http://localhost:3000/index.md
+  written /about                   205 tokens  http://localhost:3000/about.md
+  written /resume                  432 tokens  http://localhost:3000/resume.md
+
+Site files
+----------
+  written robots.txt               public/robots.txt
+  written llms.txt                 public/llms.txt
+  written sitemap.xml              public/sitemap.xml
+
+  3 written, 0 unchanged in 126ms
+  Output: public
+
+Notes
+--------
+  warn sitemap.xml, robots.txt, llms.txt and every twin point at
+       http://localhost:3000, which only this machine can reach. Deployed like
+       this, they send crawlers and agents nowhere. Set "publicOrigin" in
+       opengso.config.json to where the site is deployed, e.g.
+       "https://example.com", and run generate again.
+
+  Next: agents still get HTML until your server serves these twins. Add
+  opengso-prod to it (its README has the few lines for Next.js, Express, Nuxt,
+  SvelteKit, Astro, React Router, Angular, Qwik, Vite and edge functions), then
+  run `opengso test http://localhost:3000` to check.
+```
+
+Every twin is named with its token count, because that is the number an agent pays. What the three
+twins replaced, measured with `curl` against the running demo:
+
+| Page | HTML an agent gets today | Twin | Tokens |
+| --- | ---: | ---: | ---: |
+| `/` | 10,191 bytes | 982 bytes | 188 |
+| `/about` | 10,408 bytes | 883 bytes | 205 |
+| `/resume` | 13,671 bytes | 1,886 bytes | 432 |
+
+The note at the end is the one a first run on `localhost` always gets: the files name the address
+that was crawled, so until `publicOrigin` names the deployed site they point at this machine.
+The run as a whole, with the test before and after it, is recorded here:
+
+![opengso test, generate and test again on the bundled Next.js demo: 65 of 100, then three twins and the three root files written in 126 milliseconds, then 100 of 100](https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/demo.svg)
+
 ## What it writes
 
 ```

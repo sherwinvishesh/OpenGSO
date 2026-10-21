@@ -1,0 +1,51 @@
+
+  [90mAuditing the live URL[39m
+
+[1mOpenGSO[22m [90mtest[39m  http://localhost:3000/resume
+[90mDetected: Next.js[39m
+
+  [38;2;79;176;122m[1m100/100[22m[39m  [38;2;79;176;122m█[39m[38;2;80;177;123m█[39m[38;2;82;178;124m█[39m[38;2;83;178;125m█[39m[38;2;84;179;127m█[39m[38;2;85;180;128m█[39m[38;2;87;181;129m█[39m[38;2;88;181;130m█[39m[38;2;89;182;131m█[39m[38;2;90;183;132m█[39m[38;2;92;184;133m█[39m[38;2;93;185;134m█[39m[38;2;94;185;136m█[39m[38;2;95;186;137m█[39m[38;2;97;187;138m█[39m[38;2;98;188;139m█[39m[38;2;99;189;140m█[39m[38;2;100;189;141m█[39m[38;2;102;190;142m█[39m[38;2;103;191;143m█[39m[38;2;104;192;145m█[39m[38;2;105;192;146m█[39m[38;2;107;193;147m█[39m[38;2;108;194;148m█[39m[38;2;92;92;86m[39m  [90m6 of 6 scored checks passed, 1 n/a[39m
+  [90m  ideas[39m  [38;2;90;162;208m█[39m[38;2;91;163;205m█[39m[38;2;92;165;203m█[39m[38;2;92;166;200m█[39m[38;2;93;168;198m█[39m[38;2;94;169;195m█[39m[38;2;95;170;192m█[39m[38;2;95;172;190m█[39m[38;2;96;173;187m█[39m[38;2;97;175;185m█[39m[38;2;98;176;182m█[39m[38;2;99;177;179m█[39m[38;2;99;179;177m█[39m[38;2;100;180;174m█[39m[38;2;101;181;171m█[39m[38;2;102;183;169m█[39m[38;2;103;184;166m█[39m[38;2;103;186;164m█[39m[38;2;104;187;161m█[39m[38;2;105;188;158m█[39m[38;2;106;190;156m█[39m[38;2;106;191;153m█[39m[38;2;92;92;86m[39m[38;2;92;92;86m░░[39m  [90m14 of 15 suggestions adopted[39m
+  [38;2;79;176;122m+35[39m [90msince just now[39m
+
+
+[1mSuggestions (1)[22m
+[90m---------------[39m
+      [90mConventions for AI agents this page has adopted in part. They are outside[39m
+      [90mthe score: the best-read sites have not adopted them either, so these are[39m
+      [90mwhat would set this one apart.[39m
+
+  [36mTIP [39m [1mB7[22m Vary includes Accept, so CDNs cache the two formats separately  [38;2;210;104;94m█[39m[38;2;213;108;98m█[39m[38;2;216;112;102m█[39m[38;2;219;116;106m█[39m[38;2;92;92;86m░░░░[39m [33m2 of 4[39m
+      Vary does not include Accept on the HTML response. A CDN can cache that
+      side's response and serve it to a visitor asking for the other format.
+      [90mHTML Vary: "rsc, next-router-state-tree, next-router-prefetch,[39m
+      [90mnext-router-segment-prefetch, Accept-Encoding"; markdown Vary: "Accept,[39m
+      [90mAccept-Encoding".[39m
+      [38;2;90;162;208m→ Add `Vary: Accept` to the HTML response. Some frameworks will not let[39m
+      [38;2;90;162;208m  middleware set it on a response they created; a CDN or reverse-proxy[39m
+      [38;2;90;162;208m  rule in front of the app is the way through.[39m
+
+[1mPassed (6)[22m
+[90m----------[39m
+  [90mA1 A3 A5 A6 A7 B13[39m
+  [90mRe-run with --verbose to see why each one passed.[39m
+
+[1mAdopted (14)[22m
+[90m------------[39m
+  [90mA2 A4 B1 B2 B3 B4 B5 B6 B8 B9 B10 B11 B12 B14[39m
+  [90mRe-run with --verbose to see why each one passed.[39m
+
+[1mNot applicable (1)[22m
+[90m------------------[39m
+  [90m n/a[39m [1mA8[22m Served over HTTPS with HSTS
+      [90mLocal development target - HTTPS and HSTS are not meaningful here.[39m
+
+  [38;2;79;176;122mNothing to fix. Every scored check passed.[39m
+
+  [1mWorth adopting next[22m [90m(suggestions, outside the score)[39m
+
+  [38;2;90;162;208m tip[39m  [1mB7 [22m  [1mAdd `Vary: Accept` to the HTML response. Some frameworks will not[22m
+             [1mlet middleware set it on a response they created; a CDN or[22m
+             [1mreverse-proxy rule in front of the app is the way through.[22m
+
+[90mAdd --copy to copy a fix prompt for Claude Code, or --prompt to print it.[39m

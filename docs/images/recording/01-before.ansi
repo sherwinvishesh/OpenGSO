@@ -1,0 +1,78 @@
+
+  [90mAuditing the live URL[39m
+
+[1mOpenGSO[22m [90mtest[39m  http://localhost:3000/resume
+[90mDetected: Next.js[39m
+
+  [38;2;201;144;56m[1m 65/100[22m[39m  [38;2;201;144;56m█[39m[38;2;202;145;58m█[39m[38;2;203;147;59m█[39m[38;2;203;148;61m█[39m[38;2;204;149;62m█[39m[38;2;205;151;64m█[39m[38;2;206;152;65m█[39m[38;2;207;153;67m█[39m[38;2;208;154;69m█[39m[38;2;208;156;70m█[39m[38;2;209;157;72m█[39m[38;2;210;158;73m█[39m[38;2;211;160;75m█[39m[38;2;212;161;76m█[39m[38;2;213;162;78m█[39m[38;2;213;164;79m▋[39m[38;2;92;92;86m░░░░░░░░[39m  [90m4 of 6 scored checks passed, 2 failed, 1 n/a[39m
+  [90m  ideas[39m  [38;2;90;162;208m█[39m[38;2;91;163;205m█[39m[38;2;92;92;86m▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒[39m[38;2;92;92;86m░░░[39m  [90m1 of 15 suggestions adopted, 12 waiting on B1[39m
+
+
+[1mFailed (2)[22m
+[90m----------[39m
+  [31mFAIL[39m [1mA1[22m robots.txt exists and does not disallow known AI bots[90m  -18 pts[39m
+      No robots.txt at http://localhost:3000/robots.txt (HTTP 404). AI crawlers
+      get no explicit signal about what they may read.
+      [38;2;90;162;208m→ Serve a robots.txt that allows the AI agents you want reading the site[39m
+      [38;2;90;162;208m  (+18). `opengso generate` writes one.[39m
+  [31mFAIL[39m [1mA3[22m sitemap.xml is present and valid[90m  -18 pts[39m
+      No sitemap.xml at http://localhost:3000/sitemap.xml (HTTP 404).
+      [38;2;90;162;208m→ Serve a /sitemap.xml listing every page (+18). `opengso generate` builds[39m
+      [38;2;90;162;208m  one from a crawl.[39m
+
+[1mSuggestions (2)[22m
+[90m---------------[39m
+      [90mConventions for AI agents this page has not adopted. They are outside the[39m
+      [90mscore: the best-read sites have not adopted them either, so these are what[39m
+      [90mwould set this one apart.[39m
+
+  [36mTIP [39m [1mB1[22m Markdown twin URL is reachable and returns 2xx
+      The markdown twin at http://localhost:3000/resume.md returned HTTP 404.
+      Agents that follow the .md convention get nothing.
+      [38;2;90;162;208m→ Serve a markdown twin at http://localhost:3000/resume.md. `opengso[39m
+      [38;2;90;162;208m  generate` writes it and the prod middleware serves it.[39m
+  [36mTIP [39m [1mA2[22m llms.txt is present and valid
+      No llms.txt at http://localhost:3000/llms.txt (HTTP 404).
+      [38;2;90;162;208m→ Serve /llms.txt with a title and your key pages as markdown links.[39m
+      [38;2;90;162;208m  `opengso generate` writes it.[39m
+
+[1mLocked (12)[22m
+[90m-----------[39m
+  [1m[38;2;90;162;208m12 more suggestions apply[39m[22m [90monce[39m [1mB1[22m [90mpasses[39m
+      [90mServe a markdown twin at the .md URL and every one of these becomes[39m
+      [90mmeasurable. `opengso generate` writes the files; `opengso prod` serves[39m
+      [90mthem.[39m
+
+  [1mB2[22m [90m5[39m  [1mB3[22m [90m5[39m  [1mB4[22m [90m3[39m  [1mB5[22m [90m3[39m  [1mB6[22m [90m3[39m  [1mB7[22m [90m4[39m  [1mB8[22m [90m3[39m  [1mB9[22m [90m6[39m  [1mB10[22m [90m6[39m  [1mB11[22m [90m2[39m  [1mB12[22m [90m2[39m  [1mB14[22m [90m4[39m  [90m(check weights)[39m
+
+[1mPassed (4)[22m
+[90m----------[39m
+  [90mA5 A6 A7 B13[39m
+  [90mRe-run with --verbose to see why each one passed.[39m
+
+[1mAdopted (1)[22m
+[90m-----------[39m
+  [90mA4[39m
+  [90mRe-run with --verbose to see why each one passed.[39m
+
+[1mNot applicable (1)[22m
+[90m------------------[39m
+  [90m n/a[39m [1mA8[22m Served over HTTPS with HSTS
+      [90mLocal development target - HTTPS and HSTS are not meaningful here.[39m
+
+  [1mDo this next[22m [90m(most points first)[39m
+
+  [38;2;79;176;122m +18[39m  [1mA1 [22m  [1mServe a robots.txt that allows the AI agents you want reading the[22m
+             [1msite. `opengso generate` writes one.[22m
+  [38;2;79;176;122m +18[39m  [1mA3 [22m  Serve a /sitemap.xml listing every page. `opengso generate`
+             builds one from a crawl.
+
+  [1mThen, to stand out[22m [90m(suggestions, outside the score)[39m
+
+  [38;2;90;162;208m tip[39m  [1mB1 [22m  Serve a markdown twin at http://localhost:3000/resume.md.
+             `opengso generate` writes it and the prod middleware serves it.
+             That also makes 12 more suggestions measurable.
+  [38;2;90;162;208m tip[39m  [1mA2 [22m  Serve /llms.txt with a title and your key pages as markdown
+             links. `opengso generate` writes it.
+
+[90mAdd --copy to copy a fix prompt for Claude Code, or --prompt to print it.[39m

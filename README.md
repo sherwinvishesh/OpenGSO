@@ -3,18 +3,27 @@
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
 Make your website readable by AI agents: score it, write a markdown twin of every page, and serve
-the twin at the same URL whenever an agent asks for it.
+the twin at the same URL whenever an agent asks for it. Any framework or static host. No headless
+browser, no account, no telemetry.
 
 [![npm](https://img.shields.io/npm/v/opengso)](https://www.npmjs.com/package/opengso)
 [![Checks](https://github.com/sherwinvishesh/OpenGSO/actions/workflows/checks.yml/badge.svg)](https://github.com/sherwinvishesh/OpenGSO/actions/workflows/checks.yml)
 [![node](https://img.shields.io/node/v/opengso)](https://nodejs.org)
 [![license](https://img.shields.io/npm/l/opengso)](LICENSE)
 
+![opengso test, generate and test again on the bundled Next.js demo. The first test scores 65 of 100 with no robots.txt, no sitemap.xml and no markdown twin. Generate writes three twins and the three root files in 126 milliseconds. The second test scores 100 of 100 with 14 of 15 suggestions adopted.](docs/images/demo.svg)
+
+That is the whole loop, as the CLI printed it against the bundled demo: a Next.js site with no
+`robots.txt`, no `sitemap.xml` and no twins scores **65**, `opengso generate` writes six files in
+126 ms, and the same URL scores **100** with 14 of 15 suggestions adopted. Every character is
+captured output; `scripts/render-recording.mjs` turns the captures into the animation.
+
 ChatGPT, Claude, Perplexity and the crawlers behind them fetch pages the way `curl` does: no
-JavaScript runs, and every byte of markup costs tokens. OpenGSO is one toolkit, three commands,
-for any framework or static host: **test** scores what an agent receives, **generate** writes the
-markdown twins plus `robots.txt`, `llms.txt` and `sitemap.xml`, and **prod** is a zero-dependency
-middleware that serves the twin to agents and the page to people.
+JavaScript runs, and every byte of markup costs tokens. OpenGSO is three commands. **test** scores
+what an agent receives, 0 to 100, with the reason for every point. **generate** writes a markdown
+twin of every page, plus `robots.txt`, `llms.txt` and `sitemap.xml`. **prod** is a zero-dependency
+middleware that serves the twin to agents and the page to people, at the same URL, without a
+redirect.
 
 ## Ten seconds: what an agent gets
 
@@ -63,6 +72,16 @@ Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreho
 A person in a browser still gets the page, with one header added:
 `Link: </resume.md>; rel="alternate"; type="text/markdown"`.
 
+Across the demo's three pages, measured with `curl` (the HTML with a browser's `Accept` header,
+the twin with `Accept: text/markdown`; the token count is the `X-Markdown-Tokens` header the twin
+carries):
+
+| Page | HTML the agent gets today | Markdown twin | Tokens in the twin |
+| --- | ---: | ---: | ---: |
+| `/` | 10,191 bytes | 982 bytes | 188 |
+| `/about` | 10,408 bytes | 883 bytes | 205 |
+| `/resume` | 13,671 bytes | 1,886 bytes | 432 |
+
 ## Sixty seconds: the quickstart
 
 Needs Node.js 22 or later.
@@ -75,8 +94,8 @@ npx opengso generate https://your-site.com    # 2. write public/md/*.md, robots.
 
 Then serve the twins. On Next.js 16 that is one file, `proxy.ts`, copied here from the demo (Next
 15 calls it `middleware.ts`, exports `middleware`, and adds `runtime: 'nodejs'` to `config`).
-Express, Fastify, Koa, Nuxt, Hono, SvelteKit, Astro, React Router, Vite, edge workers and plain
-static hosting are in [`opengso-prod`'s README](packages/prod/README.md).
+Every other framework is a few lines in [`opengso-prod`'s README](packages/prod/README.md), and the
+table [below](#every-framework-one-adapter-per-server-shape) says which ones have been run.
 
 ```ts
 import { NextResponse } from 'next/server';
@@ -108,17 +127,18 @@ and `opengso test --content`, and it stays in `.env` on your machine. There is n
 
 ## What the test says
 
-Captured from the demo, after the three steps above:
+The second test in the recording, as printed. The `+35` is the delta against the run before it,
+read from the project's own run history:
 
 ```
-$ opengso test http://localhost:3000/resume --structure
+$ opengso test http://localhost:3000/resume
 
 OpenGSO test  http://localhost:3000/resume
 Detected: Next.js
 
   100/100  ████████████████████████  6 of 6 scored checks passed, 1 n/a
     ideas  ██████████████████████░░  14 of 15 suggestions adopted
-  no change since 4m ago  ████████
+  +35 since just now
 
 
 Suggestions (1)
@@ -166,10 +186,12 @@ Add --copy to copy a fix prompt for Claude Code, or --prompt to print it.
 Seven of the 22 checks make the 0 to 100 (crawler access, sitemap, server-rendered content, speed,
 no opt-out tag, HTTPS, a working HTML page), so a well-built site scores 100 before installing
 anything. The other fifteen are suggestions, counted as "N of 15 adopted" and never in the number:
-`llms.txt`, JSON-LD and the markdown layer OpenGSO serves. `--strict` makes an open suggestion fail
-CI too, `--content` has a model read the markdown you serve and rate it in a separate section that
-never touches the number, and `--copy` puts a fix prompt for Claude Code on your clipboard.
-[`opengso-testing`'s README](packages/testing/README.md) has the two passes and the prompt in full.
+`llms.txt`, JSON-LD and the markdown layer OpenGSO serves. Every row names the check, what it
+verifies and the value actually observed, never a generic string. `--strict` makes an open
+suggestion fail CI too, `--content` has a model read the markdown you serve and rate it in a
+separate section that never touches the number, and `--copy` puts a fix prompt for Claude Code on
+your clipboard. [`opengso-testing`'s README](packages/testing/README.md) has the first run of the
+recording in full, the two passes and the prompt.
 
 The dashboard runs the same test, and keeps the copy button next to every failing check:
 
@@ -178,37 +200,68 @@ The dashboard runs the same test, and keeps the copy button next to every failin
   <img src="docs/images/dashboard-test-light.png" alt="The OpenGSO dashboard after a test of the demo: a score dial at 100, 6 of 6 scored checks passed, 14 of 15 suggestions adopted, a 'Fix it with Claude Code' card, and B7 listed as the one open suggestion at 2 of 4.">
 </picture>
 
-## Why it works this way
+## What one URL answers
+
+Every row was run with `curl` against the demo's `/resume` after step 3. This is the contract, and
+[docs/spec.md](docs/spec.md) writes it down so you could implement it without OpenGSO.
+
+| The request | What `opengso-prod` answers |
+| --- | --- |
+| A browser (`Accept: text/html`) | `200`, the HTML page, plus `Link: </resume.md>; rel="alternate"; type="text/markdown"`, `X-AEO-Version: opengso/1.0` and `Vary: Accept` (on Next's App Router the last one is replaced, which is the B7 partial above) |
+| `Accept: text/markdown` | `200`, the twin at `/resume`, as `text/markdown`, with `Vary: Accept`, an `ETag`, `X-Markdown-Tokens: 432`, `X-Markdown-Source-Hash` and `X-Robots-Tag: noindex` |
+| ClaudeBot or GPTBot sending `Accept: */*` | `200`, the twin, plus `Cache-Control: private`, so a shared cache keyed on `Accept` never hands a crawler's markdown to the next browser |
+| Googlebot, Bingbot, any search crawler | `200`, the HTML. Markdown is `noindex`, so no preset routes a search engine to it |
+| A crawler nobody has heard of | `200`, the HTML, the same as a visitor. Never blocked |
+| `GET /resume.md` | `200`, the twin, whatever `Accept` says |
+| `Accept: application/pdf` | `406`, with a plain-text body naming the two formats on offer, rather than a 200 of the wrong type |
+| `If-None-Match` with the twin's `ETag` | `304`, no body |
+| `HEAD` | the same headers as the `GET`, no body |
+| `POST`, `/_next/…`, `/api/…`, any URL with no twin | untouched, passed to the application |
+
+Why it is built this way:
 
 - **Agents do not run JavaScript.** A page that is empty until a script runs is empty to them,
   which is what check A5 measures. Generate extracts the content server-side with jsdom as a
   parser, never a runtime: page scripts are not executed, anywhere.
-- **Same URL, rewritten and never redirected.** An agent that asks for `/resume` with
-  `Accept: text/markdown`, or with a known AI crawler's User-Agent and no `Accept` at all, gets the
-  twin at `/resume`. The `.md` URL works too. A request that accepts neither HTML nor markdown gets
-  a 406 rather than a guess.
-- **The headers are the contract.** `Vary: Accept` so a CDN caches both formats, `Link rel="alternate"`
-  on the HTML so an agent that got the page can find the twin, an `ETag` that answers
-  `If-None-Match` with a 304, `X-Markdown-Tokens` so an agent knows the cost before reading, and
-  `X-Markdown-Source-Hash` so `opengso test` can tell when the twin no longer matches the live page
-  (check B14, the one only the tool that wrote the twin can run).
-- **No search engine is ever routed to markdown.** Every markdown response carries
-  `X-Robots-Tag: noindex`, so routing Googlebot or Bingbot to it would drop the page from results.
-  The default routes the 18 non-search AI crawlers; the search crawlers get HTML, and the config
-  refuses a list that routes one.
+- **Same URL, rewritten and never redirected.** A redirect changes the URL the agent records,
+  breaks the link it cites and costs a round trip. Serving different bytes at one URL is exactly
+  what `Vary` exists to describe.
+- **The headers are the contract.** `Vary: Accept` so a CDN caches both formats, `Link` on the
+  HTML so an agent that got the page can find the twin, an `ETag` that answers `If-None-Match`,
+  `X-Markdown-Tokens` so an agent knows the cost before reading, and `X-Markdown-Source-Hash` so
+  `opengso test` can tell when the twin no longer matches the live page (check B14, the one only
+  the tool that wrote the twin can run).
+- **No search engine is ever routed to markdown.** The default routes the 18 non-search AI
+  crawlers; the 8 search crawlers get HTML, and the config refuses a list that routes one.
 - **Format and blocking are two levers, kept apart.** Routing never blocks. Blocking is opt-in,
   exists only in the `robots.txt` generate writes, and `opengso-prod` has no blocking code path.
   Unknown bots are never blocked.
 - **A production request is a map lookup.** `opengso-prod` has zero dependencies, reads the files
   generate wrote once at boot, and never calls a model or the network.
 
-The whole wire format is in [docs/spec.md](docs/spec.md), written so you could implement it
-without OpenGSO.
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-bots-dark.png">
   <img src="docs/images/dashboard-bots-light.png" alt="The dashboard's bot settings: a preset row with 'Every AI agent (18)', 'Assistants only (7)' and 'Nobody', and a table of crawlers with a markdown checkbox and a block checkbox per row.">
 </picture>
+
+## Every framework, one adapter per server shape
+
+`opengso-prod` has five entries, one per kind of server, and no per-framework adapters. Every
+framework in the third column was run on the version named: an AI agent, a browser,
+`Accept: text/markdown`, the `.md` URL, a `HEAD`, a 406 and a page with no twin, in development and
+in a production build. The snippet for each is in [`opengso-prod`'s README](packages/prod/README.md).
+
+| Entry | Shape | Run on |
+| --- | --- | --- |
+| `opengso-prod/next` | `proxy.ts` on Next 16, `middleware.ts` on Next 15 | Next.js 16.3.4 and 16.3.8 |
+| `opengso-prod/node` | `(req, res, next)` | Express 5.3, Connect 3.7, Polka 0.5, Fastify 5.12 with `@fastify/middie` 9.3, Koa 3.2, Nest 12.2, Nuxt 4.6 on h3 1.15, Angular 20.3 with `@angular/ssr`, Qwik City 1.20 |
+| `opengso-prod/fetch` | `(request, next) => Response` | Hono 4.13, SvelteKit 3.1 with `adapter-node` 6, Astro 6.4 with `@astrojs/node` 10, React Router 8.5 |
+| `opengso-prod/vite` | a Vite plugin, for `vite` and `vite preview` | Vite 8.3 and 7.3 |
+| `opengso-prod/edge` | `(request, next) => Response`, the twins bundled as a data module because the edge has no disk | Cloudflare Workers under wrangler 4.151 |
+| none | a folder of HTML files: each twin is written beside its page and the host serves it | VitePress 1.6, GitHub Pages |
+
+SolidStart, Remix, Bun, Deno, and Vercel and Netlify edge functions take the same three shapes
+and are documented by the shape they share, not as verified.
 
 ## Which package do I install
 
@@ -270,7 +323,7 @@ gateway or a self-hosted server, and adding one is three lines of config:
 - [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and
   [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - The website, [sherwinvishesh.github.io/OpenGSO](https://sherwinvishesh.github.io/OpenGSO/), is
-  itself generated and served the way this README describes.
+  itself generated and served the way this README describes, and publishes its own report.
 
 ## Working on it
 
@@ -294,8 +347,10 @@ npm run install:global    # then: opengso --help
 npm run example:dev       # serves the demo on localhost:3000
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest, including the one place Changesets cannot
-follow a change and what to do about it.
+The recording at the top is rebuilt from the captures in `docs/images/recording/` by
+`node scripts/render-recording.mjs docs/images/recording docs/images/demo.svg`; capturing a fresh
+run is in [CONTRIBUTING.md](CONTRIBUTING.md), with the rest, including the one place Changesets
+cannot follow a change and what to do about it.
 
 ## Known limitations
 

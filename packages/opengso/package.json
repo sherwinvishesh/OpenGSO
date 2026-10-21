@@ -1,17 +1,28 @@
 {
   "name": "opengso",
   "version": "0.1.1",
-  "description": "The full OpenGSO toolkit: test, generate, prod and the local dashboard.",
+  "description": "Make a website readable by AI agents: test, generate, the prod middleware and a local dashboard. The whole OpenGSO toolkit.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
     "gso",
     "geo",
     "aeo",
+    "generative-engine-optimization",
+    "ai-seo",
     "llm",
-    "seo",
+    "ai-agents",
+    "ai-crawler",
     "markdown",
-    "dashboard"
+    "llms-txt",
+    "llms.txt",
+    "dashboard",
+    "cli",
+    "middleware",
+    "nextjs",
+    "seo",
+    "gptbot",
+    "claudebot"
   ],
   "homepage": "https://github.com/sherwinvishesh/OpenGSO",
   "repository": {

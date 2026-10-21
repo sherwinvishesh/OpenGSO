@@ -23,6 +23,26 @@ on edge runtimes. The package is an ES module; a CommonJS server can still
 npm install opengso-prod
 ```
 
+## What one URL answers
+
+Every row was run with `curl` against OpenGSO's bundled Next.js demo, `/resume`, and the same
+probes against each framework in the table further down. The wire format is written down in
+[docs/spec.md](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md) so that a server
+without this package could answer the same way.
+
+| The request | The answer |
+| --- | --- |
+| A browser (`Accept: text/html`) | `200`, the HTML page, plus `Link: </resume.md>; rel="alternate"; type="text/markdown"`, `X-AEO-Version: opengso/1.0` and `Vary: Accept` (Next's App Router replaces the last one; see the known limitation below) |
+| `Accept: text/markdown` | `200`, the twin at `/resume`, as `text/markdown`, with `Vary: Accept`, an `ETag`, `X-Markdown-Tokens: 432`, `X-Markdown-Source-Hash` and `X-Robots-Tag: noindex` |
+| ClaudeBot or GPTBot sending `Accept: */*` | `200`, the twin, plus `Cache-Control: private`, so a shared cache keyed on `Accept` never hands a crawler's markdown to the next browser |
+| Googlebot, Bingbot, any search crawler | `200`, the HTML. Markdown is `noindex`, so no preset routes a search engine to it |
+| A crawler nobody has heard of | `200`, the HTML, the same as a visitor. Never blocked |
+| `GET /resume.md` | `200`, the twin, whatever `Accept` says |
+| `Accept: application/pdf` | `406`, with a plain-text body naming the two formats on offer, rather than a 200 of the wrong type |
+| `If-None-Match` with the twin's `ETag` | `304`, no body |
+| `HEAD` | the same headers as the `GET`, no body |
+| `POST`, `/_next/…`, `/api/…`, any URL with no twin | untouched, passed to the application |
+
 ## Next.js
 
 `opengso-prod` imports nothing from `next`. On Next 16, a `proxy.ts` at the project root (or in
@@ -100,8 +120,8 @@ second, until you start it with `NODE_ENV=production`.
 Every recipe below was run against a real app on the version named, with an AI agent, a browser,
 `Accept: text/markdown`, the `.md` twin URL, a `HEAD`, a 406 and a page with no twin, in development
 and in a production build. Build the middleware once, at module scope: a request is then a lookup.
-SolidStart, Bun, Deno, and Vercel and Netlify edge functions take the same shapes but have not been
-run yet, so they are listed by the shape they share rather than as verified.
+SolidStart, Remix, Bun, Deno, and Vercel and Netlify edge functions take the same shapes but have
+not been run yet, so they are listed by the shape they share rather than as verified.
 
 ### Express, Connect, Polka, Fastify
 
@@ -113,8 +133,11 @@ app.use(createNodeMiddleware()); // first, before your routes and static files
 
 Verified on Express 5.3, Connect 3.7 and Polka 0.5. Fastify 5.12 takes it the same way once
 [`@fastify/middie`](https://github.com/fastify/middie) 9.3 is registered
-(`await app.register(middie)`), and so does Nest 12 on its default Express platform
-(`app.use(createNodeMiddleware())` in `main.ts`, before `app.listen`).
+(`await app.register(middie)`), and so does Nest 12.2 on its default Express platform
+(`app.use(createNodeMiddleware())` in `main.ts`, before `app.listen`), run from its built
+`dist/main.js` with and without `NODE_ENV=production`. A bare Nest app serves no static files, so
+`robots.txt`, `llms.txt` and `sitemap.xml` need `ServeStaticModule` or a proxy in front; the twins
+are served by the middleware either way.
 
 A `Vary` already on the response, such as `Accept-Encoding` from compression, is kept and `Accept`
 is added to it. A route that sets `Vary` itself after the middleware has run replaces the whole
@@ -397,13 +420,62 @@ the Node adapter and reads the disk. There is no startup log at the edge; check 
 npx opengso-prod prod test https://your-site.com/some-page
 ```
 
-Five probes, each isolating exactly one variable, reported under the lever they belong to:
+Five probes, each isolating exactly one variable, reported under the lever they belong to. Against
+the bundled Next.js demo, with the colour stripped:
 
 ```
+$ opengso prod test http://localhost:3000/resume
+OpenGSO prod test  http://localhost:3000/resume
+
+  ██████████████▍░░░  4 passed, 1 warned, 0 failed  impersonating ClaudeBot
+
 Lever 1 - markdown routing (bots.markdownRouting)
+-------------------------------------------------
+  Decides which AI agents get the twin. It chooses a format, never access.
+
+  PASS routed-bot ClaudeBot receives the markdown twin  200
+      ClaudeBot is on the markdown routing list and got the twin at the same
+      URL, with a browser-typical Accept header.
+      Content-Type text/markdown; charset=utf-8, 1886 bytes.
+
+  PASS unknown-bot An unrecognised bot is served the normal site, never blocked  200
+      Served 200 and the normal site, which is exactly right: an unknown bot is
+      treated as an ordinary visitor.
+
 Content negotiation
+-------------------
+  The same URL in two formats, decided by the Accept header.
+
+  PASS accept-markdown Accept: text/markdown returns markdown at the same URL  200
+      A browser User-Agent asking for text/markdown got markdown, so the Accept
+      header alone is enough.
+      X-Markdown-Tokens: 432.
+
+  WARN browser An ordinary browser still gets the ordinary site  200
+      HTML was served correctly, but Vary does not include Accept (Vary: rsc,
+      next-router-state-tree, next-router-prefetch,
+      next-router-segment-prefetch, Accept-Encoding).
+      A shared cache can store this HTML and hand it to the next agent that asks
+      for markdown. The twin is advertised at /resume.md.
+
+  PASS not-acceptable An Accept header that excludes both formats gets a 406  406
+      Answered 406 to `Accept: application/pdf`, which is the honest response
+      when neither representation was asked for.
+
 Lever 2 - blocking (bots.blocked, via robots.txt)
+-------------------------------------------------
+  Separate, opt-in, and written by generate. prod has no blocking code path.
+
+  PASS robots.txt http://localhost:3000/robots.txt
+      No AI bot is disallowed. That is the default, and OpenGSO never adds a
+      block you did not ask for.
+      This list comes from bots.blocked and is written by `opengso generate`.
+      prod itself never blocks anyone.
 ```
+
+The one warning is Next's App Router replacing `Vary: Accept` on the HTML side, the same finding
+`opengso test` scores as the B7 partial. On Express, Nest and the other servers in the table above,
+the same command reports 5 passed.
 
 The routed-bot probe sends a browser-typical `Accept` header, so a markdown response can only have
 been caused by the User-Agent. The Accept probe sends a browser User-Agent, so a markdown response

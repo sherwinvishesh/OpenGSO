@@ -66,6 +66,19 @@ Five screens, all driving the same core functions the CLI calls:
 On a project with no `opengso.config.json`, the first screen is a three-step setup: site and web
 root, optional key, bot routing.
 
+The Test screen after a run against the bundled Next.js demo, and the Bot settings screen with
+its two levers:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/dashboard-test-dark.png">
+  <img src="https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/dashboard-test-light.png" alt="The OpenGSO dashboard after a test of the demo: a score dial at 100, 6 of 6 scored checks passed, 14 of 15 suggestions adopted, a 'Fix it with Claude Code' card, and B7 listed as the one open suggestion at 2 of 4.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/dashboard-bots-dark.png">
+  <img src="https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/dashboard-bots-light.png" alt="The dashboard's bot settings: a preset row with 'Every AI agent (18)', 'Assistants only (7)' and 'Nobody', and a table of crawlers with a markdown checkbox and a block checkbox per row.">
+</picture>
+
 ### It binds to 127.0.0.1
 
 The dashboard can write an API key to disk, so it listens on the loopback interface only and refuses
@@ -98,6 +111,10 @@ opengso generate http://localhost:3000         # write the twins and the three r
 opengso prod test http://localhost:3000/resume # prove the deployment serves them correctly
 opengso start                                  # the same questions, then the UI
 ```
+
+The test, generate and test steps against the bundled demo, recorded from the real output:
+
+![opengso test, generate and test again on the bundled Next.js demo: 65 of 100, then three twins and the three root files written in 126 milliseconds, then 100 of 100 with 14 of 15 suggestions adopted](https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/demo.svg)
 
 See the
 [CLI README](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/cli/README.md)

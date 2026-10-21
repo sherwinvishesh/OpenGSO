@@ -1,16 +1,26 @@
 {
   "name": "opengso-generate",
   "version": "0.1.1",
-  "description": "Generate markdown twins, robots.txt, llms.txt and sitemap.xml for AI agents. The generate pillar of OpenGSO.",
+  "description": "Write a markdown twin of every page, plus robots.txt, llms.txt and sitemap.xml, from one crawl. The generate pillar of OpenGSO.",
   "license": "Apache-2.0",
   "type": "module",
   "keywords": [
     "gso",
     "geo",
     "aeo",
-    "llms-txt",
+    "generative-engine-optimization",
+    "ai-seo",
+    "llm",
+    "ai-agents",
+    "ai-crawler",
     "markdown",
-    "sitemap"
+    "llms-txt",
+    "llms.txt",
+    "sitemap",
+    "robots-txt",
+    "crawler",
+    "html-to-markdown",
+    "static-site"
   ],
   "homepage": "https://github.com/sherwinvishesh/OpenGSO",
   "repository": {

@@ -185,6 +185,28 @@ the dashboard's Bot settings tab both write it, and `resolveBots(config.bots.cus
 lists wherever a catalogue is needed. Do not send a pull request adding a private agent to
 `AI_BOTS`.
 
+## The README recording
+
+`docs/images/demo.svg` is rendered by `scripts/render-recording.mjs` from the three captures in
+`docs/images/recording/`, and nothing in it is typed by hand. To re-record it after a change to the
+report or to generate's output, run the demo (`npm run example:start`) with its generated files
+moved aside, capture the real commands with colour on, restart the demo so the middleware sees the
+new twins, capture the last run, and render:
+
+```bash
+cd examples/nextjs-demo
+FORCE_COLOR=3 opengso test http://localhost:3000/resume > ../../docs/images/recording/01-before.ansi
+FORCE_COLOR=3 opengso generate http://localhost:3000 > ../../docs/images/recording/02-generate.ansi
+# restart the demo, then
+FORCE_COLOR=3 opengso test http://localhost:3000/resume > ../../docs/images/recording/03-after.ansi
+cd ../..
+node scripts/render-recording.mjs docs/images/recording docs/images/demo.svg
+```
+
+The renderer has no dependencies and keeps the terminal's own colours, so the SVG stays a faithful
+copy of what the CLI printed. The plain-text blocks in the READMEs come from the same captures
+with the escape codes stripped.
+
 ## Style
 
 - Comments explain why, not what. A comment restating the line above it is noise.

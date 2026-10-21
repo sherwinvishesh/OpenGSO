@@ -36,6 +36,11 @@ opengso prod test http://localhost:3000/resume # prove the deployment serves the
 opengso test http://localhost:3000/resume      # score it again
 ```
 
+The three CLI steps of that loop, run against OpenGSO's bundled Next.js demo and recorded from the
+real output:
+
+![opengso test, generate and test again on the bundled Next.js demo: 65 of 100 with no robots.txt, no sitemap.xml and no markdown twin, then three twins and the three root files written in 126 milliseconds, then 100 of 100 with 14 of 15 suggestions adopted](https://raw.githubusercontent.com/sherwinvishesh/OpenGSO/main/docs/images/demo.svg)
+
 ## Commands
 
 ### `opengso test <url>`
