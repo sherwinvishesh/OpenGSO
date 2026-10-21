@@ -67,10 +67,18 @@ export function createManifestStore(options) {
   const problems = [];
   /** @type {Map<string, MarkdownDoc>} */
   const docs = new Map();
-  for (const entry of Object.values(options.manifest.pages ?? {})) {
+  for (const [key, entry] of Object.entries(options.manifest.pages ?? {})) {
+    if (!isUsableEntry(entry)) {
+      problems.push(STORE_ERRORS.edgeEntryUnusable(key));
+      continue;
+    }
     const raw = options.contents[entry.file];
     if (raw === undefined) {
       problems.push(STORE_ERRORS.contentNotSupplied(entry.route, entry.file));
+      continue;
+    }
+    if (typeof raw !== 'string') {
+      problems.push(STORE_ERRORS.contentNotText(entry.route, entry.file));
       continue;
     }
     const body = stripFrontmatter(raw);
@@ -85,6 +93,18 @@ export function createManifestStore(options) {
     });
   }
   return buildStore(docs, problems);
+}
+
+/**
+ * The two fields a store reads. Data built by hand can be missing either, and this runs at module
+ * scope in a Worker, where a TypeError takes the whole function down.
+ *
+ * @param {unknown} entry
+ * @returns {entry is StoreManifestEntry}
+ */
+function isUsableEntry(entry) {
+  const page = /** @type {Partial<StoreManifestEntry> | null} */ (entry);
+  return typeof page === 'object' && page !== null && typeof page.route === 'string' && typeof page.file === 'string';
 }
 
 /**

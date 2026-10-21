@@ -87,4 +87,34 @@ describe('the edge entry', () => {
     const html = await fetch(`${site}/resume`, { headers: { accept: 'text/html' } });
     expect(html.headers.get('content-type')).toBe('text/html');
   });
+
+  it('refuses data that is not the module prod data writes, naming the import that fixes it', async () => {
+    const { createEdgeMiddleware, createManifestStore } = await import('@opengso/core/prod/edge');
+    const build = (/** @type {unknown} */ data) => () => createEdgeMiddleware({ data: /** @type {any} */ (data) });
+    // A named import of the default export, and a namespace import: the two ways the recipe goes wrong.
+    expect(build(undefined)).toThrow(/got undefined.*import data from '\.\/opengso-edge-data\.js'/s);
+    expect(build({ default: { manifest: { pages: {} }, contents: {} } })).toThrow(/the whole module instead of its default export/);
+    expect(build(null)).toThrow(/got a null/);
+    expect(build({})).toThrow(/an object with no manifest/);
+    expect(build({ manifest: { pages: 'nope' }, contents: {} })).toThrow(/a manifest with no pages table/);
+    expect(build({ manifest: { pages: {} } })).toThrow(/an object with no contents/);
+    expect(build({ manifest: { pages: {} }, contents: {} })).not.toThrow();
+
+    // A page the data module could not have written costs that page, never the boot.
+    const store = createManifestStore({
+      manifest: {
+        pages: {
+          '/a': /** @type {any} */ ('md/a.md'),
+          '/b': { route: '/b', file: 'md/b.md', tokens: 1 },
+          '/c': { route: '/c', file: 'md/c.md', tokens: 1 },
+        },
+      },
+      contents: { 'md/b.md': /** @type {any} */ (42), 'md/c.md': '# C' },
+    });
+    expect(store.routes()).toEqual(['/c']);
+    expect(store.problems).toEqual([
+      expect.stringContaining('lists /a without a route and a file'),
+      expect.stringContaining('content supplied for md/b.md is not a string'),
+    ]);
+  });
 });

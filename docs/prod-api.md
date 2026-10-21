@@ -99,7 +99,10 @@ static file server, with `root` taken from Vite's. It imports nothing from `vite
 fetch middleware for a runtime with no disk. `data` is an `EdgeData`: `{ manifest, contents,
 markdownRouting?, customBots? }`, the module `opengso prod data` writes. It carries the project's
 routing and custom crawlers, so the edge decides what a Node server reading the config would.
-`markdownRouting` here overrides the one in `data`.
+`markdownRouting` here overrides the one in `data`. Anything else in `data` (a named import of
+the module's default export, the module namespace itself, an object with no manifest, pages table
+or contents) throws where the middleware is built, naming the import that fixes it, so a wrong
+import fails the deploy instead of quietly serving HTML to every agent.
 
 **`fetchMiddleware(decide)`** turns any `(request) => decision` function, such as one from
 `createProdHandler`, into fetch middleware with the same fail-open behaviour.

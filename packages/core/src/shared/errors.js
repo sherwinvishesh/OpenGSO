@@ -148,6 +148,22 @@ export const STORE_ERRORS = /* @__PURE__ */ Object.freeze({
     `Manifest lists ${route} but no content was supplied for ${file}. Regenerate the data module after \`opengso generate\`.`,
 
   /**
+   * @param {string} route
+   * @param {string} file
+   */
+  contentNotText: (route, file) =>
+    `Manifest lists ${route} but the content supplied for ${file} is not a string. Regenerate the data module after \`opengso generate\`.`,
+
+  /**
+   * A page in edge data that is not `{ route, file }`. `opengso prod data` never writes one, so
+   * the module was built by hand.
+   *
+   * @param {string} key
+   */
+  edgeEntryUnusable: (key) =>
+    `The edge data lists ${key} without a route and a file, so it was not loaded. Let \`opengso prod data\` write the module.`,
+
+  /**
    * Logged when a development server notices the twins changed on disk and the new ones cannot be
    * loaded. The previous twins keep being served, so the line says that rather than sounding fatal.
    *
@@ -170,6 +186,16 @@ export const PROD_ERRORS = /* @__PURE__ */ Object.freeze({
    */
   requestFailedOpen: (reason) =>
     `[opengso-prod] a request could not be checked for a markdown twin, so it went to the normal site (later ones are not logged): ${reason.split('\n')[0]}`,
+
+  /**
+   * `createEdgeMiddleware` given something other than the module `opengso prod data` writes. It is
+   * thrown where the middleware is built, which is module scope in a Worker, so a wrong import
+   * fails the deploy with the reason instead of serving HTML to every agent and nobody noticing.
+   *
+   * @param {string} got What arrived, in a few words.
+   */
+  edgeDataNotData: (got) =>
+    `createEdgeMiddleware needs the module \`opengso prod data\` writes, passed as { data }, and got ${got}. Import its default export: import data from './opengso-edge-data.js'.`,
 
   /**
    * `opengso prod data` with nothing to bundle. Nothing is written: an edge function built from an

@@ -1,4 +1,5 @@
 import { DEFAULT_MARKDOWN_ROUTING, resolveBots } from '../../shared/bots.js';
+import { PROD_ERRORS } from '../../shared/errors.js';
 import { createManifestStore } from '../manifest-store.js';
 import { createProdHandler } from '../middleware.js';
 import { fetchMiddleware } from '../respond.js';
@@ -42,7 +43,9 @@ import { fetchMiddleware } from '../respond.js';
  * @returns {FetchMiddleware}
  */
 export function createEdgeMiddleware(options) {
-  const { data } = options;
+  const data = options?.data;
+  const wrong = notEdgeData(data);
+  if (wrong) throw new TypeError(PROD_ERRORS.edgeDataNotData(wrong));
   return fetchMiddleware(
     createProdHandler({
       store: createManifestStore(data),
@@ -51,4 +54,27 @@ export function createEdgeMiddleware(options) {
       specVersion: options.specVersion,
     }),
   );
+}
+
+/**
+ * What is wrong with `data`, in a few words, or nothing.
+ *
+ * The mistake this catches is an import that went wrong: a named import of the module's default
+ * export arrives as undefined, and a namespace import as an object whose only key is `default`.
+ * Without the check both failed as "Cannot read properties of undefined (reading 'manifest')".
+ *
+ * @param {unknown} data
+ * @returns {string | undefined}
+ */
+function notEdgeData(data) {
+  if (data === undefined) return 'undefined';
+  if (data === null || typeof data !== 'object') return `a ${data === null ? 'null' : typeof data}`;
+  const record = /** @type {Record<string, unknown>} */ (data);
+  if ('default' in record && !('manifest' in record)) return 'the whole module instead of its default export';
+  const manifest = record.manifest;
+  if (manifest === null || typeof manifest !== 'object') return 'an object with no manifest';
+  const pages = /** @type {Record<string, unknown>} */ (manifest).pages;
+  if (pages === null || typeof pages !== 'object') return 'a manifest with no pages table';
+  if (record.contents === null || typeof record.contents !== 'object') return 'an object with no contents';
+  return undefined;
 }
