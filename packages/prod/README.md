@@ -95,6 +95,13 @@ Markdown responses are unaffected and carry a clean `Vary: Accept`.
 prod test` reports it as a warning that names the exact `Vary` string Next produced. Verified against
 Next 16.3.4 and 16.3.8.
 
+`next build` also prints two warnings that point into this package, "Dynamic filesystem access
+causes tracing of the whole project", at the store's `existsSync` and `readFileSync` of the twins.
+They are informational. The store reads every twin from disk once at boot, the files have to be in
+the deployment anyway, and the demo builds, starts and scores 100/100 with them. On a host that
+traces files into a function (Vercel, `output: 'standalone'`) the trace takes in the whole project,
+as the warning says; what that costs there has not been measured.
+
 ## Every other framework
 
 One adapter per kind of server, not per framework. Each reads the same twins, in the folder your
