@@ -55,6 +55,53 @@ jobs:
       # The demo is the integration test for opengso-prod/next against a real Next.js build.
       - run: npm run example:build
 
+  # The three commands the demo README gives a user, run with the CLI a user gets: built, packed and
+  # installed from that tarball, against the demo served by `next start`.
+  e2e:
+    name: The pipeline against the demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run install:global
+      - run: npm run example:build
+      - name: Start the demo
+        run: |
+          npm run example:start > demo.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:3000/; then exit 0; fi
+            sleep 1
+          done
+          cat demo.log
+          exit 1
+      - run: opengso generate http://localhost:3000 --project examples/nextjs-demo
+      # The committed twins and manifest are what generate writes today. A diff here means a demo
+      # page or the extractor changed and nobody ran generate.
+      - run: git diff --exit-code -- examples/nextjs-demo/public examples/nextjs-demo/.opengso
+      - run: opengso prod test http://localhost:3000/ --project examples/nextjs-demo
+      - run: opengso test http://localhost:3000/resume --structure --strict --json | tee result.json
+      # B7 is the one open suggestion, and it stays open on purpose: Next's App Router will not let a
+      # proxy add Vary to an HTML response it did not create, so the demo scores it 2 of 4. The
+      # numbers are exact so that a change in either direction is noticed.
+      - name: 100 of 100, 14 of 15 suggestions adopted
+        run: |
+          node - <<'JS'
+          const result = JSON.parse(require('node:fs').readFileSync('result.json', 'utf8'));
+          const open = result.checks
+            .filter((check) => !check.scored && check.status !== 'pass' && check.status !== 'na')
+            .map((check) => check.id + ' ' + check.status);
+          console.log(result.score + '/100, ' + result.scored.pass + ' of ' + result.scored.count + ' scored checks passed, '
+            + result.suggestions.adopted + ' of ' + result.suggestions.count + ' suggestions adopted; open: ' + (open.join(', ') || 'none'));
+          const expected = result.score === 100 && result.scored.pass === result.scored.count
+            && result.suggestions.count === 15 && result.suggestions.adopted === 14 && open.join() === 'B7 partial';
+          if (!expected) process.exit(1);
+          JS
+
   # The workflows themselves, and every link between files in the repository.
   lint:
     name: Workflows and links
