@@ -2,6 +2,8 @@
 
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
+[Website](https://sherwinvishesh.github.io/OpenGSO/) · [Documentation](https://sherwinvishesh.github.io/OpenGSO/docs/#prod) · [GitHub](https://github.com/sherwinvishesh/OpenGSO) · [Changelog](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/prod/CHANGELOG.md)
+
 Runtime middleware that serves your markdown twins to AI agents at the same URL a human visits.
 
 - **Zero dependencies.** Not "few". The bundle contains no jsdom, no AI client, no framework.
@@ -543,7 +545,19 @@ It does not crawl, generate, extract, call an AI provider, read an API key, writ
 requests, or redirect anybody. Serving markdown to a human is a worse outcome than not installing
 this at all, so the HTML path is left alone unless the request asked for something else.
 
-## Reference
+## Documentation
 
-- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md) - headers, negotiation, the twin URL convention.
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md) - what `opengso test` verifies, and why.
+The whole manual is one page on the website: [sherwinvishesh.github.io/OpenGSO/docs](https://sherwinvishesh.github.io/OpenGSO/docs/).
+The sections this package needs are [Prod](https://sherwinvishesh.github.io/OpenGSO/docs/#prod), [Edge runtimes](https://sherwinvishesh.github.io/OpenGSO/docs/#edge), [Verify a deployment](https://sherwinvishesh.github.io/OpenGSO/docs/#verify), [The two bot levers](https://sherwinvishesh.github.io/OpenGSO/docs/#levers) and [The wire spec](https://sherwinvishesh.github.io/OpenGSO/docs/#spec).
+
+The reference, on GitHub:
+
+- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md): `opengso/1.0`: which URL holds the markdown, the headers that say so, content negotiation and the 406.
+- [The `opengso-prod` API](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/prod-api.md): every export of the six entry points and every option.
+- [`opengso.config.json`](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/config.md): every field the config takes, and which command writes it.
+- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md): every check, its weight, what it looks at and why an agent cares.
+- [Troubleshooting](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/troubleshooting.md): the problems people hit first, by the message you see.
+- [Versioning](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/versioning.md): the package version and the spec version, and what each one promises.
+
+The rest of the reference, including the architecture notes for contributors, is in
+[`docs/`](https://github.com/sherwinvishesh/OpenGSO/tree/main/docs).

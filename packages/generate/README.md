@@ -2,6 +2,8 @@
 
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
+[Website](https://sherwinvishesh.github.io/OpenGSO/) · [Documentation](https://sherwinvishesh.github.io/OpenGSO/docs/#generate) · [GitHub](https://github.com/sherwinvishesh/OpenGSO) · [Changelog](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/generate/CHANGELOG.md)
+
 Turns a live site into the files AI agents actually want: a clean Markdown twin of every page, plus
 `robots.txt`, `llms.txt` and `sitemap.xml`, all from a single crawl.
 
@@ -359,8 +361,19 @@ safety net is `last_updated` plus `opengso test`'s B14 check, which re-extracts 
 compares it against what is being served. Run `opengso test` after you deploy content changes, and
 re-run generate when it tells you to.
 
-## Reference
+## Documentation
 
-- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md)
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md)
-- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md)
+The whole manual is one page on the website: [sherwinvishesh.github.io/OpenGSO/docs](https://sherwinvishesh.github.io/OpenGSO/docs/).
+The sections this package needs are [Generate](https://sherwinvishesh.github.io/OpenGSO/docs/#generate), [Static sites](https://sherwinvishesh.github.io/OpenGSO/docs/#static), [Configuration](https://sherwinvishesh.github.io/OpenGSO/docs/#config), [AI providers](https://sherwinvishesh.github.io/OpenGSO/docs/#providers) and [Troubleshooting](https://sherwinvishesh.github.io/OpenGSO/docs/#troubleshooting).
+
+The reference, on GitHub:
+
+- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md): `opengso/1.0`: which URL holds the markdown, the headers that say so, content negotiation and the 406.
+- [`opengso.config.json`](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/config.md): every field the config takes, and which command writes it.
+- [AI providers](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md): the built-in catalogue, where the key lives, and adding your own endpoint.
+- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md): every check, its weight, what it looks at and why an agent cares.
+- [Troubleshooting](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/troubleshooting.md): the problems people hit first, by the message you see.
+- [Versioning](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/versioning.md): the package version and the spec version, and what each one promises.
+
+The rest of the reference, including the architecture notes for contributors, is in
+[`docs/`](https://github.com/sherwinvishesh/OpenGSO/tree/main/docs).

@@ -2,6 +2,8 @@
 
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
+[Website](https://sherwinvishesh.github.io/OpenGSO/) · [Documentation](https://sherwinvishesh.github.io/OpenGSO/docs/) · [GitHub](https://github.com/sherwinvishesh/OpenGSO) · [Changelog](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/cli/CHANGELOG.md)
+
 All three OpenGSO pillars behind one command: `test`, `generate`, `prod test`, `prod data`, and
 `settings`.
 
@@ -209,8 +211,18 @@ nothing else that could transmit it. `.env` is added to `.gitignore` before the 
 Most of OpenGSO needs no key: the whole 0 to 100 structural test, the entire free generate tier, and
 all of `opengso-prod`.
 
-## Reference
+## Documentation
 
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md)
-- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md)
-- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md)
+The whole manual is one page on the website: [sherwinvishesh.github.io/OpenGSO/docs](https://sherwinvishesh.github.io/OpenGSO/docs/).
+The sections this package needs are [Quickstart](https://sherwinvishesh.github.io/OpenGSO/docs/#quickstart), [Test a URL](https://sherwinvishesh.github.io/OpenGSO/docs/#test), [The fix prompt](https://sherwinvishesh.github.io/OpenGSO/docs/#prompts), [Generate](https://sherwinvishesh.github.io/OpenGSO/docs/#generate), [Prod](https://sherwinvishesh.github.io/OpenGSO/docs/#prod) and [Configuration](https://sherwinvishesh.github.io/OpenGSO/docs/#config).
+
+The reference, on GitHub:
+
+- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md): every check, its weight, what it looks at and why an agent cares.
+- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md): `opengso/1.0`: which URL holds the markdown, the headers that say so, content negotiation and the 406.
+- [`opengso.config.json`](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/config.md): every field the config takes, and which command writes it.
+- [AI providers](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md): the built-in catalogue, where the key lives, and adding your own endpoint.
+- [The `opengso-prod` API](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/prod-api.md): every export of the six entry points and every option.
+- [Troubleshooting](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/troubleshooting.md): the problems people hit first, by the message you see.
+- [Versioning](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/versioning.md): the package version and the spec version, and what each one promises.
+- [Architecture](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/architecture.md): a contributor's map of the repository and the rules the build enforces.

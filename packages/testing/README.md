@@ -2,6 +2,8 @@
 
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
+[Website](https://sherwinvishesh.github.io/OpenGSO/) · [Documentation](https://sherwinvishesh.github.io/OpenGSO/docs/#test) · [GitHub](https://github.com/sherwinvishesh/OpenGSO) · [Changelog](https://github.com/sherwinvishesh/OpenGSO/blob/main/packages/testing/CHANGELOG.md)
+
 Scores any live URL from 0 to 100 on how readable it is to AI agents, and tells you exactly what
 failed and why.
 
@@ -369,8 +371,19 @@ anything.
 
 Behaviour behind a cross-host CDN is documented as untested rather than claimed.
 
-## Reference
+## Documentation
 
-- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md)
-- [AI providers, and adding your own](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md)
-- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md)
+The whole manual is one page on the website: [sherwinvishesh.github.io/OpenGSO/docs](https://sherwinvishesh.github.io/OpenGSO/docs/).
+The sections this package needs are [Test a URL](https://sherwinvishesh.github.io/OpenGSO/docs/#test), [The fix prompt](https://sherwinvishesh.github.io/OpenGSO/docs/#prompts), [The 22 checks](https://sherwinvishesh.github.io/OpenGSO/docs/#checks), [AI providers](https://sherwinvishesh.github.io/OpenGSO/docs/#providers) and [Troubleshooting](https://sherwinvishesh.github.io/OpenGSO/docs/#troubleshooting).
+
+The reference, on GitHub:
+
+- [The check catalogue](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/checks.md): every check, its weight, what it looks at and why an agent cares.
+- [AI providers](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/providers.md): the built-in catalogue, where the key lives, and adding your own endpoint.
+- [The wire spec](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/spec.md): `opengso/1.0`: which URL holds the markdown, the headers that say so, content negotiation and the 406.
+- [`opengso.config.json`](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/config.md): every field the config takes, and which command writes it.
+- [Troubleshooting](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/troubleshooting.md): the problems people hit first, by the message you see.
+- [Versioning](https://github.com/sherwinvishesh/OpenGSO/blob/main/docs/versioning.md): the package version and the spec version, and what each one promises.
+
+The rest of the reference, including the architecture notes for contributors, is in
+[`docs/`](https://github.com/sherwinvishesh/OpenGSO/tree/main/docs).
