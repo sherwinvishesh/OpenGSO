@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig } from '../shared/config.js';
 import { CONFIG_ERRORS, ERRORS } from '../shared/errors.js';
@@ -17,11 +18,35 @@ import { UsageError } from './args.js';
  * @returns {LoadedConfig}
  */
 export function resolveProject(args) {
-  const dir = args.str('project');
-  const loaded = loadConfig(dir ? resolve(process.cwd(), dir) : process.cwd());
+  const loaded = loadConfig(projectRoot(args));
   // On stderr, so a --json run's output is the same with or without a stray key.
   for (const { key, suggestion } of loaded.unknownKeys ?? []) process.stderr.write(`${CONFIG_ERRORS.unknownConfigKey(key, suggestion)}\n`);
   return loaded;
+}
+
+/**
+ * The project directory `--project` names, or the current one.
+ *
+ * A path that does not exist, or names a file, is a mistake on the command line and is said so
+ * before anything is read or created: `generate` and `settings` used to create the folder, and
+ * `test` silently read a config from nowhere.
+ *
+ * @param {Args} args
+ * @returns {string} Absolute path of an existing directory.
+ */
+export function projectRoot(args) {
+  const dir = args.str('project');
+  if (!dir) return process.cwd();
+  const root = resolve(process.cwd(), dir);
+  /** @type {import('node:fs').Stats} */
+  let stat;
+  try {
+    stat = statSync(root);
+  } catch {
+    throw new UsageError(ERRORS.projectMissing(dir));
+  }
+  if (!stat.isDirectory()) throw new UsageError(ERRORS.projectNotAFolder(dir));
+  return root;
 }
 
 /**

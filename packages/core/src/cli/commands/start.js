@@ -9,6 +9,7 @@ import { c, cErr } from '../../shared/log.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
 import { runOnboarding } from '../onboarding.js';
+import { projectRoot } from '../project.js';
 
 /** @import { CommandContext } from '../index.js' */
 
@@ -44,8 +45,7 @@ export async function startCommand(ctx) {
     return EXIT_USAGE;
   }
 
-  const projectDir = args.str('project');
-  const root = projectDir ? resolve(process.cwd(), projectDir) : process.cwd();
+  const root = projectRoot(args);
   const port = args.num('port') ?? 4321;
   const webRoot = args.str('web') ? resolve(process.cwd(), /** @type {string} */ (args.str('web'))) : findWebRoot();
 

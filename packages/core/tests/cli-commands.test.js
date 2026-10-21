@@ -254,6 +254,36 @@ describe('a command line that cannot mean what it says', () => {
     expect(stderr).toContain('"soon"');
   });
 
+  it('refuses a --project that does not exist or is a file, on every command that takes one', async () => {
+    const missing = join(root, 'nope');
+    const file = join(root, 'a-file');
+    writeFileSync(file, '', 'utf8');
+    // Through runCli, because the command throws a usage error and runCli is what prints it.
+    /** @param {{ argv: string[] }} ctx */
+    const cli = ({ argv }) =>
+      runCli({
+        packageName: 'opengso',
+        version: '0.0.0',
+        commands: { test: testCommand, generate: generateCommand, 'prod test': prodTestCommand, start: startCommand },
+        argv,
+      });
+    const lines = [
+      ['test', site, '--structure'],
+      ['generate', site, '--json'],
+      ['prod', 'test', site, '--json'],
+      ['start', '--no-open', '--no-setup'],
+    ];
+    for (const argv of lines) {
+      const absent = await run(cli, [...argv, '--project', missing]);
+      expect(absent.code, argv[0]).toBe(2);
+      expect(absent.stderr, argv[0]).toContain('does not exist');
+      const notDir = await run(cli, [...argv, '--project', file]);
+      expect(notDir.code, argv[0]).toBe(2);
+      expect(notDir.stderr, argv[0]).toContain('is a file, not a folder');
+    }
+    expect(existsSync(missing)).toBe(false);
+  });
+
   it('reads a URL given after --', async () => {
     const file = join(root, 'report.txt');
     const { code } = await run(testCommand, ['--structure', '--out', file, '--project', root, '--', site]);

@@ -4,6 +4,7 @@ import { c, cErr } from '../../shared/log.js';
 import { EXIT_USAGE, parseArgs } from '../args.js';
 import { SetupAbort, setupMode } from '../configure.js';
 import { runOnboarding } from '../onboarding.js';
+import { projectRoot } from '../project.js';
 
 /** @import { CommandContext } from '../index.js' */
 
@@ -41,8 +42,7 @@ export async function settingsCommand(ctx) {
     return EXIT_USAGE;
   }
 
-  const dir = args.str('project');
-  const root = dir ? resolve(process.cwd(), dir) : process.cwd();
+  const root = projectRoot(args);
 
   try {
     await runOnboarding({

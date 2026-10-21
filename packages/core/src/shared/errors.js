@@ -986,6 +986,17 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   fsTooManyOpen: (path) => `too many files are open, so ${path} could not be written`,
 
   /**
+   * `--project` names the folder that holds opengso.config.json. Pointing it at nothing used to be
+   * accepted silently, and every command then read or created a config somewhere the user did not
+   * mean.
+   *
+   * @param {string} dir As typed on the command line.
+   */
+  projectMissing: (dir) => `--project ${dir} does not exist. Give it the folder that holds opengso.config.json, or where you want one created.`,
+  /** @param {string} dir */
+  projectNotAFolder: (dir) => `--project ${dir} is a file, not a folder. Give it the folder that holds opengso.config.json.`,
+
+  /**
    * @param {string} path
    * @param {string} why
    */

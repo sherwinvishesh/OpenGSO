@@ -613,6 +613,8 @@ describe('opengso generate <folder>', () => {
     const again = await cli(['--project', root, '--origin', 'https://user.github.io/repo/']);
     expect(again.stdout).not.toContain('opengso.config.json says');
 
+    // A fresh project with no config, which is where a crawl of a folder site would otherwise start.
+    mkdirSync(join(root, 'elsewhere'));
     const crawl = await cli(['http://localhost:9/', '--project', join(root, 'elsewhere'), '--origin', 'https://user.github.io/repo']);
     expect(crawl.code).toBe(2);
     expect(crawl.stderr).toContain(ERRORS.folderSiteCrawl('https://user.github.io/repo'));
