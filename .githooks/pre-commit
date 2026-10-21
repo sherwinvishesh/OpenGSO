@@ -1,0 +1,14 @@
+#!/bin/sh
+# Runs before every commit, from the repository root. `npm install` installs it (scripts/prepare.mjs
+# points core.hooksPath here); `git commit --no-verify` skips it once. Each check is a few seconds,
+# and each one guards a fact that is otherwise only caught by CI, after the push.
+set -e
+
+echo "pre-commit: typecheck"
+npm run -s typecheck
+
+echo "pre-commit: every link and anchor lands"
+node scripts/check-links.mjs
+
+echo "pre-commit: the website's twins match its pages"
+npx vitest run packages/core/tests/website.test.js --reporter=dot
