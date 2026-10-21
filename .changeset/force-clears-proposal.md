@@ -1,5 +1,7 @@
 ---
+"opengso-testing": patch
 "opengso-generate": patch
+"opengso-prod": patch
 "opengso-cli": patch
 "opengso": patch
 ---
