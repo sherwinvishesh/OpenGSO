@@ -1,12 +1,19 @@
-# Weekly, grouped into one pull request per ecosystem, so a week's updates are one review and one
-# CI run rather than ten. Checks runs on each pull request on all four runners.
+# Weekly. Minor and patch updates are grouped into one pull request per ecosystem, so a week's
+# updates are one review and one CI run rather than ten. A major update gets a pull request of its
+# own, so that one incompatible major cannot keep a whole group red: the first grouped run bundled
+# TypeScript 7 with six harmless bumps, and the group failed on it. Checks runs on each pull request
+# on all four runners.
 #
-# Two things to know when reviewing an npm pull request:
+# Three things to know when reviewing an npm pull request:
 #  - jsdom is the only dependency a published package carries, so a jsdom bump is a user-visible
 #    change and needs a changeset naming all five packages. Everything else here is dev tooling.
 #  - A lockfile regenerated on Linux can lose the other platforms' optional binaries (esbuild,
 #    rollup). The macOS and Windows jobs fail when that happens; fix the lockfile before merging
 #    rather than retrying the run.
+#  - Two majors are ignored on purpose. tsup 9 bundles the type declarations through
+#    rollup-plugin-dts, which needs the TypeScript 5 compiler API and does not run on TypeScript 7.
+#    @types/node tracks the `engines` field, which says Node 22, so a newer major is wrong until
+#    that field moves.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -18,6 +25,16 @@ updates:
       npm:
         patterns:
           - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
   - package-ecosystem: github-actions
     directory: /
     schedule:
