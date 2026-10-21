@@ -77,9 +77,17 @@ Next 16.3.4 and 16.3.8.
 
 ## Every other framework
 
-One adapter per kind of server, not per framework. Each reads the same `public/` and
-`.opengso/manifest.json`, and the same `opengso.config.json` when there is one, so they all decide a
-request the same way.
+One adapter per kind of server, not per framework. Each reads the same twins, in the folder your
+framework serves from the site root (`public/` for most, `static/` for SvelteKit, which `opengso
+generate` picks for you and `publicDir` overrides), the same `.opengso/manifest.json`, and the same
+`opengso.config.json` when there is one, so they all decide a request the same way.
+
+Two things hold for every built server below. It resolves those files against the directory it is
+started in, so start it from the project root and deploy `.opengso/` with the site: from anywhere
+else it logs that there is no manifest, loads no twins, and passes every request through. And a
+server that does not set `NODE_ENV` itself (Nuxt's `.output/server`, SvelteKit's `node build`,
+Astro's `dist/server/entry.mjs`) keeps the development reload, a stat of the twins at most once a
+second, until you start it with `NODE_ENV=production`.
 
 | Entry | Your server | Shape |
 | --- | --- | --- |
@@ -142,11 +150,10 @@ import { createNodeMiddleware } from 'opengso-prod/node';
 export default fromNodeMiddleware(createNodeMiddleware());
 ```
 
-Verified on Nuxt 4.6 (h3 1.15) under `nuxt dev` and the built `.output/server`. Two things to know
-about Nuxt in particular: `node .output/server/index.mjs` does not set `NODE_ENV`, so set
-`NODE_ENV=production` yourself or the server keeps watching the twins for changes; and the Nuxt
-starter ships a `public/robots.txt`, which `opengso generate` leaves alone, writing its own as
-`robots.txt.opengso-proposed` beside it for you to merge.
+Verified on Nuxt 4.6 (h3 1.15) under `nuxt dev` and the built `.output/server`. The Nuxt starter
+ships a `public/robots.txt`, which `opengso generate` leaves alone, writing its own as
+`robots.txt.opengso-proposed` beside it for you to merge. The SvelteKit starter's `static/robots.txt`
+gets the same treatment, and the proposal is a public file until you do.
 
 ### Hono
 
@@ -175,8 +182,10 @@ const opengso = createFetchMiddleware();
 export const handle = ({ event, resolve }) => opengso(event.request, () => resolve(event));
 ```
 
-Verified on SvelteKit 3.1 with `adapter-node`. If you already have a `handle`, put this first
-inside `sequence(...)`.
+Verified on SvelteKit 3.1 with `adapter-node` 6, under `vite dev` and the built `node build`. If
+you already have a `handle`, put this first inside `sequence(...)`. The handles after it see every
+HTML response, but not the responses OpenGSO answers itself (the markdown, a 406, a 304), so a
+handle that has to run on every response does not belong after it.
 
 ### Astro
 
@@ -189,8 +198,13 @@ const opengso = createFetchMiddleware();
 export const onRequest = (context, next) => opengso(context.request, next);
 ```
 
-Verified on Astro 6.4 with `@astrojs/node` 10, on pages rendered on demand. A prerendered page is
-a static file, and runs middleware only at build time: serve those the way a static host does.
+Verified on Astro 6.4 with `@astrojs/node` 10, under `astro dev` and the built
+`dist/server/entry.mjs`, on pages rendered on demand (Astro 7 needs Node 22.22 or later and was
+not tried). A prerendered page is a static file in the build, and the middleware runs for it only
+at build time, so in production its HTML carries none of these headers: serve those the way a
+static host does. Its `.md` twin is still answered by the middleware. Under `astro dev` the
+middleware runs on every request to a prerendered page without seeing the request headers, and
+Astro warns about `Astro.request.headers` each time.
 
 ### React Router (and Remix)
 
@@ -203,7 +217,8 @@ const opengso = createFetchMiddleware();
 export const middleware = [({ request }, next) => opengso(request, next)];
 ```
 
-Verified on React Router 8.5 under `react-router dev` and `react-router-serve`. Route middleware
+Verified on React Router 8.5 under `react-router dev` and `react-router-serve` (React Router 8.5
+itself asks for Node 22.22 or later; on an older 22 it warns and runs). Route middleware
 runs only for a URL some route matches, so the app needs a catch-all route (`route('*', ...)`,
 which most apps already have for their 404 page) for `/about.md` to reach it. On React Router 7
 middleware sits behind the `v8_middleware` future flag. On a custom Express server, use
@@ -272,10 +287,15 @@ so there is nowhere to put middleware. Two ways to serve the twins:
 npx vitepress build docs && npx opengso generate docs/.vitepress/dist --origin https://your-site.com
 ```
 
-Verified on VitePress 1.6 with `vitepress preview`, which served the twins as `text/markdown`. The
-build folders are `dist` for Vite, `docs/.vitepress/dist` for VitePress, `build` for Docusaurus,
-`public` for Gatsby and Hugo, and `_site` for Jekyll and Eleventy. Crawling a VitePress site instead
-writes the twins into `docs/public/md/`, and VitePress then builds those into pages of their own:
+Verified on VitePress 1.6 with `vitepress preview`, which served the twins as `text/markdown`.
+Build, then generate, then start the preview: it lists the folder once at startup, so a twin
+written after that is a 404 until it restarts, and a rebuild that deletes one crashes it on the next
+request for it. A default VitePress build names its pages `guide.html`, so the twin is
+`guide.html.md` and `/guide.md` does not exist; `cleanUrls: true` in its config gives you `guide.md`.
+The build folders are `dist` for Vite, `docs/.vitepress/dist` for VitePress, `build` for
+Docusaurus, `public` for Gatsby and Hugo, and `_site` for Jekyll and Eleventy. Crawling a VitePress
+site instead writes the twins into `docs/public/md/`, and VitePress then builds those into pages of
+their own:
 add `srcExclude: ['public/**']` to `.vitepress/config` if you do.
 
 ### Anything else

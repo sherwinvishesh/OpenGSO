@@ -77,8 +77,9 @@ public/
   manifest.json        <- bookkeeping, outside the web root, never served
 ```
 
-Everything an agent reads lives under `public/`, so it deploys with your site and needs no build
-step. Set `publicOrigin` in `opengso.config.json` to the deployed address (`https://example.com`)
+Everything an agent reads lives in the folder your framework serves from the site root, `public/`
+for most and `static/` for SvelteKit, Gatsby and Docusaurus (generate says which it chose, and
+`publicDir` in the config overrides it), so it deploys with your site and needs no build step. Set `publicOrigin` in `opengso.config.json` to the deployed address (`https://example.com`)
 and every absolute URL in those files names it rather than the dev server that was crawled. Without
 it, a run against `localhost` or `127.0.0.1` warns that the sitemap and twins point at this machine. `.opengso/manifest.json` holds the route table, token counts, content hashes and timestamps.
 `opengso-prod` loads it once at startup, which is how a request becomes a map lookup.
@@ -168,7 +169,10 @@ hook.
 For a site a tool builds, generate from what the tool writes and publish that folder: `dist` for
 Vite and Astro, `docs/.vitepress/dist` for VitePress, `build` for Docusaurus, `out` for a Next.js
 static export, `public` for Gatsby and Hugo, and `_site` for Jekyll and Eleventy. A rebuild usually
-empties the folder, so run generate again after building and before you deploy.
+empties the folder, so run generate again after building and before you deploy; `--check` names
+every page whose twin that took. The twin's name follows the page's: a tool that writes `guide.html`
+gets `guide.html.md`, and one that writes `guide/index.html` (VitePress with `cleanUrls: true`,
+Astro, Hugo) gets `guide.md`.
 
 ### A site in a folder of its host
 
