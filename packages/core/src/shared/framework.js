@@ -10,6 +10,13 @@
  * A wrong guess would be worse than no guess, because it sends the user editing the wrong file. So
  * each signal has to be something only that framework emits, never a word a page might contain,
  * and a page matching nothing reports nothing. Pure string work, because setup reads it too.
+ *
+ * "A word a page might contain" includes a page *about* a framework. Documentation that shows what
+ * Next.js emits carries `href="/_next/static/..."` and `self.__next_f.push` inside a `<pre>`, as
+ * escaped text: the attribute and the payload survive escaping, the tags around them do not. So an
+ * asset path only counts inside the src or href of a real script, link or img tag, a hydration
+ * payload only counts at the start of a real inline script, and an element id only counts on a
+ * real element. The project's own website is the regression test.
  */
 
 /**
@@ -46,6 +53,49 @@
  * @property {Array<{ name: string; pattern?: RegExp; evidence: string }>} [header]
  */
 
+/**
+ * An asset path, counted only in the `src` or `href` of a script, link or img tag. The path may
+ * sit behind a CDN host, so anything up to the quote is allowed in front of it.
+ *
+ * @param {string} path Regular expression source for the path.
+ * @returns {RegExp}
+ */
+function asset(path) {
+  return new RegExp(String.raw`<(?:script|link|img)\b[^>]*\s(?:src|href)=["'][^"']*` + path);
+}
+
+/**
+ * A hydration payload, counted only at the start of an inline script, where the framework writes
+ * it. Whitespace, a brace and a parenthesis may come first: Next.js opens with
+ * `(self.__next_f=...)`, SvelteKit with a block.
+ *
+ * @param {string} marker Regular expression source for the payload's first identifier.
+ * @returns {RegExp}
+ */
+function inlineScript(marker) {
+  return new RegExp(String.raw`<script\b[^>]*>[\s({]*` + marker);
+}
+
+/**
+ * An element id, counted only on a real element.
+ *
+ * @param {string} id
+ * @returns {RegExp}
+ */
+function elementId(id) {
+  return new RegExp(String.raw`<[a-z][^>]*\sid=["']` + id + String.raw`["']`);
+}
+
+/**
+ * A generator meta tag naming the tool.
+ *
+ * @param {string} name
+ * @returns {RegExp}
+ */
+function generator(name) {
+  return new RegExp(String.raw`<meta[^>]+name=["']generator["'][^>]+content=["']` + name, 'i');
+}
+
 /** @type {Signature[]} */
 const SIGNATURES = [
   {
@@ -53,17 +103,17 @@ const SIGNATURES = [
     id: 'docusaurus',
     name: 'Docusaurus',
     html: [
-      { pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Docusaurus/i, evidence: 'the generator meta tag names Docusaurus' },
-      { pattern: /id=["']__docusaurus["']/, evidence: 'the page has a __docusaurus root element' },
+      { pattern: generator('Docusaurus'), evidence: 'the generator meta tag names Docusaurus' },
+      { pattern: elementId('__docusaurus'), evidence: 'the page has a __docusaurus root element' },
     ],
   },
   {
     id: 'nextjs',
     name: 'Next.js',
     html: [
-      { pattern: /\/_next\/static\//, evidence: 'assets are served from /_next/static/' },
-      { pattern: /id=["']__NEXT_DATA__["']/, evidence: 'the page carries a __NEXT_DATA__ script' },
-      { pattern: /self\.__next_f\b/, evidence: 'the page carries an App Router flight payload' },
+      { pattern: asset(String.raw`\/_next\/static\/`), evidence: 'assets are served from /_next/static/' },
+      { pattern: elementId('__NEXT_DATA__'), evidence: 'the page carries a __NEXT_DATA__ script' },
+      { pattern: inlineScript(String.raw`self\.__next_f\b`), evidence: 'the page carries an App Router flight payload' },
     ],
     header: [{ name: 'x-powered-by', pattern: /next\.js/i, evidence: 'X-Powered-By names Next.js' }],
   },
@@ -71,32 +121,33 @@ const SIGNATURES = [
     id: 'nuxt',
     name: 'Nuxt',
     html: [
-      { pattern: /\/_nuxt\//, evidence: 'assets are served from /_nuxt/' },
-      { pattern: /id=["']__NUXT_DATA__["']|window\.__NUXT__/, evidence: 'the page carries a Nuxt payload' },
+      { pattern: asset(String.raw`\/_nuxt\/`), evidence: 'assets are served from /_nuxt/' },
+      { pattern: elementId('__NUXT_DATA__'), evidence: 'the page carries a Nuxt payload' },
+      { pattern: inlineScript(String.raw`window\.__NUXT__`), evidence: 'the page carries a Nuxt payload' },
     ],
   },
   {
     id: 'astro',
     name: 'Astro',
     html: [
-      { pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Astro/i, evidence: 'the generator meta tag names Astro' },
-      { pattern: /\/_astro\//, evidence: 'assets are served from /_astro/' },
-      { pattern: /astro-island|data-astro-cid-/, evidence: 'the markup carries Astro island attributes' },
+      { pattern: generator('Astro'), evidence: 'the generator meta tag names Astro' },
+      { pattern: asset(String.raw`\/_astro\/`), evidence: 'assets are served from /_astro/' },
+      { pattern: /<astro-island\b|<[a-z][^>]*\sdata-astro-cid-/, evidence: 'the markup carries Astro island attributes' },
     ],
   },
   {
     id: 'sveltekit',
     name: 'SvelteKit',
     html: [
-      { pattern: /__sveltekit_/, evidence: 'the page carries a SvelteKit hydration payload' },
-      { pattern: /\/_app\/immutable\//, evidence: 'assets are served from /_app/immutable/' },
+      { pattern: inlineScript('__sveltekit_'), evidence: 'the page carries a SvelteKit hydration payload' },
+      { pattern: asset(String.raw`\/_app\/immutable\/`), evidence: 'assets are served from /_app/immutable/' },
     ],
   },
   {
     id: 'remix',
     name: 'Remix or React Router',
     html: [
-      { pattern: /window\.__remixContext|__reactRouterContext/, evidence: 'the page carries a Remix or React Router context payload' },
+      { pattern: inlineScript(String.raw`window\.(?:__remixContext|__reactRouterContext)\b`), evidence: 'the page carries a Remix or React Router context payload' },
     ],
   },
   {
@@ -106,8 +157,8 @@ const SIGNATURES = [
     id: 'angular',
     name: 'Angular',
     html: [
-      { pattern: /\bng-version=["']\d/, evidence: 'the app root carries an ng-version attribute' },
-      { pattern: /\bng-server-context=|<script id=["']ng-state["']/, evidence: 'the page carries Angular server-rendering state' },
+      { pattern: /<[a-z][^>]*\sng-version=["']\d/, evidence: 'the app root carries an ng-version attribute' },
+      { pattern: /<[a-z][^>]*\sng-server-context=|<script[^>]*\sid=["']ng-state["']/, evidence: 'the page carries Angular server-rendering state' },
       {
         pattern: /<([a-z]+-[a-z0-9-]*)(?:\s[^>]*)?><\/\1>[\s\S]*?<script src=["'][^"']*polyfills(?:[-.][A-Za-z0-9]+)?\.js["'][^>]*><\/script>\s*<script src=["'][^"']*main(?:[-.][A-Za-z0-9]+)?\.js["']/,
         evidence: 'an empty app element followed by Angular\'s polyfills and main bundles',
@@ -124,37 +175,37 @@ const SIGNATURES = [
     id: 'gatsby',
     name: 'Gatsby',
     html: [
-      { pattern: /id=["']___gatsby["']/, evidence: 'the page has a ___gatsby root element' },
-      { pattern: /\/page-data\/[^"']*app-data\.json/, evidence: 'the page loads Gatsby page-data' },
+      { pattern: elementId('___gatsby'), evidence: 'the page has a ___gatsby root element' },
+      { pattern: asset(String.raw`\/page-data\/[^"']*app-data\.json`), evidence: 'the page loads Gatsby page-data' },
     ],
   },
   {
     // Before Vite: `vitepress dev` loads the Vite client.
     id: 'vitepress',
     name: 'VitePress',
-    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']VitePress/i, evidence: 'the generator meta tag names VitePress' }],
+    html: [{ pattern: generator('VitePress'), evidence: 'the generator meta tag names VitePress' }],
   },
   {
     id: 'hugo',
     name: 'Hugo',
-    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Hugo/i, evidence: 'the generator meta tag names Hugo' }],
+    html: [{ pattern: generator('Hugo'), evidence: 'the generator meta tag names Hugo' }],
   },
   {
     id: 'jekyll',
     name: 'Jekyll',
-    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Jekyll/i, evidence: 'the generator meta tag names Jekyll' }],
+    html: [{ pattern: generator('Jekyll'), evidence: 'the generator meta tag names Jekyll' }],
   },
   {
     id: 'eleventy',
     name: 'Eleventy',
-    html: [{ pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']Eleventy/i, evidence: 'the generator meta tag names Eleventy' }],
+    html: [{ pattern: generator('Eleventy'), evidence: 'the generator meta tag names Eleventy' }],
   },
   {
     id: 'wordpress',
     name: 'WordPress',
     html: [
-      { pattern: /<meta[^>]+name=["']generator["'][^>]+content=["']WordPress/i, evidence: 'the generator meta tag names WordPress' },
-      { pattern: /\/wp-content\//, evidence: 'assets are served from /wp-content/' },
+      { pattern: generator('WordPress'), evidence: 'the generator meta tag names WordPress' },
+      { pattern: asset(String.raw`\/wp-content\/`), evidence: 'assets are served from /wp-content/' },
     ],
   },
   {
@@ -163,7 +214,7 @@ const SIGNATURES = [
     id: 'vite',
     name: 'Vite',
     html: [
-      { pattern: /\/@vite\/client/, evidence: 'the page loads the Vite dev client' },
+      { pattern: asset(String.raw`\/@vite\/client`), evidence: 'the page loads the Vite dev client' },
       { pattern: /<script[^>]+type=["']module["'][^>]+src=["'][^"']*\/assets\/index-[A-Za-z0-9_-]{8}\.js/, evidence: 'assets follow the Vite hashed build naming' },
     ],
   },

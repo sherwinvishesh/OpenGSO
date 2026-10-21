@@ -108,6 +108,36 @@ describe('framework detection', () => {
     expect(detectFramework('<html><body><p>The q:container attribute marks a Qwik app.</p><script src="/x.js"></script></body></html>')).toBeUndefined();
   });
 
+  it('does not call a page Next.js because a code sample shows what Next.js emits', () => {
+    // The project website documents Next.js's own output inside <pre>, escaped. The attribute and
+    // the payload survive escaping, the tags do not, and the tags are what every rule anchors on.
+    const html = [
+      '<html><body><pre><code>&lt;link rel="preload" as="script" href="/_next/static/chunks/main.js"/&gt;',
+      '&lt;script&gt;self.__next_f.push([1,"..."])&lt;/script&gt;',
+      '&lt;script id="__NEXT_DATA__"&gt;{}&lt;/script&gt;',
+      '&lt;app-root ng-version="20.3.34"&gt;&lt;/app-root&gt; &lt;div id="__docusaurus"&gt;&lt;/div&gt;</code></pre>',
+      '<p>SvelteKit writes __sveltekit_ into a script and serves /_app/immutable/; Nuxt uses /_nuxt/ and window.__NUXT__.</p>',
+      '<p>Remix sets window.__remixContext, WordPress serves /wp-content/, Gatsby loads /page-data/app-data.json.</p>',
+      '<p>The matcher is <code>\'/((?!_next/static|_next/image|favicon.ico).*)\'</code>.</p>',
+      '<script src="/assets/site.js" defer></script></body></html>',
+    ].join('\n');
+    expect(detectFramework(html)).toBeUndefined();
+  });
+
+  it('recognises a hydration payload only at the start of a real inline script', () => {
+    expect(detectFramework('<html><body><script>(self.__next_f=self.__next_f||[]).push([0])</script></body></html>')?.name).toBe('Next.js');
+    expect(detectFramework('<html><body><script>\n\t{\n\t\t__sveltekit_1abc = { base: "" };\n\t}</script></body></html>')?.name).toBe('SvelteKit');
+    expect(detectFramework('<html><body><script>window.__reactRouterContext = {};</script></body></html>')?.name).toBe('Remix or React Router');
+    expect(detectFramework('<html><body><script>window.__NUXT__=(function(a){return {}}())</script></body></html>')?.name).toBe('Nuxt');
+    // Mentioned inside a longer script, it is somebody's code talking about the framework.
+    expect(detectFramework('<html><body><script>console.log("no self.__next_f here");</script><script src="/x.js"></script></body></html>')).toBeUndefined();
+  });
+
+  it('recognises an asset path behind a CDN host', () => {
+    expect(detectFramework('<html><body><script src="https://cdn.example.com/_next/static/chunks/main.js"></script></body></html>')?.name).toBe('Next.js');
+    expect(detectFramework('<html><head><link rel="preload" href="/page-data/app-data.json" as="fetch"></head><body><script src="/x.js"></script></body></html>')?.name).toBe('Gatsby');
+  });
+
   it('recognises the Docusaurus root element', () => {
     expect(detectFramework('<html><body><div id="__docusaurus"></div><script src="/x.js"></script></body></html>')?.name).toBe('Docusaurus');
   });
