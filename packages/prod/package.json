@@ -41,7 +41,7 @@
   "devDependencies": {
     "@opengso/core": "*",
     "tsup": "^9.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^7.0.2"
   },
   "exports": {
     ".": {
