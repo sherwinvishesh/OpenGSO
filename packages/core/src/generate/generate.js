@@ -3,6 +3,7 @@ import { join, resolve, sep } from 'node:path';
 import { internalDirPath, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
+import { describeFsError } from '../shared/fs.js';
 import { MAX_PROBE_BYTES, probe, whyUnreachable } from '../shared/http.js';
 import { isIndexFile } from '../shared/local-pages.js';
 import { hasDotSegment, MD_DIR, routeToTwinRelPath, routeToTwinUrlPath, twinFileKey, urlAt } from '../shared/routes.js';
@@ -381,7 +382,7 @@ export async function generatePages(options) {
           warnings,
         });
       } catch (error) {
-        const reason = ERRORS.pageCrashed(error instanceof Error ? error.message : String(error));
+        const reason = ERRORS.pageCrashed(describeFsError(error, loaded.root));
         pages.push({ route, url, status: 'failed', warnings: [], reason });
         const carried = previous.pages[route];
         if (carried && !manifest.pages[route]) manifest.pages[route] = carried;

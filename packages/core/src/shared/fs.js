@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
+import { ERRORS } from './errors.js';
 
 /**
  * @typedef {object} AtomicWriteOptions
@@ -38,6 +39,68 @@ export function writeFileAtomic(path, contents, options = {}) {
     } catch {
       // Never created, or already renamed: either way there is nothing left to clean up.
     }
+    // The staging name is an implementation detail; the file the caller asked for is the one to name.
+    if (error instanceof Error && 'path' in error && error.path === temp) error.path = target;
     throw error;
+  }
+}
+
+/**
+ * A filesystem failure as a sentence, with the path shown the way every report shows paths.
+ *
+ * Node's own message is `EACCES: permission denied, open '/abs/path/.robots.txt.123.tmp'`, which
+ * tells the reader the errno name, the syscall and a staging file, and not which of their folders is
+ * in the way. Anything that is not a filesystem error comes back as its own message.
+ *
+ * @param {unknown} error
+ * @param {string} [root] Paths under it are shown relative to it.
+ * @returns {string}
+ */
+export function describeFsError(error, root) {
+  if (!(error instanceof Error)) return String(error);
+  const { code, path, syscall } = /** @type {{ code?: unknown; path?: unknown; syscall?: unknown }} */ (error);
+  if (typeof code !== 'string' || typeof path !== 'string') return error.message;
+  const shown = (/** @type {string} */ p) => (root && p.startsWith(root + sep) ? relative(root, p) : p);
+  // `open` is ambiguous and OpenGSO opens far more files to write them than to read them.
+  const action = typeof syscall === 'string' && /^(read|stat|scandir|access|realpath)$/.test(syscall) ? 'read' : 'write';
+  switch (code) {
+    case 'EACCES':
+    case 'EPERM':
+      return ERRORS.fsNoPermission(shown(path), action);
+    case 'EEXIST':
+    case 'ENOTDIR':
+      return ERRORS.fsNotAFolder(shown(fileInTheWay(path)));
+    case 'ENOENT':
+      return ERRORS.fsMissing(shown(path));
+    case 'ENOSPC':
+      return ERRORS.fsDiskFull(shown(path));
+    case 'EROFS':
+      return ERRORS.fsReadOnly(shown(path));
+    case 'EMFILE':
+    case 'ENFILE':
+      return ERRORS.fsTooManyOpen(shown(path));
+    default:
+      return error.message;
+  }
+}
+
+/**
+ * The nearest existing ancestor of a path that is a file, which is what blocks a mkdir below it.
+ * `mkdir public/md` fails on `public/md` itself; `mkdir x/.opengso` fails on `x` when `x` is a file.
+ *
+ * @param {string} path
+ * @returns {string}
+ */
+function fileInTheWay(path) {
+  let current = path;
+  for (;;) {
+    try {
+      if (statSync(current).isFile()) return current;
+    } catch {
+      // Does not exist yet: look one level up.
+    }
+    const parent = dirname(current);
+    if (parent === current) return path;
+    current = parent;
   }
 }

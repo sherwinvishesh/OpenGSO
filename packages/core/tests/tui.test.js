@@ -181,6 +181,11 @@ describe('truncate', () => {
     const cut = truncate(gradient('abcdefghij', PALETTE.ok, PALETTE.okBright), 6);
     expect(cut).toContain(`${ESC}[0m`);
   });
+
+  it('adds no reset to plain text, which is what a --json file or a piped report is made of', () => {
+    expect(truncate('abcdefghij', 6)).toBe('abc...');
+    for (const line of wrap('https://example.com/a/very/long/path/that/never/ends', 15)) expect(line).not.toContain(ESC);
+  });
 });
 
 describe('wrap', () => {

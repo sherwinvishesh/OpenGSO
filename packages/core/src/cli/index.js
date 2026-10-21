@@ -1,4 +1,5 @@
 import { COMMAND_BLURB, NARROWEST_PACKAGE, commandUnavailable, unknownCommand } from '../shared/errors.js';
+import { describeFsError } from '../shared/fs.js';
 import { c, cErr } from '../shared/log.js';
 import { PROVIDERS } from '../shared/providers.js';
 import { wrap } from '../shared/render/paint.js';
@@ -120,7 +121,7 @@ export async function runCli(options) {
   try {
     return await handler({ argv: rest, packageName: options.packageName, version: options.version });
   } catch (error) {
-    process.stderr.write(`${cErr.red('Error')} ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`${cErr.red('Error')} ${describeFsError(error, process.cwd())}\n`);
     return error instanceof UsageError ? EXIT_USAGE : 1;
   }
 }

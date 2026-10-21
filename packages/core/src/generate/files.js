@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeFileAtomic } from '../shared/fs.js';
+import { describeFsError, writeFileAtomic } from '../shared/fs.js';
 import { ERRORS } from '../shared/errors.js';
 import { findBot } from '../shared/bots.js';
 import { basePathOf, isWithinBase, routeToTwinUrlPath, urlAt } from '../shared/routes.js';
@@ -61,6 +61,8 @@ const ROBOTS_TOKEN = /^[A-Za-z0-9_.-]+$/;
  * @typedef {object} SiteFilesOptions
  * @property {string} site
  * @property {string} publicDir
+ * @property {string} [root] The project root, so a failure names `public/robots.txt` rather than
+ *   an absolute path.
  * @property {SitePage[]} pages
  * @property {readonly string[]} [blocked] Bot names from config.bots.blocked. Empty means block
  *   nobody, which is the default (§7).
@@ -93,7 +95,7 @@ export function writeSiteFiles(options) {
     'llms.txt': renderLlmsTxt(options),
     'sitemap.xml': renderSitemapXml(options),
   };
-  return wanted.map((name) => writeGuarded(join(options.publicDir, name), name, contents[name], options.force ?? false));
+  return wanted.map((name) => writeGuarded(join(options.publicDir, name), name, contents[name], options.force ?? false, options.root));
 }
 
 /**
@@ -107,9 +109,10 @@ export function writeSiteFiles(options) {
  * @param {SiteFileName} name
  * @param {string} contents
  * @param {boolean} force
+ * @param {string} [root] Paths in a failure message are shown relative to it.
  * @returns {SiteFileResult}
  */
-export function writeGuarded(path, name, contents, force) {
+export function writeGuarded(path, name, contents, force, root) {
   try {
     const existing = existsSync(path) ? readFileSync(path, 'utf8') : undefined;
     const owned = existing === undefined || MARKER_LINE.test(existing);
@@ -126,7 +129,7 @@ export function writeGuarded(path, name, contents, force) {
       name,
       path,
       status: 'failed',
-      message: error instanceof Error ? error.message : String(error),
+      message: describeFsError(error, root),
     };
   }
 }

@@ -150,6 +150,19 @@ describe('generatePages', () => {
     expect(forced.pages[0]?.status).toBe('written');
   });
 
+  it('says which folder is in the way when public/md is a file, without an errno or an absolute path', async () => {
+    const loaded = project();
+    mkdirSync(join(loaded.root, 'public'));
+    writeFileSync(join(loaded.root, 'public', 'md'), 'a file where the twins go', 'utf8');
+
+    const result = await generatePages({ site, routes: ['/about'], loaded });
+
+    expect(result.pages[0]?.status).toBe('failed');
+    expect(result.pages[0]?.reason).toBe(
+      'Could not generate this page: public/md is a file, not a folder, so nothing can be written under it. The rest of the run carried on.',
+    );
+  });
+
   it('never overwrites a file in public/md/ that OpenGSO did not write', async () => {
     const loaded = project();
     await generatePages({ site, routes: ['/about', '/resume'], loaded });

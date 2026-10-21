@@ -967,6 +967,25 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   pageCrashed: (message) => `Could not generate this page: ${message}. The rest of the run carried on.`,
 
   /**
+   * Filesystem failures, built by `describeFsError` in shared/fs.js. Each is a clause that reads
+   * after "Could not generate this page:" and on its own under "Error".
+   *
+   * @param {string} path
+   * @param {'read' | 'write'} action
+   */
+  fsNoPermission: (path, action) => `no permission to ${action} ${path}`,
+  /** @param {string} path */
+  fsNotAFolder: (path) => `${path} is a file, not a folder, so nothing can be written under it`,
+  /** @param {string} path */
+  fsMissing: (path) => `${path} does not exist`,
+  /** @param {string} path */
+  fsDiskFull: (path) => `the disk is full, so ${path} could not be written`,
+  /** @param {string} path */
+  fsReadOnly: (path) => `${path} is on a read-only file system`,
+  /** @param {string} path */
+  fsTooManyOpen: (path) => `too many files are open, so ${path} could not be written`,
+
+  /**
    * @param {string} path
    * @param {string} why
    */

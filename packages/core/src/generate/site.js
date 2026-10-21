@@ -227,6 +227,7 @@ export function writeSiteFilesFor(loaded, origin, generate, options, warnings) {
   const files = writeSiteFiles({
     site: origin,
     publicDir: publicDirPath(loaded),
+    root: loaded.root,
     pages,
     blocked: config.bots.blocked,
     bots: resolveBots(config.bots.custom),

@@ -239,8 +239,9 @@ export function truncate(text, width, ellipsis = '...') {
     used += w;
     index += 1;
   }
-  // Any colour still open at the cut has to be closed, or it bleeds into the rest of the line.
-  return `${out}${CSI}0m${ellipsis}`;
+  // Any colour still open at the cut has to be closed, or it bleeds into the rest of the line. Plain
+  // text has nothing open, and a reset there would land in a --json file or a piped report.
+  return `${out}${out.includes(ESC) ? `${CSI}0m` : ''}${ellipsis}`;
 }
 
 /**

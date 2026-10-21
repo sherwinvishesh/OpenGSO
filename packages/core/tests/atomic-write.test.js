@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readManifestChecked, writeManifest, emptyManifest } from '@opengso/core/generate';
-import { writeFileAtomic } from '@opengso/core/shared';
+import { describeFsError, writeFileAtomic } from '@opengso/core/shared';
 
 // Windows has no POSIX permission bits: Node reports 0o666 for any writable file whatever was asked.
 const posixModes = process.platform !== 'win32';
@@ -88,5 +88,46 @@ describe('reading a manifest that is not usable', () => {
     const manifest = emptyManifest('https://e.com');
     writeManifest(root, manifest);
     expect(readManifestChecked(root, 'https://e.com')).toEqual({ manifest });
+  });
+});
+
+describe('describeFsError', () => {
+  it('names the file that was asked for, never the staging file, when an atomic write fails', () => {
+    if (!posixModes || process.getuid?.() === 0) return;
+    const root = dir();
+    const locked = join(root, 'locked');
+    mkdirSync(locked);
+    chmodSync(locked, 0o500);
+    try {
+      /** @type {unknown} */
+      let caught;
+      try {
+        writeFileAtomic(join(locked, 'robots.txt'), 'x');
+      } catch (error) {
+        caught = error;
+      }
+      expect(describeFsError(caught, root)).toBe('no permission to write locked/robots.txt');
+      expect(readdirSync(locked)).toEqual([]);
+    } finally {
+      chmodSync(locked, 0o700);
+    }
+  });
+
+  it('points at the file that is where a folder should be', () => {
+    const root = dir();
+    writeFileSync(join(root, 'public'), 'not a folder');
+    /** @type {unknown} */
+    let caught;
+    try {
+      mkdirSync(join(root, 'public', 'md', 'deep'), { recursive: true });
+    } catch (error) {
+      caught = error;
+    }
+    expect(describeFsError(caught, root)).toBe('public is a file, not a folder, so nothing can be written under it');
+  });
+
+  it('leaves anything that is not a filesystem error alone', () => {
+    expect(describeFsError(new Error('the provider said no'))).toBe('the provider said no');
+    expect(describeFsError('plain string')).toBe('plain string');
   });
 });
