@@ -16,10 +16,15 @@ npm run build
 # terminal A
 npm run example:dev                 # or: npm run example:start (production build)
 
-# terminal B
-node packages/cli/dist/cli.js generate http://localhost:3000 --project examples/nextjs-demo
-node packages/cli/dist/cli.js test http://localhost:3000/
+# terminal B, from the repo root: the workspace puts the built CLI on npx's path
+npx opengso generate http://localhost:3000 --project examples/nextjs-demo
+npx opengso prod test http://localhost:3000/ --project examples/nextjs-demo
+npx opengso test http://localhost:3000/
 ```
+
+The demo expects 100/100 with one suggestion partial (B7, explained below) and `A8` not
+applicable, because HTTPS means nothing on localhost. `npm run install:global` installs the same
+build as a global `opengso`, which is what the rest of the docs assume.
 
 `OPENGSO_PROD=off npm run example:start` disables the proxy, which is the "before" state:
 every category B check fails with a specific reason.

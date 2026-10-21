@@ -34,3 +34,7 @@ idea.md
 /.opengso/
 /opengso.config.json
 /public/
+
+# Editor settings are personal.
+.vscode/
+.playwright-mcp/

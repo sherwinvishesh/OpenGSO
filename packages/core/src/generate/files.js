@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomic } from '../shared/fs.js';
 import { ERRORS } from '../shared/errors.js';
@@ -146,12 +146,15 @@ export function writeGuarded(path, name, contents, force) {
  * @returns {{ path: string; proposed: boolean }}
  */
 export function writeOrPropose(path, contents, owned, force) {
+  const proposedPath = `${path}${PROPOSED_SUFFIX}`;
   if (!owned && !force) {
-    const proposedPath = `${path}${PROPOSED_SUFFIX}`;
     writeFileAtomic(proposedPath, contents);
     return { path: proposedPath, proposed: true };
   }
   writeFileAtomic(path, contents);
+  // A proposal from an earlier run was for the file this run has now written. Left behind, it is a
+  // stale duplicate the dashboard would keep offering as a preview.
+  rmSync(proposedPath, { force: true });
   return { path, proposed: false };
 }
 

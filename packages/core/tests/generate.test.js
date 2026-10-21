@@ -168,6 +168,8 @@ describe('generatePages', () => {
     const forced = await generatePages({ site, routes: ['/about'], loaded, force: true });
     expect(forced.pages[0]?.status).toBe('written');
     expect(readFileSync(file, 'utf8')).not.toContain('# My notes');
+    // The proposal was for the file that now exists; keeping it would offer a stale preview.
+    expect(existsSync(`${file}.opengso-proposed`)).toBe(false);
   });
 
   it('treats frontmatter from another tool as not OpenGSO\'s either', async () => {
