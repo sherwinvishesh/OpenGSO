@@ -175,7 +175,7 @@ async function handle(request, response, options, host) {
     try {
       body = await readJsonBody(request);
     } catch (error) {
-      return send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: String(error) }));
+      return send(response, 400, 'application/json; charset=utf-8', JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
     }
     const method = request.method ?? 'GET';
     if (method === 'POST' && STREAM_PATHS.has(url.pathname)) {
@@ -506,7 +506,7 @@ function readJsonBody(request) {
     request.on('data', (/** @type {Buffer} */ chunk) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        rejectBody(new Error('Request body too large.'));
+        rejectBody(new Error(ERRORS.requestBodyTooLarge('2 MB')));
         // Not `destroy()`: that ran before the 400 was written and took the socket with it, so the
         // client only ever saw a reset. The rest is drained and dropped, so memory stays capped and
         // the 400 saying why actually arrives.
@@ -522,7 +522,7 @@ function readJsonBody(request) {
       try {
         resolveBody(JSON.parse(raw));
       } catch {
-        rejectBody(new Error('Request body was not valid JSON.'));
+        rejectBody(new Error(ERRORS.requestBodyNotJson()));
       }
     });
     request.on('error', rejectBody);

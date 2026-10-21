@@ -596,6 +596,11 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   /** A dashboard API request whose body is not a JSON object. */
   requestNotObject: () => 'The request body has to be a JSON object.',
 
+  requestBodyNotJson: () => 'The request body was not valid JSON.',
+
+  /** @param {string} limit The cap, as `2 MB`. */
+  requestBodyTooLarge: (limit) => `The request body is too large: the dashboard accepts up to ${limit}.`,
+
   /** @param {string} route The method and path, as `GET /api/nope`. */
   noSuchEndpoint: (route) => `No such endpoint: ${route}`,
 

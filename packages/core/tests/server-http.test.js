@@ -188,7 +188,10 @@ describe('what the API refuses over the wire', () => {
   it('answers a body that is not JSON with a 400 that says so', async () => {
     const response = await hit('/api/config', postJson('{"site":'));
     expect(response.status).toBe(400);
-    expect(/** @type {{ error: string }} */ (await response.json()).error).toContain('not valid JSON');
+    const { error } = /** @type {{ error: string }} */ (await response.json());
+    expect(error).toContain('not valid JSON');
+    // The message, not the Error object stringified.
+    expect(error).not.toMatch(/^Error:/);
   });
 
   /**
