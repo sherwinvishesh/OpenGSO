@@ -5,6 +5,7 @@ import { contentHash } from '../shared/hash.js';
 import { ERRORS } from '../shared/errors.js';
 import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
 import { whyUnreachable } from '../shared/site-probe.js';
+import { isIndexFile } from '../shared/local-pages.js';
 import { hasDotSegment, MD_DIR, routeToTwinRelPath, routeToTwinUrlPath, twinFileKey, urlAt } from '../shared/routes.js';
 import { countWords, estimateTokens } from '../shared/tokens.js';
 import { extractPage } from './extract.js';
@@ -257,7 +258,10 @@ export async function generatePages(options) {
         // on HTML already in memory; the expensive things the cache protects (an AI call, a disk write)
         // still happen only on a real change.
         onProgress?.({ route, index, total: unique.length, phase: 'extract' });
-        const extracted = extractPage(html, { url, minWords: loaded.config.generate.minWords });
+        // A folder's page is served from inside the folder, `/guide/` and not `/guide`, and that is
+        // where its relative links start: `setup.html` from it is `/guide/setup.html`, not `/setup.html`.
+        const inFolder = stamp !== undefined && !url.endsWith('/') && isIndexFile(/** @type {string} */ (stamp.file.split('/').pop()));
+        const extracted = extractPage(html, { url: inFolder ? `${url}/` : url, minWords: loaded.config.generate.minWords });
         const sourceHash = contentHash(extracted.markdown);
 
         const prior = previous.pages[route];

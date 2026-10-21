@@ -395,7 +395,8 @@ describe('generateFromFiles', () => {
     writeSite({
       'index.html': page('Docs', `${WORDS}<a href="/repo/about">About</a><a href="guide/">Guide</a>`),
       'about.html': page('About', WORDS),
-      'guide/index.html': page('Guide', WORDS),
+      'guide/index.html': page('Guide', `${WORDS}<a href="../about">About</a><a href="setup.html">Setup</a>`),
+      'guide/setup.html': page('Setup', WORDS),
     });
     const base = 'https://user.github.io/repo';
     const result = await generateFromFiles({ loaded: loaded(), origin: base });
@@ -405,7 +406,12 @@ describe('generateFromFiles', () => {
       ['index.html', `${base}/`],
       ['about.html', `${base}/about`],
       ['guide/index.html', `${base}/guide`],
+      ['guide/setup.html', `${base}/guide/setup.html`],
     ]);
+    // The folder's page links from inside its folder, as the host serves it at /repo/guide/.
+    const guide = readFileSync(join(root, 'site', 'guide.md'), 'utf8');
+    expect(guide).toContain(`](${base}/about)`);
+    expect(guide).toContain(`](${base}/guide/setup.html)`);
     expect(parseFrontmatter(readFileSync(join(root, 'site', 'about.md'), 'utf8')).data.url).toBe(`${base}/about`);
     const sitemap = readFileSync(join(root, 'site', 'sitemap.xml'), 'utf8');
     expect(sitemap).toContain(`<loc>${base}/about</loc>`);

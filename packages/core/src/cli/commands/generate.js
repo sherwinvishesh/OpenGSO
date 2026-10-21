@@ -142,7 +142,8 @@ export async function generateCommand(ctx) {
           return;
         }
         if (event.phase === 'files') {
-          progress.phase('Writing robots.txt, llms.txt and sitemap.xml');
+          // Not a list of names: a site in a folder of its host gets no robots.txt.
+          progress.phase('Writing the site files');
           lastPhase = 'files';
         }
       },
