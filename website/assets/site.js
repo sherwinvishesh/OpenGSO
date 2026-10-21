@@ -184,17 +184,17 @@
     var url = 'https://github.com/sherwinvishesh/OpenGSO';
     var formats = {
       bibtex: citeBody.textContent,
-      apa: 'Jathanna, S. V. (2026). OpenGSO (Version 0.1.1) [Computer software]. ' + url,
-      mla: 'Jathanna, Sherwin Vishesh. OpenGSO. Version 0.1.1, 2026. GitHub, ' + url + '.',
-      chicago: 'Jathanna, Sherwin Vishesh. 2026. "OpenGSO." Version 0.1.1. Software. ' + url + '.',
-      ieee: 'S. V. Jathanna, "OpenGSO," version 0.1.1, 2026. [Online]. Available: ' + url,
-      harvard: 'Jathanna, S.V. (2026) OpenGSO (version 0.1.1) [Computer program]. Available at: ' + url,
+      apa: 'Jathanna, S. V. (2026). OpenGSO (Version 0.1.2) [Computer software]. ' + url,
+      mla: 'Jathanna, Sherwin Vishesh. OpenGSO. Version 0.1.2, 2026. GitHub, ' + url + '.',
+      chicago: 'Jathanna, Sherwin Vishesh. 2026. "OpenGSO." Version 0.1.2. Software. ' + url + '.',
+      ieee: 'S. V. Jathanna, "OpenGSO," version 0.1.2, 2026. [Online]. Available: ' + url,
+      harvard: 'Jathanna, S.V. (2026) OpenGSO (version 0.1.2) [Computer program]. Available at: ' + url,
       ris: [
         'TY  - COMP',
         'AU  - Jathanna, Sherwin Vishesh',
         'TI  - OpenGSO',
         'PY  - 2026',
-        'ET  - 0.1.1',
+        'ET  - 0.1.2',
         'UR  - ' + url,
         'ER  - ',
       ].join('\n'),

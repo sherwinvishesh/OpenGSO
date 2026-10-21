@@ -1,9 +1,9 @@
 ---
 title: "Everything OpenGSO does, and how."
 url: "https://sherwinvishesh.github.io/OpenGSO/docs"
-last_updated: "2026-10-21T10:48:01.588Z"
+last_updated: "2026-10-21T17:01:17.448Z"
 tokens: 9503
-source_hash: "e4502916b6ef970e"
+source_hash: "116425d2996bc588"
 generated_by: "opengso-free"
 description: "Install OpenGSO, score a URL, copy the fix prompt, generate markdown twins, serve them with the production middleware, and understand all 22 checks, the wire spec, the config file and the AI providers."
 ---
@@ -14,7 +14,7 @@ Documentation
 
 From the first install to the weight of every check and the header on every response. If a question is not answered here, open an issue on GitHub.
 
-Version 0.1.1 · Node 22 or later · Updated October 20, 2026
+Version 0.1.2 · Node 22 or later · Updated October 21, 2026
 
 ## On this page
 
@@ -619,7 +619,7 @@ The dashboard can write an API key to disk, so it listens on `127.0.0.1` only, r
 
 ## Versioning
 
-The five packages follow semver and always share a version: today all five are 0.1.1. The first release on npm was 0.1.0, on October 20, 2026. Until 1.0, any minor release may change a command, a flag, a config field or an export.
+The five packages follow semver and always share a version: today all five are 0.1.2. The first release on npm was 0.1.0, on October 20, 2026. Until 1.0, any minor release may change a command, a flag, a config field or an export.
 
 The spec version, `opengso/1.0`, moves separately. It names what goes over the wire, so it changes only when the wire format does, and many package versions can implement the same spec.
 

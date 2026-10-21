@@ -1,9 +1,9 @@
 ---
 title: "OpenGSO"
 url: "https://sherwinvishesh.github.io/OpenGSO/"
-last_updated: "2026-10-21T10:48:01.529Z"
-tokens: 8619
-source_hash: "8ed5300726fa1958"
+last_updated: "2026-10-21T17:01:17.387Z"
+tokens: 8675
+source_hash: "0df1ef2a1742162c"
 generated_by: "opengso-free"
 description: "OpenGSO is a free, open-source CLI and middleware that shows what AI agents actually receive from your site, writes a markdown version of every page, and serves it to them at the same URL. No account, no API key, no telemetry."
 ---
@@ -12,7 +12,7 @@ description: "OpenGSO is a free, open-source CLI and middleware that shows what 
 
 open generative search optimization
 
-- version [**0.1.1**](https://www.npmjs.com/package/opengso?activeTab=versions)
+- version [**0.1.2**](https://www.npmjs.com/package/opengso?activeTab=versions)
 - runtime **Node 22+**
 - license **Apache-2.0**
 - checks **22**
@@ -562,15 +562,16 @@ What was actually run
 | Hono | 4.13.13 | /fetch | @hono/node-server 2.1.5 | every probe matched |
 | Fastify | 5.12.7 | /node | through @fastify/middie 9.3.6 | every probe matched, prod test 5 of 5 |
 | Koa | 3.2.1 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
+| Nest | 12.2.0 | /node | app.use in main.ts on the default Express platform, the built dist/main.js | every probe matched in production and development, prod test 5 of 5; a bare Nest app serves no robots.txt or sitemap.xml without ServeStaticModule |
 | Polka | 0.5 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
 | Connect | 3.7.0 | /node | app.use before the routes | every probe matched, prod test 5 of 5 |
 | h3 | 1.15.11 | /node | fromNodeMiddleware, first | every probe matched, prod test 5 of 5 |
 | Vite | 8.3.4 | /vite | the dev server with the plugin, and vite preview | the twins served on both; the browser HTML gets Link and Vary: Origin, Accept |
 | VitePress | 1.6.4 | folder | generate on the build folder, then vitepress preview | the twins served as text/markdown; cleanUrls makes guide.md the twin of guide |
 
-Every row was a scratch app installed from the packed 0.1.1 tarballs, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, `Accept: text/markdown`, a browser, the `.md` URL, HEAD, an Accept header that rules out both formats, a route with no twin, and `If-None-Match` with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.
+Every row was a scratch app installed from tarballs packed from the repository, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, `Accept: text/markdown`, a browser, the `.md` URL, HEAD, an Accept header that rules out both formats, a route with no twin, and `If-None-Match` with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.
 
-**Not run:** Nest, SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module `opengso prod data` writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.
+**Not run:** SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module `opengso prod data` writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.
 
 What one request goes through
 
@@ -755,7 +756,7 @@ BibTeX
   author  = {Jathanna, Sherwin Vishesh},
   title   = {OpenGSO: Open Generative Search Optimization},
   year    = {2026},
-  version = {0.1.1},
+  version = {0.1.2},
   license = {Apache-2.0},
   url     = {https://github.com/sherwinvishesh/OpenGSO}
 }

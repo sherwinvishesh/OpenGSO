@@ -1,6 +1,6 @@
 {
   "name": "opengso",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Make a website readable by AI agents: test, generate, the prod middleware and a local dashboard. The whole OpenGSO toolkit.",
   "license": "Apache-2.0",
   "type": "module",

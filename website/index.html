@@ -41,7 +41,7 @@
       "url": "https://sherwinvishesh.github.io/OpenGSO/",
       "downloadUrl": "https://www.npmjs.com/package/opengso",
       "installUrl": "https://www.npmjs.com/package/opengso",
-      "softwareVersion": "0.1.1",
+      "softwareVersion": "0.1.2",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
       "isAccessibleForFree": true,
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -178,7 +178,7 @@
       </div>
 
       <ul class="lockup-rule" aria-label="At a glance">
-        <li>version <a href="https://www.npmjs.com/package/opengso?activeTab=versions"><b>0.1.1</b></a></li>
+        <li>version <a href="https://www.npmjs.com/package/opengso?activeTab=versions"><b>0.1.2</b></a></li>
         <li>runtime <b>Node 22+</b></li>
         <li>license <b>Apache-2.0</b></li>
         <li>checks <b>22</b></li>
@@ -738,6 +738,7 @@ app.use(createNodeMiddleware());</pre>
             <tr><td class="name">Hono</td><td class="id">4.13.13</td><td class="id">/fetch</td><td>@hono/node-server 2.1.5</td><td>every probe matched</td></tr>
             <tr><td class="name">Fastify</td><td class="id">5.12.7</td><td class="id">/node</td><td>through @fastify/middie 9.3.6</td><td>every probe matched, prod test 5 of 5</td></tr>
             <tr><td class="name">Koa</td><td class="id">3.2.1</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
+            <tr><td class="name">Nest</td><td class="id">12.2.0</td><td class="id">/node</td><td>app.use in main.ts on the default Express platform, the built dist/main.js</td><td>every probe matched in production and development, prod test 5 of 5; a bare Nest app serves no robots.txt or sitemap.xml without ServeStaticModule</td></tr>
             <tr><td class="name">Polka</td><td class="id">0.5</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
             <tr><td class="name">Connect</td><td class="id">3.7.0</td><td class="id">/node</td><td>app.use before the routes</td><td>every probe matched, prod test 5 of 5</td></tr>
             <tr><td class="name">h3</td><td class="id">1.15.11</td><td class="id">/node</td><td>fromNodeMiddleware, first</td><td>every probe matched, prod test 5 of 5</td></tr>
@@ -747,8 +748,8 @@ app.use(createNodeMiddleware());</pre>
         </table>
       </div>
       <div class="callout reveal">
-        <p>Every row was a scratch app installed from the packed 0.1.1 tarballs, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, <code>Accept: text/markdown</code>, a browser, the <code>.md</code> URL, HEAD, an Accept header that rules out both formats, a route with no twin, and <code>If-None-Match</code> with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.</p>
-        <p><b>Not run:</b> Nest, SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module <code>opengso prod data</code> writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.</p>
+        <p>Every row was a scratch app installed from tarballs packed from the repository, on Node 22.17 and macOS, sent the same requests: a ClaudeBot User-Agent, <code>Accept: text/markdown</code>, a browser, the <code>.md</code> URL, HEAD, an Accept header that rules out both formats, a route with no twin, and <code>If-None-Match</code> with the ETag it had been given. A framework with a build step was run under its dev server and under the built output. The raw commands and responses are in the repository's launch notes.</p>
+        <p><b>Not run:</b> SolidStart, Remix, Bun and Deno, and the edge hosts themselves. The edge adapter was driven with Node's own Request and Response from the module <code>opengso prod data</code> writes, and made the same decisions: markdown, 406, 304, bot routing and passthrough. Nothing has yet been deployed to a Worker, a Vercel or Netlify Edge function, or Deno Deploy.</p>
       </div>
 
       <p class="subhead">What one request goes through</p>
@@ -961,7 +962,7 @@ app.use(createNodeMiddleware());</pre>
   author  = {Jathanna, Sherwin Vishesh},
   title   = {OpenGSO: Open Generative Search Optimization},
   year    = {2026},
-  version = {0.1.1},
+  version = {0.1.2},
   license = {Apache-2.0},
   url     = {https://github.com/sherwinvishesh/OpenGSO}
 }</pre>
@@ -1028,7 +1029,7 @@ app.use(createNodeMiddleware());</pre>
       </div>
     </div>
     <div class="colophon">
-      <span>OpenGSO 0.1.1 · spec opengso/1.0 · Apache-2.0</span>
+      <span>OpenGSO 0.1.2 · spec opengso/1.0 · Apache-2.0</span>
       <span>Set in Geist and Geist Mono · this page has a <a href="index.md">markdown twin</a></span>
     </div>
     <p class="made">Made with <span class="heart" aria-label="love">❤</span> by Sherwin Vishesh Jathanna</p>

@@ -1,9 +1,9 @@
 ---
 title: "Nothing is collected."
 url: "https://sherwinvishesh.github.io/OpenGSO/privacy"
-last_updated: "2026-10-21T10:48:01.598Z"
+last_updated: "2026-10-21T17:01:17.457Z"
 tokens: 605
-source_hash: "30eab229982ee666"
+source_hash: "969de07c27c66866"
 generated_by: "opengso-free"
 description: "What OpenGSO and this website collect: nothing. No telemetry, no analytics, no cookies. The only data that leaves your machine is what you send to the site you test and the AI provider you pick."
 ---
@@ -14,7 +14,7 @@ Privacy
 
 Not by the tool, and not by this site. This page says what that means in practice, and names the few places where data does leave your machine because you asked it to.
 
-Applies to OpenGSO 0.1.1 and this website · Updated October 20, 2026
+Applies to OpenGSO 0.1.2 and this website · Updated October 20, 2026
 
 OpenGSO has no telemetry, no analytics, no crash reporting and no cloud sync. It never contacts a server of its own, because there is none. This website sets no cookies, runs no analytics and loads nothing from a third party.
 

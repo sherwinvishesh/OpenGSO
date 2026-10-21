@@ -1,6 +1,6 @@
 {
   "name": "opengso-prod",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Zero-dependency middleware that serves markdown twins to AI agents at the same URL, by Accept header or User-Agent. Next.js, Express, Nuxt, SvelteKit, Astro, Hono, Vite and the edge.",
   "license": "Apache-2.0",
   "type": "module",
