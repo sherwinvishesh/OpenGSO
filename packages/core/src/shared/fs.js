@@ -60,7 +60,8 @@ export function describeFsError(error, root) {
   if (!(error instanceof Error)) return String(error);
   const { code, path, syscall } = /** @type {{ code?: unknown; path?: unknown; syscall?: unknown }} */ (error);
   if (typeof code !== 'string' || typeof path !== 'string') return error.message;
-  const shown = (/** @type {string} */ p) => (root && p.startsWith(root + sep) ? relative(root, p) : p);
+  // Forward slashes on every platform, as every other report line shows a project path.
+  const shown = (/** @type {string} */ p) => (root && p.startsWith(root + sep) ? relative(root, p).split(sep).join('/') : p);
   // `open` is ambiguous and OpenGSO opens far more files to write them than to read them.
   const action = typeof syscall === 'string' && /^(read|stat|scandir|access|realpath)$/.test(syscall) ? 'read' : 'write';
   switch (code) {
