@@ -160,9 +160,15 @@ the token GitHub gives every job.
 
 To version by hand instead, run `npx changeset version`, then bump the five workspace entries in
 `package-lock.json` to match and the "Today all five are" line in
-[docs/versioning.md](docs/versioning.md), which a test pins to the package versions. Do not run
-`npm install --package-lock-only` to update the lockfile: on one platform it strips the other
-platforms' optional binaries from it, and the macOS and Windows jobs fail.
+[docs/versioning.md](docs/versioning.md), which a test pins to the package versions.
+
+`vite` is a root devDependency on purpose, although nothing imports it. vitest only declares it as
+a peer, and npm 11.5 drops the optional platform binaries of a peer-only package on every
+`npm install` that finds a lockfile: a fresh clone could not start vitest ("Cannot find native
+binding"), and the same install stripped the other platforms' `@rolldown/binding-*` and
+`lightningcss-*` entries out of `package-lock.json`, which is what used to fail the macOS and
+Windows jobs. Keep it, and before committing a changed lockfile check that it still lists a
+`@rolldown/binding-*` entry for every platform, not just yours.
 
 ## The bot list
 
