@@ -108,6 +108,10 @@ OPENGSO_BASE_URL=https://gateway.example.com/v1    # optional
 `OPENGSO_PROVIDER` has to be one of the ids in the table. If it names something else, the key next
 to it is not sent anywhere, and every AI run says what is wrong until it is fixed.
 
+The key goes in `.env` under the name its provider documents, or under `OPENGSO_API_KEY`. If the
+line is there under a name of your own, like `claude_api`, OpenGSO does not guess: it names the
+line and tells you what to rename it to.
+
 A key is only ever sent to the provider that issued it. `--provider groq` uses `GROQ_API_KEY`, or
 `OPENGSO_API_KEY` when `OPENGSO_PROVIDER` is `groq`. If the only key available belongs to another
 provider, the run stops and says so rather than sending it. The same goes for the rest of the

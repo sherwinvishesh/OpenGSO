@@ -2,138 +2,213 @@
 
 > **Early release.** Until 1.0, a minor release may change a command, a flag, a config field or an export.
 
-An open-source, framework-agnostic npm toolkit that makes any website readable by AI agents.
+Make your website readable by AI agents: score it, write a markdown twin of every page, and serve
+the twin at the same URL whenever an agent asks for it.
 
-AI agents like ChatGPT, Claude, Gemini, and Perplexity strongly prefer clean markdown over full HTML/CSS/JS. It's cheaper to read, and many agents don't execute JavaScript at all, so client-rendered content is often invisible to them. OpenGSO fixes that across three pillars in one toolchain:
+[![npm](https://img.shields.io/npm/v/opengso)](https://www.npmjs.com/package/opengso)
+[![Checks](https://github.com/sherwinvishesh/OpenGSO/actions/workflows/checks.yml/badge.svg)](https://github.com/sherwinvishesh/OpenGSO/actions/workflows/checks.yml)
+[![node](https://img.shields.io/node/v/opengso)](https://nodejs.org)
+[![license](https://img.shields.io/npm/l/opengso)](LICENSE)
 
-- **Test**: score a live site's AI-readiness from 0 to 100, generate a ready-to-paste fix prompt for coding agents, and optionally have a model read the markdown you serve and rate how well it answers.
-- **Generate**: produce a clean `.md` twin of every page, plus `robots.txt`, `llms.txt`, and `sitemap.xml`.
-- **Prod**: serve the right format at runtime by detecting whether the visitor is a human or an AI agent.
+ChatGPT, Claude, Perplexity and the crawlers behind them fetch pages the way `curl` does: no
+JavaScript runs, and every byte of markup costs tokens. OpenGSO is one toolkit, three commands,
+for any framework or static host: **test** scores what an agent receives, **generate** writes the
+markdown twins plus `robots.txt`, `llms.txt` and `sitemap.xml`, and **prod** is a zero-dependency
+middleware that serves the twin to agents and the page to people.
 
-Unlike existing tools, which each solve one piece and are usually locked to a single framework or CMS, OpenGSO works across the whole JS ecosystem, including React, Vue, Svelte, Remix, Vite, and vanilla JS.
+## Ten seconds: what an agent gets
 
-## Quickstart
+`GET /resume` on the bundled demo, as ChatGPT or Claude receives it **today**. 13,671 bytes, of
+which 10,333 sit inside ten `<script>` tags, and the article is sent twice: once as HTML and once
+again inside the framework's payload. Long lines are cut where marked.
+
+```html
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script src="/_next/static/chunks/19mx3mg6lkumu.js" async=""></script>
+<script src="/_next/static/chunks/1rj7ns8rte9vc.js" async=""></script>
+… three more script tags, the title, the description and the JSON-LD …
+<main style="max-width:760px;margin:0 auto;padding:32px 24px 64px"><article><h1>Engagement record</h1><p>Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee and what came of it. …
+<h2>Svalbard permafrost array</h2><p>Commissioned on <strong>3 March 2024</strong> for a fixed fee of <strong>$12,500</strong>. …
+… the rest of the article, the footer …
+<script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[22016,[\"/_next/static/chunks/1mpnoxox0-4cg.js\"],\"\"]\n3:I[39756,
+… and the article a second time, as the framework's payload:
+[\"$\",\"h2\",null,{\"children\":\"Svalbard permafrost array\"}],[\"$\",\"p\",null,{\"children\":[\"Commissioned on \",
+```
+
+The same URL **with OpenGSO**, no redirect. 1,886 bytes, and headers an agent can use.
+
+```http
+HTTP/1.1 200 OK
+content-type: text/markdown; charset=utf-8
+Vary: Accept, Accept-Encoding
+x-aeo-version: opengso/1.0
+x-markdown-tokens: 432
+x-markdown-source-hash: 9e7819e716242848
+x-robots-tag: noindex
+
+# Engagement record
+
+Every engagement Aurora Fieldwork has run since 2022, newest first, with its dates, its fee and what came of it. …
+
+## Svalbard permafrost array
+
+Commissioned on **3 March 2024** for a fixed fee of **$12,500**. Fourteen boreholes, instrumented to 6 metres, logging every 15 minutes. …
+
+| Engagement | Start | Fee | Outcome |
+| --- | --- | --- | --- |
+| Svalbard permafrost array | 3 March 2024 | $12,500 | 42% below data-return target |
+…
+```
+
+A person in a browser still gets the page, with one header added:
+`Link: </resume.md>; rel="alternate"; type="text/markdown"`.
+
+## Sixty seconds: the quickstart
 
 Needs Node.js 22 or later.
 
 ```bash
 npm install --save-dev opengso
-
-npx opengso                                         # the terminal app: where you stand, and what to do
-npx opengso start                                   # set the project up, then open the dashboard
-npx opengso test https://your-site.com              # score it as it is today
-npx opengso generate https://your-site.com          # write the twins and the three root files
-# wire opengso-prod into your server: Next, Express, Nuxt, SvelteKit, Astro, a Worker...
-npx opengso prod test https://your-site.com         # prove the deployment serves them correctly
-npx opengso test https://your-site.com              # score it again
+npx opengso test https://your-site.com        # 1. score the site as it is today
+npx opengso generate https://your-site.com    # 2. write public/md/*.md, robots.txt, llms.txt, sitemap.xml
 ```
 
-`opengso` on its own opens the home screen: your project, its last score, how many twins it has,
-and a menu of everything there is to do. It is the one command worth remembering. Piped or run from
-a script it prints the help page instead, so nothing that shells out to it changes behaviour.
+Then serve the twins. On Next.js 16 that is one file, `proxy.ts`, copied here from the demo (Next
+15 calls it `middleware.ts`, exports `middleware`, and adds `runtime: 'nodejs'` to `config`).
+Express, Fastify, Koa, Nuxt, Hono, SvelteKit, Astro, React Router, Vite, edge workers and plain
+static hosting are in [`opengso-prod`'s README](packages/prod/README.md).
 
-`opengso start` asks four questions the first time it runs in a directory: your site URL and web
-root, which AI agents get the markdown twin, blocking, and an optional API key. After that it goes
-straight to the dashboard. To change any of those answers later, in the terminal:
+```ts
+import { NextResponse } from 'next/server';
+import { applyPassthroughHeaders, createNextMiddleware } from 'opengso-prod/next';
+
+const opengso = createNextMiddleware({ root: process.cwd() });
+
+export function proxy(request: Request) {
+  const { response, headers } = opengso(request);
+  if (response) return response;
+  const next = NextResponse.next();
+  applyPassthroughHeaders(next, headers);
+  return next;
+}
+
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+```
 
 ```bash
-npx opengso settings
+npx opengso prod test https://your-site.com   # 3. prove the deployment serves them
+npx opengso test https://your-site.com        # 4. score it again
 ```
 
-Nothing here needs an API key. Generate's free tier, every structural test, and all of
-`opengso-prod` run offline. A key only buys generate's AI polish tier and `opengso test --content`,
-and when you set one it lives in `.env`, on your machine, and is only ever sent to the AI provider
-you picked. There is no telemetry and no cloud sync.
+None of this needs an API key, a browser or an account. `npx opengso` on its own opens a home
+screen with your project's last score and a menu of everything there is to do, and
+`npx opengso start` opens the same thing as a local dashboard. Generate's free tier, every
+structural check and all of `opengso-prod` run offline; a key only buys generate's AI polish tier
+and `opengso test --content`, and it stays in `.env` on your machine. There is no telemetry.
 
-The key goes in `.env` under the name your provider documents, such as `ANTHROPIC_API_KEY`. If
-the line is there under a name of your own, like `claude_api`, OpenGSO does not guess: it names the
-line and tells you what to rename it to.
+## What the test says
 
-## Testing in two passes
-
-```bash
-npx opengso test https://your-site.com              # the checks, then a review of the markdown
-npx opengso test https://your-site.com --structure  # the checks alone. No key, no cost
-npx opengso test https://your-site.com --content    # the review alone
-```
-
-The structural pass is the 0 to 100 score: deterministic, free, reproducible. Seven of its 22
-checks make the number (crawler access, sitemap, server-rendered content, speed, no opt-out tag,
-HTTPS, a working HTML page), so a well-built site scores 100 without installing anything. The other
-fifteen are suggestions, counted as "N of 15 adopted": `llms.txt`, JSON-LD and the markdown layer
-OpenGSO builds. They never lower the score, and they are what sets a site apart. `--strict` makes a
-failing suggestion fail CI too.
-
-The content pass is a
-model reading the markdown documents your site actually serves and rating five things per document,
-definition, keywords, specificity, answerability, and structure and length. The two are printed as
-separate sections and the second is **never** folded into the number. The exit code always comes
-from the checks, so a model's opinion cannot fail your build. Without a key the default run does the
-structural half and says in one line what it skipped.
-
-### Hand the fixes to Claude Code
-
-```bash
-npx opengso test https://your-site.com --copy               # the report, then a fix prompt on your clipboard
-npx opengso test https://your-site.com --prompt --only A3   # the prompt for one check, printed
-```
-
-The fix prompt names every failing check, what the site actually served, what to change, and the
-command that proves each fix, so a coding agent can work through it without guessing. Paste it into
-Claude Code. The dashboard has the same prompts behind a copy button on every group and every
-failing check (press `c` to copy them all), and the home screen offers to copy one after a test.
-
-## A folder of HTML files? Point it at the folder
-
-If your site is plain HTML files, hand-written, exported by a static site generator or handed to you
-by an AI tool, generate reads them straight off disk. No server to run and no crawl.
-
-```bash
-npx opengso generate site --origin https://your-site.com   # every page in site/
-npx opengso generate site/pricing.html                      # one page, after you edit it
-npx opengso generate --check                                # which pages changed since their twins
-```
-
-Each twin is written beside its page, so any static host serves it with no middleware:
-`pricing.html` gets `pricing.html.md`, `index.html` gets `index.md` and `about/index.html` gets
-`about.md`. `--origin` is the address the site is published at, used for every link in the twins,
-`sitemap.xml`, `robots.txt` and `llms.txt`, and it is remembered after the first run.
-
-Each twin records the file it was made from and when, so OpenGSO knows when they drift apart. Edit
-`pricing.html` after generating and `opengso generate --check` names it and exits 1, the home screen
-says "1 out of date", and the dashboard shows it in a banner. A page with no twin yet and a twin
-whose page was deleted are caught the same way. `--check` writes nothing, so it fits a pre-commit
-hook.
-
-On GitHub Pages it works for a project site in a folder too: `--origin https://user.github.io/repo`
-puts the folder in every URL, and generate writes the `.nojekyll` file that stops Jekyll from
-turning the twins into HTML pages. See
-[From a folder of HTML files](packages/generate/README.md#from-a-folder-of-html-files).
-
-## Bring any AI provider
-
-Twenty-five of them out of the box, and the twenty-fifth is "something else":
+Captured from the demo, after the three steps above:
 
 ```
-anthropic  openai  gemini  xai  mistral  deepseek  qwen  kimi  zai  minimax  cohere
-perplexity  openrouter  groq  together  fireworks  cerebras  sambanova  deepinfra
-huggingface  nvidia  novita  ollama  lmstudio (both on your machine, no key)  custom
+$ opengso test http://localhost:3000/resume --structure
+
+OpenGSO test  http://localhost:3000/resume
+Detected: Next.js
+
+  100/100  ████████████████████████  6 of 6 scored checks passed, 1 n/a
+    ideas  ██████████████████████░░  14 of 15 suggestions adopted
+  no change since 4m ago  ████████
+
+
+Suggestions (1)
+---------------
+      Conventions for AI agents this page has adopted in part. They are outside
+      the score: the best-read sites have not adopted them either, so these are
+      what would set this one apart.
+
+  TIP  B7 Vary includes Accept, so CDNs cache the two formats separately  ████░░░░ 2 of 4
+      Vary does not include Accept on the HTML response. A CDN can cache that
+      side's response and serve it to a visitor asking for the other format.
+      HTML Vary: "rsc, next-router-state-tree, next-router-prefetch,
+      next-router-segment-prefetch, Accept-Encoding"; markdown Vary: "Accept,
+      Accept-Encoding".
+      → Add `Vary: Accept` to the HTML response. Some frameworks will not let
+        middleware set it on a response they created; a CDN or reverse-proxy
+        rule in front of the app is the way through.
+
+Passed (6)
+----------
+  A1 A3 A5 A6 A7 B13
+  Re-run with --verbose to see why each one passed.
+
+Adopted (14)
+------------
+  A2 A4 B1 B2 B3 B4 B5 B6 B8 B9 B10 B11 B12 B14
+  Re-run with --verbose to see why each one passed.
+
+Not applicable (1)
+------------------
+   n/a A8 Served over HTTPS with HSTS
+      Local development target - HTTPS and HSTS are not meaningful here.
+
+  Nothing to fix. Every scored check passed.
+
+  Worth adopting next (suggestions, outside the score)
+
+   tip  B7   Add `Vary: Accept` to the HTML response. Some frameworks will not
+             let middleware set it on a response they created; a CDN or
+             reverse-proxy rule in front of the app is the way through.
+
+Add --copy to copy a fix prompt for Claude Code, or --prompt to print it.
 ```
 
-Type the name you know and it works it out: `--provider claude`, `kwen` or `grok` asks whether you
-meant `anthropic`, `qwen` or `xai`. A key you already exported for another tool is picked up as it
-is, and on its default models OpenGSO turns thinking off or as low as it goes, since a rewrite is
-not a reasoning job.
+Seven of the 22 checks make the 0 to 100 (crawler access, sitemap, server-rendered content, speed,
+no opt-out tag, HTTPS, a working HTML page), so a well-built site scores 100 before installing
+anything. The other fifteen are suggestions, counted as "N of 15 adopted" and never in the number:
+`llms.txt`, JSON-LD and the markdown layer OpenGSO serves. `--strict` makes an open suggestion fail
+CI too, `--content` has a model read the markdown you serve and rate it in a separate section that
+never touches the number, and `--copy` puts a fix prompt for Claude Code on your clipboard.
+[`opengso-testing`'s README](packages/testing/README.md) has the two passes and the prompt in full.
 
-```bash
-npx opengso help providers                          # the full catalogue with keys links
-npx opengso test https://your-site.com --provider groq
-npx opengso settings                                # pick one interactively
-```
+The dashboard runs the same test, and keeps the copy button next to every failing check:
 
-Anything speaking the OpenAI, Anthropic or Gemini request shape works, including a company gateway
-or a self-hosted server. Adding one is three lines of config, not a fork:
-[docs/providers.md](docs/providers.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-test-dark.png">
+  <img src="docs/images/dashboard-test-light.png" alt="The OpenGSO dashboard after a test of the demo: a score dial at 100, 6 of 6 scored checks passed, 14 of 15 suggestions adopted, a 'Fix it with Claude Code' card, and B7 listed as the one open suggestion at 2 of 4.">
+</picture>
+
+## Why it works this way
+
+- **Agents do not run JavaScript.** A page that is empty until a script runs is empty to them,
+  which is what check A5 measures. Generate extracts the content server-side with jsdom as a
+  parser, never a runtime: page scripts are not executed, anywhere.
+- **Same URL, rewritten and never redirected.** An agent that asks for `/resume` with
+  `Accept: text/markdown`, or with a known AI crawler's User-Agent and no `Accept` at all, gets the
+  twin at `/resume`. The `.md` URL works too. A request that accepts neither HTML nor markdown gets
+  a 406 rather than a guess.
+- **The headers are the contract.** `Vary: Accept` so a CDN caches both formats, `Link rel="alternate"`
+  on the HTML so an agent that got the page can find the twin, an `ETag` that answers
+  `If-None-Match` with a 304, `X-Markdown-Tokens` so an agent knows the cost before reading, and
+  `X-Markdown-Source-Hash` so `opengso test` can tell when the twin no longer matches the live page
+  (check B14, the one only the tool that wrote the twin can run).
+- **No search engine is ever routed to markdown.** Every markdown response carries
+  `X-Robots-Tag: noindex`, so routing Googlebot or Bingbot to it would drop the page from results.
+  The default routes the 18 non-search AI crawlers; the search crawlers get HTML, and the config
+  refuses a list that routes one.
+- **Format and blocking are two levers, kept apart.** Routing never blocks. Blocking is opt-in,
+  exists only in the `robots.txt` generate writes, and `opengso-prod` has no blocking code path.
+  Unknown bots are never blocked.
+- **A production request is a map lookup.** `opengso-prod` has zero dependencies, reads the files
+  generate wrote once at boot, and never calls a model or the network.
+
+The whole wire format is in [docs/spec.md](docs/spec.md), written so you could implement it
+without OpenGSO.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-bots-dark.png">
+  <img src="docs/images/dashboard-bots-light.png" alt="The dashboard's bot settings: a preset row with 'Every AI agent (18)', 'Assistants only (7)' and 'Nobody', and a table of crawlers with a markdown checkbox and a block checkbox per row.">
+</picture>
 
 ## Which package do I install
 
@@ -149,63 +224,50 @@ if you ask one for something it does not ship, it tells you which package to ins
 | [`opengso-prod`](packages/prod/README.md) | the middleware, plus `prod test` and `prod data` | this is the one that runs on your server | [npmjs.com/package/opengso-prod](https://www.npmjs.com/package/opengso-prod) |
 
 `opengso-prod` is the package that ends up in a production dependency, so it has **zero
-dependencies** and its library, the part your server imports, has no jsdom and no AI provider code.
-It reads files that `generate` already wrote, and does a map lookup per request.
-`npm run check:bundles` asserts that on every build. The `opengso prod test` command in the same
-tarball carries the provider catalogue so its help can list it, and never calls a provider.
+dependencies**, and its library, the part your server imports, has no jsdom and no AI provider
+code. `npm run check:bundles` asserts that on every build.
 
-## How the three pillars fit together
+A site that is a folder of HTML files needs no server at all: `opengso generate site --origin
+https://your-site.com` writes each twin beside its page, and any static host serves them. See
+[From a folder of HTML files](packages/generate/README.md#from-a-folder-of-html-files).
+
+## Bring any AI provider
+
+Only the optional parts take a model. Twenty-five of them out of the box, and the twenty-fifth is
+"something else":
 
 ```
-generate  crawls your live site once and writes
-          public/md/<route>.md, robots.txt, llms.txt, sitemap.xml, .opengso/manifest.json
-                     |
-prod      reads the manifest at boot, then on each request decides human or agent
-          and serves the twin at the same URL, rewritten not redirected
-                     |
-test      fetches the deployed result and scores what an agent would actually receive,
-          including whether the twin still matches the live page
+anthropic  openai  gemini  xai  mistral  deepseek  qwen  kimi  zai  minimax  cohere
+perplexity  openrouter  groq  together  fireworks  cerebras  sambanova  deepinfra
+huggingface  nvidia  novita  ollama  lmstudio (both on your machine, no key)  custom
 ```
 
-Because OpenGSO owns both halves, `test` can catch drift: check B14 re-extracts the live page and
-compares it against the markdown you are serving. That is the check nobody who only does one half of
-the job can run.
+Type the name you know and it works it out: `--provider claude`, `kwen` or `grok` asks whether you
+meant `anthropic`, `qwen` or `xai`. A key you already exported for another tool is picked up as it
+is. Anything speaking the OpenAI, Anthropic or Gemini request shape works, including a company
+gateway or a self-hosted server, and adding one is three lines of config:
+[docs/providers.md](docs/providers.md).
 
 ## Docs
 
-- [docs/checks.md](docs/checks.md) - all 22 checks, what each verifies, what it is worth, and why.
-- [docs/spec.md](docs/spec.md) - the `opengso/1.0` wire format: twin URLs, negotiation, headers,
-  406 behaviour, frontmatter. Written so you could implement it without OpenGSO.
-- [docs/providers.md](docs/providers.md) - every AI provider OpenGSO ships with, the environment
-  variables it already understands, and how to add your own AI tool.
-- [docs/config.md](docs/config.md) - every field of `opengso.config.json`, with its default.
-- [docs/prod-api.md](docs/prod-api.md) - every export of `opengso-prod` and its five adapter entries:
+- [docs/checks.md](docs/checks.md): all 22 checks, what each verifies, what it is worth, and why.
+- [docs/spec.md](docs/spec.md): the `opengso/1.0` wire format: twin URLs, negotiation, headers,
+  406 behaviour, frontmatter.
+- [docs/config.md](docs/config.md): every field of `opengso.config.json`, with its default.
+- [docs/prod-api.md](docs/prod-api.md): every export of `opengso-prod` and its five adapter entries:
   `/next`, `/node`, `/fetch`, `/vite` and `/edge`.
-- [docs/troubleshooting.md](docs/troubleshooting.md) - the problems people hit first, and the fix for
-  each.
-- [docs/versioning.md](docs/versioning.md) - how the `opengso/1.0` spec version relates to the
+- [docs/providers.md](docs/providers.md): every AI provider OpenGSO ships with, the environment
+  variables it already understands, and how to add your own.
+- [docs/troubleshooting.md](docs/troubleshooting.md): the problems people hit first, and the fix
+  for each.
+- [docs/versioning.md](docs/versioning.md): how the `opengso/1.0` spec version relates to the
   package version.
-- [docs/architecture.md](docs/architecture.md) - for contributors: where the code lives, how it
+- [docs/architecture.md](docs/architecture.md): for contributors: where the code lives, how it
   reaches the five packages, and what the build enforces.
-- [CONTRIBUTING.md](CONTRIBUTING.md) - the dev loop, the test layout, and how to add a bot.
-- [SECURITY.md](SECURITY.md) - the dashboard's threat model, where the API key goes, and how to
-  report a vulnerability privately.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - the Contributor Covenant 2.1.
-
-## Repo layout
-
-```
-packages/core        @opengso/core, private and never published. Every pillar is implemented here
-                     once and bundled into each published package at build time.
-packages/testing     opengso-testing
-packages/generate    opengso-generate
-packages/prod        opengso-prod
-packages/cli         opengso-cli
-packages/opengso     opengso, including web/ (the dashboard: plain HTML, CSS and JS, no build)
-examples/nextjs-demo the Next.js app the whole pipeline is exercised against
-docs/                the user and contributor docs listed above
-scripts/             check-bundles.mjs and check-packages.mjs, which check what the build produced
-```
+- [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and
+  [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- The website, [sherwinvishesh.github.io/OpenGSO](https://sherwinvishesh.github.io/OpenGSO/), is
+  itself generated and served the way this README describes.
 
 ## Working on it
 
@@ -221,8 +283,8 @@ npm run check:bundles
 npm run check:packages
 ```
 
-To drive the CLI against the bundled example, install it globally from its own tarball and use it
-the way a user would:
+To drive the CLI against the bundled demo, install it globally from its own tarball and use it the
+way a user would:
 
 ```bash
 npm run install:global    # then: opengso --help
@@ -243,9 +305,9 @@ follow a change and what to do about it.
   to the whole body. See [`TODO-ssr-extraction.md`](packages/core/src/generate/TODO-ssr-extraction.md).
 - **`Vary: Accept` on Next.js App Router.** Next does not let middleware add `Vary` to a response it
   did not create, so an HTML response from an App Router page can lack it. Check B7 scores this as
-  a partial, 2 of 4, rather than papering over it.
-- **CDN behaviour is documented, not claimed.** `Vary: Accept` is set on every response; how a given
-  CDN honours it across hosts has not been tested.
+  a partial, 2 of 4, rather than papering over it. It is the one open suggestion in the report above.
+- **CDN behaviour is documented, not claimed.** `Vary: Accept` is set on every markdown response;
+  how a given CDN honours it across hosts has not been tested.
 
 ## License
 
