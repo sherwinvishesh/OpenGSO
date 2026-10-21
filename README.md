@@ -213,7 +213,10 @@ without OpenGSO.
 ## Which package do I install
 
 Install the narrowest one that does what you need. They all expose the same `opengso` command, and
-if you ask one for something it does not ship, it tells you which package to install instead.
+if you ask one for something it does not ship, it tells you which package to install instead. Two
+of them in one project is fine, `opengso-cli` for you and `opengso-prod` for the server, say: npm
+links the bin of whichever it installed last, and that one hands any command it does not ship to
+the other.
 
 | Package | Ships | Install it when | npm |
 | --- | --- | --- | --- |

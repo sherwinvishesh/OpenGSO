@@ -5,6 +5,7 @@ import { PROVIDERS } from '../shared/providers.js';
 import { wrap } from '../shared/render/paint.js';
 import { EXIT_USAGE, UsageError } from './args.js';
 import { runHome } from './home.js';
+import { DELEGATED_VARIABLE, findSibling, runSibling } from './sibling.js';
 
 /** @import { CommandName } from '../shared/errors.js' */
 
@@ -36,6 +37,8 @@ export * from './project.js';
  * @property {string} version
  * @property {Partial<Record<CommandName, CommandHandler>>} commands
  * @property {string[]} [argv]
+ * @property {string[]} [siblingRoots] Where to look for another installed OpenGSO package when a
+ *   command is not shipped here. Defaults to this bin's own tree, then the current directory's.
  */
 
 /** @type {CommandName[]} */
@@ -114,6 +117,13 @@ export async function runCli(options) {
 
   const handler = options.commands[command];
   if (!handler) {
+    // Two OpenGSO packages in one project share the `opengso` bin, and npm links the one it
+    // installed last. If the other one is installed and ships this command, it answers instead of
+    // the §13 message, which would be telling the user to install what they already have.
+    const sibling = process.env[DELEGATED_VARIABLE]
+      ? undefined
+      : findSibling(command, { roots: options.siblingRoots, self: options.packageName });
+    if (sibling) return runSibling(sibling, argv);
     process.stderr.write(`${commandUnavailable(command, options.packageName)}\n`);
     return EXIT_USAGE;
   }

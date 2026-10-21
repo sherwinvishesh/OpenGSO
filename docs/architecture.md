@@ -39,7 +39,7 @@ Which package ships which command is the `COMMAND_PACKAGES` table in
 | `generate/` | The generate pillar: crawl, extract (jsdom as a parser only, never running scripts), the optional AI rewrite and its fidelity check, and the writers for twins, `robots.txt`, `llms.txt`, `sitemap.xml` and the manifest. |
 | `prod/` | The runtime middleware, `prod test` and `prod data`. The library half has no dependencies. `adapters/` holds one thin wrapper per kind of server (`next.js`, `node.js`, `fetch.js`, `vite.js`, and `edge.js` for runtimes with no disk), all sharing `project.js` for loading and reloading; `edge.js` at the top is the subset with no `node:` imports, and `edge-data.js` writes the module `prod data` produces. |
 | `server/` | The dashboard's local HTTP server and JSON API, started by `opengso start`. |
-| `cli/` | Argument parsing, every command (`cli/commands/`), the onboarding flow, and the full-screen home screen. `cli/tui/` is the zero-dependency terminal toolkit it is drawn with (screen, keys, widgets, interaction), on top of `shared/render/`. |
+| `cli/` | Argument parsing, every command (`cli/commands/`), the onboarding flow, the full-screen home screen, and `sibling.js`, which hands a command this package does not ship to another installed OpenGSO package that does (every package installs the same `opengso` bin, and npm links only one). `cli/tui/` is the zero-dependency terminal toolkit it is drawn with (screen, keys, widgets, interaction), on top of `shared/render/`. |
 
 Pillars depend on `shared/` and not on each other, with two deliberate exceptions: `test/` reads
 `prod/headers.js` (the dependency-free code that builds and parses OpenGSO's headers, so the test reads them the way prod writes them) and reuses generate's extractor,

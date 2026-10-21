@@ -294,7 +294,8 @@ describe('a command line that cannot mean what it says', () => {
 
 describe('exit codes', () => {
   /** @param {{ argv: string[] }} ctx */
-  const cli = ({ argv }) => runCli({ packageName: 'opengso', version: '0.0.0', commands: { test: testCommand }, argv });
+  // `siblingRoots: []`, or the workspace's own opengso-cli would answer the `generate` below.
+  const cli = ({ argv }) => runCli({ packageName: 'opengso', version: '0.0.0', commands: { test: testCommand }, argv, siblingRoots: [] });
 
   it('exits 2 for a command line that cannot run, and 1 only for what the run found', async () => {
     expect((await run(cli, ['tset', site])).code).toBe(2);

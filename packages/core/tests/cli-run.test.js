@@ -145,7 +145,9 @@ function run(command, argv) {
  * @param {Partial<Record<import('../src/shared/errors.js').CommandName, CommandHandler>>} [commands]
  */
 function cli(argv, commands = { test: testCommand, generate: generateCommand, 'prod test': prodTestCommand }) {
-  return captured(() => runCli({ packageName: 'opengso-cli', version: '9.9.9', commands, argv }));
+  // No sibling lookup: the monorepo's own workspace links would otherwise answer for a command
+  // this fake install leaves out, by running the real thing against the checkout.
+  return captured(() => runCli({ packageName: 'opengso-cli', version: '9.9.9', commands, argv, siblingRoots: [] }));
 }
 
 /** @param {string} text */
