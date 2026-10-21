@@ -58,9 +58,23 @@ export function checkFreshness(loaded) {
     }
     const modified = new Date(sourceStat.mtimeMs);
 
+    // A twin that is listed but gone from the folder (a build that emptied it, a stray rm) leaves
+    // the page with nothing to serve, whatever the page's own date and hash say.
+    const twinStat = statOf(twin);
+    if (!twinStat) {
+      stale.push({
+        kind: 'new',
+        sourceFile: entry.sourceFile,
+        route: entry.route,
+        twin: entry.file,
+        sourceModified: modified.toISOString(),
+        message: ERRORS.staleTwinGone(entry.sourceFile, entry.file),
+      });
+      continue;
+    }
+
     if (entry.tier === 'manual') {
-      const twinStat = statOf(twin);
-      if (twinStat && sourceStat.mtimeMs > twinStat.mtimeMs + SLACK_MS) {
+      if (sourceStat.mtimeMs > twinStat.mtimeMs + SLACK_MS) {
         const saved = new Date(twinStat.mtimeMs);
         stale.push({
           kind: 'manual',

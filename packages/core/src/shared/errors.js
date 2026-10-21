@@ -1256,9 +1256,14 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
   filesConfigCreated: (configPath) =>
     `Saved ${configPath} with this folder as the web root, so \`opengso generate\`, the dashboard and \`opengso-prod\` all find it from now on.`,
 
-  /** @param {string} why */
-  webRootFromFramework: (why) =>
-    `No opengso.config.json here, so the files went where the framework serves them: ${why}. Set "publicDir" in opengso.config.json to put them somewhere else.`,
+  /**
+   * @param {string} why
+   * @param {boolean} configured Whether an opengso.config.json exists, one that does not name publicDir.
+   */
+  webRootFromFramework: (why, configured) =>
+    configured
+      ? `opengso.config.json does not set "publicDir", so the files went where the framework serves them: ${why}. Set it to put them somewhere else.`
+      : `No opengso.config.json here, so the files went where the framework serves them: ${why}. Set "publicDir" in opengso.config.json to put them somewhere else.`,
 
   /** @param {string} origin */
   filesOriginSaved: (origin) => `Saved "publicOrigin": "${origin}" to opengso.config.json, so the next run uses it without --origin.`,
@@ -1307,6 +1312,12 @@ export const ERRORS = /* @__PURE__ */ Object.freeze({
 
   /** @param {string} file */
   staleNew: (file) => `${file} has no twin yet.`,
+
+  /**
+   * @param {string} file
+   * @param {string} twin
+   */
+  staleTwinGone: (file, twin) => `${file} has no twin: ${twin} is listed but no longer in the folder.`,
 
   /**
    * One line for after the list, saying what fixes each kind that is in it.

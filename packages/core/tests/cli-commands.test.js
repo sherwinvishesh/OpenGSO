@@ -195,6 +195,31 @@ describe('opengso generate with no config file', () => {
     expect(existsSync(join(root, 'public', 'md', 'index.md'))).toBe(true);
     expect(stdout).not.toContain('No opengso.config.json here');
   });
+
+  it('applies the framework folder to a config file that does not name publicDir, and says so', async () => {
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site }), 'utf8');
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@sveltejs/kit': '2.0.0' } }), 'utf8');
+
+    const { code, stdout } = await run(generateCommand, [site, '--project', root, '--single']);
+
+    expect(code).toBe(0);
+    expect(existsSync(join(root, 'static', 'md', 'index.md'))).toBe(true);
+    expect(existsSync(join(root, 'public'))).toBe(false);
+    expect(stdout.replace(/\s+/g, ' ')).toContain('opengso.config.json does not set "publicDir", so the files went where the framework serves them: SvelteKit serves static/ from the site root');
+    expect(stdout).not.toContain('No opengso.config.json here');
+  });
+
+  it('keeps the publicDir a config file names, whatever the framework', async () => {
+    writeFileSync(join(root, 'opengso.config.json'), JSON.stringify({ site, publicDir: 'www' }), 'utf8');
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@sveltejs/kit': '2.0.0' } }), 'utf8');
+
+    const { code, stdout } = await run(generateCommand, [site, '--project', root, '--single']);
+
+    expect(code).toBe(0);
+    expect(existsSync(join(root, 'www', 'md', 'index.md'))).toBe(true);
+    expect(existsSync(join(root, 'static'))).toBe(false);
+    expect(stdout).not.toContain('went where the framework serves them');
+  });
 });
 
 describe('opengso generate --json', () => {

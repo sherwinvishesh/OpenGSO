@@ -460,6 +460,20 @@ describe('checkFreshness', () => {
     expect(checkFreshness(loaded())?.stale.map((twin) => twin.kind)).toEqual(['manual']);
   });
 
+  it('reports a page whose twin is gone from the folder, even when the page itself is untouched', async () => {
+    writeSite(SITE);
+    await generateFromFiles({ loaded: loaded() });
+    rmSync(join(root, 'site', 'about.html.md'));
+    const report = /** @type {FreshnessReport} */ (checkFreshness(loaded()));
+    expect(report.stale.map((twin) => [twin.sourceFile, twin.kind, twin.twin])).toEqual([['about.html', 'new', 'about.html.md']]);
+    expect(report.stale[0]?.message).toBe(ERRORS.staleTwinGone('about.html', 'about.html.md'));
+    expect(staleCounts(report).new).toBe(1);
+
+    // Generating again is the remedy, and brings it back.
+    await generateFromFiles({ loaded: loaded() });
+    expect(checkFreshness(loaded())).toEqual({ checked: 3, stale: [] });
+  });
+
   it('gives both times their seconds when the page changed in the same minute its twin was written', async () => {
     writeSite(SITE);
     await generateFromFiles({ loaded: loaded() });
@@ -527,6 +541,36 @@ describe('opengso generate <folder>', () => {
     const again = await cli(['--project', root, '--json']);
     expect(again.code).toBe(0);
     expect(JSON.parse(again.stdout)).toMatchObject({ source: 'files', site: 'https://acme.example' });
+  });
+
+  it('says nothing about where the framework serves files, because the folder was given', async () => {
+    writeSite(SITE);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@sveltejs/kit': '2.0.0' } }));
+    const { code, stdout } = await cli([join(root, 'site'), '--project', root]);
+    expect(code).toBe(0);
+    expect(stdout).toContain(`Output: ${join(root, 'site')}`);
+    expect(stdout).not.toContain('went where the framework serves them');
+    expect(loadConfig(root).config.publicDir).toBe('site');
+  });
+
+  it('names a localhost --origin in the links of the run, and never remembers it as the published site', async () => {
+    writeSite({ 'index.html': page('Home', WORDS), 'about.html': page('About', WORDS) });
+    const first = await cli([join(root, 'site'), '--project', root, '--origin', 'http://localhost:5410']);
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain('Links name: http://localhost:5410');
+    expect(readFileSync(join(root, 'site', 'about.html.md'), 'utf8')).toContain('http://localhost:5410/about.html');
+    expect(loadConfig(root).config.publicOrigin).toBeUndefined();
+
+    // The config exists now, and the second run follows the same rule as the first.
+    const second = await cli([join(root, 'site'), '--project', root, '--origin', 'http://localhost:5410']);
+    expect(second.code).toBe(0);
+    expect(second.stdout).not.toContain('Saved "publicOrigin"');
+    expect(loadConfig(root).config.publicOrigin).toBeUndefined();
+
+    // A real origin on the same project is remembered, as before.
+    const real = await cli([join(root, 'site'), '--project', root, '--origin', 'https://acme.test']);
+    expect(real.stdout.replace(/\s+/g, ' ')).toContain(ERRORS.filesOriginSaved('https://acme.test'));
+    expect(loadConfig(root).config.publicOrigin).toBe('https://acme.test');
   });
 
   it('leaves no config behind when the folder holds no pages', async () => {

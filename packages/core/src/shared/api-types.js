@@ -297,7 +297,7 @@ export {};
  * - `manual`: the file was modified after a hand-written twin was last saved, so the twin may be
  *   behind. OpenGSO never rewrites a hand-written twin, so only its author can bring it up to date.
  * - `missing`: the file is gone, so the twin describes a page that no longer exists.
- * - `new`: a page with no twin at all.
+ * - `new`: a page with no twin: never generated, or its twin is listed but gone from the folder.
  *
  * @typedef {'changed' | 'manual' | 'missing' | 'new'} StaleKind
  */

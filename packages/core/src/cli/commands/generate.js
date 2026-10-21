@@ -261,7 +261,10 @@ export async function generateCommand(ctx) {
       ` ${c.gray(`in ${report.durationMs}ms`)}\n`,
   );
   if (failed < pages.length) process.stdout.write(`  ${c.gray(`Output: ${shownPath(report.generate.publicDir)}`)}\n`);
-  if (loaded.webRootWhy) process.stdout.write(`${hanging('  ', c.gray(ERRORS.webRootFromFramework(loaded.webRootWhy)))}\n`);
+  // Only a crawl chooses the folder; a run from a folder was told which one.
+  if (source.kind === 'url' && loaded.webRootWhy) {
+    process.stdout.write(`${hanging('  ', c.gray(ERRORS.webRootFromFramework(loaded.webRootWhy, loaded.exists)))}\n`);
+  }
   if (source.kind === 'files') process.stdout.write(`  ${c.gray(`Links name: ${report.site}`)}\n`);
 
   /** @param {string} file */
@@ -412,11 +415,13 @@ function rememberFiles(source, project, origin, result) {
   }
   if (origin) {
     const configured = project.config.publicOrigin;
-    if (!configured) {
+    if (configured) {
+      if (siteBaseOf(configured) !== origin) notes.push(ERRORS.originDiffersFromConfig(origin, configured));
+    } else if (!isLoopbackUrl(origin)) {
+      // The same rule as the first run: this machine is not the published site, so a localhost
+      // origin names the links of this run and is not remembered as publicOrigin.
       saveConfig(project.root, mergeConfig(project.config, { publicOrigin: origin }));
       notes.push(ERRORS.filesOriginSaved(origin));
-    } else if (siteBaseOf(configured) !== origin) {
-      notes.push(ERRORS.originDiffersFromConfig(origin, configured));
     }
   }
   if (source.tip) notes.push(ERRORS.filesSourceTip);

@@ -51,9 +51,9 @@ export function defaultConfig(site = 'http://localhost:3000') {
  *   opengso.config.json, or cwd).
  * @property {string} [path] Absolute path of the config file, if one was found on disk.
  * @property {boolean} exists
- * @property {string} [webRootWhy] Set when there is no config file and `publicDir` came from the
- *   framework in package.json rather than the default, saying why, for the one line that tells the
- *   user where their files went.
+ * @property {string} [webRootWhy] Set when `publicDir` came from the framework in package.json
+ *   rather than the default, because there is no config file or the file does not name it, saying
+ *   why, for the one line that tells the user where their files went.
  * @property {Array<{ key: string; suggestion?: string }>} [unknownKeys] Keys in the file OpenGSO does
  *   not read, from `unknownConfigKeys`. Absent when there are none.
  */
@@ -128,11 +128,24 @@ export function loadConfig(startDir = process.cwd()) {
   }
   const shape = configPatchProblem(raw);
   if (shape) throw new ConfigError(shape);
-  const config = mergeConfig(defaultConfig(), /** @type {ConfigPatch} */ (raw));
+  const patch = /** @type {ConfigPatch} */ (raw);
+  let config = mergeConfig(defaultConfig(), patch);
+  // A hand-written file that names an origin and nothing else still gets the framework's folder:
+  // the default public/ is one SvelteKit never serves, and VitePress serves docs/public/.
+  const framework = patch.publicDir === undefined ? frameworkWebRoot(dirname(path)) : undefined;
+  const webRootWhy = framework && framework.dir !== config.publicDir ? framework.why : undefined;
+  if (framework && webRootWhy) config = { ...config, publicDir: framework.dir };
   const problem = projectDirProblem(dirname(path), config);
   if (problem) throw new ConfigError(problem);
   const unknownKeys = unknownConfigKeys(raw);
-  return { config, root: dirname(path), path, exists: true, ...(unknownKeys.length ? { unknownKeys } : {}) };
+  return {
+    config,
+    root: dirname(path),
+    path,
+    exists: true,
+    ...(webRootWhy ? { webRootWhy } : {}),
+    ...(unknownKeys.length ? { unknownKeys } : {}),
+  };
 }
 
 /**
