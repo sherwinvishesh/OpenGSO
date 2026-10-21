@@ -1,0 +1,29 @@
+# Weekly, grouped into one pull request per ecosystem, so a week's updates are one review and one
+# CI run rather than ten. Checks runs on each pull request on all four runners.
+#
+# Two things to know when reviewing an npm pull request:
+#  - jsdom is the only dependency a published package carries, so a jsdom bump is a user-visible
+#    change and needs a changeset naming all five packages. Everything else here is dev tooling.
+#  - A lockfile regenerated on Linux can lose the other platforms' optional binaries (esbuild,
+#    rollup). The macOS and Windows jobs fail when that happens; fix the lockfile before merging
+#    rather than retrying the run.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      npm:
+        patterns:
+          - '*'
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - '*'
