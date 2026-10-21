@@ -73,7 +73,8 @@ the same core functions the CLI does. The server's security model is in
 
 - `npm run check:bundles` reads `dist/`: the prod libraries carry no jsdom, no AI code and no
   network call, the edge entries import no `node:` module, every bundle imports only Node builtins
-  and its declared dependencies, and `opengso-prod` declares none.
+  and its declared dependencies, `opengso-prod` declares none, and no declaration file names
+  `@opengso/core`, which is what a broken `paths` resolution leaves behind.
 - `npm run check:packages` runs each bin, imports each export by package name, and checks what
   `npm pack` would ship.
 - `packages/core/tests/docs.test.js` checks the facts the docs and READMEs state (weights, headers,

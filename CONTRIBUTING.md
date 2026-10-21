@@ -65,7 +65,9 @@ an import that reaches into core.
 runtime library (`opengso-prod`, and the copy `opengso` ships as `opengso/prod`) carries no jsdom,
 no AI provider code and no network call. The edge entries import no `node:` module. Every bundle,
 CLIs included, imports only Node builtins and dependencies its package declares, and jsdom is the
-only dependency any package may declare. It follows the import graph through the metafile each
+only dependency any package may declare. No declaration file in `dist/` names `@opengso/core`: when
+rollup-plugin-dts loses the `paths` map, typecheck and build stay green and `index.d.ts` becomes a
+re-export of a package nobody can install. It follows the import graph through the metafile each
 build writes to `packages/*/.bundle-meta/`, and scans the `dist/` text too. Run it after `build`,
 never instead of it.
 

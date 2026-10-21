@@ -10,13 +10,17 @@
  * 3. Every bundle, CLIs included, imports nothing but Node builtins and the dependencies its
  *    package declares, and jsdom is the only dependency any package may declare. `opengso-prod`
  *    may not declare even that.
+ * 4. No declaration file names `@opengso/core`. tsup bundles core's types through
+ *    rollup-plugin-dts, which follows the `paths` map in tsconfig.base.json; when that resolution
+ *    breaks (a missing `baseUrl` did it), typecheck and build stay green and `index.d.ts` shrinks
+ *    to `export * from '@opengso/core/prod'`, a re-export of a package nobody can install.
  *
  * Run after `npm run build`. It reads what the build produced, never the source: the metafile
  * esbuild wrote beside `dist/` (`scripts/bundle-meta.mjs`) says which modules went into which
  * file and what each file imports, and the `dist/` text is scanned as well, because a string
  * that matters can arrive from anywhere.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -109,6 +113,7 @@ const packageName = (/** @type {string} */ specifier) =>
   specifier.split('/').slice(0, specifier.startsWith('@') ? 2 : 1).join('/');
 
 let scanned = 0;
+let declarations = 0;
 for (const dir of PACKAGES) {
   const pkgDir = join(root, 'packages', dir);
   const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
@@ -118,6 +123,19 @@ for (const dir of PACKAGES) {
   const permitted = ALLOWED_DEPENDENCIES[pkg.name] ?? ['jsdom'];
   for (const dep of declared) {
     if (!permitted.includes(dep)) failures.push(`${pkg.name} declares an unexpected runtime dependency: ${dep}.`);
+  }
+
+  // 4. The declarations, for the packages that ship a library.
+  if (LIBRARIES[dir]) {
+    const dist = join(pkgDir, 'dist');
+    const files = existsSync(dist) ? readdirSync(dist, { recursive: true }).map(String).filter((file) => file.endsWith('.d.ts')) : [];
+    if (files.length === 0) failures.push(`${pkg.name}: dist/ holds no .d.ts file. Run \`npm run build\` first.`);
+    for (const file of files) {
+      declarations += 1;
+      if (/['"]@opengso\/core/.test(readFileSync(join(dist, file), 'utf8'))) {
+        failures.push(`${pkg.name}: dist/${file} names @opengso/core, which is private and never installed. The declaration bundling lost the paths map.`);
+      }
+    }
   }
 
   const builds = LIBRARIES[dir] ? ['library', 'cli'] : ['cli'];
@@ -188,5 +206,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 console.log(
-  `ok  ${scanned} runtime bundle files carry no jsdom, no AI code and no network call; the edge entries import nothing; every bundle imports only builtins and declared dependencies.`,
+  `ok  ${scanned} runtime bundle files carry no jsdom, no AI code and no network call; the edge entries import nothing; every bundle imports only builtins and declared dependencies; ${declarations} declaration files name no private package.`,
 );
