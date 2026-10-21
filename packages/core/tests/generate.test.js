@@ -274,6 +274,12 @@ describe('one bad page cannot take the run down with it', () => {
       site,
       tier: 'ai',
       routes: ['/about', '/resume'],
+      // Handed in rather than fetched: on a slow runner the fetch itself failed first and the reason
+      // read "fetch failed", which is a different failure from the one under test.
+      sources: new Map([
+        ['/about', PAGES['/about']],
+        ['/resume', PAGES['/resume']],
+      ]),
       enhance: async (input) => {
         if (input.url.endsWith('/about')) throw new Error('socket hang up');
         return { markdown: input.algorithmicMarkdown, warnings: [], fellBack: false };

@@ -7,6 +7,7 @@ import { homeEntries, homeHeader, plainStatus, readHomeStatus, runHome, statusRo
 import { createPrompter } from '../src/cli/prompt.js';
 import { CI_VARIABLES } from '../src/shared/ci.js';
 import { glyphs, stripAnsi, visibleWidth } from '../src/shared/render/paint.js';
+import { waitUntil } from './helpers/wait-until.js';
 /** @import { CommandHandler } from '@opengso/core/cli' */
 /** @import { CommandName } from '@opengso/core/shared' */
 /** @import { HomeStatus } from '../src/cli/home.js' */
@@ -368,12 +369,7 @@ describe('the flat menu hands stdin to the command it runs', () => {
     /** @param {string} needle */
     const count = (needle) => shown().split(needle).length - 1;
     /** @param {string} needle */
-    const waitFor = async (needle, times = 1) => {
-      for (let tries = 0; count(needle) < times; tries += 1) {
-        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)} x${times}:\n${shown()}`);
-        await new Promise((done) => setTimeout(done, 5));
-      }
-    };
+    const waitFor = (needle, times = 1) => waitUntil(() => count(needle) >= times, () => `never saw ${JSON.stringify(needle)} x${times}:\n${shown()}`);
     /** @param {string} label */
     const numberOf = (label) => new RegExp(`(\\d+)\\) ${label}`).exec(shown())?.[1] ?? '';
     return { input, output, shown, waitFor, numberOf };
@@ -454,12 +450,7 @@ describe('the full-screen menu after a command', () => {
       seen += chunk.toString();
     });
     /** @param {string} needle */
-    const waitFor = async (needle) => {
-      for (let tries = 0; !stripAnsi(seen).includes(needle); tries += 1) {
-        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)}`);
-        await new Promise((done) => setTimeout(done, 5));
-      }
-    };
+    const waitFor = (needle) => waitUntil(() => stripAnsi(seen).includes(needle), () => `never saw ${JSON.stringify(needle)}:\n${stripAnsi(seen)}`);
     let ran = 0;
     /** @type {CommandHandler} */
     const prod = async () => {
@@ -489,12 +480,7 @@ describe('the full-screen menu after a command', () => {
       seen += chunk.toString();
     });
     /** @param {string} needle */
-    const waitFor = async (needle) => {
-      for (let tries = 0; !stripAnsi(seen).includes(needle); tries += 1) {
-        if (tries > 200) throw new Error(`never saw ${JSON.stringify(needle)}`);
-        await new Promise((done) => setTimeout(done, 5));
-      }
-    };
+    const waitFor = (needle) => waitUntil(() => stripAnsi(seen).includes(needle), () => `never saw ${JSON.stringify(needle)}:\n${stripAnsi(seen)}`);
     /** @type {string[]} */
     const copied = [];
     /** @type {CommandHandler} */
@@ -545,12 +531,7 @@ describe('the full-screen menu after a command', () => {
       seen += chunk.toString();
     });
     /** @param {(text: string) => boolean} test */
-    const waitUntil = async (test) => {
-      for (let tries = 0; !test(seen); tries += 1) {
-        if (tries > 200) throw new Error('the screen never got there');
-        await new Promise((done) => setTimeout(done, 5));
-      }
-    };
+    const screenReaches = (test) => waitUntil(() => test(seen), () => `the screen never got there:\n${stripAnsi(seen)}`);
     /** The width of the box the header is drawn in, in the most recent frame. */
     const boxWidth = () => {
       const top = stripAnsi(seen.slice(seen.lastIndexOf('\x1b[H')))
@@ -561,13 +542,13 @@ describe('the full-screen menu after a command', () => {
     };
 
     const done = runHome({ packageName: 'opengso', version: '0.0.0', commands: { test: async () => 0 }, root: project({ 'opengso.config.json': CONFIG }), input, output });
-    await waitUntil((text) => stripAnsi(text).includes('Quit'));
+    await screenReaches((text) => stripAnsi(text).includes('Quit'));
     expect(boxWidth()).toBeGreaterThan(50);
 
     const before = seen.length;
     Object.assign(output, { columns: 50 });
     output.emit('resize');
-    await waitUntil((text) => text.length > before && stripAnsi(text.slice(before)).includes('Quit'));
+    await screenReaches((text) => text.length > before && stripAnsi(text.slice(before)).includes('Quit'));
     expect(boxWidth()).toBe(50);
 
     input.write('q');

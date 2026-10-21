@@ -12,6 +12,7 @@ import { runHome } from '../src/cli/home.js';
 import { EXIT_USAGE } from '../src/cli/args.js';
 import { runCli } from '../src/cli/index.js';
 import { ERRORS } from '../src/shared/errors.js';
+import { waitUntil } from './helpers/wait-until.js';
 /** @import { Server } from 'node:http' */
 /** @import { AddressInfo } from 'node:net' */
 /** @import { CommandHandler } from '../src/cli/index.js' */
@@ -441,12 +442,7 @@ describe('runHome off the alternate screen', () => {
     /** @param {string} needle */
     const count = (needle) => plain(seen).split(needle).length - 1;
     /** @param {string} needle */
-    const waitFor = async (needle, times = 1) => {
-      for (let tries = 0; count(needle) < times; tries += 1) {
-        if (tries > 400) throw new Error(`never saw ${JSON.stringify(needle)} x${times}:\n${plain(seen)}`);
-        await new Promise((done) => setImmediate(done));
-      }
-    };
+    const waitFor = (needle, times = 1) => waitUntil(() => count(needle) >= times, () => `never saw ${JSON.stringify(needle)} x${times}:\n${plain(seen)}`, { intervalMs: 1 });
     /** @param {string} label */
     const numberOf = (label) => new RegExp(`(\\d+)\\) ${label}`).exec(plain(seen))?.[1] ?? '';
     return { input, output, raw: () => seen, waitFor, numberOf };
