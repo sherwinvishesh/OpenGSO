@@ -234,9 +234,13 @@ app.use(createNodeMiddleware());
 ```
 
 Verified on Angular 20.3 with `@angular/ssr` and its generated Express server, on routes rendered
-per request (`RenderMode.Server`). Angular answers a host it does not know with the client-only
-shell, so add your domain to `security.allowedHosts` in `angular.json` before crawling it. A
-client-only Angular build is static files: see Static sites below for what that means in production.
+per request (`RenderMode.Server`), under `ng serve` and the built `server.mjs`. Restart `ng serve`
+after adding the import, or Vite answers every request with a stale pre-bundle error until you do.
+The built server renders nothing while `security.allowedHosts` in `angular.json` is empty: every
+host, localhost included, gets the client-only shell, which `opengso test` reports as A5 failing.
+List the hosts it serves (`localhost` and `127.0.0.1` for a local check, your domain in
+production), and it renders for those and answers any other with a 400. A client-only Angular
+build is static files: see Static sites below for what that means in production.
 
 ### Qwik City
 
@@ -247,11 +251,14 @@ import { createNodeMiddleware } from 'opengso-prod/node';
 app.use(createNodeMiddleware());
 ```
 
-Verified on Qwik 1.20 with its Express adapter, and under `vite --mode ssr` with the Vite plugin
-below. Qwik's adapters write their own `sitemap.xml` over the one in `public/`, an empty one unless
-routes are prerendered, so turn that off where the adapter is configured:
-`nodeServerAdapter({ name: 'express', ssg: { include: [], sitemapOutFile: null } })` in
-`adapters/express/vite.config.ts`.
+Verified on Qwik 1.20 (its starter pins Vite 7.3) with its Express adapter, and under
+`vite --mode ssr` with the Vite plugin below. Qwik's adapters write their own `sitemap.xml` over
+the one in `public/`, an empty one unless routes are prerendered, so turn that off where the
+adapter is configured: `nodeServerAdapter({ name: 'express', ssg: { include: [], sitemapOutFile:
+null } })` in `adapters/express/vite.config.ts`. Qwik City's canonical URLs end in a slash, so a
+browser asking for `/about` gets its 301 to `/about/` while an agent gets the twin at either; the
+twins, `llms.txt` and the sitemap use the slash. The starter's `public/robots.txt` is empty, which
+generate keeps and proposes beside, like Nuxt's.
 
 ### Vite
 
@@ -262,8 +269,8 @@ import opengso from 'opengso-prod/vite';
 export default { plugins: [opengso()] };
 ```
 
-Verified on Vite 8.3, under `vite` and `vite preview`, with a single-page app, and in front of
-Qwik's own Vite server. Angular's dev server is built on Vite but does not take Vite plugins. A
+Verified on Vite 8.3, under `vite` and `vite preview`, with a single-page app, and on Vite 7.3 in
+front of Qwik's own server. Angular's dev server is built on Vite but does not take Vite plugins. A
 production build is static files with no server in it: see the next section.
 
 ### Static sites
