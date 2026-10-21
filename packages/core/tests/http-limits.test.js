@@ -135,6 +135,24 @@ describe('probe and a dropped connection', () => {
     }
   });
 
+  it('records why a fetch failed, not only that it did', async () => {
+    const site = await serve((req, res) => {
+      if (req.url === '/loop') {
+        res.writeHead(302, { location: '/loop' });
+        res.end();
+      } else {
+        req.socket.destroy();
+      }
+    });
+    try {
+      // Undici says "fetch failed" for both; the cause is the only thing that tells them apart.
+      expect((await probe(`${site.base}/loop`)).error).toBe('fetch failed: redirect count exceeded');
+      expect((await probe(`${site.base}/`, { method: 'POST' })).error).toMatch(/^fetch failed: (UND_ERR_SOCKET|ECONNRESET)/);
+    } finally {
+      await site.close();
+    }
+  });
+
   it('gives up after the one retry', async () => {
     let requests = 0;
     const site = await serve((req) => {

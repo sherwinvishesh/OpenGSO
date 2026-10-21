@@ -1,5 +1,5 @@
 import { HEADERS, MARKDOWN_CONTENT_TYPE } from '../shared/version.js';
-import { HOSTILE_ACCEPT, isMarkdownResponse } from '../shared/http.js';
+import { HOSTILE_ACCEPT, isMarkdownResponse, whyUnreachable } from '../shared/http.js';
 import { varyIncludesAccept } from '../prod/headers.js';
 import { countWords } from '../shared/tokens.js';
 import { checkDefinition } from './checks.js';
@@ -35,7 +35,7 @@ export function checkTwinReachable(e) {
   if (e.twin.error)
     return fail(
       'B1',
-      `Could not reach the markdown twin at ${e.twinUrl}: ${e.twin.error}`,
+      `Could not reach the markdown twin at ${e.twinUrl}: ${whyUnreachable(e.twinUrl, e.twin.error)}.`,
       undefined,
       `Serve a markdown twin at ${e.twinUrl} (+10). \`opengso generate\` writes it and the prod middleware serves it.`,
     );
@@ -383,7 +383,7 @@ export function checkHtmlUnaffected(e) {
   if (!e.html.ok)
     return fail(
       'B13',
-      `The original HTML URL returned HTTP ${e.html.status || 'nothing'}.`,
+      e.html.error ? `The original HTML URL could not be fetched: ${whyUnreachable(e.html.url, e.html.error)}.` : `The original HTML URL returned HTTP ${e.html.status}.`,
       undefined,
       'Get the HTML URL answering 2xx to a normal browser again (+9). Serving agents must never cost human visitors the page.',
     );

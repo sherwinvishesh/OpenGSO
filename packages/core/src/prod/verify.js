@@ -1,5 +1,5 @@
 import { AI_BOTS, botUserAgent, findBot } from '../shared/bots.js';
-import { BROWSER_ACCEPT, BROWSER_UA, HOSTILE_ACCEPT, cleanUrl, isMarkdownResponse, probe } from '../shared/http.js';
+import { BROWSER_ACCEPT, BROWSER_UA, cleanUrl, HOSTILE_ACCEPT, isMarkdownResponse, probe, whyUnreachable } from '../shared/http.js';
 import { twinUrl } from '../shared/routes.js';
 import { HEADERS } from '../shared/version.js';
 import { parseLinkAlternate, varyIncludesAccept } from './headers.js';
@@ -432,7 +432,7 @@ function judgeUnreachable(result) {
   return {
     verdict: 'fail',
     reason: `Could not reach ${result.url}.`,
-    detail: result.error,
+    detail: result.error ? `It failed because ${whyUnreachable(result.url, result.error)}.` : undefined,
   };
 }
 
@@ -466,7 +466,7 @@ function readRobots(url, result, bots) {
       found: false,
       blocked: [],
       allowed: [],
-      notes: [`Could not fetch robots.txt: ${result.error ?? 'no response'}.`],
+      notes: [`Could not fetch robots.txt: ${result.error ? whyUnreachable(url, result.error) : 'no response'}.`],
     };
   }
   if (!result.ok) {

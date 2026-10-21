@@ -106,11 +106,60 @@ export async function probe(url, options = {}) {
       totalMs: Math.round(performance.now() - started),
       redirected: false,
       finalUrl: url,
-      error: error instanceof Error ? error.message : String(error),
+      error: describeFetchError(error),
     };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * The failure with its cause still attached.
+ *
+ * Undici says "fetch failed" for a refused port, a dead host, a redirect loop and a bad certificate
+ * alike, and keeps the reason on `error.cause`. The message alone is what every report used to get,
+ * which is why a redirect loop on localhost was reported as "nothing is listening". The code and
+ * the cause's own words are appended so that `whyUnreachable` can tell them apart.
+ *
+ * @param {unknown} error
+ * @returns {string}
+ */
+function describeFetchError(error) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = /** @type {{ code?: unknown; message?: unknown }} */ (error.cause ?? {});
+  const detail = [cause.code, cause.message].filter((part) => typeof part === 'string' && part !== '').join(' ');
+  return detail ? `${error.message}: ${detail}` : error.message;
+}
+
+/**
+ * The fetch failure as something a person can act on.
+ *
+ * Read from the string `probe` records rather than the error itself, because the string is what
+ * the evidence, the crawl and the dashboard carry around. A loopback address that refused the
+ * connection has one possible cause and the port is named; a redirect loop, a server that hung up,
+ * a name that does not resolve and a certificate that was rejected each get their own sentence,
+ * because the fix for each is different. Anything that already reads like a sentence is passed
+ * through untouched.
+ *
+ * @param {string} url
+ * @param {string} message
+ * @returns {string}
+ */
+export function whyUnreachable(url, message) {
+  const target = parseUrl(url);
+  if (/abort|timed? ?out/i.test(message)) return 'it did not answer in time';
+  if (/redirect count exceeded/i.test(message)) return 'it redirects in a loop';
+  if (/ENOTFOUND|EAI_AGAIN|EAI_NONAME/.test(message)) return `the name ${target?.hostname ?? 'in the URL'} does not resolve`;
+  if (/CERT_HAS_EXPIRED/.test(message)) return 'its HTTPS certificate has expired';
+  if (/SELF_SIGNED_CERT/.test(message)) return 'its HTTPS certificate is self-signed';
+  if (/ERR_TLS_CERT_ALTNAME_INVALID/.test(message)) return 'its HTTPS certificate is for a different host name';
+  if (/ERR_SSL_WRONG_VERSION_NUMBER|EPROTO/.test(message)) return 'it does not speak HTTPS on that port';
+  if (/CERT_|_CERT\b|UNABLE_TO_VERIFY|ERR_TLS|ERR_SSL/.test(message)) return 'its HTTPS certificate was rejected';
+  if (/ECONNRESET|UND_ERR_SOCKET|other side closed|socket hang up|terminated|EPIPE/i.test(message)) return 'it closed the connection before answering';
+  if (!/fetch failed|ECONNREFUSED/i.test(message)) return message;
+  const local = target?.hostname === 'localhost' || target?.hostname === '127.0.0.1' || target?.hostname === '::1';
+  if (local) return `nothing is listening on port ${target?.port || (target?.protocol === 'https:' ? '443' : '80')}`;
+  return 'the host could not be reached';
 }
 
 /**

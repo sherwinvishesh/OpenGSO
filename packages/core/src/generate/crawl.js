@@ -1,8 +1,7 @@
 import { JSDOM } from 'jsdom';
 import { ERRORS } from '../shared/errors.js';
-import { MAX_PROBE_BYTES, probe } from '../shared/http.js';
+import { MAX_PROBE_BYTES, probe, whyUnreachable } from '../shared/http.js';
 import { hasDotSegment, normalizeRoute } from '../shared/routes.js';
-import { whyUnreachable } from '../shared/site-probe.js';
 
 /**
  * Route discovery by following real `<a href>` links (§6, and the §17 ceiling on how far

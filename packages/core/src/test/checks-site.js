@@ -1,6 +1,6 @@
 import { AI_BOTS } from '../shared/bots.js';
 import { HEADERS } from '../shared/version.js';
-import { parseUrl } from '../shared/http.js';
+import { parseUrl, whyUnreachable } from '../shared/http.js';
 import { parseRobots, robotsAllows, robotsRulesFor } from '../shared/robots.js';
 import { checkDefinition } from './checks.js';
 import { fail, na, partial, pass, ramp } from './checks.js';
@@ -345,7 +345,7 @@ export function checkSsrExtractable(e) {
   if (!e.html.ok || !e.html.body) {
     return fail(
       'A5',
-      `The page did not return usable HTML (HTTP ${e.html.status || 'unreachable'}).`,
+      e.html.error ? `The page could not be fetched: ${whyUnreachable(e.html.url, e.html.error)}.` : `The page did not return usable HTML (HTTP ${e.html.status}).`,
       undefined,
       'Get the URL returning a 2xx HTML response (+9). Nothing else on this report can be measured properly until it does.',
     );

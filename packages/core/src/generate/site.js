@@ -3,7 +3,7 @@ import { resolveBots } from '../shared/bots.js';
 import { internalDirPath, isLoopbackUrl, publicDirPath, publicOriginOf } from '../shared/config.js';
 import { ERRORS } from '../shared/errors.js';
 import { basePathOf, normalizeRoute } from '../shared/routes.js';
-import { whyUnreachable } from '../shared/site-probe.js';
+import { whyUnreachable } from '../shared/http.js';
 import { crawlSite } from './crawl.js';
 import { writeSiteFiles } from './files.js';
 import { refreshEdgeData } from '../prod/edge-data.js';

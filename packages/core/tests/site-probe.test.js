@@ -117,6 +117,27 @@ describe('previewSite', () => {
     expect((await previewSite(SITE, { fetchPage })).error).toBe('unable to verify the first certificate');
   });
 
+  it('tells a redirect loop, a hang-up and a bad certificate apart from a port with nobody on it', async () => {
+    // What `probe` records for each, with undici's cause appended to its one-size "fetch failed".
+    /** @type {Array<[string, string]>} */
+    const cases = [
+      ['fetch failed: redirect count exceeded', 'it redirects in a loop'],
+      ['fetch failed: UND_ERR_SOCKET other side closed', 'it closed the connection before answering'],
+      ['fetch failed: ECONNRESET read ECONNRESET', 'it closed the connection before answering'],
+      ['fetch failed: ENOTFOUND getaddrinfo ENOTFOUND nope.example', 'the name localhost does not resolve'],
+      ['fetch failed: CERT_HAS_EXPIRED certificate has expired', 'its HTTPS certificate has expired'],
+      ['fetch failed: DEPTH_ZERO_SELF_SIGNED_CERT self signed certificate', 'its HTTPS certificate is self-signed'],
+      ['fetch failed: ERR_TLS_CERT_ALTNAME_INVALID Hostname/IP does not match', 'its HTTPS certificate is for a different host name'],
+      ['fetch failed: UNABLE_TO_GET_ISSUER_CERT_LOCALLY unable to get local issuer certificate', 'its HTTPS certificate was rejected'],
+      ['fetch failed: ERR_SSL_WRONG_VERSION_NUMBER wrong version number', 'it does not speak HTTPS on that port'],
+      ['fetch failed: ECONNREFUSED connect ECONNREFUSED 127.0.0.1:3000', 'nothing is listening on port 3000'],
+    ];
+    for (const [recorded, sentence] of cases) {
+      const { fetchPage } = fakeProbe({ [SITE]: { error: recorded } });
+      expect((await previewSite(SITE, { fetchPage })).error, recorded).toBe(sentence);
+    }
+  });
+
   it('names the framework from the header before it looks at the markup', async () => {
     const { fetchPage } = fakeProbe({ [SITE]: { headers: { 'x-powered-by': 'Next.js' }, body: '<div>plain</div>' } });
 

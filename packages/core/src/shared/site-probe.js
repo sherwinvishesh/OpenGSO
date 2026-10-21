@@ -2,7 +2,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultConfig } from './config.js';
 import { detectFramework } from './framework.js';
-import { BROWSER_UA, parseUrl, probe } from './http.js';
+import { BROWSER_UA, probe, whyUnreachable } from './http.js';
 import { twinUrl } from './routes.js';
 import { frameworkWebRoot } from './web-root.js';
 import { HEADERS } from './version.js';
@@ -76,29 +76,6 @@ export async function previewSite(url, options = {}) {
     served: found.ok && Boolean(found.headers.get(HEADERS.aeoVersion)),
   };
   return preview;
-}
-
-/**
- * The fetch failure as something a person can act on.
- *
- * Undici says "fetch failed" for a refused connection, an unknown host and a rejected certificate
- * alike, and a setup prompt that repeats those two words has told the reader nothing they had not
- * already worked out from the fact that they are reading an error. The cause is not on the message,
- * so this does not pretend to diagnose: for a loopback address the port is the only thing that can
- * be wrong and it says so, and everything else gets the honest general answer. Anything that already
- * reads like a sentence is passed through untouched.
- *
- * @param {string} url
- * @param {string} message
- * @returns {string}
- */
-export function whyUnreachable(url, message) {
-  const target = parseUrl(url);
-  if (/abort|timed? ?out/i.test(message)) return 'it did not answer in time';
-  if (!/fetch failed|ECONNREFUSED|ECONNRESET|terminated|other side closed|socket hang up/i.test(message)) return message;
-  const local = target?.hostname === 'localhost' || target?.hostname === '127.0.0.1' || target?.hostname === '::1';
-  if (local) return `nothing is listening on port ${target?.port || (target?.protocol === 'https:' ? '443' : '80')}`;
-  return 'the host could not be reached';
 }
 
 /**
