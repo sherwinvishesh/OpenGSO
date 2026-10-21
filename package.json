@@ -17,6 +17,8 @@
     "build": "npm run build -w packages/testing -w packages/generate -w packages/prod -w packages/cli -w packages/opengso",
     "check:bundles": "node scripts/check-bundles.mjs",
     "check:packages": "node scripts/check-packages.mjs",
+    "check:links": "node scripts/check-links.mjs",
+    "check:actions": "node scripts/check-actions.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/opengso/web/tsconfig.json",
