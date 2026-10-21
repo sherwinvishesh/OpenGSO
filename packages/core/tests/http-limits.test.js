@@ -286,3 +286,46 @@ describe('the twin a page advertises', () => {
     }
   });
 });
+
+describe('the body, in the encoding the page declared', () => {
+  // "café" in Latin-1 is one byte per letter; read as UTF-8 the é becomes U+FFFD.
+  const latin1 = Buffer.from([0x3c, 0x70, 0x3e, 0x63, 0x61, 0x66, 0xe9, 0x3c, 0x2f, 0x70, 0x3e]);
+
+  it('reads the charset from the Content-Type header', async () => {
+    const site = await serve((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html; charset=iso-8859-1' });
+      res.end(latin1);
+    });
+    try {
+      expect((await probe(`${site.base}/`)).body).toBe('<p>café</p>');
+    } finally {
+      await site.close();
+    }
+  });
+
+  it('falls back to a <meta charset> in the markup when the header names none', async () => {
+    const site = await serve((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(Buffer.concat([Buffer.from('<html><head><meta charset="windows-1252"></head>'), latin1]));
+    });
+    try {
+      expect((await probe(`${site.base}/`)).body).toContain('<p>café</p>');
+    } finally {
+      await site.close();
+    }
+  });
+
+  it('decodes as UTF-8 when nothing is declared, and when the label is one Node does not know', async () => {
+    const utf8 = Buffer.from('<p>café</p>', 'utf8');
+    const site = await serve((req, res) => {
+      res.writeHead(200, { 'content-type': req.url === '/bogus' ? 'text/html; charset=klingon-7' : 'text/html' });
+      res.end(utf8);
+    });
+    try {
+      expect((await probe(`${site.base}/`)).body).toBe('<p>café</p>');
+      expect((await probe(`${site.base}/bogus`)).body).toBe('<p>café</p>');
+    } finally {
+      await site.close();
+    }
+  });
+});

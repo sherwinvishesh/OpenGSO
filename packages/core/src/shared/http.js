@@ -192,12 +192,15 @@ function worthRetrying(error, method) {
 async function readCapped(response, maxBytes) {
   if (!response.body) return { body: '', truncated: false };
   const reader = response.body.getReader();
-  const decoder = new TextDecoder();
+  /** @type {TextDecoder | undefined} */
+  let decoder;
   let body = '';
   let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) return { body: body + decoder.decode(), truncated: false };
+    if (done) return { body: body + (decoder?.decode() ?? ''), truncated: false };
+    // Chosen on the first chunk, which is where a <meta charset> sits if the header has none.
+    decoder ??= decoderFor(response.headers, value);
     const room = maxBytes - size;
     if (value.byteLength > room) {
       body += decoder.decode(value.subarray(0, room));
@@ -206,6 +209,33 @@ async function readCapped(response, maxBytes) {
     }
     size += value.byteLength;
     body += decoder.decode(value, { stream: true });
+  }
+}
+
+const CHARSET_IN_HEADER = /charset\s*=\s*["']?\s*([\w.:-]+)/i;
+const CHARSET_IN_META = /<meta[^>]+charset\s*=\s*["']?\s*([\w.:-]+)/i;
+
+/**
+ * The decoder a page asked for: the Content-Type charset, else a `<meta charset>` in the first
+ * kilobytes, else UTF-8.
+ *
+ * Decoding everything as UTF-8 turned every accent on a Latin-1 or Windows-1252 site into U+FFFD,
+ * and the twin then carried the damage into every agent that read it. The sniff reads the head as
+ * ASCII, which every encoding a web page declares is a superset of. A label Node does not know
+ * falls back to UTF-8 rather than throwing: a page is still worth more mangled than dropped.
+ *
+ * @param {Headers} headers
+ * @param {Uint8Array} first
+ * @returns {TextDecoder}
+ */
+function decoderFor(headers, first) {
+  const declared = CHARSET_IN_HEADER.exec(headers.get('content-type') ?? '')?.[1];
+  const head = declared ? '' : new TextDecoder('latin1').decode(first.subarray(0, 2048));
+  const label = declared ?? CHARSET_IN_META.exec(head)?.[1] ?? 'utf-8';
+  try {
+    return new TextDecoder(label);
+  } catch {
+    return new TextDecoder();
   }
 }
 
