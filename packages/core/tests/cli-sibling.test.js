@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -71,15 +71,20 @@ describe('findSibling', () => {
     });
   });
 
-  it('finds it from the current directory of a project when the asking bin is elsewhere', () => {
-    const bin = install(root, 'opengso-testing');
+  it('looks only in the trees it is given, never in a project it was not installed into', () => {
+    install(root, 'opengso-testing');
     const elsewhere = mkdtempSync(join(tmpdir(), 'opengso-global-'));
     try {
-      const found = findSibling('test', { roots: [elsewhere, join(root, 'src', 'deep')], self: 'opengso-prod' });
-      expect(found?.bin).toBe(bin);
+      expect(findSibling('test', { roots: [elsewhere], self: 'opengso-prod' })).toBeUndefined();
     } finally {
       rmSync(elsewhere, { recursive: true, force: true });
     }
+  });
+
+  it('refuses a bin that points outside its package', () => {
+    install(root, 'opengso-cli', { bin: '../../escape.js' });
+    expect(existsSync(join(root, 'escape.js'))).toBe(true);
+    expect(findSibling('test', { roots: [root], self: 'opengso-prod' })).toBeUndefined();
   });
 
   it('returns nothing when no installed package ships the command', () => {
@@ -110,11 +115,11 @@ describe('findSibling', () => {
     expect(findSibling('generate', { roots: [root], self: 'opengso-prod' })).toBeUndefined();
   });
 
-  it('starts from where the running bin lives and then from the current directory', () => {
+  it('starts from where the running bin lives, and not from the current directory', () => {
     const roots = defaultSiblingRoots();
-    expect(roots).toHaveLength(2);
+    expect(roots).toHaveLength(1);
     expect(roots[0]).toMatch(/[\\/]cli$/);
-    expect(roots[1]).toBe(process.cwd());
+    expect(roots).not.toContain(process.cwd());
   });
 });
 

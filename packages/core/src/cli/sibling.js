@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMAND_PACKAGES } from '../shared/errors.js';
 
@@ -13,10 +13,15 @@ import { COMMAND_PACKAGES } from '../shared/errors.js';
  * `test` typed at a tree where opengso-prod won the link used to answer "install opengso-cli" to
  * someone who had.
  *
- * So before giving that answer, the CLI looks for a sibling that ships the command, in the tree
- * the running bin was installed into and then the one the command was typed in, and runs that
+ * So before giving that answer, the CLI looks for a sibling that ships the command and runs that
  * sibling's bin in its place. The handover is silent: a `--json` run through the wrong bin has to
  * be byte-identical to one through the right one.
+ *
+ * The lookup walks up from where the running bin is installed, and from nowhere else: the packages
+ * it can find are exactly the ones that bin could import by name, so nothing runs that was not
+ * already in its path. The directory the command was typed in is deliberately not searched. A
+ * global `opengso` run inside a checkout would otherwise execute whatever that checkout's
+ * `node_modules` holds, and the user typed a global command precisely so that it would not.
  */
 
 /**
@@ -33,18 +38,20 @@ export const DELEGATED_VARIABLE = 'OPENGSO_DELEGATED';
  */
 
 /**
- * The directories a lookup starts from: where this bin lives, then where the command was typed.
- * The second one is what finds a project-local install when the bin that answered is a global one.
+ * Where a lookup starts from: the directory this bin lives in, which after bundling is the
+ * package's own `dist/`. Never the current directory (see above).
  *
  * @returns {string[]}
  */
 export function defaultSiblingRoots() {
-  return [dirname(fileURLToPath(import.meta.url)), process.cwd()];
+  return [dirname(fileURLToPath(import.meta.url))];
 }
 
 /**
  * The first installed package, other than the one asking, that ships `command`. Each root is
  * searched the way Node resolves a bare specifier: every ancestor's `node_modules`, nearest first.
+ * That is what finds a sibling through pnpm's `.pnpm/<name>/node_modules/<name>` layout and a
+ * hoisted workspace as well as a flat install.
  *
  * @param {CommandName} command
  * @param {object} [options]
@@ -124,6 +131,8 @@ function readSibling(dir) {
   }
   const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && typeof pkg.bin === 'object' ? /** @type {Record<string, unknown>} */ (pkg.bin).opengso : undefined;
   if (typeof pkg.name !== 'string' || typeof pkg.version !== 'string' || typeof bin !== 'string') return undefined;
+  // The script has to be inside the package, the same rule npm applies before linking a bin.
   const script = resolve(dir, bin);
+  if (!script.startsWith(resolve(dir) + sep)) return undefined;
   return existsSync(script) ? { name: pkg.name, version: pkg.version, bin: script } : undefined;
 }
