@@ -75,6 +75,16 @@ in its `exports` imports by name and also resolves for a resolver that does not 
 (and the dashboard, for `opengso`) and nothing from `src/` or `tests/`. CI also builds the
 Next.js example, which is the integration test for `opengso-prod/next`.
 
+Two more checks run in CI and take a second each locally. `npm run check:links` follows every link
+in every tracked Markdown file, including the ones into this repository on GitHub and the ones to
+the project site, and fails on one that lands on no file or no heading. `npm run check:actions`
+fails on a workflow step that uses an action by tag rather than by commit. Both use Node builtins
+only, so neither needs `npm install` first.
+
+`npm install` also points git at `.githooks/`, so every commit first runs `typecheck`, the link
+check and the website test (the twins in `website/` must match its pages). It takes a few seconds.
+`git commit --no-verify` skips it once, and `git config --unset core.hooksPath` switches it off.
+
 To exercise the whole thing against a real site, put the CLI on your PATH first. This builds
 everything, packs `opengso`, and installs that tarball globally, so you are driving the same
 artifact a user installs from npm rather than a symlink into the workspace:
@@ -126,6 +136,31 @@ the changeset still has to name a package, or nothing is released at all, but wh
 matter. Name the one your change is about, so the changelog entry lands where a reader would look
 for it. A release of a package whose bundled code did not change costs nothing, and a published
 package silently left on old bundled code is a real bug that is hard to spot.
+
+## Releases
+
+Releasing is a maintainer's job, and it is one button. The Release workflow
+(`.github/workflows/release.yml`) runs only when started by hand from the Actions tab. With
+changesets pending it opens the "Version Packages" pull request and publishes nothing. With none
+pending it runs the whole gate again and publishes every package whose version is not already on
+npm, after `scripts/check-release-versions.mjs` has refused any package still at a placeholder
+version. The `release` environment is the approval gate: the job names it, so it waits for one of
+the environment's reviewers before anything is published.
+
+Every publish carries npm provenance (`NPM_CONFIG_PROVENANCE` in the workflow), so the package page
+on npm links each tarball to the commit and the workflow run that built it. That only works from a
+public repository, and the workflow is set to fail rather than publish without it.
+
+The workflow reads one secret, `NPM_TOKEN`, and only until trusted publishing is set up for each
+package on npm. After that, npm trusts this workflow in this repository and the token can be deleted;
+nothing else in the repository needs a secret at all. Checks, CodeQL and the website deploy run with
+the token GitHub gives every job.
+
+To version by hand instead, run `npx changeset version`, then bump the five workspace entries in
+`package-lock.json` to match and the "Today all five are" line in
+[docs/versioning.md](docs/versioning.md), which a test pins to the package versions. Do not run
+`npm install --package-lock-only` to update the lockfile: on one platform it strips the other
+platforms' optional binaries from it, and the macOS and Windows jobs fail.
 
 ## The bot list
 
