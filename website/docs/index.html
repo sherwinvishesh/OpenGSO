@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs · OpenGSO</title>
+<meta name="description" content="Install OpenGSO, score a URL, copy the fix prompt, generate markdown twins, serve them with the production middleware, and understand all 22 checks, the wire spec, the config file and the AI providers.">
+<link rel="canonical" href="https://sherwinvishesh.github.io/OpenGSO/docs/">
+<link rel="alternate" type="text/markdown" href="https://sherwinvishesh.github.io/OpenGSO/docs.md">
+<meta name="theme-color" content="#151716">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenGSO">
+<meta property="og:title" content="OpenGSO documentation">
+<meta property="og:description" content="Install, test, the fix prompt, generate, prod and its five adapters, the 22 checks, the wire spec, config and providers.">
+<meta property="og:url" content="https://sherwinvishesh.github.io/OpenGSO/docs/">
+<meta property="og:image" content="https://sherwinvishesh.github.io/OpenGSO/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The OpenGSO mark, a slanted hash with a green centre, beside the words OpenGSO and open generative search optimization.">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "OpenGSO documentation",
+  "description": "Install OpenGSO, score a URL, copy the fix prompt, generate markdown twins, serve them with the production middleware, and understand all 22 checks, the wire spec, the config file and the AI providers.",
+  "url": "https://sherwinvishesh.github.io/OpenGSO/docs/",
+  "dateModified": "2026-10-20",
+  "isPartOf": { "@type": "WebSite", "name": "OpenGSO", "url": "https://sherwinvishesh.github.io/OpenGSO/" },
+  "about": { "@type": "SoftwareApplication", "name": "OpenGSO", "applicationCategory": "DeveloperApplication", "operatingSystem": "Node.js 22 or later" }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="top" aria-label="Site">
+  <div class="container">
+    <a class="brand" href="../" aria-label="OpenGSO, home">
+      <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-bar" d="M20 5 14 43M34 5 28 43M8 17H42M6 31H40"/><path class="mk-core" d="M21.3,20.8 L27.7,20.8 L26.7,27.2 L20.3,27.2 Z"/></svg>
+      <span>OpenGSO</span>
+      <span class="brand-sub">Agent-readable web</span>
+    </a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="../#problem">Problem</a></li>
+        <li><a href="../#start">Get started</a></li>
+        <li><a href="../#results">Results</a></li>
+        <li><a href="../#ci">CI</a></li>
+        <li><a href="../#guarantees">Guarantees</a></li>
+        <li><a href="../#checks">Checks</a></li>
+        <li><a href="../docs/" aria-current="page">Docs</a></li>
+      </ul>
+      <a class="nav-cta" href="https://github.com/sherwinvishesh/OpenGSO">GitHub <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="Menu">
+        <span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span>
+      </button>
+    </div>
+  </div>
+  <div class="nav-mobile-panel" id="nav-panel">
+    <ul>
+      <li><a href="../#problem">Problem</a></li>
+      <li><a href="../#start">Get started</a></li>
+      <li><a href="../#results">Results</a></li>
+      <li><a href="../#ci">CI</a></li>
+      <li><a href="../#guarantees">Guarantees</a></li>
+      <li><a href="../#checks">Checks</a></li>
+      <li><a href="../docs/" aria-current="page">Docs</a></li>
+      <li><a href="../privacy/">Privacy</a></li>
+    </ul>
+    <a class="nav-mobile-git" href="https://github.com/sherwinvishesh/OpenGSO">GitHub ↗</a>
+  </div>
+</nav>
+
+<main id="main" class="page">
+  <div class="container">
+    <div class="page-head">
+      <p class="eyebrow">Documentation</p>
+      <h1>Everything OpenGSO does, and how.</h1>
+      <p class="lede">From the first install to the weight of every check and the header on every response. If a question is not answered here, open an issue on GitHub.</p>
+      <p class="meta">Version 0.1.1 · Node 22 or later · Updated October 20, 2026</p>
+    </div>
+
+    <div class="docs-layout">
+      <aside class="toc" aria-label="On this page">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="#test">Test a URL</a></li>
+          <li><a href="#prompts">The fix prompt</a></li>
+          <li><a href="#generate">Generate</a></li>
+          <li><a href="#static">Static sites</a></li>
+          <li><a href="#prod">Prod</a></li>
+          <li><a href="#edge">Edge runtimes</a></li>
+          <li><a href="#verify">Verify a deployment</a></li>
+          <li><a href="#levers">The two bot levers</a></li>
+          <li><a href="#config">Configuration</a></li>
+          <li><a href="#checks">The 22 checks</a></li>
+          <li><a href="#spec">The wire spec</a></li>
+          <li><a href="#providers">AI providers</a></li>
+          <li><a href="#dashboard">Dashboard and terminal</a></li>
+          <li><a href="#troubleshooting">Troubleshooting</a></li>
+          <li><a href="#versioning">Versioning</a></li>
+          <li><a href="#develop">Develop</a></li>
+          <li><a href="#license">License</a></li>
+        </ol>
+      </aside>
+
+      <div class="prose">
+        <h2 id="install"><a class="anchor" href="#install">Install</a></h2>
+        <p>OpenGSO is free on npm and needs Node.js 22 or later on macOS, Linux or Windows.</p>
+<pre><code>npm install --save-dev opengso</code></pre>
+        <p>That is the whole toolkit plus the local dashboard. OpenGSO is five packages built from one codebase, so a project can install only the part it uses. Every one of them exposes the same <code>opengso</code> command, and a package asked for something it does not ship names the package that does.</p>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Package</th><th>Ships</th><th>Install it when</th></tr></thead>
+          <tbody>
+            <tr><td><a href="https://www.npmjs.com/package/opengso"><code>opengso</code></a></td><td data-label="Ships">everything, plus the local dashboard</td><td data-label="Install it when">you want the whole thing, or you want a UI</td></tr>
+            <tr><td><a href="https://www.npmjs.com/package/opengso-cli"><code>opengso-cli</code></a></td><td data-label="Ships"><code>test</code>, <code>generate</code>, <code>prod test</code>, <code>prod data</code>, <code>settings</code></td><td data-label="Install it when">you want the whole toolchain, terminal only</td></tr>
+            <tr><td><a href="https://www.npmjs.com/package/opengso-testing"><code>opengso-testing</code></a></td><td data-label="Ships"><code>test</code></td><td data-label="Install it when">you only want to score a site</td></tr>
+            <tr><td><a href="https://www.npmjs.com/package/opengso-generate"><code>opengso-generate</code></a></td><td data-label="Ships"><code>generate</code></td><td data-label="Install it when">you only want the markdown twins and root files</td></tr>
+            <tr><td><a href="https://www.npmjs.com/package/opengso-prod"><code>opengso-prod</code></a></td><td data-label="Ships">the middleware, plus <code>prod test</code> and <code>prod data</code></td><td data-label="Install it when">this is the one that runs on your server</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p class="callout"><code>opengso-prod</code> is the package that ends up in a production dependency, so it has zero dependencies. The library your server imports has no HTML parser and no AI provider code: it reads files that generate already wrote and does a map lookup per request. The build checks that on every release.</p>
+
+        <h2 id="quickstart"><a class="anchor" href="#quickstart">Quickstart</a></h2>
+<pre><code>npx opengso                                  # the terminal app: where you stand, and what to do
+npx opengso start                            # set the project up, then open the dashboard
+npx opengso test https://your-site.com       # score it as it is today
+npx opengso generate https://your-site.com   # write the twins and the three root files
+# wire opengso-prod into your server (see Prod below)
+npx opengso prod test https://your-site.com  # prove the deployment serves them correctly
+npx opengso test https://your-site.com       # score it again</code></pre>
+        <p><code>opengso</code> on its own opens the home screen: your project, its last score, how many twins it has, and a menu of everything there is to do. Piped or run from a script it prints the help page instead, so nothing that shells out to it changes behaviour.</p>
+        <p><code>opengso start</code> asks four questions the first time it runs in a directory: your site URL and web root, which AI agents get the markdown twin, blocking, and an optional API key. After that it goes straight to the dashboard. <code>opengso settings</code> asks the same questions in the terminal, with your current answers as the defaults, and prints what actually changed.</p>
+        <p>Nothing in the quickstart needs an API key. The structural test, generate's free tier and all of <code>opengso-prod</code> run without one.</p>
+
+        <h2 id="test"><a class="anchor" href="#test">Test a URL</a></h2>
+        <p><code>opengso test</code> scores a live URL from 0 to 100 and says exactly what failed. Give it the full address, scheme included. Anything your machine can reach works: production, a staging host, or <code>http://localhost:3000</code>.</p>
+<pre><code>opengso test https://your-site.com               # the checks, then an AI review of the markdown
+opengso test https://your-site.com --structure   # the checks alone. Also --offline, -nq. No key, no cost
+opengso test https://your-site.com --content     # the AI review alone
+opengso test https://your-site.com -q            # the full run, with the review required</code></pre>
+        <p>The structural pass is the score: 22 deterministic checks, no model involved, the same responses always producing the same number. The content review is a second, optional pass that reads every markdown document the site serves and grades it out of 100 on its own. It needs a key, refuses to run in CI, and prints as its own section. The two numbers are never blended.</p>
+        <h3>Reading the report</h3>
+        <p>Rows are grouped worst first: failed, partly there, suggestions, locked, passed, adopted, not applicable. Each row names the check, what it verifies and the specific reason it reached its verdict, with the header value or rule actually observed. A partial row shows a small meter and the split, <code>2 of 4</code>. A suggestion is marked <code>TIP</code> rather than with a cross, because it is not a failure.</p>
+<pre><code>OpenGSO test  https://yourstartup.com/pricing
+Detected: Next.js
+
+   85/100  ████████████████████▍░░░  5 of 6 scored checks passed, 1 failed, 1 n/a
+    ideas  ▒▒▒░░░░░░░░░░░░░░░░░░░░  2 of 15 suggestions adopted, 12 waiting on B1
+
+FAIL A1 robots.txt exists and does not disallow known AI bots  -15 pts
+     robots.txt disallows ChatGPT-User, PerplexityBot from /pricing.</code></pre>
+        <p>The report ends with <strong>Do this next</strong>: every scored fix ranked by the points it recovers, so the top line is always the most valuable edit you can make. The suggestions follow under their own heading, heaviest first. Every price the report prints is in score points, how far that one fix would move the headline, and not the check's weight.</p>
+        <p>Test the same URL again and the headline says what moved since the last run, such as <code>+15 since 2h ago</code>, with a sparkline of the runs before it. The history is kept in <code>.opengso/history.json</code>, newest 20 runs per URL, and is never served.</p>
+        <h3>Options</h3>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>--prompt</code></td><td data-label="What it does">Print a ready-to-paste fix prompt for a coding agent instead of the report.</td></tr>
+            <tr><td><code>--copy</code></td><td data-label="What it does">Put that fix prompt on the clipboard. With <code>--prompt</code> it prints and copies; alone it copies after the report.</td></tr>
+            <tr><td><code>--only &lt;ids&gt;</code></td><td data-label="What it does">Scope the prompt to some checks: <code>--only A3</code> or <code>--only B1,B7</code>. An unknown id exits 2.</td></tr>
+            <tr><td><code>--strict</code></td><td data-label="What it does">Fail the build on a suggestion that fails too, not only on a scored check.</td></tr>
+            <tr><td><code>--verbose</code>, <code>-v</code></td><td data-label="What it does">Show why each passing check passed, not just the failures.</td></tr>
+            <tr><td><code>--json</code></td><td data-label="What it does">Machine-readable output.</td></tr>
+            <tr><td><code>--out &lt;file&gt;</code></td><td data-label="What it does">Write the output to a file instead of stdout.</td></tr>
+            <tr><td><code>--provider &lt;name&gt;</code></td><td data-label="What it does">Which AI provider runs the review. <code>opengso help providers</code> lists them.</td></tr>
+            <tr><td><code>--model &lt;name&gt;</code></td><td data-label="What it does">The model id, for the review only.</td></tr>
+            <tr><td><code>--max-docs &lt;n&gt;</code></td><td data-label="What it does">How many documents the review reads. Default 10.</td></tr>
+            <tr><td><code>--project &lt;dir&gt;</code></td><td data-label="What it does">The directory holding <code>opengso.config.json</code>. Default the current one.</td></tr>
+            <tr><td><code>--timeout &lt;secs&gt;</code></td><td data-label="What it does">Per-request timeout. Default 15.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>Exit codes</h3>
+        <p><code>opengso test</code> exits 1 only when a scored check fails, so it drops into CI without failing builds over conventions a site has not adopted. <code>--strict</code> widens that to any failing check, for a project that has adopted the markdown layer and wants CI to notice the day it stops being served. Exit 2 means the command line could not be run as written: an unknown option, a malformed value, no URL. The exit code always comes from the structural checks, so a model's opinion can never fail a build.</p>
+
+        <h2 id="prompts"><a class="anchor" href="#prompts">The fix prompt</a></h2>
+        <p>Every test result can become one Markdown prompt to paste into Claude Code or any coding agent with access to the repository.</p>
+<pre><code>opengso test https://your-site.com --copy              # the report, then the prompt on your clipboard
+opengso test https://your-site.com --prompt            # the prompt instead of the report
+opengso test https://your-site.com --prompt --only A3  # one check
+opengso test https://your-site.com --copy --only B1,B7 # a few</code></pre>
+        <p>The prompt carries the score, the URL, the expected twin URL and the detected framework, then each failed check with the points it cost, what actually happened, what to change, and a "Done when" line naming the command that proves it fixed. Suggestions follow, each marked as outside the score, then the twelve checks waiting on B1. It links only to <code>opengso-prod</code> and OpenGSO's own documentation.</p>
+        <p>Framework detection covers Next.js, Nuxt, Astro, SvelteKit, Remix, Gatsby, Docusaurus, Hugo, Jekyll, WordPress, Vite and plain HTML, so the prompt tells the agent where the middleware actually goes. It matches only markers a framework emits itself, never a word in the page's text.</p>
+        <p><code>--copy</code> uses the clipboard your system already has: <code>pbcopy</code> on macOS, PowerShell (then <code>clip</code>) on Windows and WSL, <code>wl-copy</code>, <code>xclip</code> or <code>xsel</code> on Linux. Over SSH with none of those, it asks the terminal to set its clipboard. When nothing works it says so, and <code>--prompt --out fix-prompt.md</code> saves the prompt to a file instead. A failed copy never changes the exit code.</p>
+        <p>The same prompt is one keypress away elsewhere. The dashboard has a <strong>Fix it with Claude Code</strong> card, a copy button on every group and every failing check, and copies everything when you press <kbd>c</kbd>. The home screen offers <kbd>c</kbd> when a test finishes.</p>
+        <p class="callout warn">Anything the site sent, such as a header value or a JSON-LD field, is quoted as a single-line code span, fenced so it cannot close its own span, and cut at 400 characters. The prompt tells the agent that quoted text is evidence and never instructions, so a server cannot use its own responses to add steps to the prompt.</p>
+
+        <h2 id="generate"><a class="anchor" href="#generate">Generate</a></h2>
+        <p><code>opengso generate</code> crawls a site once and writes the files AI agents want: a clean markdown twin of every page, plus <code>robots.txt</code>, <code>llms.txt</code> and <code>sitemap.xml</code>.</p>
+<pre><code>npx opengso generate http://localhost:3000</code></pre>
+<pre><code>public/
+  md/
+    index.md           served at /index.md
+    about.md           served at /about.md
+    pricing.md         served at /pricing.md
+  robots.txt
+  llms.txt
+  sitemap.xml
+.opengso/
+  manifest.json        bookkeeping, outside the web root, never served</code></pre>
+        <p>The crawl is a same-origin breadth-first search over real links from the URL you give it, up to <code>crawl.maxDepth</code> deep and <code>crawl.maxPages</code> requests. A page nothing links to goes under <code>extraRoutes</code>. Set <code>publicOrigin</code> to the deployed address and every absolute URL generate writes names it, rather than the dev server that was crawled.</p>
+        <h3>Two tiers</h3>
+        <ul>
+          <li><strong>Free</strong>, the default. Algorithmic and deterministic, needs no key, and produces the markdown everything else is measured against.</li>
+          <li><strong>AI</strong>, with <code>--tier ai</code>. Rewrites each page with your provider, then verifies the result: every number, date, price and percentage in the algorithmic extraction must survive with its sign and scale, and the model may not add one. If anything goes missing or appears, the AI output is discarded and the algorithmic version is written instead, with a warning naming the fact. The AI tier runs only on your machine and refuses to run in CI.</li>
+        </ul>
+        <h3>It never overwrites your files</h3>
+        <p>A <code>robots.txt</code>, <code>llms.txt</code> or <code>sitemap.xml</code> without OpenGSO's generated-by marker is left exactly as it is, and OpenGSO's version is written beside it as <code>robots.txt.opengso-proposed</code> with a warning naming both paths. Twins follow the same rule: a file whose frontmatter does not say OpenGSO wrote it is left alone. <code>--force</code> is the only way past that. Set <code>generated_by: manual</code> in a twin's frontmatter to claim it as yours and have it served as is.</p>
+        <h3>Frontmatter</h3>
+<pre><code>---
+title: "Pricing"
+url: "https://example.com/pricing"
+last_updated: "2026-10-20T09:12:44.102Z"
+tokens: 412
+source_hash: "0cdc3ec67ce75fa0"
+generated_by: "opengso-free"
+description: "Plans, prices and what each one includes."
+---</code></pre>
+        <p>The prod middleware strips the frontmatter before serving and moves the same facts into response headers. <code>source_hash</code> is taken over the extracted markdown, not the raw HTML, so it changes exactly when the page's content changes and not on every rebuild.</p>
+        <h3>Options</h3>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>--tier &lt;free|ai&gt;</code></td><td data-label="What it does">Free is algorithmic and needs no key; AI is bring-your-own-key and fidelity-checked.</td></tr>
+            <tr><td><code>--origin &lt;url&gt;</code></td><td data-label="What it does">Where the site is published. Every link in the twins, <code>llms.txt</code> and <code>sitemap.xml</code> names it.</td></tr>
+            <tr><td><code>--check</code></td><td data-label="What it does">For a folder of files: report the twins older than their page, exit 1 if any are, and write nothing.</td></tr>
+            <tr><td><code>--single</code></td><td data-label="What it does">Only the URL given, leaving every other page in the manifest alone.</td></tr>
+            <tr><td><code>--max-pages &lt;n&gt;</code></td><td data-label="What it does">Override <code>crawl.maxPages</code>.</td></tr>
+            <tr><td><code>--depth &lt;n&gt;</code></td><td data-label="What it does">Override <code>crawl.maxDepth</code>.</td></tr>
+            <tr><td><code>--timeout &lt;secs&gt;</code></td><td data-label="What it does">How long to wait for each page while crawling. Default 20.</td></tr>
+            <tr><td><code>--force</code></td><td data-label="What it does">Overwrite hand-written root files and twins.</td></tr>
+            <tr><td><code>--skip-files</code></td><td data-label="What it does">Twins only; leave <code>robots.txt</code>, <code>llms.txt</code> and <code>sitemap.xml</code> alone.</td></tr>
+            <tr><td><code>--prune</code></td><td data-label="What it does">Delete orphaned twins OpenGSO wrote for pages this run no longer found. Never deletes a file OpenGSO did not write.</td></tr>
+            <tr><td><code>--json</code></td><td data-label="What it does">Machine-readable output.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Generate is a local, deliberate act, so it is a devDependency and never runs in production or on a schedule. A twin is a cache, and check B14 in <code>opengso test</code> is the safety net that says when it has gone stale.</p>
+
+        <h2 id="static"><a class="anchor" href="#static">Static sites</a></h2>
+        <p>A site that is a folder of HTML files needs no server and no crawl. Point generate at the folder and it writes each twin beside its page, under the name a static host serves at the page's URL plus <code>.md</code>.</p>
+<pre><code>npx opengso generate dist --origin https://example.com   # every page in dist/
+npx opengso generate dist/pricing.html                   # one page, after you edit it
+npx opengso generate --check                             # which pages changed since their twins</code></pre>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Page</th><th>Its URL</th><th>Its twin</th></tr></thead>
+          <tbody>
+            <tr><td><code>index.html</code></td><td data-label="Its URL"><code>/</code></td><td data-label="Its twin"><code>index.md</code></td></tr>
+            <tr><td><code>pricing.html</code></td><td data-label="Its URL"><code>/pricing.html</code>, or <code>/pricing</code></td><td data-label="Its twin"><code>pricing.html.md</code>, or <code>pricing.md</code></td></tr>
+            <tr><td><code>about/index.html</code></td><td data-label="Its URL"><code>/about</code></td><td data-label="Its twin"><code>about.md</code></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Generate from what your tool builds and publish that folder: <code>dist</code> for Vite and Astro, <code>docs/.vitepress/dist</code> for VitePress, <code>build</code> for Docusaurus, <code>out</code> for a Next.js static export, <code>public</code> for Gatsby and Hugo, and <code>_site</code> for Jekyll and Eleventy. A rebuild usually empties the folder, so run generate after building and before you deploy.</p>
+        <h3>GitHub Pages and other folder sites</h3>
+        <p>A GitHub Pages project site lives at <code>user.github.io/repo/</code>. Pass that as the origin and every URL generate writes carries the folder. <code>robots.txt</code> is not written, because crawlers read it only at the root of the host, and the root belongs to another site. When the folder is one GitHub Pages publishes, generate writes an empty <code>.nojekyll</code> so Jekyll does not build the twins into pages of their own.</p>
+<pre><code>npx opengso generate site --origin https://user.github.io/repo</code></pre>
+        <p class="callout">This site is built exactly that way: plain files on GitHub Pages, with its twins, <code>llms.txt</code> and sitemap written by <code>opengso generate</code>. A static host cannot negotiate or set custom headers, so an agent asking for a page itself still gets HTML, and the header checks stay open. The twins are served at their <code>.md</code> URLs all the same.</p>
+
+        <h2 id="prod"><a class="anchor" href="#prod">Prod</a></h2>
+        <p><code>opengso-prod</code> serves the twin at the same URL to the agents that ask for markdown, with the right headers, and the HTML to everyone else. It reads the manifest once at startup, so every request after that is a map lookup.</p>
+<pre><code>npm install opengso-prod</code></pre>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Entry</th><th>Frameworks</th></tr></thead>
+          <tbody>
+            <tr><td><code>opengso-prod/next</code></td><td data-label="Frameworks">Next.js 16 (<code>proxy.ts</code>) and Next.js 15 (<code>middleware.ts</code>)</td></tr>
+            <tr><td><code>opengso-prod/node</code></td><td data-label="Frameworks">Express, Connect, Polka, Fastify, Koa, Nest, Nuxt and h3, Angular SSR, Qwik City</td></tr>
+            <tr><td><code>opengso-prod/fetch</code></td><td data-label="Frameworks">Hono, SvelteKit, Astro, React Router and Remix, SolidStart, Bun, Deno</td></tr>
+            <tr><td><code>opengso-prod/vite</code></td><td data-label="Frameworks">The Vite dev and preview servers</td></tr>
+            <tr><td><code>opengso-prod/edge</code></td><td data-label="Frameworks">Cloudflare Workers, Vercel and Netlify Edge, Deno Deploy</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>Next.js 16</h3>
+        <p>Next 16 calls the file <code>proxy.ts</code>, at the project root, exporting <code>proxy</code>.</p>
+<pre><code>import { NextResponse } from 'next/server';
+import { applyPassthroughHeaders, createNextMiddleware } from 'opengso-prod/next';
+
+// Built once at module scope, so a request is a lookup and nothing else.
+const opengso = createNextMiddleware({ root: process.cwd() });
+
+export function proxy(request: Request) {
+  const { response, headers } = opengso(request);
+  if (response) return response;          // markdown, a 304, or a 406
+
+  const next = NextResponse.next();
+  applyPassthroughHeaders(next, headers); // Vary, X-AEO-Version, Link on the HTML
+  return next;
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};</code></pre>
+        <p>On Next 15 the same code goes in <code>middleware.ts</code>, exporting <code>middleware</code>, with <code>runtime: 'nodejs'</code> in <code>config</code>. A Next 16 proxy file refuses a <code>runtime</code> field, so leave it out there. Under <code>next dev</code> the adapter reloads the config and twins by itself when they change; a production server reads them once.</p>
+        <h3>Express and other Node servers</h3>
+<pre><code>import { createNodeMiddleware } from 'opengso-prod/node';
+
+app.use(createNodeMiddleware()); // first, before your routes and static files</code></pre>
+        <h3>SvelteKit</h3>
+<pre><code>// src/hooks.server.js
+import { createFetchMiddleware } from 'opengso-prod/fetch';
+
+const opengso = createFetchMiddleware();
+
+export const handle = ({ event, resolve }) => opengso(event.request, () => resolve(event));</code></pre>
+        <h3>Hono</h3>
+<pre><code>import { createFetchMiddleware } from 'opengso-prod/fetch';
+
+const opengso = createFetchMiddleware();
+app.use((c, next) => opengso(c.req.raw, async () => { await next(); return c.res; }));</code></pre>
+        <h3>Vite</h3>
+<pre><code>// vite.config.js
+import opengso from 'opengso-prod/vite';
+
+export default { plugins: [opengso()] };</code></pre>
+        <p>The package README on GitHub has the exact wiring for every framework in the table, and <code>docs/prod-api.md</code> documents every export.</p>
+        <p class="callout">No adapter can take a page down. A broken <code>opengso.config.json</code> is logged once, as one <code>[opengso-prod]</code> line naming the problem, and every request goes to your app as if OpenGSO were not installed. A broken config costs you the markdown, never the site.</p>
+        <p>On boot, once per process, the middleware reports what it found: whether <code>robots.txt</code> blocks any AI bot, whether <code>llms.txt</code> and <code>sitemap.xml</code> are there, and how many twins it loaded. Pass <code>logStartup: false</code> to silence it.</p>
+
+        <h2 id="edge"><a class="anchor" href="#edge">Edge runtimes</a></h2>
+        <p>An edge function has no disk, so the twins travel as data. <code>opengso prod data</code> writes them, with your routing and custom crawlers, into one module for the function to import.</p>
+<pre><code>npx opengso-prod prod data      # writes opengso-edge-data.js (.ts in a TypeScript project)</code></pre>
+<pre><code>// A Cloudflare Worker in front of its static assets
+import { createEdgeMiddleware } from 'opengso-prod/edge';
+import data from './opengso-edge-data.js';
+
+const opengso = createEdgeMiddleware({ data });
+
+export default {
+  fetch: (request, env) => opengso(request, () => env.ASSETS.fetch(request)),
+};</code></pre>
+        <p>Run it after <code>opengso generate</code> and before your bundler. Generate refreshes the module when it finds one. It writes nothing when there are no twins, rather than an empty module that would quietly turn the markdown off, and it warns past 1 MB, since edge hosts cap a function's size. <code>opengso-prod/edge</code> imports no Node module, so any runtime with <code>Request</code> and <code>Response</code> takes it.</p>
+
+        <h2 id="verify"><a class="anchor" href="#verify">Verify a deployment</a></h2>
+<pre><code>npx opengso prod test https://your-site.com/some-page</code></pre>
+        <p>Five probes, each isolating exactly one variable, reported under the lever it belongs to. The routed-bot probe sends a browser-typical <code>Accept</code> header, so a markdown response can only have been caused by the User-Agent. The Accept probe sends a browser User-Agent, so a markdown response can only have been caused by the <code>Accept</code> header. When the two levers disagree, such as a bot you route markdown to that your own <code>robots.txt</code> disallows, that gets its own section.</p>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Option</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><code>--bot &lt;name&gt;</code></td><td data-label="What it does">Impersonate a specific bot. Default ClaudeBot.</td></tr>
+            <tr><td><code>--verbose</code>, <code>-v</code></td><td data-label="What it does">Print the exact curl and the returned headers for each probe.</td></tr>
+            <tr><td><code>--json</code></td><td data-label="What it does">Machine-readable output.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>The exit code follows the failures, not the warnings. A warning is a real finding, but it is the kind a CDN can cause and that you may knowingly accept.</p>
+
+        <h2 id="levers"><a class="anchor" href="#levers">The two bot levers</a></h2>
+        <p>Which bots get markdown and which bots are blocked are two separate settings, and OpenGSO keeps them apart everywhere: in the config, in the terminal, in the dashboard and in <code>prod test</code>.</p>
+        <ul>
+          <li><strong><code>bots.markdownRouting</code> chooses a format.</strong> A bot on this list gets the twin at the page's own URL without asking for it. A bot not on it gets the normal HTML page, exactly like a person. It never blocks anybody, and an agent nobody has heard of gets HTML, not a 403.</li>
+          <li><strong><code>bots.blocked</code> requests no access.</strong> It is opt-in, empty by default, and expressed only as <code>Disallow</code> rules in the <code>robots.txt</code> generate writes. It is advisory, as robots.txt always is, and it is never applied to a crawler OpenGSO does not know.</li>
+        </ul>
+        <p>The production middleware has no blocking code path at all. Blocking lives in a static file a crawler chooses to honour, where a site owner can read it.</p>
+        <h3>The default routing</h3>
+        <p>OpenGSO recognises 28 AI crawlers by name: 13 that collect training data, 8 that build search indexes and 7 assistants that fetch a page because someone asked about it. The default routing is the 18 that are not search engines and can be recognised by User-Agent:</p>
+        <p>GPTBot, ChatGPT-User, ClaudeBot, Claude-User, anthropic-ai, Perplexity-User, CCBot, Bytespider, meta-externalagent, meta-externalfetcher, cohere-ai, MistralAI-User, DuckAssistBot, Diffbot, Ai2Bot, FirecrawlAgent, ImagesiftBot and Timpibot.</p>
+        <p class="callout warn">No preset routes a search crawler. Every markdown response carries <code>X-Robots-Tag: noindex</code>, and at the page's own URL that would tell Bingbot, Applebot or OAI-SearchBot to drop the page from their results. You can tick one by hand, and settings, the dashboard and prod's startup log all warn when you have. Any client can still ask for markdown with <code>Accept: text/markdown</code>.</p>
+        <h3>Crawlers OpenGSO does not ship with</h3>
+        <p><code>bots.custom</code> adds an in-house agent, or an AI product newer than your installed version, to the catalogue. It is neither lever: an entry is routed to only if its name is also in <code>markdownRouting</code>, and disallowed only if it is also in <code>blocked</code>. A name already in the shipped list is ignored, so a typo cannot shadow GPTBot.</p>
+<pre><code>{ "name": "AcmeBot", "vendor": "Acme Inc", "uaPatterns": ["acme-crawler"], "kind": "assistant" }</code></pre>
+
+        <h2 id="config"><a class="anchor" href="#config">Configuration</a></h2>
+        <p><code>opengso.config.json</code> is written by <code>opengso settings</code>, <code>opengso start</code> and the dashboard, and can be edited by hand. It is meant to be committed: the API key is never in it. OpenGSO looks in the current directory, then upward, but never past the project, and <code>--project &lt;dir&gt;</code> points at one explicitly. Any subset is fine; missing fields take their defaults.</p>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Field</th><th>Default</th><th>What it is</th></tr></thead>
+          <tbody>
+            <tr><td><code>site</code></td><td data-label="Default"><code>"http://localhost:3000"</code></td><td data-label="What it is">The URL the project is generated and tested against. Also what a bare <code>opengso test</code> scores.</td></tr>
+            <tr><td><code>publicOrigin</code></td><td data-label="Default">unset</td><td data-label="What it is">Where the site is deployed. Every absolute URL generate writes uses it instead of the crawled origin.</td></tr>
+            <tr><td><code>publicDir</code></td><td data-label="Default"><code>"public"</code></td><td data-label="What it is">The web root. Twins go in <code>md/</code> under it, beside the three root files.</td></tr>
+            <tr><td><code>internalDir</code></td><td data-label="Default"><code>".opengso"</code></td><td data-label="What it is">Bookkeeping that must not be web-served: the manifest and the run history.</td></tr>
+            <tr><td><code>extraRoutes</code></td><td data-label="Default"><code>[]</code></td><td data-label="What it is">Paths the link crawl cannot reach, such as <code>"/pricing"</code>.</td></tr>
+            <tr><td><code>crawl.maxPages</code></td><td data-label="Default"><code>200</code></td><td data-label="What it is">The most requests one crawl makes, a 404 or an off-site redirect included.</td></tr>
+            <tr><td><code>crawl.maxDepth</code></td><td data-label="Default"><code>4</code></td><td data-label="What it is">How many links deep the crawl follows from the start URL.</td></tr>
+            <tr><td><code>crawl.exclude</code></td><td data-label="Default"><code>[]</code></td><td data-label="What it is">Path prefixes the crawl skips, on top of assets, anchors and framework internals.</td></tr>
+            <tr><td><code>generate.tier</code></td><td data-label="Default"><code>"free"</code></td><td data-label="What it is"><code>"free"</code> is algorithmic and needs no key; <code>"ai"</code> rewrites each page with your provider, on your machine only.</td></tr>
+            <tr><td><code>generate.source</code></td><td data-label="Default">unset (<code>"url"</code>)</td><td data-label="What it is"><code>"url"</code> crawls <code>site</code>; <code>"files"</code> reads every <code>.html</code> file in <code>publicDir</code>.</td></tr>
+            <tr><td><code>generate.minWords</code></td><td data-label="Default"><code>40</code></td><td data-label="What it is">Below this, a page gets a low-content warning, usually a sign it renders with JavaScript.</td></tr>
+            <tr><td><code>bots.markdownRouting</code></td><td data-label="Default">the 18 non-search crawlers</td><td data-label="What it is">Lever 1: which AI agents receive the twin at the page's own URL.</td></tr>
+            <tr><td><code>bots.blocked</code></td><td data-label="Default"><code>[]</code></td><td data-label="What it is">Lever 2: crawlers asked not to crawl, expressed only in the generated <code>robots.txt</code>.</td></tr>
+            <tr><td><code>bots.custom</code></td><td data-label="Default"><code>[]</code></td><td data-label="What it is">Crawlers OpenGSO does not ship with: <code>name</code>, and optionally <code>vendor</code>, <code>uaPatterns</code>, <code>robotsToken</code>, <code>kind</code>, <code>notes</code>.</td></tr>
+            <tr><td><code>ai.provider</code></td><td data-label="Default"><code>"anthropic"</code></td><td data-label="What it is">Which provider the AI tier and the content review use.</td></tr>
+            <tr><td><code>ai.model</code></td><td data-label="Default"><code>"claude-sonnet-5-5"</code></td><td data-label="What it is">The model id. An empty string means the provider's own default.</td></tr>
+            <tr><td><code>ai.baseUrl</code>, <code>ai.api</code>, <code>ai.auth</code>, <code>ai.headers</code>, <code>ai.params</code></td><td data-label="Default">the provider's own</td><td data-label="What it is">Overrides for a gateway or a self-hosted endpoint: its URL, request shape, how the key is sent, extra headers and extra body fields.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>Every field present is checked on load, and a wrong one is reported by name. A field OpenGSO does not know is never an error, so a config written by a newer version still loads: it is named on stderr with the field it was probably meant to be, so <code>publicdir</code> gets "Did you mean publicDir?".</p>
+<pre><code>{
+  "site": "http://localhost:3000",
+  "publicOrigin": "https://example.com",
+  "extraRoutes": ["/pricing"],
+  "crawl": { "maxPages": 200, "maxDepth": 4, "exclude": ["/admin"] },
+  "generate": { "tier": "free", "minWords": 40 },
+  "bots": {
+    "markdownRouting": ["ClaudeBot", "GPTBot", "AcmeBot"],
+    "blocked": [],
+    "custom": [{ "name": "AcmeBot", "uaPatterns": ["acme-crawler"] }]
+  },
+  "ai": { "provider": "anthropic", "model": "claude-sonnet-5-5" }
+}</code></pre>
+
+        <h2 id="checks"><a class="anchor" href="#checks">The 22 checks</a></h2>
+        <p>Seven checks are <strong>scored</strong> and make the 0-100: AI crawlers allowed in <code>robots.txt</code>, a valid <code>sitemap.xml</code>, real content in the raw HTML, a fast first byte, no <code>noai</code> tag, HTTPS with HSTS, and the HTML page still answering once the markdown layer is in place. The other fifteen are <strong>suggestions</strong>: <code>llms.txt</code>, JSON-LD, the markdown twin and the headers around it. The best-read sites on the web have mostly not adopted them, so not having one never moves the number. They are counted on their own, as "N of 15 adopted".</p>
+<pre><code>score = round(100 × earned / applicable)</code></pre>
+        <p><code>applicable</code> is the sum of the weights of every scored check that returned pass, partial or fail. The scored weights total 61 and the suggestions another 61, so a weight is not a score point: every "+N" the report prints has been converted into score points for that run. On a real HTTPS host, a 9-weight check is worth 15 points.</p>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Verdict</th><th>In the denominator</th><th>Earns</th></tr></thead>
+          <tbody>
+            <tr><td>pass</td><td data-label="In the denominator">yes</td><td data-label="Earns">the full weight</td></tr>
+            <tr><td>partial</td><td data-label="In the denominator">yes</td><td data-label="Earns">part of the weight, named in the row</td></tr>
+            <tr><td>fail</td><td data-label="In the denominator">yes</td><td data-label="Earns">nothing</td></tr>
+            <tr><td>suggestion</td><td data-label="In the denominator">no</td><td data-label="Earns">nothing; it is still reported with its evidence and a fix</td></tr>
+            <tr><td>locked</td><td data-label="In the denominator">no</td><td data-label="Earns">nothing; it waits on the check it reads from</td></tr>
+            <tr><td>n/a</td><td data-label="In the denominator">no</td><td data-label="Earns">nothing, and there is nothing to fix</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>When the twin does not answer, the twelve B checks that read it have nothing to inspect. They become <strong>locked</strong> behind B1, the heaviest check in the table, and the report shows them as one block, "12 more suggestions apply once B1 passes", rather than as twelve findings about one missing file. Every check that can be locked is a suggestion, so the cascade never moves the score.</p>
+        <p>Three calibration points are pinned by tests: a well-built site with no markdown layer scores 100, with A2, A4 and B1 open as suggestions; the same site serving a correct twin scores 100 with the suggestions adopted; and only a scored failure moves the number below 100.</p>
+        <div class="table-wrap">
+        <table class="checks-table">
+          <thead><tr><th>Id</th><th>Weight</th><th>Kind</th><th>Check</th></tr></thead>
+          <tbody>
+            <tr><td>A1</td><td>9</td><td>scored</td><td>robots.txt exists and does not disallow known AI bots. Read the way a crawler reads it: the bot's own group, the wildcard group as the fallback, then the longest matching rule for the path. Blocking only bulk training crawlers reads as a deliberate opt-out and earns 6 of 9.</td></tr>
+            <tr><td>A2</td><td>3</td><td>suggestion</td><td>llms.txt is present and valid: a real markdown document with a <code># Title</code> and at least one link. Served but empty or linkless earns 1; links with no title earns 2.</td></tr>
+            <tr><td>A3</td><td>9</td><td>scored</td><td>sitemap.xml is present and valid, and lists this page. No <code>&lt;urlset&gt;</code> or no <code>&lt;loc&gt;</code> earns 3; a valid sitemap that omits the page earns 6. A sitemap index is followed into its first 10 children.</td></tr>
+            <tr><td>A4</td><td>2</td><td>suggestion</td><td>Schema.org JSON-LD is present and parses. A block that does not parse, or declares no <code>@type</code>, earns 1.</td></tr>
+            <tr><td>A5</td><td>9</td><td>scored</td><td>Real content is in the raw HTML, not only after JS runs. Parsed with scripts disabled: 60 words or more passes, 15 or fewer fails, ramped in between.</td></tr>
+            <tr><td>A6</td><td>8</td><td>scored</td><td>Time to first byte is fast enough for agent fetches: 400 ms or less passes, 1500 ms or more fails, ramped in between.</td></tr>
+            <tr><td>A7</td><td>8</td><td>scored</td><td>No <code>noai</code> or <code>noimageai</code> directive in a robots meta tag or <code>X-Robots-Tag</code> is silently blocking AI.</td></tr>
+            <tr><td>A8</td><td>9</td><td>scored</td><td>Served over HTTPS with HSTS. HTTPS without <code>Strict-Transport-Security</code> earns 6. Not applicable on localhost.</td></tr>
+            <tr><td>B1</td><td>10</td><td>suggestion</td><td>Markdown twin URL is reachable and returns 2xx with something other than an HTML page. <code>/pricing</code> becomes <code>/pricing.md</code> and <code>/</code> becomes <code>/index.md</code>. Locks the twelve checks below when it fails.</td></tr>
+            <tr><td>B2</td><td>5</td><td>suggestion</td><td>Content-Type is exactly <code>text/markdown; charset=utf-8</code>. No charset earns 3; <code>text/plain</code> earns 2.</td></tr>
+            <tr><td>B3</td><td>5</td><td>suggestion</td><td>Markdown response body is non-empty, ramped on its word count against the live page's from 8% up to 50%.</td></tr>
+            <tr><td>B4</td><td>3</td><td>suggestion</td><td><code>X-Markdown-Tokens</code> is present and a positive integer, so an agent can budget its context before it downloads the body.</td></tr>
+            <tr><td>B5</td><td>3</td><td>suggestion</td><td><code class="long">X-Content-Type-Options: nosniff</code> is present on the twin.</td></tr>
+            <tr><td>B6</td><td>3</td><td>suggestion</td><td><code>X-Robots-Tag</code> on the twin includes <code>noindex</code>. The header without <code>noindex</code> earns 1.</td></tr>
+            <tr><td>B7</td><td>4</td><td>suggestion</td><td><code>Vary</code> includes <code>Accept</code> as a whole token on both responses, so CDNs cache the two formats separately. One side right earns 2.</td></tr>
+            <tr><td>B8</td><td>3</td><td>suggestion</td><td>The HTML response advertises the twin via <code>Link: &lt;/pricing.md&gt;; rel="alternate"; type="text/markdown"</code>. A <code>Link</code> header without that entry, or one naming another origin, earns 1.</td></tr>
+            <tr><td>B9</td><td>6</td><td>suggestion</td><td><code>Accept: text/markdown</code> on the page URL receives markdown at the same URL, not HTML and not a redirect.</td></tr>
+            <tr><td>B10</td><td>6</td><td>suggestion</td><td>A known AI bot User-Agent receives markdown at the same URL without an Accept header. The probe is GPTBot, or the first crawler on your routing list when GPTBot is not on it.</td></tr>
+            <tr><td>B11</td><td>2</td><td>suggestion</td><td>An Accept header excluding HTML and markdown (<code>application/pdf</code>) returns 406.</td></tr>
+            <tr><td>B12</td><td>2</td><td>suggestion</td><td><code>X-AEO-Version</code> advertises the spec version implemented.</td></tr>
+            <tr><td>B13</td><td>9</td><td>scored</td><td>The original HTML URL is still reachable and unaffected: 2xx, an HTML Content-Type, a non-empty body, and no redirect to the twin.</td></tr>
+            <tr><td>B14</td><td>4</td><td>suggestion</td><td>The served markdown still matches the live page. The live page is re-extracted and hashed against the twin's source hash; when they differ, the numbers, dates and prices are compared one by one. Every fact still present earns 2.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>A status code is never trusted on its own. A catch-all route that answers <code>/robots.txt</code>, <code>/llms.txt</code> or a twin URL with its HTML shell and a 200 is detected by reading the body, and scored as the missing file it is. Checks B2, B4 to B12 read response headers only a server can set, so a static host such as GitHub Pages can serve the twins and still leave those open; an edge function in front of it can set them.</p>
+        <h3>The content review</h3>
+        <p>The optional AI pass gives the markdown a separate score out of 100, derived from five areas so it can be explained line by line. An area the model did not score leaves the denominator rather than counting as zero.</p>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Area</th><th>Worth</th><th>What it asks</th></tr></thead>
+          <tbody>
+            <tr><td>Answerability</td><td data-label="Worth">30</td><td data-label="What it asks">Could an agent answer a real question from this document alone?</td></tr>
+            <tr><td>Specificity</td><td data-label="Worth">25</td><td data-label="What it asks">Concrete facts, numbers, prices, dates and versions, or adjectives?</td></tr>
+            <tr><td>Definition</td><td data-label="Worth">20</td><td data-label="What it asks">Is it obvious in the first few lines what this is and who it is for?</td></tr>
+            <tr><td>Structure</td><td data-label="Worth">15</td><td data-label="What it asks">Headings that describe their content, sensible order, sensible length?</td></tr>
+            <tr><td>Keywords</td><td data-label="Worth">10</td><td data-label="What it asks">Are the words someone would search for present, and used naturally?</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h2 id="spec"><a class="anchor" href="#spec">The wire spec</a></h2>
+        <p><code>opengso/1.0</code> is the contract between a site and an agent: which URL holds the markdown, which headers say so, and what happens when an agent asks for a format the server cannot produce. It is plain HTTP that a CDN, a proxy and a curl one-liner already understand, and nothing in it requires OpenGSO.</p>
+        <ol>
+          <li>Serve the same content as markdown when asked, at the same URL.</li>
+          <li>Say so with <code>Vary: Accept</code> and a <code>Link: rel="alternate"</code>.</li>
+          <li>Do not index the twin.</li>
+          <li>Return 406 instead of guessing.</li>
+        </ol>
+        <p>There are two ways to ask for markdown: an <code>Accept: text/markdown</code> header, which works for agents nobody has heard of yet, and a known AI User-Agent on the routing list, a courtesy for agents that send no Accept header. Both <strong>rewrite</strong>: same URL, same status, different body. Neither redirects, because a redirect changes the URL the agent records and cites.</p>
+        <h3>On a markdown response</h3>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Header</th><th>Value</th><th>Required</th></tr></thead>
+          <tbody>
+            <tr><td><code>Content-Type</code></td><td data-label="Value"><code>text/markdown; charset=utf-8</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>Vary</code></td><td data-label="Value">includes <code>Accept</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>X-AEO-Version</code></td><td data-label="Value"><code>opengso/1.0</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>X-Robots-Tag</code></td><td data-label="Value"><code>noindex</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>X-Content-Type-Options</code></td><td data-label="Value"><code>nosniff</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>X-Markdown-Tokens</code></td><td data-label="Value">a positive integer</td><td data-label="Required">recommended</td></tr>
+            <tr><td><code>X-Markdown-Source-Hash</code></td><td data-label="Value">hash of the extracted source</td><td data-label="Required">optional</td></tr>
+            <tr><td><code>Last-Modified</code>, <code>ETag</code></td><td data-label="Value">from the manifest and the body</td><td data-label="Required">optional</td></tr>
+            <tr><td><code>Cache-Control</code></td><td data-label="Value"><code>private</code></td><td data-label="Required">yes, when the User-Agent chose markdown</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>On an HTML response</h3>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Header</th><th>Value</th><th>Required</th></tr></thead>
+          <tbody>
+            <tr><td><code>Vary</code></td><td data-label="Value">includes <code>Accept</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>X-AEO-Version</code></td><td data-label="Value"><code>opengso/1.0</code></td><td data-label="Required">yes</td></tr>
+            <tr><td><code>Link</code></td><td data-label="Value"><code>&lt;/pricing.md&gt;; rel="alternate"; type="text/markdown"</code></td><td data-label="Required">recommended, when a twin exists</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>An <code>ETag</code> sent back as <code>If-None-Match</code> gets <code>304 Not Modified</code> with no body when the twin is unchanged. A request whose Accept header excludes both HTML and markdown, on a route with a twin, gets a <code>406 Not Acceptable</code> naming the two formats it can have. Every other request passes through to the application untouched, so an API asking for JSON or an event stream is never the middleware's to answer.</p>
+        <p class="callout">The twin is the same content as the HTML page in a cleaner format: not a summary, not an abridgement, and not a different document. Serving different information at the two URLs is cloaking, and the spec does not permit it.</p>
+
+        <h2 id="providers"><a class="anchor" href="#providers">AI providers</a></h2>
+        <p>OpenGSO is bring-your-own-key, and most of it needs no key at all. A key buys exactly two things: generate's AI tier and the content review. Twenty-five providers are built in, dispatched on the API shape a provider speaks rather than on its name, so every one is a row in one table.</p>
+        <p>Anthropic, OpenAI, Google Gemini, xAI, Mistral, DeepSeek, Alibaba Qwen, Moonshot Kimi, Z.ai GLM, MiniMax, Cohere, Perplexity, OpenRouter, Groq, Together AI, Fireworks AI, Cerebras, SambaNova, DeepInfra, Hugging Face, NVIDIA NIM, Novita AI, Ollama and LM Studio on your own machine, and any endpoint you name with <code>custom</code>.</p>
+<pre><code>opengso settings                                  # interactive, writes .env and .gitignore for you
+opengso test https://your-site.com --provider groq   # one run, overriding the config
+opengso help providers                            # the whole catalogue, from the code</code></pre>
+        <p>The default model for each is a fast, inexpensive one, because rewriting a page is summarising work and a site can have hundreds of pages. Any model the provider serves works through <code>ai.model</code> or <code>--model</code>. A name people actually type, like <code>--provider claude</code>, stops and asks "Did you mean anthropic?" rather than guessing.</p>
+        <p class="callout">The key is written to <code>.env</code> in your project, after <code>.env</code> is added to <code>.gitignore</code>, and nowhere else. It is never written to <code>opengso.config.json</code>, never returned by the dashboard, and never sent anywhere except the direct call to the provider you picked. With Ollama or LM Studio there is no key and nothing leaves the machine.</p>
+
+        <h2 id="dashboard"><a class="anchor" href="#dashboard">Dashboard and terminal</a></h2>
+        <p>There are three ways in, and they run the same code, so they never disagree about a score, a header or a file.</p>
+        <ul>
+          <li><strong>Commands</strong>, for scripts and CI: <code>opengso test</code>, <code>generate</code>, <code>prod test</code>, <code>prod data</code>, <code>settings</code>, each with <code>--json</code>.</li>
+          <li><strong>The home screen</strong>, a full-screen terminal app when you type <code>opengso</code> on its own. It is a launcher: picking Test runs the real command in normal scrollback, so the report can be scrolled and copied, then comes back. It needs a real terminal on both ends and turns itself off when <code>CI</code>, <code>NO_COLOR</code> or <code>OPENGSO_NO_TUI</code> is set or <code>TERM</code> is <code>dumb</code>, falling back to plain prompts.</li>
+          <li><strong>The dashboard</strong>, with <code>opengso start</code>, in the <code>opengso</code> package. Five screens: Test, Generate, Prod, Bot settings and Settings. Generate can show you the exact bytes an agent would receive, read back off disk.</li>
+        </ul>
+        <h3>Keyboard</h3>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Key</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>t</kbd> <kbd>g</kbd> <kbd>p</kbd> <kbd>d</kbd> <kbd>s</kbd></td><td>On the home screen, jump to Test, Generate, Prod, Dashboard or Settings</td></tr>
+            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Move through the home screen menu</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>Run the selected item. In the dashboard's URL field, run the test</td></tr>
+            <tr><td><kbd>c</kbd></td><td>After a test, copy the fix prompt</td></tr>
+            <tr><td><kbd>1</kbd> to <kbd>5</kbd></td><td>Switch dashboard screens, when you are not typing in a field</td></tr>
+            <tr><td><kbd>q</kbd></td><td>Leave the home screen</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <h3>Dashboard options</h3>
+        <div class="table-wrap">
+        <table class="stack">
+          <thead><tr><th>Flag</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>-p</code>, <code>--port &lt;n&gt;</code></td><td data-label="Meaning">Port to listen on. Default 4321.</td></tr>
+            <tr><td><code>--host &lt;addr&gt;</code></td><td data-label="Meaning">Interface to bind. Default 127.0.0.1. Anything else requires the launch token.</td></tr>
+            <tr><td><code>--project &lt;dir&gt;</code></td><td data-label="Meaning">Project root. Default the current directory.</td></tr>
+            <tr><td><code>--no-open</code></td><td data-label="Meaning">Do not launch a browser.</td></tr>
+            <tr><td><code>--setup</code></td><td data-label="Meaning">Ask the four setup questions even though the project is configured.</td></tr>
+            <tr><td><code>--no-setup</code></td><td data-label="Meaning">Never ask. For scripts, and for a fresh checkout where a prompt would hang.</td></tr>
+            <tr><td><code>-y</code>, <code>--yes</code></td><td data-label="Meaning">Accept every default without prompting, and write no key.</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>The dashboard can write an API key to disk, so it listens on <code>127.0.0.1</code> only, refuses a request with a cross-origin <code>Origin</code> or a <code>Host</code> it was not started on, and serves a strict Content Security Policy. With <code>--host</code> set to anything else it requires a token, new on every launch, carried in the URL it prints. The <a href="../privacy/#dashboard">privacy policy</a> has the details.</p>
+
+        <h2 id="troubleshooting"><a class="anchor" href="#troubleshooting">Troubleshooting</a></h2>
+        <dl>
+          <dt>The score is 100 but the report still lists suggestions</dt>
+          <dd>Expected. Seven checks make the score; the fifteen suggestions never move it. <code>opengso generate</code> plus <code>opengso-prod</code> adopts most of them at once.</dd>
+          <dt>B1 is a suggestion and B2 to B14 show as locked</dt>
+          <dd>The site serves no markdown twin. Run <code>opengso generate</code>, add <code>opengso-prod</code> to the server, restart it, and test again.</dd>
+          <dt>CI passed although a suggestion failed</dt>
+          <dd>Only a scored failure sets exit code 1. Pass <code>--strict</code> once the markdown layer is live and should stay that way.</dd>
+          <dt>100/100, but B14 says the twin is stale</dt>
+          <dd>The page changed and the twin was not regenerated, so agents are sent the old facts. The report marks it <code>WARN</code> and leads with it. Re-run <code>opengso generate</code>.</dd>
+          <dt>B7 scores 2 of 4 on a Next.js site</dt>
+          <dd>Expected. Next's App Router will not let middleware add <code>Vary</code> to a response it did not create, so the markdown side has it and the HTML side does not. It is a partial suggestion and never changes the exit code.</dd>
+          <dt>A8 says n/a</dt>
+          <dd>HTTPS and HSTS mean nothing on <code>localhost</code>, so the check leaves the score. Test the deployed URL to measure it.</dd>
+          <dt>"... already exists and wasn't written by OpenGSO"</dt>
+          <dd>Your own file was kept, and OpenGSO's version is beside it as <code>&lt;name&gt;.opengso-proposed</code>. Merge what you want, or pass <code>--force</code>.</dd>
+          <dt>"Only N words of content"</dt>
+          <dd>The page probably renders its content with JavaScript. OpenGSO reads the server's HTML and has no headless browser. Server-render the page, generate from the production build, or lower <code>generate.minWords</code> if the page really is that short.</dd>
+          <dt>Agents still get HTML</dt>
+          <dd>Check that generate ran and <code>.opengso/manifest.json</code> exists, that the crawler is in <code>bots.markdownRouting</code>, that a production server was restarted, and on Next.js that the <code>matcher</code> covers the page. <code>opengso prod test</code> probes all five cases.</dd>
+          <dt>Bare <code>opengso</code> prints prompts instead of the home screen</dt>
+          <dd>The home screen needs a real terminal on stdin and stdout, and turns itself off under <code>CI</code>, <code>NO_COLOR</code>, <code>OPENGSO_NO_TUI</code> or <code>TERM=dumb</code>. The prompts do the same things.</dd>
+        </dl>
+
+        <h2 id="versioning"><a class="anchor" href="#versioning">Versioning</a></h2>
+        <p>The five packages follow semver and always share a version: today all five are 0.1.1. The first release on npm was 0.1.0, on October 20, 2026. Until 1.0, any minor release may change a command, a flag, a config field or an export.</p>
+        <p>The spec version, <code>opengso/1.0</code>, moves separately. It names what goes over the wire, so it changes only when the wire format does, and many package versions can implement the same spec.</p>
+
+        <h2 id="develop"><a class="anchor" href="#develop">Develop</a></h2>
+        <p>The source is plain JavaScript with JSDoc types, checked by TypeScript, so there is no compile step to run it: after <code>npm install</code>, <code>npm run opengso -- --help</code> runs the CLI from the source tree.</p>
+<pre><code>git clone https://github.com/sherwinvishesh/OpenGSO.git
+cd OpenGSO
+npm install
+npm run typecheck        # JSDoc types, checked by tsc
+npm test                 # the Vitest suites
+npm run build            # bundles the five packages
+npm run check:bundles    # what each bundle may and may not contain
+npm run check:packages   # what each tarball would ship
+npm run install:global   # build, pack and install opengso, to drive it like a user</code></pre>
+<pre><code>packages/core        @opengso/core, private and never published. Every pillar is
+                     implemented here once and bundled into each package at build time.
+packages/testing     opengso-testing
+packages/generate    opengso-generate
+packages/prod        opengso-prod
+packages/cli         opengso-cli
+packages/opengso     opengso, including web/ (the dashboard: plain HTML, CSS and JS)
+examples/nextjs-demo the Next.js app the whole pipeline is exercised against
+docs/                the user and contributor docs
+website/             this site</code></pre>
+        <p>Pull requests run the same checks as the CI badge on the repository, on Node 22 and 24 on Linux and Node 22 on macOS and Windows. Docs that state facts are tested against the code, so a weight changed in one place and not the other fails the suite. <code>CONTRIBUTING.md</code> has the rest, including how to add a bot.</p>
+
+        <h2 id="license"><a class="anchor" href="#license">License</a></h2>
+        <p>OpenGSO is open source under the Apache License, Version 2.0, with its LICENSE file in the repository. Geist is used on this site under the SIL Open Font License. The source is on <a href="https://github.com/sherwinvishesh/OpenGSO">GitHub</a>, and the packages are on <a href="https://www.npmjs.com/package/opengso">npm</a>.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="../">
+          <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-bar" d="M20 5 14 43M34 5 28 43M8 17H42M6 31H40"/><path class="mk-core" d="M21.3,20.8 L27.7,20.8 L26.7,27.2 L20.3,27.2 Z"/></svg>
+          <span>OpenGSO</span>
+        </a>
+        <p>An open-source toolkit for making websites readable by AI agents: measured, generated and served, with nothing sent home.</p>
+      </div>
+      <div class="footer-col">
+        <h2>Paper</h2>
+        <ul>
+          <li><a href="../#problem">The problem</a></li>
+          <li><a href="../#start">Get started</a></li>
+          <li><a href="../#results">Results</a></li>
+          <li><a href="../#guarantees">Guarantees</a></li>
+          <li><a href="../#cite">Cite</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>Build</h2>
+        <ul>
+          <li><a href="../docs/">Docs</a></li>
+          <li><a href="../docs/#install">Install</a></li>
+          <li><a href="../docs/#generate">Generate</a></li>
+          <li><a href="../docs/#prod">Prod</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>Repository</h2>
+        <ul>
+          <li><a href="https://github.com/sherwinvishesh/OpenGSO">GitHub</a></li>
+          <li><a href="https://www.npmjs.com/package/opengso">npm</a></li>
+          <li><a href="https://github.com/sherwinvishesh/OpenGSO/issues">Issues</a></li>
+          <li><a href="../privacy/">Privacy</a></li>
+          <li><a href="../llms.txt">llms.txt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>OpenGSO 0.1.1 · spec opengso/1.0 · Apache-2.0</span>
+      <span>Set in Geist and Geist Mono · this page has a <a href="../docs.md">markdown twin</a></span>
+    </div>
+    <p class="made">Made with <span class="heart" aria-label="love">❤</span> by Sherwin Vishesh Jathanna</p>
+  </div>
+</footer>
+
+<script src="../assets/site.js" defer></script>
+</body>
+</html>

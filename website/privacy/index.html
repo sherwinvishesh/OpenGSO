@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · OpenGSO</title>
+<meta name="description" content="What OpenGSO and this website collect: nothing. No telemetry, no analytics, no cookies. The only data that leaves your machine is what you send to the site you test and the AI provider you pick.">
+<link rel="canonical" href="https://sherwinvishesh.github.io/OpenGSO/privacy/">
+<link rel="alternate" type="text/markdown" href="https://sherwinvishesh.github.io/OpenGSO/privacy.md">
+<meta name="theme-color" content="#151716">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preload" href="../assets/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="OpenGSO">
+<meta property="og:title" content="OpenGSO privacy">
+<meta property="og:description" content="No telemetry, no analytics, no cookies, and an API key that goes to exactly one place.">
+<meta property="og:url" content="https://sherwinvishesh.github.io/OpenGSO/privacy/">
+<meta property="og:image" content="https://sherwinvishesh.github.io/OpenGSO/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The OpenGSO mark, a slanted hash with a green centre, beside the words OpenGSO and open generative search optimization.">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "OpenGSO privacy",
+  "url": "https://sherwinvishesh.github.io/OpenGSO/privacy/",
+  "dateModified": "2026-10-20",
+  "isPartOf": { "@type": "WebSite", "name": "OpenGSO", "url": "https://sherwinvishesh.github.io/OpenGSO/" }
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="top" aria-label="Site">
+  <div class="container">
+    <a class="brand" href="../" aria-label="OpenGSO, home">
+      <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-bar" d="M20 5 14 43M34 5 28 43M8 17H42M6 31H40"/><path class="mk-core" d="M21.3,20.8 L27.7,20.8 L26.7,27.2 L20.3,27.2 Z"/></svg>
+      <span>OpenGSO</span>
+      <span class="brand-sub">Agent-readable web</span>
+    </a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="../#problem">Problem</a></li>
+        <li><a href="../#start">Get started</a></li>
+        <li><a href="../#results">Results</a></li>
+        <li><a href="../#ci">CI</a></li>
+        <li><a href="../#guarantees">Guarantees</a></li>
+        <li><a href="../#checks">Checks</a></li>
+        <li><a href="../docs/">Docs</a></li>
+      </ul>
+      <a class="nav-cta" href="https://github.com/sherwinvishesh/OpenGSO">GitHub <span aria-hidden="true">↗</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-panel" aria-label="Menu">
+        <span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span><span class="nav-toggle-bar"></span>
+      </button>
+    </div>
+  </div>
+  <div class="nav-mobile-panel" id="nav-panel">
+    <ul>
+      <li><a href="../#problem">Problem</a></li>
+      <li><a href="../#start">Get started</a></li>
+      <li><a href="../#results">Results</a></li>
+      <li><a href="../#ci">CI</a></li>
+      <li><a href="../#guarantees">Guarantees</a></li>
+      <li><a href="../#checks">Checks</a></li>
+      <li><a href="../docs/">Docs</a></li>
+      <li><a href="../privacy/" aria-current="page">Privacy</a></li>
+    </ul>
+    <a class="nav-mobile-git" href="https://github.com/sherwinvishesh/OpenGSO">GitHub ↗</a>
+  </div>
+</nav>
+
+<main id="main" class="page">
+  <div class="container">
+    <div class="page-head">
+      <p class="eyebrow">Privacy</p>
+      <h1>Nothing is collected.</h1>
+      <p class="lede">Not by the tool, and not by this site. This page says what that means in practice, and names the few places where data does leave your machine because you asked it to.</p>
+      <p class="meta">Applies to OpenGSO 0.1.1 and this website · Updated October 20, 2026</p>
+    </div>
+
+    <div class="policy-summary">
+      <p>OpenGSO has no telemetry, no analytics, no crash reporting and no cloud sync. It never contacts a server of its own, because there is none. This website sets no cookies, runs no analytics and loads nothing from a third party.</p>
+    </div>
+
+    <div class="prose">
+      <h2 id="tool"><a class="anchor" href="#tool">The tool</a></h2>
+      <p>Every OpenGSO command runs on your machine. The only network requests it makes are the ones its job requires, to addresses you chose:</p>
+      <ul>
+        <li><b>opengso test</b> fetches the URL you give it, along with that site's robots.txt, llms.txt, sitemap.xml and markdown twin.</li>
+        <li><b>opengso generate</b> fetches the pages of the site you point it at, or reads its build folder and makes no request at all.</li>
+        <li><b>opengso prod test</b> fetches your deployed site to check what it serves.</li>
+        <li><b>The two optional AI passes</b>, the content review and the AI generate tier, send page content to the one provider you picked, with your key. If that provider is Ollama or LM Studio, the content stays on your machine.</li>
+      </ul>
+      <p>Results stay where they are written: the report on your screen, the files generate writes, and the run history in <code>.opengso/history.json</code>, which is never served to the web and never read by the production middleware.</p>
+
+      <h2 id="key"><a class="anchor" href="#key">Your API key</a></h2>
+      <p>The key is read from <code>.env</code> and sent to exactly one place, the provider you picked. It is never logged, never written to <code>opengso.config.json</code>, never returned by the dashboard's API, and never attached to any other request. The setup flow adds <code>.env</code> to <code>.gitignore</code> before it asks for the key, so it does not end up in a commit by accident.</p>
+
+      <h2 id="dashboard"><a class="anchor" href="#dashboard">The dashboard</a></h2>
+      <p><code>opengso start</code> serves the dashboard from your own machine on 127.0.0.1, which nothing else on the network can reach. Nothing in it is uploaded or synced.</p>
+
+      <h2 id="middleware"><a class="anchor" href="#middleware">The production middleware</a></h2>
+      <p><code>opengso-prod</code> runs inside your server and answers requests from the manifest generate wrote. It makes no network call, stores nothing about the requests it sees, and has no code path that blocks a visitor.</p>
+
+      <h2 id="site"><a class="anchor" href="#site">This website</a></h2>
+      <p>The site is plain HTML, CSS and one small script, served by GitHub Pages. Its fonts are served from the same place as its pages. There are no cookies, no analytics, no tracking pixels and no embedded third-party content. GitHub, as the host, may keep server logs of requests, including IP addresses, under the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub General Privacy Statement</a>.</p>
+
+      <h2 id="contact"><a class="anchor" href="#contact">Questions</a></h2>
+      <p>If something here is unclear, or you find the tool doing anything this page does not describe, please <a href="https://github.com/sherwinvishesh/OpenGSO/issues">open an issue on GitHub</a>.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="../">
+          <svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><path class="mk-bar" d="M20 5 14 43M34 5 28 43M8 17H42M6 31H40"/><path class="mk-core" d="M21.3,20.8 L27.7,20.8 L26.7,27.2 L20.3,27.2 Z"/></svg>
+          <span>OpenGSO</span>
+        </a>
+        <p>An open-source toolkit for making websites readable by AI agents: measured, generated and served, with nothing sent home.</p>
+      </div>
+      <div class="footer-col">
+        <h2>Paper</h2>
+        <ul>
+          <li><a href="../#problem">The problem</a></li>
+          <li><a href="../#start">Get started</a></li>
+          <li><a href="../#results">Results</a></li>
+          <li><a href="../#guarantees">Guarantees</a></li>
+          <li><a href="../#cite">Cite</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>Build</h2>
+        <ul>
+          <li><a href="../docs/">Docs</a></li>
+          <li><a href="../docs/#install">Install</a></li>
+          <li><a href="../docs/#generate">Generate</a></li>
+          <li><a href="../docs/#prod">Prod</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>Repository</h2>
+        <ul>
+          <li><a href="https://github.com/sherwinvishesh/OpenGSO">GitHub</a></li>
+          <li><a href="https://www.npmjs.com/package/opengso">npm</a></li>
+          <li><a href="https://github.com/sherwinvishesh/OpenGSO/issues">Issues</a></li>
+          <li><a href="../privacy/">Privacy</a></li>
+          <li><a href="../llms.txt">llms.txt</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="colophon">
+      <span>OpenGSO 0.1.1 · spec opengso/1.0 · Apache-2.0</span>
+      <span>Set in Geist and Geist Mono · this page has a <a href="../privacy.md">markdown twin</a></span>
+    </div>
+    <p class="made">Made with <span class="heart" aria-label="love">❤</span> by Sherwin Vishesh Jathanna</p>
+  </div>
+</footer>
+
+<script src="../assets/site.js" defer></script>
+</body>
+</html>
