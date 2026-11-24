@@ -289,13 +289,13 @@ https://your-site.com` writes each twin beside its page, and any static host ser
 
 ## Bring any AI provider
 
-Only the optional parts take a model. Twenty-five of them out of the box, and the twenty-fifth is
+Only the optional parts take a model. Twenty-six of them out of the box, and the twenty-sixth is
 "something else":
 
 ```
 anthropic  openai  gemini  xai  mistral  deepseek  qwen  kimi  zai  minimax  cohere
 perplexity  openrouter  groq  together  fireworks  cerebras  sambanova  deepinfra
-huggingface  nvidia  novita  ollama  lmstudio (both on your machine, no key)  custom
+huggingface  nvidia  novita  aimlapi  ollama  lmstudio (both on your machine, no key)  custom
 ```
 
 Type the name you know and it works it out: `--provider claude`, `kwen` or `grok` asks whether you

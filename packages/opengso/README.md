@@ -62,7 +62,7 @@ Five screens, all driving the same core functions the CLI calls:
 - **Prod** probes a running deployment and reports the two bot levers separately.
 - **Bot settings** edits those two levers, refuses to pretend they are the same thing, and is where
   you add a crawler OpenGSO has never heard of.
-- **Settings** edits `opengso.config.json` and stores an API key, for any of the twenty-five providers
+- **Settings** edits `opengso.config.json` and stores an API key, for any of the twenty-six providers
   in the catalogue or an endpoint you name yourself.
 
 On a project with no `opengso.config.json`, the first screen is a three-step setup: site and web

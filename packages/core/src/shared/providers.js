@@ -51,6 +51,7 @@ import { editDistance } from './edit-distance.js';
  *   | 'huggingface'
  *   | 'nvidia'
  *   | 'novita'
+ *   | 'aimlapi'
  *   | 'ollama'
  *   | 'lmstudio'
  *   | 'custom'} AiProvider
@@ -391,6 +392,20 @@ export const PROVIDERS = [
     envVars: ['NOVITA_API_KEY'],
     keysUrl: 'https://novita.ai/settings/key-management',
     aliases: ['novitaai', 'novita-ai'],
+  },
+  {
+    id: 'aimlapi',
+    label: 'AI/ML API',
+    api: 'openai',
+    baseUrl: 'https://api.aimlapi.com/v1',
+    // The same model as the gemini row, through one key that also serves the other vendors here.
+    defaultModel: 'google/gemini-3.5-flash-lite',
+    auth: 'bearer',
+    tokenParam: 'max_tokens',
+    envVars: ['AIMLAPI_API_KEY', 'AIML_API_KEY'],
+    keysUrl: 'https://aimlapi.com/app/keys',
+    aliases: ['aiml', 'aiml-api', 'ai-ml-api', 'aimlapi.com'],
+    note: 'One key, hundreds of models. The model id carries the vendor prefix, e.g. deepseek/deepseek-v4.1-flash or anthropic/claude-haiku-5.5.',
   },
   {
     id: 'ollama',

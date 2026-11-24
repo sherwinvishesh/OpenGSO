@@ -1,9 +1,9 @@
 ---
 title: "Everything OpenGSO does, and how."
 url: "https://sherwinvishesh.github.io/OpenGSO/docs"
-last_updated: "2026-10-21T17:01:17.448Z"
-tokens: 9503
-source_hash: "116425d2996bc588"
+last_updated: "2026-11-24T12:47:20.117Z"
+tokens: 9506
+source_hash: "8c8df1ce68bdfafb"
 generated_by: "opengso-free"
 description: "Install OpenGSO, score a URL, copy the fix prompt, generate markdown twins, serve them with the production middleware, and understand all 22 checks, the wire spec, the config file and the AI providers."
 ---
@@ -543,9 +543,9 @@ The twin is the same content as the HTML page in a cleaner format: not a summary
 
 ## AI providers
 
-OpenGSO is bring-your-own-key, and most of it needs no key at all. A key buys exactly two things: generate's AI tier and the content review. Twenty-five providers are built in, dispatched on the API shape a provider speaks rather than on its name, so every one is a row in one table.
+OpenGSO is bring-your-own-key, and most of it needs no key at all. A key buys exactly two things: generate's AI tier and the content review. Twenty-six providers are built in, dispatched on the API shape a provider speaks rather than on its name, so every one is a row in one table.
 
-Anthropic, OpenAI, Google Gemini, xAI, Mistral, DeepSeek, Alibaba Qwen, Moonshot Kimi, Z.ai GLM, MiniMax, Cohere, Perplexity, OpenRouter, Groq, Together AI, Fireworks AI, Cerebras, SambaNova, DeepInfra, Hugging Face, NVIDIA NIM, Novita AI, Ollama and LM Studio on your own machine, and any endpoint you name with `custom`.
+Anthropic, OpenAI, Google Gemini, xAI, Mistral, DeepSeek, Alibaba Qwen, Moonshot Kimi, Z.ai GLM, MiniMax, Cohere, Perplexity, OpenRouter, Groq, Together AI, Fireworks AI, Cerebras, SambaNova, DeepInfra, Hugging Face, NVIDIA NIM, Novita AI, AI/ML API, Ollama and LM Studio on your own machine, and any endpoint you name with `custom`.
 
 ```
 opengso settings                                  # interactive, writes .env and .gitignore for you
