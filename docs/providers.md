@@ -36,6 +36,7 @@ than on the vendor's name. There are three shapes in the whole market and OpenGS
 | Hugging Face | `huggingface` | `openai/gpt-oss-120b` | <https://huggingface.co/settings/tokens> |
 | NVIDIA NIM | `nvidia` | `nvidia/nemotron-3-super-120b-a12b` | <https://build.nvidia.com> |
 | Novita AI | `novita` | `deepseek/deepseek-v4.1-flash` | <https://novita.ai/settings/key-management> |
+| AI/ML API | `aimlapi` | `google/gemini-3.5-flash-lite` | <https://aimlapi.com/app/keys> |
 | Ollama, on this machine | `ollama` | `llama3.2` | no key |
 | LM Studio, on this machine | `lmstudio` | `openai/gpt-oss-20b` | no key |
 | Your own endpoint | `custom` | you name it | your own |
@@ -59,8 +60,8 @@ file can never mean two different things.
 - **Nothing may leave the machine.** `ollama` or `lmstudio`. No key, no account, no network.
 - **Your company routes everything through one gateway.** `custom`, or a built-in with `baseUrl`
   pointed at the gateway (see below).
-- **You want to try many models with one key.** `openrouter`, `together`, `huggingface` or
-  `deepinfra`.
+- **You want to try many models with one key.** `openrouter`, `aimlapi`, `together`, `huggingface`
+  or `deepinfra`.
 
 ## Picking one
 
@@ -89,6 +90,7 @@ MINIMAX_API_KEY        CO_API_KEY / COHERE_API_KEY               PERPLEXITY_API_
 OPENROUTER_API_KEY     GROQ_API_KEY         TOGETHER_API_KEY     FIREWORKS_API_KEY
 CEREBRAS_API_KEY       SAMBANOVA_API_KEY    DEEPINFRA_API_KEY / DEEPINFRA_TOKEN
 HF_TOKEN               NVIDIA_API_KEY       NOVITA_API_KEY
+AIMLAPI_API_KEY / AIML_API_KEY
 ```
 
 When several are set, the provider in `opengso.config.json` is asked first, so an
@@ -158,6 +160,10 @@ without it is refused.
 
 **OpenRouter.** One key, hundreds of models. The model id carries the vendor prefix, for example
 `qwen/qwen-plus` or `anthropic/claude-haiku-5.5`.
+
+**AI/ML API.** One key, hundreds of models through an OpenAI-compatible endpoint. The model id
+carries the vendor prefix, for example `deepseek/deepseek-v4.1-flash` or `anthropic/claude-haiku-5.5`;
+the full list is at <https://api.aimlapi.com/v1/models>.
 
 **Azure OpenAI.** Use `custom` with the resource's v1 address:
 

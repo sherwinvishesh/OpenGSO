@@ -188,7 +188,7 @@ picker, which does both.
 
 ## AI providers
 
-Twenty-five of them, including Anthropic, OpenAI, Gemini, xAI Grok, Alibaba Qwen, DeepSeek, Kimi,
+Twenty-six of them, including Anthropic, OpenAI, Gemini, xAI Grok, Alibaba Qwen, DeepSeek, Kimi,
 GLM, Mistral, Perplexity, Groq, Cerebras, OpenRouter, Hugging Face, Ollama and LM Studio on your own
 machine, and anything else you can name a URL for.
 

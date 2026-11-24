@@ -347,7 +347,7 @@ It is printed as a **clearly separate section** and is never folded into the str
 Two numbers, two questions. The structural score is deterministic and reproducible; a model's
 opinion is not, and blending the two would make both meaningless.
 
-It needs an API key (`opengso settings`) and refuses to run under CI. Any of twenty-five providers
+It needs an API key (`opengso settings`) and refuses to run under CI. Any of twenty-six providers
 can run it, including a model on your own machine:
 
 ```bash
